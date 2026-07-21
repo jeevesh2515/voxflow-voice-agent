@@ -1,133 +1,133 @@
 # VoxFlow Voice Agent
 
-> Voice operations, automated. A pluggable, zero-cost voice agent for supplier call operations — Hindi + English.
+> Voice operations, automated. A pluggable, multi-tenant voice agent for supplier call operations — Hindi + English.
 
-VoxFlow answers inbound supplier calls, captures purchase orders, checks stock, shares shipment status, and logs every interaction. Built to be self-hostable on a single machine and configurable per business.
+VoxFlow answers inbound supplier calls, captures purchase orders, checks stock, shares shipment status, schedules appointments, logs outbound notifications, and records every interaction across multiple independent companies. Built to be self-hostable or deployed on cloud infrastructure with zero lock-in.
 
-## What's inside
+---
 
-- **`apps/api`** — Python 3.12 + FastAPI voice pipeline (STT → LLM → TTS)
-  - Pluggable LLM: Ollama (local), Groq (free tier), OpenRouter (free tier)
-  - `faster-whisper` STT (local, CPU-friendly)
-  - `edge-tts` for natural Hindi + English voice output
-  - SQLite (dev) → Postgres (prod) data store
-  - WebSocket realtime audio endpoint
-- **`apps/web`** — Next.js 14 dashboard with a browser phone simulator
-- **`packages/core`** — shared types and tool schemas
-- **`data/`** — seed JSON for the Varun Beverages demo scenario
-- **`docker-compose.yml`** — one-command stack
+## Key Features
 
-## Quick start (zero cost)
+- **Multi-Tenant Dashboard:** Switch between distinct company scopes (Varun Beverages, Amul Dairy, Haldirams, Britannia Industries) with strict RLS data isolation.
+- **Bilingual Voice Pipeline:** Natural conversation in Hindi & English (STT → LLM → TTS).
+- **Service & Action Tools:**
+  - `lookup_supplier`: Multi-field phone/name matching
+  - `verify_caller`: Security verification challenge via city or GSTIN
+  - `check_stock`: Warehouse-level stock availability
+  - `get_shipment_status`: Carrier tracking timeline updates
+  - `create_po` & `verify_po`: Purchase order transaction management
+  - `schedule_appointment`: Supplier meeting booking
+  - `send_email` & `send_whatsapp_message`: Outbound notification logs
+  - `update_worksheet` & `type_notes`: Free-form dictation and spreadsheet sync audit
+- **Vercel Ready:** Seamless Next.js frontend deployment from GitHub.
 
+---
+
+## Quick Start (Zero Cost)
+
+### 1. Clone & Configure
 ```bash
-# 1. Clone and configure
 git clone https://github.com/jeevesh2515/voxflow-voice-agent.git
 cd voxflow-voice-agent
 cp .env.example .env
+```
 
-# 2. Install backend deps
+### 2. Backend Setup (FastAPI + Python 3.12)
+```bash
 cd apps/api
 python3.12 -m venv .venv
 source .venv/bin/activate
 pip install -r requirements.txt
 
-# 3. Install frontend deps
-cd ../web
-npm install
+# Seed multi-tenant data
+python -m voxflow_api.seed --reset
 
-# 4. Seed demo data
-cd ../api
-python -m voxflow_api.seed
+# Verify database health
+python -m voxflow_api.verify_db
 
-# 5. Run (two terminals)
-# Terminal A:
+# Run API server
 uvicorn voxflow_api.main:app --reload --port 8000
-# Terminal B:
-cd ../web && npm run dev
+```
+
+### 3. Frontend Setup (Next.js 14)
+```bash
+cd apps/web
+npm install
+npm run dev
 ```
 
 Open:
-- Dashboard: <http://localhost:3000>
-- API docs: <http://localhost:8000/docs>
-- Phone simulator: <http://localhost:3000/dashboard/simulator>
+- **Dashboard:** <http://localhost:3000/dashboard>
+- **Phone Simulator:** <http://localhost:3000/dashboard/simulator>
+- **API Docs:** <http://localhost:8000/docs>
 
-For local LLM (no API key needed):
-```bash
-ollama pull llama3.1:8b
-# Set LLM_PROVIDER=ollama in .env
+---
+
+## Deploying Frontend on Vercel
+
+1. Push your repository to GitHub:
+   ```bash
+   git add .
+   git commit -m "Phase 0 & 1 Complete: Multi-Tenant Database & Next.js Frontend"
+   git push origin main
+   ```
+2. Connect your repository on [Vercel](https://vercel.com).
+3. Set the Root Directory to repository root (uses `vercel.json`).
+4. Add Environment Variables on Vercel:
+   - `NEXT_PUBLIC_API_URL`: Your hosted FastAPI endpoint (or Railway/Render deployment URL)
+   - `NEXT_PUBLIC_WS_URL`: Your WebSocket endpoint (`wss://...`)
+5. Click **Deploy**!
+
+---
+
+## Database Schema & Supabase Configuration
+
+VoxFlow supports **SQLite** for local development (`./voxflow.db`) and **Supabase / PostgreSQL** for production.
+
+To configure Supabase in `.env`:
+```env
+DATABASE_URL=postgresql://postgres:password@db.xxx.supabase.co:5432/postgres
+SUPABASE_URL=https://xxx.supabase.co
+SUPABASE_ANON_KEY=...
+SUPABASE_SERVICE_ROLE_KEY=...
 ```
 
-For Groq (fast, free tier):
-```bash
-# Sign up at https://console.groq.com, copy API key
-# Set LLM_PROVIDER=groq and GROQ_API_KEY=... in .env
-```
+See [schema.md](file:///Users/jeeveshsingale/VoxFlow/voxflow-voice-agent/schema.md) for the complete SQL DDL definitions and Row-Level Security (RLS) policies.
 
-## Architecture
+---
+
+## Architecture Overview
 
 ```
-            Browser Phone Simulator
-                       │
-                  WebSocket (audio)
-                       │
-                       ▼
-┌──────────────────────────────────────────┐
-│              FastAPI server              │
-│                                          │
-│  STT (faster-whisper) → text             │
-│         │                                │
-│         ▼                                │
-│  LLM (pluggable) + Tools                 │
-│   ├── lookup_supplier                    │
-│   ├── check_stock                        │
-│   ├── get_shipment_status                │
-│   ├── create_po / verify_po              │
-│   ├── save_call_log                      │
-│   └── escalate_to_human                  │
-│         │                                │
-│         ▼                                │
-│  TTS (edge-tts) → audio stream            │
-└──────────────────────────────────────────┘
-         │                       │
-         ▼                       ▼
-   SQLite (calls, POs,    Next.js dashboard
-   stock, shipments,      (live calls, POs,
-   suppliers)             analytics)
+                   Browser Phone Simulator / Web Dashboard
+                                    │
+                         WebSocket / HTTP API
+                                    │
+                                    ▼
+          ┌──────────────────────────────────────────────────┐
+          │                  FastAPI Gateway                 │
+          │                                                  │
+          │   STT: faster-whisper (local CPU) → text         │
+          │          │                                       │
+          │          ▼                                       │
+          │   Agent State Engine & Multi-Tenant Tools        │
+          │    ├── lookup_supplier / verify_caller           │
+          │    ├── check_stock / get_shipment_status         │
+          │    ├── create_po / verify_po                     │
+          │    ├── schedule_appointment                      │
+          │    ├── send_email / send_whatsapp_message        │
+          │    └── type_notes / update_worksheet             │
+          │          │                                       │
+          │          ▼                                       │
+          │   TTS: edge-tts (Hindi & English output)          │
+          └──────────────────────────────────────────────────┘
+                   │                                  │
+                   ▼                                  ▼
+        SQLite / Supabase Postgres               Next.js 14
+        (Tenant RLS Data Store)             (Dashboard UI on Vercel)
 ```
 
-## Why this stack
-
-| Choice | Why |
-|---|---|
-| Python 3.12 | Best AI/ML ecosystem, mature WebSockets |
-| FastAPI | Async, type-safe, great DX, auto OpenAPI |
-| faster-whisper | Free, local, accurate, CPU-runnable |
-| Ollama / Groq / OpenRouter | Three free tiers, swap via env |
-| edge-tts | Microsoft's free TTS — natural Hindi voices, no key |
-| SQLite | Zero config, fast enough for thousands of calls/day |
-| Next.js | Matches the MadeThis storefront, file-based routing |
-| WebSocket audio | Streaming latency <500ms perceived |
-
-## The supplier-call scenario (Varun Beverages)
-
-The agent speaks to suppliers calling about PepsiCo product distribution. It:
-
-1. Greets in the caller's language (Hindi or English)
-2. Identifies the supplier by name or phone number
-3. Routes the intent: order/PO, stock check, shipment status, or other
-4. Captures structured data into the database
-5. Confirms the action with the supplier
-6. Escalates ambiguous or sensitive cases to a human queue
-
-See `data/` for the seed scenario.
-
-## Cost at scale
-
-| Volume | Per-month cost (USD) |
-|---|---|
-| 0–500 calls | **$0** (Ollama + local Whisper + Edge TTS) |
-| 500–5,000 calls | **$0** (Groq free tier + Edge TTS) |
-| 5,000+ calls | ~$30 (Groq + Deepgram + Twilio) |
+---
 
 ## License
 

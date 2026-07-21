@@ -6,16 +6,18 @@ import Link from "next/link";
 import Topbar from "@/components/Topbar";
 import { api } from "@/lib/api";
 import { fmtRelative, statusBg, statusColor } from "@/lib/format";
+import { useTenant } from "@/lib/tenant-context";
 
 export default function DashboardOverview() {
-  const { data: summary } = useSWR("summary", () => api.summary());
-  const { data: calls }   = useSWR("calls", () => api.calls(8));
-  const { data: orders }  = useSWR("orders", () => api.orders({ status: "pending" }));
-  const { data: suppliers } = useSWR("suppliers", () => api.suppliers());
+  const { activeTenantId, activeTenant } = useTenant();
+  const { data: summary } = useSWR(["summary", activeTenantId], () => api.summary(activeTenantId));
+  const { data: calls }   = useSWR(["calls", activeTenantId], () => api.calls(8, activeTenantId));
+  const { data: orders }  = useSWR(["orders", activeTenantId], () => api.orders({ status: "pending", tenant_id: activeTenantId }));
+  const { data: suppliers } = useSWR(["suppliers", activeTenantId], () => api.suppliers(undefined, activeTenantId));
 
   return (
     <>
-      <Topbar title="Operations overview" subtitle="Live · IST" />
+      <Topbar title="Operations overview" subtitle={`${activeTenant.name} · Live · IST`} />
 
       <div className="p-6 space-y-6">
         {/* Stat row */}
@@ -31,7 +33,7 @@ export default function DashboardOverview() {
           {/* Recent calls */}
           <div className="lg:col-span-2 rounded-lg border border-ink-700/60 bg-ink-900/40">
             <div className="px-5 py-3 border-b border-ink-700/60 flex items-center justify-between">
-              <h2 className="text-sm font-semibold text-ink-50">Recent calls</h2>
+              <h2 className="text-sm font-semibold text-ink-50">Recent calls ({activeTenant.name})</h2>
               <Link href="/dashboard/calls" className="text-xs text-vox-400 hover:text-vox-300">View all →</Link>
             </div>
             <div className="divide-y divide-ink-800/60">
@@ -54,7 +56,7 @@ export default function DashboardOverview() {
                 </div>
               ))}
               {(!calls || calls.length === 0) && (
-                <div className="px-5 py-8 text-center text-sm text-ink-500">No calls yet — try the phone simulator.</div>
+                <div className="px-5 py-8 text-center text-sm text-ink-500">No calls logged yet for {activeTenant.name}.</div>
               )}
             </div>
           </div>
@@ -66,7 +68,7 @@ export default function DashboardOverview() {
                 <Mic size={16} className="text-vox-400" />
                 <h3 className="text-sm font-semibold text-ink-50">Phone simulator</h3>
               </div>
-              <p className="text-xs text-ink-300 mb-3">Talk to Vaani in your browser. Hindi or English.</p>
+              <p className="text-xs text-ink-300 mb-3">Simulate an inbound call for {activeTenant.name}.</p>
               <Link
                 href="/dashboard/simulator"
                 className="inline-flex items-center gap-2 text-xs px-3 py-1.5 rounded-md bg-vox-500 hover:bg-vox-600 text-white font-medium"
@@ -77,7 +79,7 @@ export default function DashboardOverview() {
 
             <div className="rounded-lg border border-ink-700/60 bg-ink-900/40">
               <div className="px-5 py-3 border-b border-ink-700/60">
-                <h3 className="text-sm font-semibold text-ink-50">Suppliers</h3>
+                <h3 className="text-sm font-semibold text-ink-50">Registered Suppliers</h3>
               </div>
               <div className="divide-y divide-ink-800/60 max-h-72 overflow-y-auto">
                 {suppliers?.map((s) => (
@@ -88,6 +90,9 @@ export default function DashboardOverview() {
                     </div>
                   </div>
                 ))}
+                {(!suppliers || suppliers.length === 0) && (
+                  <div className="px-5 py-4 text-center text-xs text-ink-500">No suppliers registered.</div>
+                )}
               </div>
             </div>
 

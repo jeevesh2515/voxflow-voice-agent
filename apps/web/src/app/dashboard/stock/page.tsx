@@ -4,9 +4,13 @@ import useSWR from "swr";
 import Topbar from "@/components/Topbar";
 import { api } from "@/lib/api";
 import { Boxes } from "lucide-react";
+import { useTenant } from "@/lib/tenant-context";
 
 export default function StockPage() {
-  const { data: stock } = useSWR("stock", () => api.stock());
+  const { activeTenantId, activeTenant } = useTenant();
+  const { data: stock } = useSWR(["stock", activeTenantId], () =>
+    api.stock({ tenant_id: activeTenantId }),
+  );
 
   // Group by warehouse
   const byWarehouse = (stock || []).reduce<Record<string, any[]>>((acc, s) => {
@@ -16,7 +20,10 @@ export default function StockPage() {
 
   return (
     <>
-      <Topbar title="Stock" subtitle={`${stock?.length ?? 0} SKUs across ${Object.keys(byWarehouse).length} warehouses`} />
+      <Topbar
+        title="Stock & Inventory"
+        subtitle={`${activeTenant.name} · ${stock?.length ?? 0} SKUs across ${Object.keys(byWarehouse).length} warehouses`}
+      />
       <div className="p-6 space-y-4">
         {Object.entries(byWarehouse).map(([wh, items]) => (
           <div key={wh} className="rounded-lg border border-ink-700/60 bg-ink-900/40 overflow-hidden">
@@ -44,7 +51,7 @@ export default function StockPage() {
                     <td className="px-4 py-2 text-ink-300">{s.pack_size}</td>
                     <td className="px-4 py-2 text-right text-ink-300">₹{s.mrp_inr}</td>
                     <td className="px-4 py-2 text-right font-mono">
-                      <span className={s.quantity < 500 ? "text-danger-500" : s.quantity < 1500 ? "text-warn-500" : "text-success-500"}>
+                      <span className={s.quantity < 50 ? "text-danger-500" : s.quantity < 100 ? "text-warn-500" : "text-success-500"}>
                         {s.quantity.toLocaleString()}
                       </span>
                     </td>
@@ -57,7 +64,7 @@ export default function StockPage() {
         {(!stock || stock.length === 0) && (
           <div className="rounded-lg border border-dashed border-ink-700/60 p-12 text-center">
             <Boxes className="mx-auto mb-3 text-ink-600" />
-            <div className="text-sm text-ink-300">No stock data.</div>
+            <div className="text-sm text-ink-300">No stock data found for {activeTenant.name}.</div>
           </div>
         )}
       </div>

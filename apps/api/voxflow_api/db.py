@@ -1,7 +1,7 @@
 """SQLite (dev) / Postgres (prod) data layer.
 
-Single declarative base, no Alembic for MVP — schema is small enough to
-recreate on demand via `Base.metadata.create_all`.
+Single declarative base — schema created via `Base.metadata.create_all`.
+Supports multi-tenant isolation via `tenant_id` foreign keys.
 """
 
 from __future__ import annotations
@@ -53,12 +53,23 @@ def _utcnow() -> datetime:
 # ---------- Models ----------
 
 
+class Tenant(Base):
+    __tablename__ = "tenants"
+
+    id: Mapped[str] = mapped_column(String(64), primary_key=True)
+    name: Mapped[str] = mapped_column(String(255), index=True)
+    logo_url: Mapped[str | None] = mapped_column(String(512), nullable=True)
+    active: Mapped[int] = mapped_column(Integer, default=1)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_utcnow)
+
+
 class Supplier(Base):
     __tablename__ = "suppliers"
 
     id: Mapped[str] = mapped_column(String(64), primary_key=True)
+    tenant_id: Mapped[str] = mapped_column(String(64), ForeignKey("tenants.id"), index=True, default="varun")
     name: Mapped[str] = mapped_column(String(255), index=True)
-    phone: Mapped[str] = mapped_column(String(32), index=True, unique=True)
+    phone: Mapped[str] = mapped_column(String(32), index=True)
     city: Mapped[str] = mapped_column(String(128))
     state: Mapped[str] = mapped_column(String(128))
     pincode: Mapped[str] = mapped_column(String(16))
@@ -74,6 +85,7 @@ class Product(Base):
     __tablename__ = "products"
 
     sku: Mapped[str] = mapped_column(String(64), primary_key=True)
+    tenant_id: Mapped[str] = mapped_column(String(64), ForeignKey("tenants.id"), index=True, default="varun")
     name: Mapped[str] = mapped_column(String(255))
     category: Mapped[str] = mapped_column(String(128))
     pack_size: Mapped[str] = mapped_column(String(64))
@@ -84,6 +96,7 @@ class Stock(Base):
     __tablename__ = "stock"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    tenant_id: Mapped[str] = mapped_column(String(64), ForeignKey("tenants.id"), index=True, default="varun")
     sku: Mapped[str] = mapped_column(String(64), ForeignKey("products.sku"), index=True)
     warehouse: Mapped[str] = mapped_column(String(128))
     quantity: Mapped[int] = mapped_column(Integer, default=0)
@@ -94,6 +107,7 @@ class Order(Base):
     __tablename__ = "orders"
 
     id: Mapped[str] = mapped_column(String(64), primary_key=True)
+    tenant_id: Mapped[str] = mapped_column(String(64), ForeignKey("tenants.id"), index=True, default="varun")
     supplier_id: Mapped[str] = mapped_column(String(64), ForeignKey("suppliers.id"), index=True)
     status: Mapped[str] = mapped_column(String(32), default="pending")  # pending | confirmed | shipped | delivered | cancelled
     items_json: Mapped[str] = mapped_column(Text)  # JSON list of {sku, qty}
@@ -109,6 +123,7 @@ class Shipment(Base):
     __tablename__ = "shipments"
 
     id: Mapped[str] = mapped_column(String(64), primary_key=True)
+    tenant_id: Mapped[str] = mapped_column(String(64), ForeignKey("tenants.id"), index=True, default="varun")
     order_id: Mapped[str] = mapped_column(String(64), ForeignKey("orders.id"), index=True)
     status: Mapped[str] = mapped_column(String(32), default="booked")  # booked | in_transit | out_for_delivery | delivered | delayed
     carrier: Mapped[str] = mapped_column(String(128), default="")
@@ -122,6 +137,7 @@ class Call(Base):
     __tablename__ = "calls"
 
     id: Mapped[str] = mapped_column(String(64), primary_key=True)
+    tenant_id: Mapped[str] = mapped_column(String(64), ForeignKey("tenants.id"), index=True, default="varun")
     started_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_utcnow)
     ended_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     duration_sec: Mapped[int] = mapped_column(Integer, default=0)
@@ -134,6 +150,42 @@ class Call(Base):
     escalated: Mapped[int] = mapped_column(Integer, default=0)
     transcript_json: Mapped[str] = mapped_column(Text, default="[]")
     actions_json: Mapped[str] = mapped_column(Text, default="[]")
+
+
+class Appointment(Base):
+    __tablename__ = "appointments"
+
+    id: Mapped[str] = mapped_column(String(64), primary_key=True)
+    tenant_id: Mapped[str] = mapped_column(String(64), ForeignKey("tenants.id"), index=True, default="varun")
+    supplier_id: Mapped[str | None] = mapped_column(String(64), ForeignKey("suppliers.id"), nullable=True)
+    datetime: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_utcnow)
+    purpose: Mapped[str] = mapped_column(Text, default="")
+    status: Mapped[str] = mapped_column(String(32), default="pending")  # pending | confirmed | cancelled
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_utcnow)
+
+
+class WorksheetLog(Base):
+    __tablename__ = "worksheet_logs"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    tenant_id: Mapped[str] = mapped_column(String(64), ForeignKey("tenants.id"), index=True, default="varun")
+    worksheet_name: Mapped[str] = mapped_column(String(128))
+    action_type: Mapped[str] = mapped_column(String(32))  # append | update | delete
+    row_data_json: Mapped[str] = mapped_column(Text, default="{}")
+    timestamp: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_utcnow)
+
+
+class CommunicationLog(Base):
+    __tablename__ = "communication_logs"
+
+    id: Mapped[str] = mapped_column(String(64), primary_key=True)
+    tenant_id: Mapped[str] = mapped_column(String(64), ForeignKey("tenants.id"), index=True, default="varun")
+    channel: Mapped[str] = mapped_column(String(32))  # email | whatsapp
+    recipient: Mapped[str] = mapped_column(String(255))
+    subject: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    body: Mapped[str] = mapped_column(Text)
+    status: Mapped[str] = mapped_column(String(32), default="sent")  # sent | failed
+    timestamp: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_utcnow)
 
 
 # ---------- Helpers ----------

@@ -22,10 +22,11 @@ httpx==0.28.1
 
 # Voice
 faster-whisper==1.1.0
-edge-tts==7.1.2
+edge-tts==7.2.8
 soundfile==0.12.1
 numpy==2.2.0
 pydub==0.25.1
+requests==2.32.3
 
 # Audio capture utilities
 av==14.0.0

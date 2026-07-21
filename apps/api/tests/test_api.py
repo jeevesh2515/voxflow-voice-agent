@@ -4,8 +4,8 @@ import os
 import sys
 from pathlib import Path
 
-# Ensure we run from the api/ directory
-ROOT = Path(__file__).resolve().parent
+# Ensure we can import voxflow_api when running `pytest` from apps/api/
+ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT))
 
 # Force a deterministic test config BEFORE importing the app

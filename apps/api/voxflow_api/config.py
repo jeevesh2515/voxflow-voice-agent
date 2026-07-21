@@ -48,8 +48,11 @@ class Settings(BaseSettings):
     api_port: int = 8000
     api_cors_origins: str = "http://localhost:3000"
 
-    # ----- Database -----
+    # ----- Database & Supabase -----
     database_url: str = "sqlite:///./voxflow.db"
+    supabase_url: str = ""
+    supabase_anon_key: str = ""
+    supabase_service_role_key: str = ""
 
     # ----- Logging -----
     log_level: str = "INFO"

@@ -64,6 +64,7 @@ async def call_socket(ws: WebSocket) -> None:
                     caller_phone=msg.get("caller_phone", ""),
                     caller_name=msg.get("caller_name", ""),
                     language=msg.get("language"),
+                    tenant_id=msg.get("tenant_id"),
                 )
                 await ws.send_json({"type": "ready", "call_id": session.call_id})
 

@@ -4,13 +4,17 @@ import useSWR from "swr";
 import Topbar from "@/components/Topbar";
 import { api } from "@/lib/api";
 import { Users } from "lucide-react";
+import { useTenant } from "@/lib/tenant-context";
 
 export default function SuppliersPage() {
-  const { data: suppliers } = useSWR("suppliers", () => api.suppliers());
+  const { activeTenantId, activeTenant } = useTenant();
+  const { data: suppliers } = useSWR(["suppliers", activeTenantId], () =>
+    api.suppliers(undefined, activeTenantId),
+  );
 
   return (
     <>
-      <Topbar title="Suppliers" subtitle={`${suppliers?.length ?? 0} total`} />
+      <Topbar title="Suppliers Directory" subtitle={`${activeTenant.name} · ${suppliers?.length ?? 0} total`} />
       <div className="p-6">
         <div className="rounded-lg border border-ink-700/60 bg-ink-900/40 overflow-hidden">
           <table className="w-full text-sm">
@@ -42,7 +46,7 @@ export default function SuppliersPage() {
           {(!suppliers || suppliers.length === 0) && (
             <div className="px-4 py-12 text-center">
               <Users className="mx-auto mb-3 text-ink-600" />
-              <div className="text-sm text-ink-300">No suppliers.</div>
+              <div className="text-sm text-ink-300">No registered suppliers for {activeTenant.name}.</div>
             </div>
           )}
         </div>

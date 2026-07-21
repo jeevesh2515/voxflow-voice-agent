@@ -3,12 +3,14 @@
 import { useEffect, useRef, useState, useCallback } from "react";
 import { Mic, MicOff, Phone, PhoneOff, Send, Volume2, Loader2 } from "lucide-react";
 import Topbar from "@/components/Topbar";
+import { useTenant } from "@/lib/tenant-context";
 
 type Turn = { role: "caller" | "agent"; text: string; at: number };
 
 const WS_URL = (typeof window !== "undefined" && process.env.NEXT_PUBLIC_WS_URL) || "ws://localhost:8000";
 
 export default function PhoneSimulator() {
+  const { activeTenantId, activeTenant } = useTenant();
   const [connected, setConnected] = useState(false);
   const [callId, setCallId] = useState<string | null>(null);
   const [turns, setTurns] = useState<Turn[]>([]);
@@ -43,9 +45,9 @@ export default function PhoneSimulator() {
 
     ws.onopen = () => {
       setConnected(true);
-      ws.send(JSON.stringify({ type: "start", language }));
+      ws.send(JSON.stringify({ type: "start", language, tenant_id: activeTenantId }));
       setTurns([
-        { role: "agent", text: "नमस्ते, VoxFlow में आपका स्वागत है। मैं वाणी हूँ।", at: Date.now() },
+        { role: "agent", text: `नमस्ते, ${activeTenant.name} में आपका स्वागत है। मैं वाणी हूँ।`, at: Date.now() },
       ]);
     };
 
@@ -64,7 +66,7 @@ export default function PhoneSimulator() {
           // Play TTS audio
           if (msg.agent_audio_b64) {
             const bytes = base64ToBytes(msg.agent_audio_b64);
-            const blob = new Blob([bytes], { type: msg.agent_audio_mime || "audio/mpeg" });
+            const blob = new Blob([bytes.buffer as ArrayBuffer], { type: msg.agent_audio_mime || "audio/mpeg" });
             const url = URL.createObjectURL(blob);
             const audio = new Audio(url);
             lastAudioRef.current = audio;
@@ -89,7 +91,7 @@ export default function PhoneSimulator() {
       setConnected(false);
       setCallId(null);
     };
-  }, [language]);
+  }, [language, activeTenantId, activeTenant.name]);
 
   const disconnect = useCallback(() => {
     if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {

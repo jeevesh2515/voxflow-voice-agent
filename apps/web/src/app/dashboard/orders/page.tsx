@@ -5,13 +5,17 @@ import Topbar from "@/components/Topbar";
 import { api } from "@/lib/api";
 import { fmtRelative, statusBg, statusColor } from "@/lib/format";
 import { Package } from "lucide-react";
+import { useTenant } from "@/lib/tenant-context";
 
 export default function OrdersPage() {
-  const { data: orders } = useSWR("orders", () => api.orders());
+  const { activeTenantId, activeTenant } = useTenant();
+  const { data: orders } = useSWR(["orders", activeTenantId], () =>
+    api.orders({ tenant_id: activeTenantId }),
+  );
 
   return (
     <>
-      <Topbar title="Orders" subtitle={`${orders?.length ?? 0} total`} />
+      <Topbar title="Purchase Orders" subtitle={`${activeTenant.name} · ${orders?.length ?? 0} total`} />
       <div className="p-6">
         <div className="rounded-lg border border-ink-700/60 bg-ink-900/40 overflow-hidden">
           <table className="w-full text-sm">
@@ -47,7 +51,7 @@ export default function OrdersPage() {
           {(!orders || orders.length === 0) && (
             <div className="px-4 py-12 text-center">
               <Package className="mx-auto mb-3 text-ink-600" />
-              <div className="text-sm text-ink-300">No orders yet.</div>
+              <div className="text-sm text-ink-300">No orders logged for {activeTenant.name}.</div>
             </div>
           )}
         </div>

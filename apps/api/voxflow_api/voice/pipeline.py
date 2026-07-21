@@ -35,6 +35,7 @@ log = get_logger(__name__)
 @dataclass
 class CallSession:
     call_id: str
+    tenant_id: str = "varun"
     language: str = "hi"
     supplier_id: str | None = None
     caller_name: str = ""
@@ -73,6 +74,7 @@ class VoicePipeline:
         caller_phone: str = "",
         caller_name: str = "",
         language: str | None = None,
+        tenant_id: str | None = None,
     ) -> CallSession:
         from ..config import get_settings
 
@@ -81,12 +83,13 @@ class VoicePipeline:
         lang = language or s.tts_default_lang
         session = CallSession(
             call_id=call_id,
+            tenant_id=tenant_id or "varun",
             language=lang,
             caller_phone=caller_phone,
             caller_name=caller_name,
         )
         self._sessions[call_id] = session
-        log.info("call.started", call_id=call_id, language=lang, caller_phone=caller_phone)
+        log.info("call.started", call_id=call_id, tenant_id=session.tenant_id, language=lang, caller_phone=caller_phone)
         return session
 
     def get_session(self, call_id: str) -> CallSession | None:
@@ -172,6 +175,7 @@ class VoicePipeline:
             with session_scope() as db:
                 row = Call(
                     id=session.call_id,
+                    tenant_id=session.tenant_id,
                     started_at=datetime.fromtimestamp(session.started_at, tz=timezone.utc),
                     ended_at=datetime.fromtimestamp(session.ended_at or session.started_at, tz=timezone.utc),
                     duration_sec=int((session.ended_at or session.started_at) - session.started_at),

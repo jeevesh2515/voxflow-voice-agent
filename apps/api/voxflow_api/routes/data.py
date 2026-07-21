@@ -10,35 +10,70 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy import desc, select
 from sqlalchemy.orm import Session
 
-from ..db import Call, Order, Product, Shipment, Stock, Supplier, session_scope
+from ..db import (
+    Appointment,
+    Call,
+    CommunicationLog,
+    Order,
+    Product,
+    Shipment,
+    Stock,
+    Supplier,
+    Tenant,
+    WorksheetLog,
+    session_scope,
+)
+from ..llm import get_llm
 from ..schemas import (
     CallAction,
     CallOut,
     CallTurn,
     OrderCreate,
-    OrderOut,
     OrderItemIn,
+    OrderOut,
     ShipmentOut,
     StockItem,
     SupplierOut,
 )
-from ..llm import get_llm
 
 
 router = APIRouter()
+
+
+# ---------- Tenants ----------
+
+
+@router.get("/tenants")
+def list_tenants() -> list[dict[str, Any]]:
+    with session_scope() as db:
+        rows = db.execute(select(Tenant).where(Tenant.active == 1)).scalars().all()
+        return [{"id": t.id, "name": t.name, "logo_url": t.logo_url} for t in rows]
 
 
 # ---------- Dashboard summary ----------
 
 
 @router.get("/summary")
-def summary() -> dict[str, Any]:
+def summary(tenant_id: str | None = Query(default=None)) -> dict[str, Any]:
     """Top-level counters for the dashboard hero."""
     with session_scope() as db:
-        total_suppliers = db.execute(select(Supplier)).scalars().all()
-        total_orders = db.execute(select(Order)).scalars().all()
-        total_calls = db.execute(select(Call)).scalars().all()
-        last_call = db.execute(select(Call).order_by(desc(Call.started_at)).limit(1)).scalar_one_or_none()
+        q_sup = select(Supplier)
+        q_ord = select(Order)
+        q_call = select(Call)
+        if tenant_id:
+            q_sup = q_sup.where(Supplier.tenant_id == tenant_id)
+            q_ord = q_ord.where(Order.tenant_id == tenant_id)
+            q_call = q_call.where(Call.tenant_id == tenant_id)
+
+        total_suppliers = db.execute(q_sup).scalars().all()
+        total_orders = db.execute(q_ord).scalars().all()
+        total_calls = db.execute(q_call).scalars().all()
+
+        last_call_q = select(Call)
+        if tenant_id:
+            last_call_q = last_call_q.where(Call.tenant_id == tenant_id)
+        last_call = db.execute(last_call_q.order_by(desc(Call.started_at)).limit(1)).scalar_one_or_none()
+
     return {
         "suppliers": len(total_suppliers),
         "orders": len(total_orders),
@@ -52,9 +87,14 @@ def summary() -> dict[str, Any]:
 
 
 @router.get("/suppliers", response_model=list[SupplierOut])
-def list_suppliers(q: str | None = Query(default=None)) -> list[Supplier]:
+def list_suppliers(
+    q: str | None = Query(default=None),
+    tenant_id: str | None = Query(default=None),
+) -> list[Supplier]:
     with session_scope() as db:
         stmt = select(Supplier).order_by(Supplier.name)
+        if tenant_id:
+            stmt = stmt.where(Supplier.tenant_id == tenant_id)
         if q:
             like = f"%{q.lower()}%"
             stmt = stmt.where(Supplier.name.ilike(like) | Supplier.phone.ilike(like) | Supplier.city.ilike(like))
@@ -74,9 +114,15 @@ def get_supplier(supplier_id: str) -> Supplier:
 
 
 @router.get("/stock", response_model=list[StockItem])
-def list_stock(sku: str | None = None, warehouse: str | None = None) -> list[dict[str, Any]]:
+def list_stock(
+    sku: str | None = None,
+    warehouse: str | None = None,
+    tenant_id: str | None = Query(default=None),
+) -> list[dict[str, Any]]:
     with session_scope() as db:
         stmt = select(Stock, Product).join(Product, Product.sku == Stock.sku, isouter=True)
+        if tenant_id:
+            stmt = stmt.where(Stock.tenant_id == tenant_id)
         if sku:
             stmt = stmt.where(Stock.sku == sku)
         if warehouse:
@@ -99,9 +145,15 @@ def list_stock(sku: str | None = None, warehouse: str | None = None) -> list[dic
 
 
 @router.get("/orders", response_model=list[OrderOut])
-def list_orders(supplier_id: str | None = None, status: str | None = None) -> list[dict[str, Any]]:
+def list_orders(
+    supplier_id: str | None = None,
+    status: str | None = None,
+    tenant_id: str | None = Query(default=None),
+) -> list[dict[str, Any]]:
     with session_scope() as db:
         stmt = select(Order).order_by(desc(Order.created_at))
+        if tenant_id:
+            stmt = stmt.where(Order.tenant_id == tenant_id)
         if supplier_id:
             stmt = stmt.where(Order.supplier_id == supplier_id)
         if status:
@@ -111,10 +163,7 @@ def list_orders(supplier_id: str | None = None, status: str | None = None) -> li
 
 
 @router.post("/orders", response_model=OrderOut)
-def create_order(payload: OrderCreate) -> dict[str, Any]:
-    from datetime import datetime, timezone
-    import json as _json
-
+def create_order(payload: OrderCreate, tenant_id: str | None = Query(default="varun")) -> dict[str, Any]:
     order_id = f"PO-{int(datetime.now(timezone.utc).timestamp())}-MAN"
     items = [{"sku": i.sku, "quantity": i.quantity} for i in payload.items]
     if not items:
@@ -126,9 +175,10 @@ def create_order(payload: OrderCreate) -> dict[str, Any]:
             raise HTTPException(status_code=404, detail="supplier_not_found")
         o = Order(
             id=order_id,
+            tenant_id=tenant_id or sup.tenant_id,
             supplier_id=payload.supplier_id,
             status="pending",
-            items_json=_json.dumps(items),
+            items_json=json.dumps(items),
             total_qty=total_qty,
             notes=payload.notes,
         )
@@ -150,9 +200,14 @@ def get_order(order_id: str) -> dict[str, Any]:
 
 
 @router.get("/shipments", response_model=list[ShipmentOut])
-def list_shipments(order_id: str | None = None) -> list[dict[str, Any]]:
+def list_shipments(
+    order_id: str | None = None,
+    tenant_id: str | None = Query(default=None),
+) -> list[dict[str, Any]]:
     with session_scope() as db:
         stmt = select(Shipment).order_by(desc(Shipment.last_update))
+        if tenant_id:
+            stmt = stmt.where(Shipment.tenant_id == tenant_id)
         if order_id:
             stmt = stmt.where(Shipment.order_id == order_id)
         rows = db.execute(stmt).scalars().all()
@@ -175,9 +230,15 @@ def list_shipments(order_id: str | None = None) -> list[dict[str, Any]]:
 
 
 @router.get("/calls", response_model=list[CallOut])
-def list_calls(limit: int = 50) -> list[dict[str, Any]]:
+def list_calls(
+    limit: int = 50,
+    tenant_id: str | None = Query(default=None),
+) -> list[dict[str, Any]]:
     with session_scope() as db:
-        rows = db.execute(select(Call).order_by(desc(Call.started_at)).limit(limit)).scalars().all()
+        stmt = select(Call).order_by(desc(Call.started_at)).limit(limit)
+        if tenant_id:
+            stmt = stmt.where(Call.tenant_id == tenant_id)
+        rows = db.execute(stmt).scalars().all()
         return [_call_out(c) for c in rows]
 
 
@@ -188,6 +249,55 @@ def get_call(call_id: str) -> dict[str, Any]:
         if not c:
             raise HTTPException(status_code=404, detail="call_not_found")
         return _call_out(c)
+
+
+# ---------- Appointments ----------
+
+
+@router.get("/appointments")
+def list_appointments(tenant_id: str | None = Query(default=None)) -> list[dict[str, Any]]:
+    with session_scope() as db:
+        stmt = select(Appointment).order_by(desc(Appointment.datetime))
+        if tenant_id:
+            stmt = stmt.where(Appointment.tenant_id == tenant_id)
+        rows = db.execute(stmt).scalars().all()
+        return [
+            {
+                "id": a.id,
+                "tenant_id": a.tenant_id,
+                "supplier_id": a.supplier_id,
+                "datetime": a.datetime.isoformat(),
+                "purpose": a.purpose,
+                "status": a.status,
+                "created_at": a.created_at.isoformat(),
+            }
+            for a in rows
+        ]
+
+
+# ---------- Communications Log ----------
+
+
+@router.get("/communications")
+def list_communications(tenant_id: str | None = Query(default=None)) -> list[dict[str, Any]]:
+    with session_scope() as db:
+        stmt = select(CommunicationLog).order_by(desc(CommunicationLog.timestamp))
+        if tenant_id:
+            stmt = stmt.where(CommunicationLog.tenant_id == tenant_id)
+        rows = db.execute(stmt).scalars().all()
+        return [
+            {
+                "id": c.id,
+                "tenant_id": c.tenant_id,
+                "channel": c.channel,
+                "recipient": c.recipient,
+                "subject": c.subject,
+                "body": c.body,
+                "status": c.status,
+                "timestamp": c.timestamp.isoformat(),
+            }
+            for c in rows
+        ]
 
 
 # ---------- Health ----------

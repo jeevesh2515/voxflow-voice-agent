@@ -5,13 +5,15 @@ import { PhoneCall } from "lucide-react";
 import Topbar from "@/components/Topbar";
 import { api } from "@/lib/api";
 import { fmtRelative, fmtDuration, statusBg, statusColor } from "@/lib/format";
+import { useTenant } from "@/lib/tenant-context";
 
 export default function CallsPage() {
-  const { data: calls } = useSWR("calls", () => api.calls(100));
+  const { activeTenantId, activeTenant } = useTenant();
+  const { data: calls } = useSWR(["calls", activeTenantId], () => api.calls(100, activeTenantId));
 
   return (
     <>
-      <Topbar title="Calls" subtitle={`${calls?.length ?? 0} total`} />
+      <Topbar title="Call Logs & Transcripts" subtitle={`${activeTenant.name} · ${calls?.length ?? 0} calls`} />
       <div className="p-6 space-y-3">
         {calls?.map((c) => (
           <div key={c.id} className="rounded-lg border border-ink-700/60 bg-ink-900/40 p-4">
@@ -22,7 +24,7 @@ export default function CallsPage() {
                 {c.language.toUpperCase()}
               </div>
               <div className="flex-1 min-w-0">
-                <div className="text-sm text-ink-50">{c.caller_name || c.caller_phone || "Unknown"}</div>
+                <div className="text-sm text-ink-50">{c.caller_name || c.caller_phone || "Unknown Caller"}</div>
                 <div className="text-[11px] font-mono text-ink-400">
                   {fmtRelative(c.started_at)} · {fmtDuration(c.duration_sec)} · {c.caller_phone}
                 </div>
@@ -38,7 +40,7 @@ export default function CallsPage() {
             </div>
 
             {c.transcript && c.transcript.length > 0 && (
-              <div className="rounded-md bg-ink-950/40 border border-ink-800/60 p-3 space-y-2 max-h-72 overflow-y-auto">
+              <div className="rounded-md bg-ink-950/40 border border-ink-800/60 p-3 space-y-2 max-h-72 overflow-y-auto font-sans">
                 {c.transcript.map((t: any, i: number) => (
                   <div key={i} className={`text-xs leading-relaxed ${t.role === "agent" ? "text-vox-300" : "text-ink-100"}`}>
                     <span className="text-[10px] font-mono uppercase tracking-wider text-ink-500 mr-2">
@@ -64,8 +66,8 @@ export default function CallsPage() {
         {(!calls || calls.length === 0) && (
           <div className="rounded-lg border border-dashed border-ink-700/60 p-12 text-center">
             <PhoneCall className="mx-auto mb-3 text-ink-600" />
-            <div className="text-sm text-ink-300">No calls yet.</div>
-            <div className="text-xs text-ink-500 mt-1">Use the phone simulator to make your first call.</div>
+            <div className="text-sm text-ink-300">No calls logged yet for {activeTenant.name}.</div>
+            <div className="text-xs text-ink-500 mt-1">Use the phone simulator to start an interactive call.</div>
           </div>
         )}
       </div>

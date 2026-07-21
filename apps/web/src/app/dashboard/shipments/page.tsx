@@ -5,13 +5,17 @@ import Topbar from "@/components/Topbar";
 import { api } from "@/lib/api";
 import { fmtRelative, statusBg, statusColor } from "@/lib/format";
 import { Truck } from "lucide-react";
+import { useTenant } from "@/lib/tenant-context";
 
 export default function ShipmentsPage() {
-  const { data: shipments } = useSWR("shipments", () => api.shipments());
+  const { activeTenantId, activeTenant } = useTenant();
+  const { data: shipments } = useSWR(["shipments", activeTenantId], () =>
+    api.shipments(undefined, activeTenantId),
+  );
 
   return (
     <>
-      <Topbar title="Shipments" subtitle={`${shipments?.length ?? 0} total`} />
+      <Topbar title="Shipment Tracking" subtitle={`${activeTenant.name} · ${shipments?.length ?? 0} active`} />
       <div className="p-6 space-y-3">
         {shipments?.map((s) => (
           <div key={s.id} className="rounded-lg border border-ink-700/60 bg-ink-900/40 p-4">
@@ -50,7 +54,7 @@ export default function ShipmentsPage() {
         {(!shipments || shipments.length === 0) && (
           <div className="rounded-lg border border-dashed border-ink-700/60 p-12 text-center">
             <Truck className="mx-auto mb-3 text-ink-600" />
-            <div className="text-sm text-ink-300">No shipments yet.</div>
+            <div className="text-sm text-ink-300">No shipments found for {activeTenant.name}.</div>
           </div>
         )}
       </div>
