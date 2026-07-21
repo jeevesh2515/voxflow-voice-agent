@@ -1,0 +1,31 @@
+{
+  "products": [
+    {"sku": "PEP-250ML-12",  "name": "Pepsi 250ml Bottle (Case of 12)",    "category": "Carbonated Soft Drink", "pack_size": "12 x 250ml",  "mrp_inr": 240},
+    {"sku": "PEP-500ML-12",  "name": "Pepsi 500ml Bottle (Case of 12)",    "category": "Carbonated Soft Drink", "pack_size": "12 x 500ml",  "mrp_inr": 360},
+    {"sku": "PEP-1L-12",     "name": "Pepsi 1L Bottle (Case of 12)",       "category": "Carbonated Soft Drink", "pack_size": "12 x 1L",     "mrp_inr": 600},
+    {"sku": "MIR-250ML-12",  "name": "Mirinda 250ml Bottle (Case of 12)",  "category": "Carbonated Soft Drink", "pack_size": "12 x 250ml",  "mrp_inr": 240},
+    {"sku": "7UP-250ML-12",  "name": "7UP 250ml Bottle (Case of 12)",      "category": "Carbonated Soft Drink", "pack_size": "12 x 250ml",  "mrp_inr": 240},
+    {"sku": "7UP-500ML-12",  "name": "7UP 500ml Bottle (Case of 12)",      "category": "Carbonated Soft Drink", "pack_size": "12 x 500ml",  "mrp_inr": 360},
+    {"sku": "MTD-500ML-12",  "name": "Mountain Dew 500ml (Case of 12)",    "category": "Carbonated Soft Drink", "pack_size": "12 x 500ml",  "mrp_inr": 360},
+    {"sku": "SLCE-330ML-24", "name": "Slice 330ml (Case of 24)",           "category": "Juice",                "pack_size": "24 x 330ml",  "mrp_inr": 720},
+    {"sku": "TROP-1L-12",    "name": "Tropicana 1L (Case of 12)",          "category": "Juice",                "pack_size": "12 x 1L",     "mrp_inr": 1320},
+    {"sku": "UNC-200ML-12",  "name": "Uncle Chips 200ml (Case of 12)",     "category": "Snacks",               "pack_size": "12 x 200g",   "mrp_inr": 360}
+  ],
+  "stock": [
+    {"sku": "PEP-250ML-12",  "warehouse": "Gurgaon DC",     "quantity": 4200},
+    {"sku": "PEP-500ML-12",  "warehouse": "Gurgaon DC",     "quantity": 3100},
+    {"sku": "PEP-1L-12",     "warehouse": "Gurgaon DC",     "quantity": 1800},
+    {"sku": "MIR-250ML-12",  "warehouse": "Gurgaon DC",     "quantity": 2200},
+    {"sku": "7UP-250ML-12",  "warehouse": "Gurgaon DC",     "quantity": 2900},
+    {"sku": "7UP-500ML-12",  "warehouse": "Gurgaon DC",     "quantity": 1700},
+    {"sku": "MTD-500ML-12",  "warehouse": "Gurgaon DC",     "quantity": 1500},
+    {"sku": "SLCE-330ML-24", "warehouse": "Gurgaon DC",     "quantity": 800},
+    {"sku": "TROP-1L-12",    "warehouse": "Gurgaon DC",     "quantity": 450},
+    {"sku": "UNC-200ML-12",  "warehouse": "Gurgaon DC",     "quantity": 1200},
+    {"sku": "PEP-250ML-12",  "warehouse": "Delhi Hub",      "quantity": 5800},
+    {"sku": "PEP-500ML-12",  "warehouse": "Delhi Hub",      "quantity": 4200},
+    {"sku": "7UP-250ML-12",  "warehouse": "Delhi Hub",      "quantity": 3600},
+    {"sku": "MIR-250ML-12",  "warehouse": "Delhi Hub",      "quantity": 1900},
+    {"sku": "MTD-500ML-12",  "warehouse": "Delhi Hub",      "quantity": 2200}
+  ]
+}

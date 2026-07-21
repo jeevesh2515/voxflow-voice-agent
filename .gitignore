@@ -1,0 +1,47 @@
+# Env
+.venv/
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+*.egg-info/
+.pytest_cache/
+
+# Node
+node_modules/
+.next/
+.turbo/
+out/
+*.tsbuildinfo
+
+# Data
+*.db
+*.db-journal
+*.sqlite
+*.sqlite3
+data/*.local.json
+uploads/
+recordings/
+
+# Env files
+.env
+.env.local
+.env.*.local
+
+# IDE
+.vscode/
+.idea/
+*.swp
+.DS_Store
+
+# Docker
+docker-compose.override.yml
+
+# Logs
+*.log
+logs/
+
+# Build
+dist/
+build/

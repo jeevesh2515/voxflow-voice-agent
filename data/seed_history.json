@@ -1,0 +1,115 @@
+{
+  "orders": [
+    {
+      "id": "PO-1718000001-SHREE",
+      "supplier_id": "sup_001",
+      "status": "shipped",
+      "items": [
+        {"sku": "PEP-250ML-12", "quantity": 50},
+        {"sku": "7UP-250ML-12", "quantity": 20}
+      ],
+      "notes": "Urgent for weekend stocking",
+      "created_days_ago": 3
+    },
+    {
+      "id": "PO-1718000002-BALAJI",
+      "supplier_id": "sup_002",
+      "status": "confirmed",
+      "items": [
+        {"sku": "PEP-500ML-12", "quantity": 100},
+        {"sku": "MTD-500ML-12", "quantity": 50}
+      ],
+      "notes": "",
+      "created_days_ago": 1
+    },
+    {
+      "id": "PO-1718000003-MAHAL",
+      "supplier_id": "sup_003",
+      "status": "pending",
+      "items": [
+        {"sku": "SLCE-330ML-24", "quantity": 30},
+        {"sku": "UNC-200ML-12",  "quantity": 25}
+      ],
+      "notes": "Please confirm availability before shipping",
+      "created_days_ago": 0
+    }
+  ],
+  "shipments": [
+    {
+      "id": "SHP-8801",
+      "order_id": "PO-1718000001-SHREE",
+      "status": "in_transit",
+      "carrier": "VRL Logistics",
+      "tracking_no": "VRL9988776655",
+      "expected_delivery_days": 1,
+      "history": [
+        {"at_offset_hours": -48, "status": "booked",         "note": "Booking confirmed"},
+        {"at_offset_hours": -36, "status": "picked_up",      "note": "Picked up from Gurgaon DC"},
+        {"at_offset_hours": -12, "status": "in_transit",     "note": "Departed Delhi hub"}
+      ]
+    },
+    {
+      "id": "SHP-8802",
+      "order_id": "PO-1718000002-BALAJI",
+      "status": "booked",
+      "carrier": "DTDC",
+      "tracking_no": "DTDC44556677",
+      "expected_delivery_days": 3,
+      "history": [
+        {"at_offset_hours": -8, "status": "booked", "note": "Booking confirmed"}
+      ]
+    }
+  ],
+  "calls": [
+    {
+      "id": "call_demo_1",
+      "minutes_ago": 14,
+      "duration_sec": 96,
+      "supplier_id": "sup_001",
+      "caller_phone": "+919876543210",
+      "caller_name": "Rajesh Kumar",
+      "language": "hi",
+      "intent": "shipment_status",
+      "outcome": "resolved",
+      "escalated": false,
+      "transcript": [
+        {"role": "agent",   "text": "नमस्ते, VoxFlow में आपका स्वागत है। मैं वाणी हूँ।", "at_offset_sec": 0},
+        {"role": "caller",  "text": "हाँ, मेरा PO-1718000001-SHREE चेक करना था, शिपमेंट कब तक आएगा?", "at_offset_sec": 4},
+        {"role": "agent",   "text": "एक मिनट, मैं चेक करती हूँ।", "at_offset_sec": 9},
+        {"role": "agent",   "text": "आपका शिपमेंट SHP-8801 इन-ट्रांज़िट है, VRL Logistics से। कल डिलीवरी की उम्मीद है।", "at_offset_sec": 35},
+        {"role": "caller",  "text": "ठीक है, धन्यवाद।", "at_offset_sec": 70},
+        {"role": "agent",   "text": "धन्यवाद, शुभ दिन।", "at_offset_sec": 80}
+      ],
+      "actions": [
+        {"name": "lookup_supplier",        "args": {"phone": "+919876543210"}},
+        {"name": "get_shipment_status",    "args": {"order_id": "PO-1718000001-SHREE"}}
+      ]
+    },
+    {
+      "id": "call_demo_2",
+      "minutes_ago": 42,
+      "duration_sec": 142,
+      "supplier_id": "sup_002",
+      "caller_phone": "+919812345678",
+      "caller_name": "Suresh Gupta",
+      "language": "en",
+      "intent": "stock_check",
+      "outcome": "resolved",
+      "escalated": false,
+      "transcript": [
+        {"role": "agent",   "text": "Hello, welcome to VoxFlow. This is Vaani. How can I help?", "at_offset_sec": 0},
+        {"role": "caller",  "text": "Hi Vaani, do you have Pepsi 500ml in stock at the Delhi hub? I need around 200 cases.", "at_offset_sec": 5},
+        {"role": "agent",   "text": "One moment, let me check.", "at_offset_sec": 13},
+        {"role": "agent",   "text": "Yes, Pepsi 500ml at Delhi hub: 4,200 cases in stock. Shall I create a draft order for 200 cases?", "at_offset_sec": 45},
+        {"role": "caller",  "text": "Yes please. And add 50 cases of Mountain Dew 500ml.", "at_offset_sec": 80},
+        {"role": "agent",   "text": "Drafted. PO-1718000002-BALAJI created with 200 Pepsi 500ml and 50 Mountain Dew 500ml, status pending your confirmation.", "at_offset_sec": 100},
+        {"role": "caller",  "text": "Confirmed, thank you.", "at_offset_sec": 120}
+      ],
+      "actions": [
+        {"name": "lookup_supplier",        "args": {"phone": "+919812345678"}},
+        {"name": "check_stock",            "args": {"sku": "PEP-500ML-12", "warehouse": "Delhi Hub"}},
+        {"name": "create_po",              "args": {"items": [{"sku": "PEP-500ML-12", "quantity": 200}, {"sku": "MTD-500ML-12", "quantity": 50}]}}
+      ]
+    }
+  ]
+}

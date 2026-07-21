@@ -1,0 +1,65 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --font-satoshi: "Satoshi", "Inter", system-ui, -apple-system, sans-serif;
+  --font-space-mono: "Space Mono", ui-monospace, "SF Mono", monospace;
+}
+
+html, body {
+  background: #06080f;
+  color: #e6e8ed;
+  font-family: var(--font-satoshi);
+  -webkit-font-smoothing: antialiased;
+}
+
+* { box-sizing: border-box; }
+
+::selection {
+  background: rgba(38, 130, 255, 0.35);
+  color: #fff;
+}
+
+/* Scrollbar */
+::-webkit-scrollbar { width: 8px; height: 8px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: #1f2433; border-radius: 4px; }
+::-webkit-scrollbar-thumb:hover { background: #2f3548; }
+
+/* Subtle grid background for hero panels */
+.grid-bg {
+  background-image:
+    linear-gradient(rgba(38,130,255,0.04) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(38,130,255,0.04) 1px, transparent 1px);
+  background-size: 32px 32px;
+}
+
+/* Pulse for live indicators */
+@keyframes pulse-dot {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(16,185,129,0.6); }
+  50% { box-shadow: 0 0 0 8px rgba(16,185,129,0); }
+}
+.pulse-dot {
+  animation: pulse-dot 2s ease-out infinite;
+}
+
+/* Audio level bars */
+@keyframes audio-bar {
+  0%, 100% { transform: scaleY(0.25); }
+  50% { transform: scaleY(1); }
+}
+.audio-bar {
+  display: inline-block;
+  width: 3px;
+  height: 16px;
+  margin: 0 1px;
+  background: #2682ff;
+  border-radius: 2px;
+  transform-origin: bottom;
+  animation: audio-bar 0.9s ease-in-out infinite;
+}
+.audio-bar:nth-child(2) { animation-delay: 0.1s; }
+.audio-bar:nth-child(3) { animation-delay: 0.2s; }
+.audio-bar:nth-child(4) { animation-delay: 0.3s; }
+.audio-bar:nth-child(5) { animation-delay: 0.4s; }

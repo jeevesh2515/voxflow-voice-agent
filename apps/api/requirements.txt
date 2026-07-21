@@ -1,0 +1,42 @@
+# VoxFlow API — runtime deps
+# Pinned to versions known to work on Python 3.12
+
+# Web framework
+fastapi==0.115.6
+uvicorn[standard]==0.32.1
+python-multipart==0.0.20
+websockets==13.1
+
+# Config & validation
+pydantic==2.10.4
+pydantic-settings==2.7.0
+python-dotenv==1.0.1
+
+# Database
+sqlalchemy==2.0.36
+alembic==1.14.0
+
+# LLM clients (we use the official SDKs that hit OpenAI-compatible APIs)
+openai==1.59.8
+httpx==0.28.1
+
+# Voice
+faster-whisper==1.1.0
+edge-tts==7.1.2
+soundfile==0.12.1
+numpy==2.2.0
+pydub==0.25.1
+
+# Audio capture utilities
+av==14.0.0
+
+# Utilities
+orjson==3.10.13
+tenacity==9.0.0
+structlog==24.4.0
+rich==13.9.4
+
+# Dev / test
+pytest==8.3.4
+pytest-asyncio==0.25.0
+ruff==0.8.4
