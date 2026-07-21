@@ -5,318 +5,293 @@
 <meta content="width=device-width, initial-scale=1.0, viewport-fit=cover" name="viewport"/>
 <meta content="VoxFlow | Voice Operations. Automated." name="title"/>
 <meta content="VoxFlow is the voice layer for modern operations — built for scale, trusted by leading teams to automate high-stakes conversations." name="description"/>
-<meta content="voice AI, voice operations, call automation, conversational AI, VoxFlow" name="keywords"/>
 <title>VoxFlow — Voice Operations. Automated.</title>
-<link href="https://fonts.googleapis.com/css2?family=Sora:wght@400;600;700;800;900&family=Inter:wght@400;500;600&family=Space+Grotesk:wght@500;700&display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Sora:wght@400;700;800;900&family=Inter:wght@400;500;600&family=Space+Grotesk:wght@500;700&display=swap" rel="stylesheet"/>
 <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200&display=swap" rel="stylesheet"/>
 <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
-<script>
-    tailwind.config = {
-      darkMode: "class",
-      theme: {
-        extend: {
-          colors: {
-            "surface-variant": "#1e1e30","outline-variant": "#302840","surface-container-low": "#111118",
-            "surface-bright": "#1a1a2e","surface-container-highest": "#28283e","outline": "#5a5068",
-            "surface-dim": "#0f0f1a","background": "#0a0a12","primary": "#ff2d78","on-error-container": "#ffa0a0",
-            "tertiary": "#ffe04a","on-primary": "#1a0010","surface": "#0f0f1a","surface-container": "#141422",
-            "on-surface-variant": "#a098b0","on-surface": "#e8e0f0","inverse-surface": "#e8e0f0",
-            "surface-container-lowest": "#0a0a12","error": "#ff4444","secondary": "#00ffcc","on-tertiary": "#1a1000"
-          },
-          fontFamily: {
-            headline: ["Sora","sans-serif"],display: ["Sora","sans-serif"],
-            body: ["Inter","sans-serif"],label: ["Space Grotesk","monospace"]
-          },
-          borderRadius: { DEFAULT: "0.125rem",lg: "0.25rem",xl: "0.5rem","2xl": "1rem","3xl": "1.5rem" }
-        }
-      }
-    }
-  </script>
+<script>tailwind.config={darkMode:"class",theme:{extend:{colors:{"surface-variant":"#1e1e30","outline-variant":"#302840","surface-container-high":"#28283e","surface-container":"#141422","background":"#0a0a12","primary":"#ff2d78","tertiary":"#ffe04a","on-primary":"#1a0010","surface":"#0f0f1a","on-surface-variant":"#a098b0","on-surface":"#e8e0f0","secondary":"#00ffcc"},fontFamily:{headline:["Sora","sans-serif"],body:["Inter","sans-serif"],label:["Space Grotesk","monospace"]},borderRadius:{xl:"0.5rem","2xl":"1rem","3xl":"1.5rem"}}}}</script>
 <style>
-    :root {
-      --neon-primary: #ff2d78;--neon-secondary: #00ffcc;--neon-tertiary: #ffe04a;
-      --bg-deep: #07070f;--bg-surface: #0a0a12;--text-primary: #e8e0f0;--text-muted: #a098b0;
-      --ease-out-expo: cubic-bezier(0.16,1,0.3,1);
-      --ease-spring: cubic-bezier(0.34,1.56,0.64,1);
-    }
-    *,*::before,*::after { box-sizing: border-box; }
-    html { scroll-behavior: smooth; }
-    body {
-      background: var(--bg-deep);color: var(--text-primary);font-family: 'Inter',sans-serif;
-      overflow-x: hidden;-webkit-font-smoothing: antialiased;-moz-osx-font-smoothing: grayscale;
-    }
-    body::after {
-      content: '';position: fixed;inset: 0;pointer-events: none;z-index: 9997;
-      background: repeating-linear-gradient(0deg,transparent,transparent 2px,rgba(0,0,0,0.12) 2px,rgba(0,0,0,0.12) 4px);
-    }
-    .grid-bg {
-      background-image:
-        radial-gradient(circle at 50% 50%,rgba(255,45,120,0.04) 0%,transparent 50%),
-        linear-gradient(rgba(30,30,48,0.12) 1px,transparent 1px),
-        linear-gradient(90deg,rgba(30,30,48,0.12) 1px,transparent 1px);
-      background-size: 100% 100%,40px 40px,40px 40px;
-    }
-    .noise-layer {
-      position: absolute;inset: 0;opacity: 0.025;pointer-events: none;z-index: 0;
-      background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
-      background-repeat: repeat;background-size: 180px 180px;
-    }
+:root {
+  --pk:#ff2d78;--sk:#00ffcc;--tk:#ffe04a;
+  --bg:#07070f;--text:#e8e0f0;--muted:#a098b0;
+  --ease: cubic-bezier(0.16,1,0.3,1);
+  --spring: cubic-bezier(0.34,1.56,0.64,1);
+}
+*{box-sizing:border-box}
+html{scroll-behavior:smooth}
+body{
+  background:var(--bg);color:var(--text);font-family:'Inter',sans-serif;
+  overflow-x:hidden;-webkit-font-smoothing:antialiased
+}
+body::after{
+  content:'';position:fixed;inset:0;pointer-events:none;z-index:9997;
+  background:repeating-linear-gradient(0deg,transparent,transparent 2px,rgba(0,0,0,.08) 2px,rgba(0,0,0,.08) 4px)
+}
+.grid-bg{
+  background-image:
+    radial-gradient(circle at 50% 50%,rgba(255,45,120,.03) 0%,transparent 50%),
+    linear-gradient(rgba(30,30,48,.08) 1px,transparent 1px),
+    linear-gradient(90deg,rgba(30,30,48,.08) 1px,transparent 1px);
+  background-size:100% 100%,48px 48px,48px 48px
+}
+.grain{
+  position:absolute;inset:0;opacity:.02;pointer-events:none;z-index:0;
+  background-image:url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.75' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+  background-size:120px 120px;background-repeat:repeat
+}
+.fluid-hero{font-size:clamp(2.4rem,6.5vw,5rem)}
+.fluid-h2{font-size:clamp(1.6rem,3.5vw,3rem)}
+.text-balance{text-wrap:balance}
 
-    /* ── Typography ── */
-    .fluid-hero { font-size: clamp(2.5rem, 7vw, 5.5rem); }
-    .fluid-h2 { font-size: clamp(1.75rem, 4vw, 3.5rem); }
-    .fluid-h3 { font-size: clamp(1.25rem, 2.5vw, 1.75rem); }
-    .text-balance { text-wrap: balance; }
+/* Neon accents — no glow at rest, only on interaction */
+.neon-border{
+  border:1px solid rgba(255,45,120,.3);
+  box-shadow:inset 0 0 12px rgba(255,45,120,.05)
+}
+.neon-border-btn{
+  background:rgba(15,15,26,.85);border:1px solid rgba(255,45,120,.35);
+  backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);
+  transition:all .3s var(--ease)
+}
+.neon-border-btn:hover{
+  border-color:rgba(255,45,120,.7);
+  box-shadow:0 0 20px rgba(255,45,120,.3),inset 0 0 16px rgba(255,45,120,.08);
+  transform:translateY(-1px)
+}
+.neon-border-btn:active{transform:translateY(0) scale(.98)}
 
-    /* ── Gradient text (animated) ── */
-    .gradient-text {
-      background: linear-gradient(135deg,var(--neon-primary),var(--neon-secondary),var(--neon-primary),var(--neon-secondary));
-      background-size: 300% 300%;
-      -webkit-background-clip: text;-webkit-text-fill-color: transparent;background-clip: text;
-      animation: grad-shift 4s ease-in-out infinite;
-    }
-    @keyframes grad-shift { 0%,100% { background-position: 0% 50%; } 50% { background-position: 100% 50%; } }
+.neon-border-btn-secondary{
+  background:rgba(15,15,26,.7);border:1px solid rgba(255,255,255,.08);
+  backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);
+  transition:all .3s var(--ease)
+}
+.neon-border-btn-secondary:hover{
+  border-color:rgba(255,255,255,.2);background:rgba(30,30,48,.5)
+}
+.neon-border-btn-secondary:active{transform:scale(.98)}
 
-    .gradient-text-pink {
-      background: linear-gradient(135deg,var(--neon-primary),#ff80aa,var(--neon-primary));
-      background-size: 200% 200%;
-      -webkit-background-clip: text;-webkit-text-fill-color: transparent;background-clip: text;
-      animation: grad-shift-pink 3s ease-in-out infinite;
-    }
-    @keyframes grad-shift-pink { 0%,100% { background-position: 0% 50%; } 50% { background-position: 100% 50%; } }
+/* Card with thin neon border at 30% opacity (Design spec) */
+.neon-card{
+  background:rgba(15,15,26,.55);backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);
+  border:1px solid rgba(255,45,120,.15);
+  transition:all .4s var(--ease)
+}
+.neon-card:hover{
+  border-color:rgba(255,45,120,.35);
+  box-shadow:0 0 20px rgba(255,45,120,.06),inset 0 0 16px rgba(255,45,120,.04)
+}
 
-    /* ── Neon utilities ── */
-    .neon-text { text-shadow: 0 0 8px currentColor,0 0 20px currentColor; }
-    .neon-glow { box-shadow: 0 0 16px rgba(255,45,120,0.3),0 0 40px rgba(255,45,120,0.1); }
+/* Gradient border card */
+.grad-card{
+  position:relative;background:rgba(15,15,26,.55);backdrop-filter:blur(14px);
+  border-radius:1rem;overflow:hidden
+}
+.grad-card::before{
+  content:'';position:absolute;inset:0;border-radius:inherit;padding:1px;
+  background:linear-gradient(135deg,rgba(255,45,120,.25),rgba(0,255,204,.08),rgba(255,45,120,.25));
+  -webkit-mask:linear-gradient(#fff 0 0) content-box,linear-gradient(#fff 0 0);
+  -webkit-mask-composite:xor;mask-composite:exclude;pointer-events:none;transition:opacity .5s
+}
+.grad-card:hover::before{
+  background:linear-gradient(135deg,rgba(255,45,120,.5),rgba(0,255,204,.2),rgba(255,45,120,.5))
+}
 
-    /* ── Glass ── */
-    .glass { background: rgba(15,15,26,0.65);backdrop-filter: blur(16px);-webkit-backdrop-filter: blur(16px); }
-    .glass-strong { background: rgba(15,15,26,0.85);backdrop-filter: blur(20px);-webkit-backdrop-filter: blur(20px); }
-    .glass-card {
-      background: linear-gradient(135deg,rgba(30,30,48,0.4),rgba(15,15,26,0.6));
-      backdrop-filter: blur(12px);-webkit-backdrop-filter: blur(12px);
-      border: 1px solid rgba(255,45,120,0.15);
-      transition: all 0.4s var(--ease-out-expo);
-    }
-    .glass-card:hover {
-      border-color: rgba(255,45,120,0.4);
-      box-shadow: 0 0 24px rgba(255,45,120,0.1), inset 0 0 20px rgba(255,45,120,0.05);
-      transform: translateY(-2px);
-    }
-    .glass-card::before {
-      content: '';position: absolute;inset: 0;border-radius: inherit;
-      background: linear-gradient(135deg,transparent 40%,rgba(255,45,120,0.05) 100%);
-      pointer-events: none;opacity: 0;transition: opacity 0.5s;
-    }
-    .glass-card:hover::before { opacity: 1; }
+/* Glass */
+.glass{background:rgba(15,15,26,.65);backdrop-filter:blur(18px);-webkit-backdrop-filter:blur(18px)}
+.glass-s{background:rgba(15,15,26,.85);backdrop-filter:blur(22px);-webkit-backdrop-filter:blur(22px)}
 
-    /* ── Gradient border cards (animated) ── */
-    .gradient-border-card {
-      position: relative;background: rgba(15,15,26,0.6);backdrop-filter: blur(12px);
-      border-radius: 1rem;overflow: hidden;
-    }
-    .gradient-border-card::before {
-      content: '';position: absolute;inset: 0;border-radius: inherit;padding: 1px;
-      background: linear-gradient(135deg,rgba(255,45,120,0.3),rgba(0,255,204,0.1),rgba(255,45,120,0.3));
-      -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
-      -webkit-mask-composite: xor;mask-composite: exclude;
-      pointer-events: none;transition: opacity 0.5s;
-    }
-    .gradient-border-card:hover::before {
-      background: linear-gradient(135deg,rgba(255,45,120,0.6),rgba(0,255,204,0.3),rgba(255,45,120,0.6));
-    }
+/* Glow only on hover for text */
+.neon-hover{transition:text-shadow .3s var(--ease)}
+.neon-hover:hover{text-shadow:0 0 8px currentColor,0 0 20px currentColor}
 
-    /* ── Marquee ── */
-    .marquee-track { display: flex;overflow: hidden;user-select: none;gap: 4rem; }
-    .marquee-content { flex-shrink: 0;display: flex;justify-content: space-around;gap: 4rem;min-width: 100%;animation: marquee-scroll 30s linear infinite; }
-    @keyframes marquee-scroll { from { transform: translateX(0); } to { transform: translateX(-100%); } }
+/* Gradient text — animated for hero only */
+.grad-anim{
+  background:linear-gradient(135deg,var(--pk),var(--sk),var(--pk),var(--sk));
+  background-size:300% 300%;
+  -webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;
+  animation:gs 5s ease-in-out infinite
+}
+@keyframes gs{0%,100%{background-position:0 50%}50%{background-position:100% 50%}}
 
-    /* ── Waveform ── */
-    .waveform-bar { animation: wave 1.2s ease-in-out infinite alternate;transform-origin: bottom; }
-    @keyframes wave { 0% { height: 20%; } 100% { height: 80%; } }
+.grad-pink{
+  background:linear-gradient(135deg,var(--pk),#ff80aa,var(--pk));
+  background-size:200% 200%;
+  -webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;
+  animation:gpk 4s ease-in-out infinite
+}
+@keyframes gpk{0%,100%{background-position:0 50%}50%{background-position:100% 50%}}
 
-    /* ── Float ── */
-    .animate-float { animation: float 6s ease-in-out infinite; }
-    @keyframes float { 0%,100% { transform: translateY(0); } 50% { transform: translateY(-14px); } }
+/* Marquee */
+.marquee{display:flex;overflow:hidden;user-select:none;gap:4rem}
+.marquee-c{flex-shrink:0;display:flex;justify-content:space-around;gap:4rem;min-width:100%;animation:mq 35s linear infinite}
+@keyframes mq{from{transform:translateX(0)}to{transform:translateX(-100%)}}
 
-    /* ── Pulse glow ── */
-    .pulse-glow { animation: pulse-glow 3s ease-in-out infinite; }
-    @keyframes pulse-glow { 0%,100% { opacity: 0.4;transform: scale(1); } 50% { opacity: 0.7;transform: scale(1.05); } }
+.wave{animation:wf 1.2s ease-in-out infinite alternate;transform-origin:bottom}
+@keyframes wf{0%{height:20%}100%{height:80%}}
 
-    /* ── Scroll progress ── */
-    #scroll-progress {
-      position: fixed;top: 0;left: 0;height: 2px;z-index: 99998;
-      background: linear-gradient(90deg,var(--neon-primary),var(--neon-secondary));
-      width: 0%;transition: width 0.1s linear;pointer-events: none;
-    }
+.fade-up{
+  opacity:0;transform:translateY(32px);
+  transition:opacity 1s var(--ease),transform 1s var(--ease)
+}
+.fade-up.v{opacity:1;transform:translateY(0)}
+.fade-l{
+  opacity:0;transform:translateX(-40px);
+  transition:opacity 1s var(--ease),transform 1s var(--ease)
+}
+.fade-l.v{opacity:1;transform:translateX(0)}
+.fade-r{
+  opacity:0;transform:translateX(40px);
+  transition:opacity 1s var(--ease),transform 1s var(--ease)
+}
+.fade-r.v{opacity:1;transform:translateX(0)}
+.fade-s{
+  opacity:0;transform:scale(.92);
+  transition:opacity 1s var(--ease),transform 1s var(--ease)
+}
+.fade-s.v{opacity:1;transform:scale(1)}
+.stg>*{
+  opacity:0;transform:translateY(24px);
+  transition:opacity .7s var(--ease),transform .7s var(--ease)
+}
+.stg.v>*:nth-child(1){transition-delay:.04s;opacity:1;transform:translateY(0)}
+.stg.v>*:nth-child(2){transition-delay:.08s;opacity:1;transform:translateY(0)}
+.stg.v>*:nth-child(3){transition-delay:.12s;opacity:1;transform:translateY(0)}
+.stg.v>*:nth-child(4){transition-delay:.16s;opacity:1;transform:translateY(0)}
+.stg.v>*:nth-child(5){transition-delay:.2s;opacity:1;transform:translateY(0)}
+.stg.v>*:nth-child(6){transition-delay:.24s;opacity:1;transform:translateY(0)}
 
-    /* ── Reveal ── */
-    .reveal { opacity: 0;transform: translateY(28px);transition: opacity 0.9s var(--ease-out-expo),transform 0.9s var(--ease-out-expo); }
-    .reveal.visible { opacity: 1;transform: translateY(0); }
-    .reveal-left { opacity: 0;transform: translateX(-36px);transition: opacity 0.9s var(--ease-out-expo),transform 0.9s var(--ease-out-expo); }
-    .reveal-left.visible { opacity: 1;transform: translateX(0); }
-    .reveal-right { opacity: 0;transform: translateX(36px);transition: opacity 0.9s var(--ease-out-expo),transform 0.9s var(--ease-out-expo); }
-    .reveal-right.visible { opacity: 1;transform: translateX(0); }
-    .reveal-scale { opacity: 0;transform: scale(0.9);transition: opacity 0.9s var(--ease-out-expo),transform 0.9s var(--ease-out-expo); }
-    .reveal-scale.visible { opacity: 1;transform: scale(1); }
+/* Cursor */
+.c-dot{
+  position:fixed;width:6px;height:6px;border-radius:50%;background:var(--pk);
+  pointer-events:none;z-index:99999;transform:translate(-50%,-50%);
+  transition:width .2s,height .2s;mix-blend-mode:screen
+}
+.c-ring{
+  position:fixed;width:28px;height:28px;border-radius:50%;
+  border:1px solid rgba(255,45,120,.25);pointer-events:none;z-index:99998;
+  transform:translate(-50%,-50%);transition:width .3s,height .3s,border-color .3s
+}
+@media(hover:none)and(pointer:coarse){.c-dot,.c-ring{display:none}}
 
-    .stagger-children > * { opacity: 0;transform: translateY(20px);transition: opacity 0.7s var(--ease-out-expo),transform 0.7s var(--ease-out-expo); }
-    .stagger-children.visible > *:nth-child(1) { transition-delay: 0.04s;opacity: 1;transform: translateY(0); }
-    .stagger-children.visible > *:nth-child(2) { transition-delay: 0.08s;opacity: 1;transform: translateY(0); }
-    .stagger-children.visible > *:nth-child(3) { transition-delay: 0.12s;opacity: 1;transform: translateY(0); }
-    .stagger-children.visible > *:nth-child(4) { transition-delay: 0.16s;opacity: 1;transform: translateY(0); }
-    .stagger-children.visible > *:nth-child(5) { transition-delay: 0.2s;opacity: 1;transform: translateY(0); }
-    .stagger-children.visible > *:nth-child(6) { transition-delay: 0.24s;opacity: 1;transform: translateY(0); }
+/* Particles */
+.p{position:absolute;border-radius:50%;opacity:0;pointer-events:none}
 
-    /* ── Custom cursor ── */
-    .cursor-dot {
-      position: fixed;width: 8px;height: 8px;border-radius: 50%;background: var(--neon-primary);
-      pointer-events: none;z-index: 99999;transform: translate(-50%,-50%);
-      transition: width 0.2s,height 0.2s,background 0.2s;mix-blend-mode: screen;
-      box-shadow: 0 0 12px var(--neon-primary),0 0 24px var(--neon-primary);
-    }
-    .cursor-ring {
-      position: fixed;width: 32px;height: 32px;border-radius: 50%;
-      border: 1px solid rgba(255,45,120,0.35);pointer-events: none;z-index: 99998;
-      transform: translate(-50%,-50%);transition: width 0.3s,height 0.3s,border-color 0.3s;
-      box-shadow: 0 0 8px rgba(255,45,120,0.1);
-    }
-    @media (hover: none) and (pointer: coarse) { .cursor-dot,.cursor-ring { display: none; } }
+/* Scroll progress */
+#sp{position:fixed;top:0;left:0;height:2px;z-index:99998;background:linear-gradient(90deg,var(--pk),var(--sk));width:0%;pointer-events:none}
+::-webkit-scrollbar{width:4px}
+::-webkit-scrollbar-track{background:var(--bg)}
+::-webkit-scrollbar-thumb{background:rgba(255,45,120,.25);border-radius:2px}
+:focus-visible{outline:2px solid var(--pk);outline-offset:2px;border-radius:4px}
+.tab-nums{font-variant-numeric:tabular-nums}
 
-    /* ── Particles ── */
-    .particle { position: absolute;width: 2px;height: 2px;border-radius: 50%;opacity: 0;pointer-events: none; }
+/* Loading */
+#ld{position:fixed;inset:0;z-index:100000;background:var(--bg);display:flex;align-items:center;justify-content:center;transition:opacity .5s,visibility .5s}
+#ld.h{opacity:0;visibility:hidden}
+.lb{width:100px;height:2px;background:rgba(255,45,120,.1);border-radius:2px;overflow:hidden}
+.lf{height:100%;width:0;background:var(--pk);border-radius:2px;box-shadow:0 0 8px var(--pk);animation:lf 1s ease forwards}
+@keyframes lf{0%{width:0}60%{width:70%}100%{width:100%}}
 
-    /* ── Interactive card tilt ── */
-    .tilt-card { transition: transform 0.1s var(--ease-out-expo);transform-style: preserve-3d;perspective: 800px; }
-    .tilt-card-inner { transition: transform 0.1s var(--ease-out-expo); }
+.sk{position:fixed;top:-100%;left:50%;transform:translateX(-50%);z-index:100001;background:var(--pk);color:#fff;padding:12px 24px;border-radius:8px;font-family:'Space Grotesk',monospace;font-size:14px;transition:top .2s}
+.sk:focus{top:16px}
 
-    /* ── Counter number ── */
-    .counter-value { font-variant-numeric: tabular-nums; }
+@keyframes fl{0%,100%{transform:translateY(0)}50%{transform:translateY(-12px)}}
+.fl{animation:fl 6s ease-in-out infinite}
 
-    /* ── Scrollbar ── */
-    ::-webkit-scrollbar { width: 5px; }
-    ::-webkit-scrollbar-track { background: var(--bg-deep); }
-    ::-webkit-scrollbar-thumb { background: rgba(255,45,120,0.3);border-radius: 3px; }
-    ::-webkit-scrollbar-thumb:hover { background: rgba(255,45,120,0.5); }
+@keyframes pg{0%,100%{opacity:.3;transform:scale(1)}50%{opacity:.6;transform:scale(1.08)}}
+.pg{animation:pg 4s ease-in-out infinite}
 
-    :focus-visible { outline: 2px solid var(--neon-primary);outline-offset: 2px;border-radius: 4px; }
-
-    @media (prefers-reduced-motion: reduce) {
-      *,*::before,*::after { animation-duration: 0.01ms !important;animation-iteration-count: 1 !important;transition-duration: 0.01ms !important; }
-      html { scroll-behavior: auto; }.cursor-dot,.cursor-ring { display: none !important; }body::after { display: none; }
-      [class*="reveal"] { opacity: 1 !important;transform: none !important; }
-      .gradient-text,.gradient-text-pink { -webkit-text-fill-color: var(--neon-primary);background: none;animation: none; }
-    }
-
-    #loader {
-      position: fixed;inset: 0;z-index: 100000;background: var(--bg-deep);
-      display: flex;align-items: center;justify-content: center;
-      transition: opacity 0.6s ease,visibility 0.6s ease;
-    }
-    #loader.hidden { opacity: 0;visibility: hidden; }
-    .loader-bar { width: 120px;height: 2px;background: rgba(255,45,120,0.12);border-radius: 2px;overflow: hidden; }
-    .loader-bar-fill { height: 100%;width: 0%;background: var(--neon-primary);border-radius: 2px;box-shadow: 0 0 8px var(--neon-primary);animation: loader-fill 1.2s ease-in-out forwards; }
-    @keyframes loader-fill { 0% { width: 0%; } 50% { width: 60%; } 100% { width: 100%; } }
-
-    .skip-link {
-      position: fixed;top: -100%;left: 50%;transform: translateX(-50%);z-index: 100001;
-      background: var(--neon-primary);color: #fff;padding: 12px 24px;border-radius: 8px;
-      font-family: 'Space Grotesk',monospace;font-size: 14px;transition: top 0.3s;
-    }
-    .skip-link:focus { top: 16px; }
-  </style>
+@media(prefers-reduced-motion:reduce){
+  *,*::before,*::after{animation-duration:.01ms!important;animation-iteration-count:1!important;transition-duration:.01ms!important}
+  html{scroll-behavior:auto}.c-dot,.c-ring{display:none!important}body::after{display:none}
+  [class*="fade"]{opacity:1!important;transform:none!important}
+  .grad-anim,.grad-pink{-webkit-text-fill-color:var(--pk);background:none;animation:none}
+}
+</style>
 </head>
 <body class="selection:bg-primary selection:text-on-primary">
-<a href="#hero" class="skip-link">Skip to main content</a>
-<div id="scroll-progress" aria-hidden="true"></div>
-
-<div id="loader" role="status" aria-label="Loading">
+<a href="#hero" class="sk">Skip to main</a>
+<div id="sp" aria-hidden="true"></div>
+<div id="ld" role="status" aria-label="Loading">
 <div class="text-center">
 <div class="flex items-center justify-center gap-2 mb-6">
 <span class="material-symbols-outlined text-primary text-4xl font-bold" style="font-variation-settings:'FILL'1">graphic_eq</span>
 </div>
-<div class="loader-bar"><div class="loader-bar-fill"></div></div>
+<div class="lb"><div class="lf"></div></div>
 </div>
 </div>
+<div class="c-dot" id="cd" aria-hidden="true"></div>
+<div class="c-ring" id="cr" aria-hidden="true"></div>
+<div id="pt" class="fixed inset-0 pointer-events-none z-0 overflow-hidden" aria-hidden="true"></div>
 
-<div class="cursor-dot" id="cursorDot" aria-hidden="true"></div>
-<div class="cursor-ring" id="cursorRing" aria-hidden="true"></div>
-
-<div id="particles" class="fixed inset-0 pointer-events-none z-0 overflow-hidden" aria-hidden="true"></div>
-
-<header id="site-header" class="fixed top-0 left-0 right-0 z-50 transition-transform duration-500">
-<div class="glass-strong border-b border-outline-variant/15 transition-all duration-500" id="header-inner">
-<div class="flex justify-between items-center w-full px-4 sm:px-6 lg:px-8 py-3 sm:py-4 max-w-7xl mx-auto">
-<div class="flex items-center gap-2 z-10">
-<div class="relative w-8 h-8 flex items-center justify-center">
-<div class="absolute inset-0 bg-primary/20 blur-md rounded-full"></div>
-<span class="material-symbols-outlined text-primary text-3xl font-bold relative z-10" style="font-variation-settings:'FILL'1">graphic_eq</span>
+<header id="hdr" class="fixed top-0 left-0 right-0 z-50 transition-transform duration-500">
+<div class="glass-s border-b border-outline-variant/10 transition-all duration-500" id="hin">
+<div class="flex items-center justify-between w-full px-5 sm:px-8 lg:px-10 py-3 sm:py-4 max-w-7xl mx-auto">
+<div class="flex items-center gap-2.5 z-10">
+<div class="w-8 h-8 flex items-center justify-center">
+<div class="absolute w-8 h-8 bg-primary/15 blur-sm rounded-full"></div>
+<span class="material-symbols-outlined text-primary text-3xl" style="font-variation-settings:'FILL'1">graphic_eq</span>
 </div>
-<span class="text-xl sm:text-2xl font-headline font-black tracking-tighter text-on-surface">VoxFlow</span>
+<span class="text-xl sm:text-2xl font-headline font-black tracking-tighter">VoxFlow</span>
 </div>
-<nav class="hidden md:flex items-center gap-8" aria-label="Main navigation">
-<a class="text-primary font-bold border-b-2 border-primary pb-1 font-label text-sm nav-link" href="#platform">Platform</a>
-<a class="text-on-surface-variant hover:text-primary transition-all duration-300 font-label text-sm nav-link" href="#solutions">Solutions</a>
-<a class="text-on-surface-variant hover:text-primary transition-all duration-300 font-label text-sm nav-link" href="#network">Network</a>
-<a class="text-on-surface-variant hover:text-primary transition-all duration-300 font-label text-sm nav-link" href="#testimonial">Testimonials</a>
+<nav class="hidden md:flex items-center gap-9" aria-label="Main">
+<a class="text-primary font-bold border-b-2 border-primary pb-1 font-label text-sm" href="#p">Platform</a>
+<a class="text-on-surface-variant/80 hover:text-primary transition-colors font-label text-sm" href="#s">Solutions</a>
+<a class="text-on-surface-variant/80 hover:text-primary transition-colors font-label text-sm" href="#n">Network</a>
+<a class="text-on-surface-variant/80 hover:text-primary transition-colors font-label text-sm" href="#t">Testimonials</a>
 </nav>
 <div class="flex items-center gap-3 z-10">
-<button class="hidden sm:inline-flex text-on-surface-variant hover:text-primary transition-all font-label text-sm">Sign In</button>
-<button class="bg-primary text-on-primary px-5 sm:px-6 py-2 font-headline font-bold rounded-xl hover:shadow-[0_0_20px_rgba(255,45,120,0.5)] transition-all active:scale-95 duration-150 text-sm">
-Get Started
-</button>
-<button id="menu-toggle" class="md:hidden flex items-center justify-center w-10 h-10 rounded-lg text-on-surface hover:bg-surface-variant transition-colors" aria-label="Toggle navigation menu" aria-expanded="false">
-<span class="material-symbols-outlined text-2xl" id="menu-icon">menu</span>
+<button class="hidden sm:block text-on-surface-variant/70 hover:text-primary transition-colors font-label text-sm">Sign In</button>
+<button class="neon-border-btn text-on-surface px-5 py-2 font-headline font-bold rounded-xl text-sm neon-hover" style="color:var(--pk)">Get Started</button>
+<button id="mt" class="md:hidden flex items-center justify-center w-10 h-10 rounded-lg hover:bg-surface-variant/50 transition-colors" aria-label="Menu" aria-expanded="false">
+<span class="material-symbols-outlined text-2xl" id="mi">menu</span>
 </button>
 </div>
 </div>
 </div>
-<div id="mobile-menu" class="fixed inset-0 z-40 bg-background/90 backdrop-blur-2xl translate-x-full transition-transform duration-500 ease-in-out md:hidden" aria-hidden="true">
-<div class="flex flex-col items-center justify-center h-full gap-10 text-lg">
+<div id="mm" class="fixed inset-0 z-40 bg-background/90 backdrop-blur-2xl translate-x-full transition-transform duration-500 md:hidden" aria-hidden="true">
+<div class="flex flex-col items-center justify-center h-full gap-10">
 <div class="flex items-center gap-3 mb-4">
-<div class="w-10 h-10 rounded-full bg-primary/20 flex items-center justify-center">
-<span class="material-symbols-outlined text-primary text-3xl font-bold" style="font-variation-settings:'FILL'1">graphic_eq</span>
-</div>
+<span class="material-symbols-outlined text-primary text-3xl" style="font-variation-settings:'FILL'1">graphic_eq</span>
 <span class="text-2xl font-headline font-black tracking-tighter">VoxFlow</span>
 </div>
-<hr class="w-16 border-outline-variant/20 mb-2"/>
-<a class="text-primary font-bold font-label text-2xl" href="#platform" data-mobile-link>Platform</a>
-<a class="text-on-surface-variant hover:text-primary transition-colors font-label text-2xl" href="#solutions" data-mobile-link>Solutions</a>
-<a class="text-on-surface-variant hover:text-primary transition-colors font-label text-2xl" href="#network" data-mobile-link>Network</a>
-<a class="text-on-surface-variant hover:text-primary transition-colors font-label text-2xl" href="#testimonial" data-mobile-link>Testimonials</a>
-<hr class="w-16 border-outline-variant/20 my-2"/>
-<button class="text-on-surface-variant font-label text-lg">Sign In</button>
-<button class="bg-primary text-on-primary px-10 py-3 font-headline font-bold rounded-xl mt-2">Get Started</button>
+<hr class="w-12 border-outline-variant/15"/>
+<a class="text-primary font-bold font-label text-2xl" href="#p" data-ml>Platform</a>
+<a class="text-on-surface-variant/70 hover:text-primary transition-colors font-label text-2xl" href="#s" data-ml>Solutions</a>
+<a class="text-on-surface-variant/70 hover:text-primary transition-colors font-label text-2xl" href="#n" data-ml>Network</a>
+<a class="text-on-surface-variant/70 hover:text-primary transition-colors font-label text-2xl" href="#t" data-ml>Testimonials</a>
+<hr class="w-12 border-outline-variant/15"/>
+<button class="text-on-surface-variant/70 font-label text-lg">Sign In</button>
+<button class="neon-border-btn text-on-surface px-8 py-3 font-headline font-bold rounded-xl mt-2 neon-hover" style="color:var(--pk)">Get Started</button>
 </div>
 </div>
 </header>
 
 <main>
-<section class="relative min-h-screen flex items-center pt-28 pb-20 sm:pt-32 sm:pb-28 overflow-hidden grid-bg" id="hero">
-<div class="absolute top-1/3 left-1/4 w-[35vw] h-[35vw] max-w-[450px] max-h-[450px] bg-primary/6 blur-[120px] rounded-full pulse-glow pointer-events-none" aria-hidden="true"></div>
-<div class="absolute bottom-1/3 right-1/4 w-[30vw] h-[30vw] max-w-[380px] max-h-[380px] bg-secondary/6 blur-[120px] rounded-full animate-float pointer-events-none" aria-hidden="true"></div>
-<div class="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[50vw] h-[50vw] max-w-[500px] max-h-[500px] bg-primary/3 blur-[150px] rounded-full pointer-events-none" aria-hidden="true"></div>
+<section class="relative min-h-[90vh] flex items-center pt-28 pb-24 sm:pt-36 sm:pb-32 overflow-hidden grid-bg" id="hero">
+<div class="absolute top-[20%] left-[15%] w-[40vmin] h-[40vmin] max-w-[500px] max-h-[500px] bg-primary/5 blur-[120px] rounded-full pg pointer-events-none" aria-hidden="true"></div>
+<div class="absolute bottom-[25%] right-[10%] w-[35vmin] h-[35vmin] max-w-[400px] max-h-[400px] bg-secondary/5 blur-[120px] rounded-full fl pointer-events-none" aria-hidden="true"></div>
+<div class="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[50vmin] h-[50vmin] bg-primary/2 blur-[150px] rounded-full pointer-events-none" aria-hidden="true"></div>
 
-<div class="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 grid lg:grid-cols-2 gap-10 lg:gap-20 items-center">
-<div class="reveal stagger-children" id="hero-content">
+<div class="relative z-10 max-w-7xl mx-auto px-5 sm:px-8 lg:px-10 grid lg:grid-cols-2 gap-12 lg:gap-24 items-center">
 <div>
-<div class="inline-flex items-center gap-2 bg-primary/10 border border-primary/20 rounded-full px-4 py-1.5 mb-5 sm:mb-6">
-<span class="w-1.5 h-1.5 bg-secondary rounded-full animate-pulse"></span>
-<span class="font-label text-secondary text-[11px] tracking-[0.2em] uppercase">Next-Gen Voice Operations</span>
+<div class="stg" id="hc">
+<div class="inline-flex items-center gap-2 bg-primary/8 border border-primary/15 rounded-full px-4 py-1.5 mb-5 sm:mb-7">
+<span class="w-1.5 h-1.5 rounded-full" style="background:var(--sk);box-shadow:0 0 6px var(--sk)"></span>
+<span class="font-label text-secondary/90 text-[11px] tracking-[.2em] uppercase">Next-Gen Voice Operations</span>
 </div>
-<h1 class="font-headline font-extrabold fluid-hero leading-[1.05] tracking-tighter mb-6 text-balance">
-Every call.<br/>Every detail.<br/>
-<span class="gradient-text">Handled.</span>
+<h1 class="font-headline font-extrabold fluid-hero leading-[1.04] tracking-tighter mb-6 text-balance">
+Every call.<br>Every detail.<br>
+<span class="grad-anim">Handled.</span>
 </h1>
-<p class="text-on-surface-variant text-base sm:text-lg lg:text-xl mb-8 sm:mb-10 max-w-lg font-body leading-relaxed">
+<p class="text-on-surface-variant/80 text-base sm:text-lg lg:text-xl mb-10 max-w-md font-body leading-relaxed">
 VoxFlow is the voice layer for modern operations — built for scale, trusted by leading teams to automate high-stakes conversations.
 </p>
-<div class="flex flex-wrap gap-3 sm:gap-4">
-<a href="#" class="group inline-flex items-center gap-2 bg-primary text-on-primary px-6 sm:px-8 py-3.5 sm:py-4 font-headline font-bold rounded-xl transition-all duration-300 hover:shadow-[0_0_30px_rgba(255,45,120,0.5)] hover:scale-[1.03] active:scale-95">
-Request Pilot
-<span class="material-symbols-outlined group-hover:translate-x-1 transition-transform">arrow_forward</span>
+<div class="flex flex-wrap gap-4">
+<a href="#" class="group neon-border-btn inline-flex items-center gap-2 px-7 sm:px-9 py-3.5 sm:py-4 font-headline font-bold rounded-xl neon-hover" style="color:var(--pk)">
+  Request Pilot
+  <span class="material-symbols-outlined group-hover:translate-x-1 transition-transform">arrow_forward</span>
 </a>
-<a href="#" class="inline-flex items-center gap-2 border border-outline-variant/40 text-on-surface px-6 sm:px-8 py-3.5 sm:py-4 font-headline font-bold rounded-xl hover:bg-surface-variant/50 transition-all duration-300 hover:border-primary/30 active:scale-95">
+<a href="#" class="neon-border-btn-secondary inline-flex items-center gap-2 px-7 sm:px-9 py-3.5 sm:py-4 font-headline font-bold rounded-xl text-on-surface/80">
 <span class="material-symbols-outlined text-lg">play_arrow</span>
 See it in action
 </a>
@@ -324,101 +299,95 @@ See it in action
 </div>
 </div>
 
-<div class="relative reveal-right" id="hero-dashboard">
-<div class="animate-float">
-<div class="absolute -inset-3 bg-gradient-to-r from-primary/10 to-secondary/10 blur-3xl rounded-3xl pointer-events-none" aria-hidden="true"></div>
-<div class="relative glass rounded-2xl overflow-hidden shadow-2xl border border-outline-variant/15 tilt-card" id="dashboard-tilt" role="img" aria-label="VoxFlow operations dashboard preview">
-<div class="bg-surface-variant/70 px-3 sm:px-4 py-2.5 sm:py-3 flex items-center gap-2 border-b border-outline-variant/15">
-<div class="flex gap-1.5" aria-hidden="true">
-<div class="w-2.5 h-2.5 rounded-full bg-red-500/40"></div>
-<div class="w-2.5 h-2.5 rounded-full bg-yellow-500/40"></div>
-<div class="w-2.5 h-2.5 rounded-full bg-green-500/40"></div>
-</div>
-<div class="mx-auto bg-surface-container/80 px-3 py-1 rounded text-[10px] text-on-surface-variant/60 font-label border border-outline-variant/15 flex items-center gap-2 max-w-[200px] truncate">
+<div class="fade-r" id="hd">
+<div class="fl" style="animation-delay:-3s">
+<div class="absolute -inset-3 bg-gradient-to-r from-primary/8 to-secondary/8 blur-3xl rounded-3xl pointer-events-none" aria-hidden="true"></div>
+<div class="relative glass rounded-2xl overflow-hidden border border-outline-variant/10" id="dt" role="img" aria-label="VoxFlow dashboard preview">
+<div class="bg-surface-variant/60 px-4 py-3 flex items-center gap-2 border-b border-outline-variant/10">
+<div class="flex gap-1.5" aria-hidden="true"><div class="w-2.5 h-2.5 rounded-full bg-red-500/30"></div><div class="w-2.5 h-2.5 rounded-full bg-yellow-500/30"></div><div class="w-2.5 h-2.5 rounded-full bg-green-500/30"></div></div>
+<div class="mx-auto bg-surface-container/60 px-3 py-1 rounded text-[10px] text-on-surface-variant/50 font-label border border-outline-variant/10 flex items-center gap-2 max-w-[200px] truncate">
 <span class="material-symbols-outlined text-[12px] shrink-0">lock</span>
 <span class="truncate">app.voxflow.ai/operations</span>
 </div>
-<div class="flex gap-2" aria-hidden="true">
-<span class="material-symbols-outlined text-[14px] text-on-surface-variant/40">more_vert</span>
+<div class="flex gap-2" aria-hidden="true"><span class="material-symbols-outlined text-[14px] text-on-surface-variant/30">more_vert</span></div>
 </div>
-</div>
-<div class="p-3 sm:p-5 md:p-6 grid grid-cols-12 gap-3 sm:gap-4">
-<div class="col-span-3 space-y-2 sm:space-y-3">
-<div class="bg-primary/10 border border-primary/25 p-1.5 sm:p-2 rounded-lg text-[10px] text-primary flex items-center gap-1.5 sm:gap-2">
-<span class="material-symbols-outlined text-[12px] sm:text-[14px]">dashboard</span>
+<div class="p-4 sm:p-6 grid grid-cols-12 gap-4">
+<div class="col-span-3 space-y-3">
+<div class="bg-primary/8 border border-primary/20 p-2 rounded-lg text-[10px] flex items-center gap-2" style="color:var(--pk)">
+<span class="material-symbols-outlined text-[13px]">dashboard</span>
 <span class="hidden sm:inline">Overview</span>
 </div>
-<div class="p-1.5 sm:p-2 rounded-lg text-[10px] text-on-surface-variant/60 flex items-center gap-1.5 sm:gap-2 hover:bg-surface-variant/50 transition-colors">
-<span class="material-symbols-outlined text-[12px] sm:text-[14px]">call</span>
+<div class="p-2 rounded-lg text-[10px] text-on-surface-variant/50 flex items-center gap-2 hover:bg-surface-variant/40 transition-colors">
+<span class="material-symbols-outlined text-[13px]">call</span>
 <span class="hidden sm:inline">Calls</span>
 </div>
-<div class="p-1.5 sm:p-2 rounded-lg text-[10px] text-on-surface-variant/60 flex items-center gap-1.5 sm:gap-2 hover:bg-surface-variant/50 transition-colors">
-<span class="material-symbols-outlined text-[12px] sm:text-[14px]">inventory_2</span>
+<div class="p-2 rounded-lg text-[10px] text-on-surface-variant/50 flex items-center gap-2 hover:bg-surface-variant/40 transition-colors">
+<span class="material-symbols-outlined text-[13px]">inventory_2</span>
 <span class="hidden sm:inline">Orders</span>
 </div>
-<div class="p-1.5 sm:p-2 rounded-lg text-[10px] text-on-surface-variant/60 flex items-center gap-1.5 sm:gap-2 hover:bg-surface-variant/50 transition-colors">
-<span class="material-symbols-outlined text-[12px] sm:text-[14px]">account_circle</span>
+<div class="p-2 rounded-lg text-[10px] text-on-surface-variant/50 flex items-center gap-2 hover:bg-surface-variant/40 transition-colors">
+<span class="material-symbols-outlined text-[13px]">account_circle</span>
 <span class="hidden sm:inline">Contacts</span>
 </div>
 </div>
-<div class="col-span-9 space-y-3 sm:space-y-4">
-<div class="flex justify-between items-center mb-1 sm:mb-2">
+<div class="col-span-9 space-y-4">
+<div class="flex justify-between items-center mb-2">
 <h3 class="font-headline font-bold text-xs sm:text-sm">Live Operations</h3>
 <div class="flex items-center gap-3">
-<span class="flex items-center gap-1.5 text-[9px] sm:text-[10px] text-secondary font-label">
-<span class="w-1.5 h-1.5 bg-secondary rounded-full animate-pulse"></span>
+<span class="flex items-center gap-1.5 text-[9px] sm:text-[10px] font-label" style="color:var(--sk)">
+<span class="w-1.5 h-1.5 rounded-full animate-pulse" style="background:var(--sk);box-shadow:0 0 6px var(--sk)"></span>
 All systems active
 </span>
-<span class="text-[9px] text-on-surface-variant/40 font-label hidden sm:block" id="live-clock">00:00 UTC</span>
+<span class="text-[9px] text-on-surface-variant/30 font-label hidden sm:block" id="clk">00:00 UTC</span>
 </div>
 </div>
-<div class="grid grid-cols-3 gap-2 sm:gap-3">
-<div class="bg-surface-container-high/60 p-2 sm:p-3 rounded-lg border border-outline-variant/15">
-<p class="text-[8px] sm:text-[9px] text-on-surface-variant/70 mb-1">Live Calls</p>
-<p class="text-base sm:text-xl font-headline font-bold counter-value" data-target="12">12</p>
-<div class="h-3 sm:h-4 flex items-end gap-0.5 mt-1 sm:mt-2">
-<div class="waveform-bar w-1 bg-primary/40" style="animation-delay:0.1s"></div>
-<div class="waveform-bar w-1 bg-primary/60" style="animation-delay:0.3s"></div>
-<div class="waveform-bar w-1 bg-primary" style="animation-delay:0.5s"></div>
-<div class="waveform-bar w-1 bg-primary/70" style="animation-delay:0.2s"></div>
-<div class="waveform-bar w-1 bg-primary/40" style="animation-delay:0.4s"></div>
+<div class="grid grid-cols-3 gap-3">
+<div class="bg-surface-container-high/50 p-3 rounded-xl border border-outline-variant/10">
+<p class="text-[8px] text-on-surface-variant/60 mb-1">Live Calls</p>
+<p class="text-base sm:text-xl font-headline font-bold tab-nums" data-n="12">12</p>
+<div class="h-4 flex items-end gap-[3px] mt-2">
+<div class="wave w-[3px]" style="background:var(--pk);opacity:.4;animation-delay:.1s"></div>
+<div class="wave w-[3px]" style="background:var(--pk);opacity:.6;animation-delay:.3s"></div>
+<div class="wave w-[3px]" style="background:var(--pk);animation-delay:.5s"></div>
+<div class="wave w-[3px]" style="background:var(--pk);opacity:.7;animation-delay:.2s"></div>
+<div class="wave w-[3px]" style="background:var(--pk);opacity:.4;animation-delay:.4s"></div>
 </div>
 </div>
-<div class="bg-surface-container-high/60 p-2 sm:p-3 rounded-lg border border-outline-variant/15">
-<p class="text-[8px] sm:text-[9px] text-on-surface-variant/70 mb-1">Calls Handled</p>
-<p class="text-base sm:text-xl font-headline font-bold counter-value" data-target="48">0</p>
-<p class="text-[7px] sm:text-[8px] text-secondary mt-1">+18% Today</p>
+<div class="bg-surface-container-high/50 p-3 rounded-xl border border-outline-variant/10">
+<p class="text-[8px] text-on-surface-variant/60 mb-1">Calls Handled</p>
+<p class="text-base sm:text-xl font-headline font-bold tab-nums" data-n="48">0</p>
+<p class="text-[7px] mt-1" style="color:var(--sk)">+18% Today</p>
 </div>
-<div class="bg-surface-container-high/60 p-2 sm:p-3 rounded-lg border border-outline-variant/15">
-<p class="text-[8px] sm:text-[9px] text-on-surface-variant/70 mb-1">Orders</p>
-<p class="text-base sm:text-xl font-headline font-bold counter-value" data-target="223">0</p>
-<p class="text-[7px] sm:text-[8px] text-secondary mt-1">+24% Today</p>
+<div class="bg-surface-container-high/50 p-3 rounded-xl border border-outline-variant/10">
+<p class="text-[8px] text-on-surface-variant/60 mb-1">Orders</p>
+<p class="text-base sm:text-xl font-headline font-bold tab-nums" data-n="223">0</p>
+<p class="text-[7px] mt-1" style="color:var(--sk)">+24% Today</p>
 </div>
 </div>
-<div class="bg-surface-container-highest/60 p-2 sm:p-3 rounded-lg border border-primary/15 relative overflow-hidden">
-<div class="absolute top-0 right-0 w-24 h-24 bg-primary/5 blur-3xl rounded-full pointer-events-none" aria-hidden="true"></div>
-<div class="flex justify-between items-center mb-2 sm:mb-3 relative">
-<div class="flex items-center gap-1.5 sm:gap-2">
-<span class="material-symbols-outlined text-primary text-sm">support_agent</span>
+<div class="bg-surface-container-highest/50 p-3 rounded-xl border border-primary/10 relative overflow-hidden">
+<div class="absolute top-0 right-0 w-24 h-24 bg-primary/4 blur-3xl rounded-full pointer-events-none" aria-hidden="true"></div>
+<div class="flex justify-between items-center mb-3 relative">
+<div class="flex items-center gap-2">
+<span class="material-symbols-outlined text-sm" style="color:var(--pk)">support_agent</span>
 <span class="text-[9px] sm:text-[10px] font-bold">Active Call: Customer #8292</span>
 </div>
-<span class="bg-primary/20 text-primary text-[7px] sm:text-[8px] px-1.5 py-0.5 rounded uppercase font-bold tracking-wider">Live</span>
+<span class="text-[7px] sm:text-[8px] px-1.5 py-0.5 rounded uppercase font-bold tracking-wider" style="background:rgba(255,45,120,.15);color:var(--pk)">Live</span>
 </div>
-<div class="space-y-1.5 sm:space-y-2 relative">
-<div class="flex gap-1.5 sm:gap-2">
-<div class="w-3 h-3 sm:w-4 sm:h-4 rounded-full bg-secondary/20 flex-shrink-0 mt-0.5 flex items-center justify-center">
-<span class="material-symbols-outlined text-[6px] text-secondary">person</span>
+<div class="space-y-2 relative">
+<div class="flex gap-2">
+<div class="w-4 h-4 rounded-full flex-shrink-0 mt-0.5 flex items-center justify-center" style="background:rgba(0,255,204,.15)">
+<span class="material-symbols-outlined text-[6px]" style="color:var(--sk)">person</span>
 </div>
-<div class="bg-surface-variant/50 p-1.5 sm:p-2 rounded-r-lg rounded-bl-lg text-[8px] sm:text-[9px] text-on-surface-variant/80 italic leading-relaxed max-w-[80%]">
+<div class="bg-surface-variant/40 p-2 rounded-r-lg rounded-bl-lg text-[8px] text-on-surface-variant/70 italic leading-relaxed max-w-[80%]">
 "I'd like to check the status of my recent shipment for order #9921."
 </div>
 </div>
-<div class="flex gap-1.5 sm:gap-2 justify-end">
-<div class="bg-primary/10 p-1.5 sm:p-2 rounded-l-lg rounded-br-lg text-[8px] sm:text-[9px] text-on-surface border border-primary/10 leading-relaxed max-w-[85%]">
+<div class="flex gap-2 justify-end">
+<div class="p-2 rounded-l-lg rounded-br-lg text-[8px] leading-relaxed max-w-[85%] border" style="background:rgba(255,45,120,.08);border-color:rgba(255,45,120,.08);color:var(--text)">
 "Checking order #9921 now. It's currently in transit and expected to arrive by Tuesday."
 </div>
-<div class="w-3 h-3 sm:w-4 sm:h-4 rounded-full bg-primary/20 flex-shrink-0 mt-0.5 flex items-center justify-center">
-<span class="material-symbols-outlined text-[6px] text-primary">smart_toy</span>
+<div class="w-4 h-4 rounded-full flex-shrink-0 mt-0.5 flex items-center justify-center" style="background:rgba(255,45,120,.15)">
+<span class="material-symbols-outlined text-[6px]" style="color:var(--pk)">smart_toy</span>
 </div>
 </div>
 </div>
@@ -431,127 +400,130 @@ All systems active
 </div>
 </section>
 
-<section class="py-12 sm:py-14 border-y border-outline-variant/10 relative overflow-hidden reveal" id="trusted">
-<div class="noise-layer"></div>
-<p class="text-center text-on-surface-variant/50 font-label text-[11px] tracking-[0.25em] uppercase mb-6 sm:mb-8 relative z-10">Trusted by industry leaders</p>
-<div class="marquee-track relative z-10">
-<div class="marquee-content">
-<div class="flex items-center gap-2 sm:gap-3 grayscale opacity-20 hover:grayscale-0 hover:opacity-80 transition-all duration-700 cursor-default group" role="img" aria-label="Zenith Tech">
-<span class="material-symbols-outlined text-2xl sm:text-3xl text-primary/60">token</span>
-<span class="font-headline font-bold text-lg sm:text-xl tracking-tight text-on-surface/60 group-hover:text-on-surface transition-colors">ZENITH-TECH</span>
+<section class="py-14 sm:py-16 border-y border-outline-variant/8 relative overflow-hidden fade-up" id="trusted">
+<div class="grain"></div>
+<p class="text-center text-on-surface-variant/40 font-label text-[11px] tracking-[.25em] uppercase mb-8 relative z-10">Trusted by industry leaders</p>
+<div class="marquee relative z-10">
+<div class="marquee-c">
+<div class="flex items-center gap-3 grayscale opacity-30 hover:grayscale-0 hover:opacity-100 transition-all duration-700 cursor-default group" role="img" aria-label="Zenith Tech">
+<span class="material-symbols-outlined text-2xl sm:text-3xl" style="color:var(--pk)">token</span>
+<span class="font-headline font-bold text-lg sm:text-xl tracking-tight text-on-surface/50 group-hover:text-on-surface transition-colors">ZENITH-TECH</span>
 </div>
-<div class="flex items-center gap-2 sm:gap-3 grayscale opacity-20 hover:grayscale-0 hover:opacity-80 transition-all duration-700 cursor-default group" role="img" aria-label="Nexus AI">
-<span class="material-symbols-outlined text-2xl sm:text-3xl text-secondary/60">polyline</span>
-<span class="font-headline font-bold text-lg sm:text-xl tracking-tight text-on-surface/60 group-hover:text-on-surface transition-colors">NEXUS_AI</span>
+<div class="flex items-center gap-3 grayscale opacity-30 hover:grayscale-0 hover:opacity-100 transition-all duration-700 cursor-default group" role="img" aria-label="Nexus AI">
+<span class="material-symbols-outlined text-2xl sm:text-3xl" style="color:var(--sk)">polyline</span>
+<span class="font-headline font-bold text-lg sm:text-xl tracking-tight text-on-surface/50 group-hover:text-on-surface transition-colors">NEXUS_AI</span>
 </div>
-<div class="flex items-center gap-2 sm:gap-3 grayscale opacity-20 hover:grayscale-0 hover:opacity-80 transition-all duration-700 cursor-default group" role="img" aria-label="Corp Core">
-<span class="material-symbols-outlined text-2xl sm:text-3xl text-tertiary/60">grid_view</span>
-<span class="font-headline font-bold text-lg sm:text-xl tracking-tight text-on-surface/60 group-hover:text-on-surface transition-colors">CORP_CORE</span>
+<div class="flex items-center gap-3 grayscale opacity-30 hover:grayscale-0 hover:opacity-100 transition-all duration-700 cursor-default group" role="img" aria-label="Corp Core">
+<span class="material-symbols-outlined text-2xl sm:text-3xl" style="color:var(--tk)">grid_view</span>
+<span class="font-headline font-bold text-lg sm:text-xl tracking-tight text-on-surface/50 group-hover:text-on-surface transition-colors">CORP_CORE</span>
 </div>
-<div class="flex items-center gap-2 sm:gap-3 grayscale opacity-20 hover:grayscale-0 hover:opacity-80 transition-all duration-700 cursor-default group" role="img" aria-label="Platform X">
-<span class="material-symbols-outlined text-2xl sm:text-3xl text-primary/60">hub</span>
-<span class="font-headline font-bold text-lg sm:text-xl tracking-tight text-on-surface/60 group-hover:text-on-surface transition-colors">PLATFORM_X</span>
+<div class="flex items-center gap-3 grayscale opacity-30 hover:grayscale-0 hover:opacity-100 transition-all duration-700 cursor-default group" role="img" aria-label="Platform X">
+<span class="material-symbols-outlined text-2xl sm:text-3xl" style="color:var(--pk)">hub</span>
+<span class="font-headline font-bold text-lg sm:text-xl tracking-tight text-on-surface/50 group-hover:text-on-surface transition-colors">PLATFORM_X</span>
 </div>
-<div class="flex items-center gap-2 sm:gap-3 grayscale opacity-20 hover:grayscale-0 hover:opacity-80 transition-all duration-700 cursor-default group" role="img" aria-label="Zenith Tech">
-<span class="material-symbols-outlined text-2xl sm:text-3xl text-primary/60">token</span>
-<span class="font-headline font-bold text-lg sm:text-xl tracking-tight text-on-surface/60 group-hover:text-on-surface transition-colors">ZENITH-TECH</span>
+<div class="flex items-center gap-3 grayscale opacity-30 hover:grayscale-0 hover:opacity-100 transition-all duration-700 cursor-default group" role="img" aria-label="Zenith Tech">
+<span class="material-symbols-outlined text-2xl sm:text-3xl" style="color:var(--pk)">token</span>
+<span class="font-headline font-bold text-lg sm:text-xl tracking-tight text-on-surface/50 group-hover:text-on-surface transition-colors">ZENITH-TECH</span>
 </div>
-<div class="flex items-center gap-2 sm:gap-3 grayscale opacity-20 hover:grayscale-0 hover:opacity-80 transition-all duration-700 cursor-default group" role="img" aria-label="Nexus AI">
-<span class="material-symbols-outlined text-2xl sm:text-3xl text-secondary/60">polyline</span>
-<span class="font-headline font-bold text-lg sm:text-xl tracking-tight text-on-surface/60 group-hover:text-on-surface transition-colors">NEXUS_AI</span>
+<div class="flex items-center gap-3 grayscale opacity-30 hover:grayscale-0 hover:opacity-100 transition-all duration-700 cursor-default group" role="img" aria-label="Nexus AI">
+<span class="material-symbols-outlined text-2xl sm:text-3xl" style="color:var(--sk)">polyline</span>
+<span class="font-headline font-bold text-lg sm:text-xl tracking-tight text-on-surface/50 group-hover:text-on-surface transition-colors">NEXUS_AI</span>
 </div>
-<div class="flex items-center gap-2 sm:gap-3 grayscale opacity-20 hover:grayscale-0 hover:opacity-80 transition-all duration-700 cursor-default group" role="img" aria-label="Corp Core">
-<span class="material-symbols-outlined text-2xl sm:text-3xl text-tertiary/60">grid_view</span>
-<span class="font-headline font-bold text-lg sm:text-xl tracking-tight text-on-surface/60 group-hover:text-on-surface transition-colors">CORP_CORE</span>
-</div>
-</div>
-</div>
-</section>
-
-<section class="py-20 sm:py-28 lg:py-32 relative grid-bg" id="platform">
-<div class="noise-layer"></div>
-<div class="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-<div class="text-center mb-14 sm:mb-20 reveal">
-<div class="inline-flex items-center gap-2 bg-secondary/5 border border-secondary/10 rounded-full px-4 py-1.5 mb-4 sm:mb-5">
-<span class="font-label text-secondary text-[11px] tracking-[0.2em] uppercase">Platform</span>
-</div>
-<h2 class="font-headline font-bold fluid-h2 mb-4 sm:mb-5 tracking-tight text-balance">Enterprise Grade <span class="gradient-text-pink">Intelligence</span></h2>
-<p class="text-on-surface-variant text-base sm:text-lg max-w-2xl mx-auto font-body">Standardize every customer interaction with surgical precision and persistent context.</p>
-</div>
-<div class="grid sm:grid-cols-2 lg:grid-cols-3 gap-5 sm:gap-6 lg:gap-8 stagger-children" id="features-grid">
-<div class="gradient-border-card p-6 sm:p-8 transition-all duration-500 group hover:-translate-y-1.5">
-<div class="w-12 h-12 sm:w-14 sm:h-14 bg-surface-container-high rounded-xl flex items-center justify-center mb-5 sm:mb-6 border border-outline-variant/20 group-hover:scale-110 transition-transform duration-500 relative">
-<div class="absolute inset-0 bg-secondary/5 blur-lg rounded-xl group-hover:bg-secondary/10 transition-all"></div>
-<span class="material-symbols-outlined text-secondary text-2xl sm:text-3xl relative z-10" style="font-variation-settings:'FILL'1">waves</span>
-</div>
-<h3 class="font-headline font-bold text-lg sm:text-xl mb-3 sm:mb-4">Unmatched Consistency</h3>
-<p class="text-on-surface-variant text-sm sm:text-base leading-relaxed">Ensure every agent adheres to brand protocols perfectly. Zero variability in tone, accuracy, or professional compliance.</p>
-</div>
-<div class="gradient-border-card p-6 sm:p-8 transition-all duration-500 group hover:-translate-y-1.5">
-<div class="w-12 h-12 sm:w-14 sm:h-14 bg-surface-container-high rounded-xl flex items-center justify-center mb-5 sm:mb-6 border border-outline-variant/20 group-hover:scale-110 transition-transform duration-500 relative">
-<div class="absolute inset-0 bg-primary/5 blur-lg rounded-xl group-hover:bg-primary/10 transition-all"></div>
-<span class="material-symbols-outlined text-primary text-2xl sm:text-3xl relative z-10" style="font-variation-settings:'FILL'1">database</span>
-</div>
-<h3 class="font-headline font-bold text-lg sm:text-xl mb-3 sm:mb-4">Operational Memory</h3>
-<p class="text-on-surface-variant text-sm sm:text-base leading-relaxed">Integrated real-time database access allows agents to remember history, preferences, and complex order details across sessions.</p>
-</div>
-<div class="gradient-border-card p-6 sm:p-8 transition-all duration-500 group hover:-translate-y-1.5">
-<div class="w-12 h-12 sm:w-14 sm:h-14 bg-surface-container-high rounded-xl flex items-center justify-center mb-5 sm:mb-6 border border-outline-variant/20 group-hover:scale-110 transition-transform duration-500 relative">
-<div class="absolute inset-0 bg-tertiary/5 blur-lg rounded-xl group-hover:bg-tertiary/10 transition-all"></div>
-<span class="material-symbols-outlined text-tertiary text-2xl sm:text-3xl relative z-10" style="font-variation-settings:'FILL'1">shield_lock</span>
-</div>
-<h3 class="font-headline font-bold text-lg sm:text-xl mb-3 sm:mb-4">Strategic Control</h3>
-<p class="text-on-surface-variant text-sm sm:text-base leading-relaxed">Complete visibility into every dialogue path. Instant audit logs and real-time intervention for edge cases.</p>
+<div class="flex items-center gap-3 grayscale opacity-30 hover:grayscale-0 hover:opacity-100 transition-all duration-700 cursor-default group" role="img" aria-label="Corp Core">
+<span class="material-symbols-outlined text-2xl sm:text-3xl" style="color:var(--tk)">grid_view</span>
+<span class="font-headline font-bold text-lg sm:text-xl tracking-tight text-on-surface/50 group-hover:text-on-surface transition-colors">CORP_CORE</span>
 </div>
 </div>
 </div>
 </section>
 
-<section class="py-20 sm:py-28 lg:py-32 bg-surface-container-lowest relative overflow-hidden" id="solutions">
-<div class="absolute top-0 left-0 w-72 h-72 bg-primary/4 blur-[120px] rounded-full pointer-events-none" aria-hidden="true"></div>
-<div class="absolute bottom-0 right-0 w-72 h-72 bg-secondary/4 blur-[120px] rounded-full pointer-events-none" aria-hidden="true"></div>
-<div class="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 grid lg:grid-cols-2 gap-12 lg:gap-20 items-center">
-<div class="reveal-left">
-<div class="inline-flex items-center gap-2 bg-secondary/5 border border-secondary/10 rounded-full px-4 py-1.5 mb-4 sm:mb-5">
-<span class="font-label text-secondary text-[11px] tracking-[0.2em] uppercase">Scale</span>
+<section class="py-24 sm:py-32 lg:py-36 relative grid-bg" id="p">
+<div class="grain"></div>
+<div class="relative z-10 max-w-7xl mx-auto px-5 sm:px-8 lg:px-10">
+<div class="text-center mb-16 sm:mb-24 fade-up">
+<div class="inline-flex items-center gap-2 px-4 py-1.5 mb-5 rounded-full" style="border:1px solid rgba(0,255,204,.1);background:rgba(0,255,204,.04)">
+<span class="font-label text-[11px] tracking-[.2em] uppercase" style="color:var(--sk)">Platform</span>
+</div>
+<h2 class="font-headline font-bold fluid-h2 mb-5 tracking-tight text-balance">Enterprise Grade <span class="grad-pink">Intelligence</span></h2>
+<p class="text-on-surface-variant/70 text-base sm:text-lg max-w-2xl mx-auto font-body">Standardize every customer interaction with surgical precision and persistent context.</p>
+</div>
+<div class="grid sm:grid-cols-2 lg:grid-cols-3 gap-6 sm:gap-8 stg" id="fg">
+<div class="grad-card p-8 transition-all duration-500 group cursor-default">
+<div class="absolute top-0 right-0 w-32 h-32 pointer-events-none transition-all duration-500" style="background:radial-gradient(circle,rgba(0,255,204,.03) 0%,transparent 70%)"></div>
+<div class="w-14 h-14 rounded-xl flex items-center justify-center mb-6 border group-hover:scale-110 transition-transform duration-500 relative" style="background:rgba(30,30,48,.6);border-color:rgba(255,255,255,.05)">
+<div class="absolute inset-0 blur-lg rounded-xl transition-all" style="background:rgba(0,255,204,.04)"></div>
+<span class="material-symbols-outlined text-2xl sm:text-3xl relative z-10" style="color:var(--sk);font-variation-settings:'FILL'1">waves</span>
+</div>
+<h3 class="font-headline font-bold text-lg sm:text-xl mb-4">Unmatched Consistency</h3>
+<p class="text-on-surface-variant/70 text-sm sm:text-base leading-relaxed">Ensure every agent adheres to brand protocols perfectly. Zero variability in tone, accuracy, or professional compliance.</p>
+</div>
+<div class="grad-card p-8 transition-all duration-500 group cursor-default">
+<div class="absolute top-0 right-0 w-32 h-32 pointer-events-none transition-all duration-500" style="background:radial-gradient(circle,rgba(255,45,120,.03) 0%,transparent 70%)"></div>
+<div class="w-14 h-14 rounded-xl flex items-center justify-center mb-6 border group-hover:scale-110 transition-transform duration-500 relative" style="background:rgba(30,30,48,.6);border-color:rgba(255,255,255,.05)">
+<div class="absolute inset-0 blur-lg rounded-xl transition-all" style="background:rgba(255,45,120,.04)"></div>
+<span class="material-symbols-outlined text-2xl sm:text-3xl relative z-10" style="color:var(--pk);font-variation-settings:'FILL'1">database</span>
+</div>
+<h3 class="font-headline font-bold text-lg sm:text-xl mb-4">Operational Memory</h3>
+<p class="text-on-surface-variant/70 text-sm sm:text-base leading-relaxed">Integrated real-time database access allows agents to remember history, preferences, and complex order details across sessions.</p>
+</div>
+<div class="grad-card p-8 transition-all duration-500 group cursor-default">
+<div class="absolute top-0 right-0 w-32 h-32 pointer-events-none transition-all duration-500" style="background:radial-gradient(circle,rgba(255,224,74,.03) 0%,transparent 70%)"></div>
+<div class="w-14 h-14 rounded-xl flex items-center justify-center mb-6 border group-hover:scale-110 transition-transform duration-500 relative" style="background:rgba(30,30,48,.6);border-color:rgba(255,255,255,.05)">
+<div class="absolute inset-0 blur-lg rounded-xl transition-all" style="background:rgba(255,224,74,.04)"></div>
+<span class="material-symbols-outlined text-2xl sm:text-3xl relative z-10" style="color:var(--tk);font-variation-settings:'FILL'1">shield_lock</span>
+</div>
+<h3 class="font-headline font-bold text-lg sm:text-xl mb-4">Strategic Control</h3>
+<p class="text-on-surface-variant/70 text-sm sm:text-base leading-relaxed">Complete visibility into every dialogue path. Instant audit logs and real-time intervention for edge cases.</p>
+</div>
+</div>
+</div>
+</section>
+
+<section class="py-24 sm:py-32 lg:py-36 relative overflow-hidden" style="background:var(--bg)" id="s">
+<div class="absolute top-0 left-0 w-80 h-80 pointer-events-none" style="background:radial-gradient(circle,rgba(255,45,120,.03) 0%,transparent 70%);"></div>
+<div class="absolute bottom-0 right-0 w-80 h-80 pointer-events-none" style="background:radial-gradient(circle,rgba(0,255,204,.03) 0%,transparent 70%);"></div>
+<div class="relative z-10 max-w-7xl mx-auto px-5 sm:px-8 lg:px-10 grid lg:grid-cols-2 gap-14 lg:gap-24 items-center">
+<div class="fade-l">
+<div class="inline-flex items-center gap-2 px-4 py-1.5 mb-5 rounded-full" style="border:1px solid rgba(0,255,204,.1);background:rgba(0,255,204,.04)">
+<span class="font-label text-[11px] tracking-[.2em] uppercase" style="color:var(--sk)">Scale</span>
 </div>
 <h2 class="font-headline font-extrabold fluid-h2 mb-6 tracking-tight leading-tight text-balance">
-Built for <span class="gradient-text">Scale.</span>
+Built for <span class="grad-anim">Scale.</span>
 </h2>
-<p class="text-on-surface-variant text-base sm:text-lg lg:text-xl leading-relaxed mb-8">
+<p class="text-on-surface-variant/70 text-base sm:text-lg lg:text-xl leading-relaxed mb-8">
 Handle 10,000+ simultaneous inquiries without breaking a sweat. VoxFlow's infrastructure is distributed across low-latency edge nodes for instantaneous response times.
 </p>
-<div class="flex flex-wrap items-center gap-4 sm:gap-6">
+<div class="flex flex-wrap items-center gap-5">
 <div class="flex -space-x-3">
-<div class="w-9 h-9 sm:w-10 sm:h-10 rounded-full border-2 border-background bg-gradient-to-br from-surface-variant to-surface-container-high" aria-hidden="true"></div>
-<div class="w-9 h-9 sm:w-10 sm:h-10 rounded-full border-2 border-background bg-gradient-to-br from-primary to-primary/60" aria-hidden="true"></div>
-<div class="w-9 h-9 sm:w-10 sm:h-10 rounded-full border-2 border-background bg-gradient-to-br from-secondary to-secondary/60" aria-hidden="true"></div>
+<div class="w-10 h-10 rounded-full border-2 border-background" style="background:linear-gradient(135deg,var(--pk),rgba(255,45,120,.4))"></div>
+<div class="w-10 h-10 rounded-full border-2 border-background" style="background:linear-gradient(135deg,var(--sk),rgba(0,255,204,.4))"></div>
+<div class="w-10 h-10 rounded-full border-2 border-background" style="background:linear-gradient(135deg,var(--tk),rgba(255,224,74,.4))"></div>
 </div>
-<p class="text-xs sm:text-sm font-label text-on-surface-variant"><span class="text-on-surface font-bold counter-value" data-target="2400000">0</span> interactions handled this month</p>
+<p class="text-xs sm:text-sm font-label text-on-surface-variant/70"><span class="text-on-surface font-bold tab-nums" data-n="2400000">0</span> interactions handled this month</p>
 </div>
 </div>
-<div class="relative reveal-right">
-<div class="relative gradient-border-card p-4 sm:p-6 lg:p-8">
-<div class="grid grid-cols-2 gap-3 sm:gap-5 relative">
-<div class="bg-surface-container-high/50 rounded-xl p-4 sm:p-6 border border-outline-variant/15 text-center hover:border-primary/20 transition-colors">
-<span class="material-symbols-outlined text-primary text-3xl sm:text-4xl mb-2" style="font-variation-settings:'FILL'1">cloud</span>
-<p class="text-lg sm:text-2xl font-headline font-bold counter-value" data-target="99.99">0</p>
-<p class="text-[10px] sm:text-xs text-on-surface-variant/70">Uptime SLA</p>
+<div class="relative fade-r">
+<div class="relative grad-card p-6 sm:p-8">
+<div class="grid grid-cols-2 gap-4 sm:gap-6 relative">
+<div class="rounded-xl p-5 sm:p-7 border text-center transition-colors hover:border-primary/15" style="background:rgba(40,40,62,.4);border-color:rgba(255,255,255,.05)">
+<span class="material-symbols-outlined text-3xl sm:text-4xl mb-3" style="color:var(--pk);font-variation-settings:'FILL'1">cloud</span>
+<p class="text-lg sm:text-2xl font-headline font-bold tab-nums" data-n="99.99">0</p>
+<p class="text-[10px] sm:text-xs text-on-surface-variant/60">Uptime SLA</p>
 </div>
-<div class="bg-surface-container-high/50 rounded-xl p-4 sm:p-6 border border-outline-variant/15 text-center hover:border-secondary/20 transition-colors">
-<span class="material-symbols-outlined text-secondary text-3xl sm:text-4xl mb-2" style="font-variation-settings:'FILL'1">bolt</span>
+<div class="rounded-xl p-5 sm:p-7 border text-center transition-colors hover:border-secondary/15" style="background:rgba(40,40,62,.4);border-color:rgba(255,255,255,.05)">
+<span class="material-symbols-outlined text-3xl sm:text-4xl mb-3" style="color:var(--sk);font-variation-settings:'FILL'1">bolt</span>
 <p class="text-lg sm:text-2xl font-headline font-bold">&lt;50ms</p>
-<p class="text-[10px] sm:text-xs text-on-surface-variant/70">Avg Response</p>
+<p class="text-[10px] sm:text-xs text-on-surface-variant/60">Avg Response</p>
 </div>
-<div class="bg-surface-container-high/50 rounded-xl p-4 sm:p-6 border border-outline-variant/15 text-center hover:border-tertiary/20 transition-colors">
-<span class="material-symbols-outlined text-tertiary text-3xl sm:text-4xl mb-2" style="font-variation-settings:'FILL'1">language</span>
+<div class="rounded-xl p-5 sm:p-7 border text-center transition-colors hover:border-tertiary/15" style="background:rgba(40,40,62,.4);border-color:rgba(255,255,255,.05)">
+<span class="material-symbols-outlined text-3xl sm:text-4xl mb-3" style="color:var(--tk);font-variation-settings:'FILL'1">language</span>
 <p class="text-lg sm:text-2xl font-headline font-bold">50+</p>
-<p class="text-[10px] sm:text-xs text-on-surface-variant/70">Languages</p>
+<p class="text-[10px] sm:text-xs text-on-surface-variant/60">Languages</p>
 </div>
-<div class="bg-surface-container-high/50 rounded-xl p-4 sm:p-6 border border-outline-variant/15 text-center hover:border-primary/20 transition-colors">
-<span class="material-symbols-outlined text-primary text-3xl sm:text-4xl mb-2" style="font-variation-settings:'FILL'1">verified</span>
+<div class="rounded-xl p-5 sm:p-7 border text-center transition-colors hover:border-primary/15" style="background:rgba(40,40,62,.4);border-color:rgba(255,255,255,.05)">
+<span class="material-symbols-outlined text-3xl sm:text-4xl mb-3" style="color:var(--pk);font-variation-settings:'FILL'1">verified</span>
 <p class="text-lg sm:text-2xl font-headline font-bold">SOC 2</p>
-<p class="text-[10px] sm:text-xs text-on-surface-variant/70">Type II Certified</p>
+<p class="text-[10px] sm:text-xs text-on-surface-variant/60">Type II Certified</p>
 </div>
 </div>
 </div>
@@ -559,95 +531,95 @@ Handle 10,000+ simultaneous inquiries without breaking a sweat. VoxFlow's infras
 </div>
 </section>
 
-<section class="py-16 sm:py-20 lg:py-24 border-t border-outline-variant/15 relative reveal" id="stats">
-<div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+<section class="py-20 sm:py-24 lg:py-28 border-t border-outline-variant/10 relative fade-up" id="stats">
+<div class="max-w-7xl mx-auto px-5 sm:px-8 lg:px-10">
 <div class="grid grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6">
-<div class="text-center p-5 sm:p-8 rounded-2xl glass-card relative">
-<div class="absolute top-0 right-0 w-16 h-16 bg-primary/5 blur-2xl rounded-full pointer-events-none"></div>
-<p class="text-3xl sm:text-4xl lg:text-5xl font-headline font-black text-primary mb-1 sm:mb-2 neon-text"><span class="counter-value" data-target="99.8">0</span>%</p>
-<p class="text-[10px] sm:text-xs font-label tracking-widest uppercase text-on-surface-variant/70">Transcription Accuracy</p>
+<div class="text-center p-6 sm:p-8 rounded-2xl neon-card relative">
+<div class="absolute top-0 right-0 w-16 h-16 pointer-events-none" style="background:radial-gradient(circle,rgba(255,45,120,.06) 0%,transparent 70%)"></div>
+<p class="text-3xl sm:text-4xl lg:text-5xl font-headline font-black mb-2 neon-hover tab-nums" style="color:var(--pk)" data-n="99.8">0</p>
+<p class="text-[10px] sm:text-xs font-label tracking-widest uppercase text-on-surface-variant/60">Transcription Accuracy</p>
 </div>
-<div class="text-center p-5 sm:p-8 rounded-2xl glass-card relative">
-<div class="absolute top-0 right-0 w-16 h-16 bg-secondary/5 blur-2xl rounded-full pointer-events-none"></div>
-<p class="text-3xl sm:text-4xl lg:text-5xl font-headline font-black text-secondary mb-1 sm:mb-2 neon-text">&lt;100<span class="counter-value" data-target="0">0</span>ms</p>
-<p class="text-[10px] sm:text-xs font-label tracking-widest uppercase text-on-surface-variant/70">Global Latency</p>
+<div class="text-center p-6 sm:p-8 rounded-2xl neon-card relative">
+<div class="absolute top-0 right-0 w-16 h-16 pointer-events-none" style="background:radial-gradient(circle,rgba(0,255,204,.06) 0%,transparent 70%)"></div>
+<p class="text-3xl sm:text-4xl lg:text-5xl font-headline font-black mb-2 neon-hover" style="color:var(--sk)">&lt;100<span class="tab-nums" data-n="0">0</span></p>
+<p class="text-[10px] sm:text-xs font-label tracking-widest uppercase text-on-surface-variant/60">Global Latency (ms)</p>
 </div>
-<div class="text-center p-5 sm:p-8 rounded-2xl glass-card relative">
-<div class="absolute top-0 right-0 w-16 h-16 bg-tertiary/5 blur-2xl rounded-full pointer-events-none"></div>
-<p class="text-3xl sm:text-4xl lg:text-5xl font-headline font-black text-tertiary mb-1 sm:mb-2">SOC2</p>
-<p class="text-[10px] sm:text-xs font-label tracking-widest uppercase text-on-surface-variant/70">Type II Security</p>
+<div class="text-center p-6 sm:p-8 rounded-2xl neon-card relative">
+<div class="absolute top-0 right-0 w-16 h-16 pointer-events-none" style="background:radial-gradient(circle,rgba(255,224,74,.06) 0%,transparent 70%)"></div>
+<p class="text-3xl sm:text-4xl lg:text-5xl font-headline font-black mb-2" style="color:var(--tk)">SOC2</p>
+<p class="text-[10px] sm:text-xs font-label tracking-widest uppercase text-on-surface-variant/60">Type II Security</p>
 </div>
-<div class="text-center p-5 sm:p-8 rounded-2xl glass-card relative">
-<div class="absolute top-0 right-0 w-16 h-16 bg-primary/5 blur-2xl rounded-full pointer-events-none"></div>
-<p class="text-3xl sm:text-4xl lg:text-5xl font-headline font-black text-on-surface mb-1 sm:mb-2"><span class="counter-value" data-target="50">0</span>+</p>
-<p class="text-[10px] sm:text-xs font-label tracking-widest uppercase text-on-surface-variant/70">Languages Supported</p>
+<div class="text-center p-6 sm:p-8 rounded-2xl neon-card relative">
+<div class="absolute top-0 right-0 w-16 h-16 pointer-events-none" style="background:radial-gradient(circle,rgba(255,45,120,.06) 0%,transparent 70%)"></div>
+<p class="text-3xl sm:text-4xl lg:text-5xl font-headline font-black mb-2"><span class="tab-nums" data-n="50">0</span>+</p>
+<p class="text-[10px] sm:text-xs font-label tracking-widest uppercase text-on-surface-variant/60">Languages Supported</p>
 </div>
 </div>
 </div>
 </section>
 
-<section class="py-20 sm:py-28 lg:py-32 relative grid-bg" id="network">
-<div class="noise-layer"></div>
-<div class="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-<div class="text-center mb-14 sm:mb-20 reveal">
-<div class="inline-flex items-center gap-2 bg-secondary/5 border border-secondary/10 rounded-full px-4 py-1.5 mb-4 sm:mb-5">
-<span class="font-label text-secondary text-[11px] tracking-[0.2em] uppercase">Integrations</span>
+<section class="py-24 sm:py-32 lg:py-36 relative grid-bg" id="n">
+<div class="grain"></div>
+<div class="relative z-10 max-w-7xl mx-auto px-5 sm:px-8 lg:px-10">
+<div class="text-center mb-16 sm:mb-24 fade-up">
+<div class="inline-flex items-center gap-2 px-4 py-1.5 mb-5 rounded-full" style="border:1px solid rgba(0,255,204,.1);background:rgba(0,255,204,.04)">
+<span class="font-label text-[11px] tracking-[.2em] uppercase" style="color:var(--sk)">Integrations</span>
 </div>
-<h2 class="font-headline font-bold fluid-h2 mb-4 sm:mb-5 tracking-tight text-balance">Seamless <span class="gradient-text-pink">Connectivity</span></h2>
-<p class="text-on-surface-variant text-base sm:text-lg max-w-2xl mx-auto font-body">VoxFlow plugs directly into your existing stack. No rip and replace.</p>
+<h2 class="font-headline font-bold fluid-h2 mb-5 tracking-tight text-balance">Seamless <span class="grad-pink">Connectivity</span></h2>
+<p class="text-on-surface-variant/70 text-base sm:text-lg max-w-2xl mx-auto font-body">VoxFlow plugs directly into your existing stack. No rip and replace.</p>
 </div>
-<div class="grid sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6 stagger-children" id="integrations-grid">
-<div class="glass-card rounded-xl sm:rounded-2xl p-5 sm:p-8 text-center group cursor-default relative overflow-hidden">
-<div class="w-12 h-12 sm:w-16 sm:h-16 bg-surface-container-high rounded-2xl flex items-center justify-center mx-auto mb-4 sm:mb-5 border border-outline-variant/20 group-hover:scale-110 transition-transform duration-500 relative">
-<div class="absolute inset-0 bg-secondary/5 blur-lg rounded-2xl group-hover:bg-secondary/10 transition-all"></div>
-<span class="material-symbols-outlined text-secondary text-2xl sm:text-3xl relative z-10" style="font-variation-settings:'FILL'1">salesforce</span>
+<div class="grid sm:grid-cols-2 lg:grid-cols-4 gap-5 sm:gap-6 stg">
+<div class="neon-card rounded-xl sm:rounded-2xl p-6 sm:p-8 text-center group cursor-default relative overflow-hidden">
+<div class="w-14 h-14 sm:w-16 sm:h-16 rounded-2xl flex items-center justify-center mx-auto mb-5 border group-hover:scale-110 transition-transform duration-500 relative" style="background:rgba(30,30,48,.6);border-color:rgba(255,255,255,.05)">
+<div class="absolute inset-0 blur-lg rounded-2xl transition-all" style="background:rgba(0,255,204,.04)"></div>
+<span class="material-symbols-outlined text-2xl sm:text-3xl relative z-10" style="color:var(--sk);font-variation-settings:'FILL'1">salesforce</span>
 </div>
 <h4 class="font-headline font-bold text-sm sm:text-base">CRM Sync</h4>
-<p class="text-on-surface-variant/70 text-xs sm:text-sm mt-1 sm:mt-2">Real-time contact &amp; deal updates</p>
+<p class="text-on-surface-variant/60 text-xs sm:text-sm mt-2">Real-time contact &amp; deal updates</p>
 </div>
-<div class="glass-card rounded-xl sm:rounded-2xl p-5 sm:p-8 text-center group cursor-default relative overflow-hidden">
-<div class="w-12 h-12 sm:w-16 sm:h-16 bg-surface-container-high rounded-2xl flex items-center justify-center mx-auto mb-4 sm:mb-5 border border-outline-variant/20 group-hover:scale-110 transition-transform duration-500 relative">
-<div class="absolute inset-0 bg-secondary/5 blur-lg rounded-2xl group-hover:bg-secondary/10 transition-all"></div>
-<span class="material-symbols-outlined text-secondary text-2xl sm:text-3xl relative z-10" style="font-variation-settings:'FILL'1">chat</span>
+<div class="neon-card rounded-xl sm:rounded-2xl p-6 sm:p-8 text-center group cursor-default relative overflow-hidden">
+<div class="w-14 h-14 sm:w-16 sm:h-16 rounded-2xl flex items-center justify-center mx-auto mb-5 border group-hover:scale-110 transition-transform duration-500 relative" style="background:rgba(30,30,48,.6);border-color:rgba(255,255,255,.05)">
+<div class="absolute inset-0 blur-lg rounded-2xl transition-all" style="background:rgba(0,255,204,.04)"></div>
+<span class="material-symbols-outlined text-2xl sm:text-3xl relative z-10" style="color:var(--sk);font-variation-settings:'FILL'1">chat</span>
 </div>
 <h4 class="font-headline font-bold text-sm sm:text-base">Slack &amp; Teams</h4>
-<p class="text-on-surface-variant/70 text-xs sm:text-sm mt-1 sm:mt-2">Dispatch alerts &amp; summaries</p>
+<p class="text-on-surface-variant/60 text-xs sm:text-sm mt-2">Dispatch alerts &amp; summaries</p>
 </div>
-<div class="glass-card rounded-xl sm:rounded-2xl p-5 sm:p-8 text-center group cursor-default relative overflow-hidden">
-<div class="w-12 h-12 sm:w-16 sm:h-16 bg-surface-container-high rounded-2xl flex items-center justify-center mx-auto mb-4 sm:mb-5 border border-outline-variant/20 group-hover:scale-110 transition-transform duration-500 relative">
-<div class="absolute inset-0 bg-secondary/5 blur-lg rounded-2xl group-hover:bg-secondary/10 transition-all"></div>
-<span class="material-symbols-outlined text-secondary text-2xl sm:text-3xl relative z-10" style="font-variation-settings:'FILL'1">database</span>
+<div class="neon-card rounded-xl sm:rounded-2xl p-6 sm:p-8 text-center group cursor-default relative overflow-hidden">
+<div class="w-14 h-14 sm:w-16 sm:h-16 rounded-2xl flex items-center justify-center mx-auto mb-5 border group-hover:scale-110 transition-transform duration-500 relative" style="background:rgba(30,30,48,.6);border-color:rgba(255,255,255,.05)">
+<div class="absolute inset-0 blur-lg rounded-2xl transition-all" style="background:rgba(0,255,204,.04)"></div>
+<span class="material-symbols-outlined text-2xl sm:text-3xl relative z-10" style="color:var(--sk);font-variation-settings:'FILL'1">database</span>
 </div>
 <h4 class="font-headline font-bold text-sm sm:text-base">Data Warehouses</h4>
-<p class="text-on-surface-variant/70 text-xs sm:text-sm mt-1 sm:mt-2">Snowflake, BigQuery, Redshift</p>
+<p class="text-on-surface-variant/60 text-xs sm:text-sm mt-2">Snowflake, BigQuery, Redshift</p>
 </div>
-<div class="glass-card rounded-xl sm:rounded-2xl p-5 sm:p-8 text-center group cursor-default relative overflow-hidden">
-<div class="w-12 h-12 sm:w-16 sm:h-16 bg-surface-container-high rounded-2xl flex items-center justify-center mx-auto mb-4 sm:mb-5 border border-outline-variant/20 group-hover:scale-110 transition-transform duration-500 relative">
-<div class="absolute inset-0 bg-secondary/5 blur-lg rounded-2xl group-hover:bg-secondary/10 transition-all"></div>
-<span class="material-symbols-outlined text-secondary text-2xl sm:text-3xl relative z-10" style="font-variation-settings:'FILL'1">api</span>
+<div class="neon-card rounded-xl sm:rounded-2xl p-6 sm:p-8 text-center group cursor-default relative overflow-hidden">
+<div class="w-14 h-14 sm:w-16 sm:h-16 rounded-2xl flex items-center justify-center mx-auto mb-5 border group-hover:scale-110 transition-transform duration-500 relative" style="background:rgba(30,30,48,.6);border-color:rgba(255,255,255,.05)">
+<div class="absolute inset-0 blur-lg rounded-2xl transition-all" style="background:rgba(0,255,204,.04)"></div>
+<span class="material-symbols-outlined text-2xl sm:text-3xl relative z-10" style="color:var(--sk);font-variation-settings:'FILL'1">api</span>
 </div>
 <h4 class="font-headline font-bold text-sm sm:text-base">REST &amp; Webhook</h4>
-<p class="text-on-surface-variant/70 text-xs sm:text-sm mt-1 sm:mt-2">Custom integrations API</p>
+<p class="text-on-surface-variant/60 text-xs sm:text-sm mt-2">Custom integrations API</p>
 </div>
 </div>
 </div>
 </section>
 
-<section class="py-16 sm:py-20 lg:py-24 relative reveal" id="testimonial">
-<div class="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
-<div class="gradient-border-card p-8 sm:p-12 lg:p-16 relative overflow-hidden">
-<div class="absolute top-0 left-1/2 -translate-x-1/2 w-56 h-56 bg-primary/5 blur-[100px] rounded-full pointer-events-none" aria-hidden="true"></div>
-<div class="absolute bottom-0 right-0 w-40 h-40 bg-secondary/5 blur-[80px] rounded-full pointer-events-none" aria-hidden="true"></div>
+<section class="py-20 sm:py-24 lg:py-28 relative fade-up" id="t">
+<div class="max-w-4xl mx-auto px-5 sm:px-8 lg:px-10 text-center">
+<div class="grad-card p-10 sm:p-14 lg:p-18 relative overflow-hidden">
+<div class="absolute top-0 left-1/2 -translate-x-1/2 w-56 h-56 pointer-events-none" style="background:radial-gradient(circle,rgba(255,45,120,.04) 0%,transparent 70%)"></div>
+<div class="absolute bottom-0 right-0 w-40 h-40 pointer-events-none" style="background:radial-gradient(circle,rgba(0,255,204,.04) 0%,transparent 70%)"></div>
 <div class="relative">
-<span class="material-symbols-outlined text-primary/15 text-5xl sm:text-6xl block mb-4 sm:mb-6" style="font-variation-settings:'FILL'1">format_quote</span>
-<blockquote class="text-lg sm:text-xl lg:text-2xl font-body leading-relaxed text-on-surface mb-6 sm:mb-8 italic">
+<span class="material-symbols-outlined text-5xl sm:text-6xl block mb-6" style="color:rgba(255,45,120,.12);font-variation-settings:'FILL'1">format_quote</span>
+<blockquote class="text-lg sm:text-xl lg:text-2xl font-body leading-relaxed mb-8 italic text-on-surface/90">
 "VoxFlow transformed our call center overnight. We scaled from 50 to 5,000 daily calls without adding a single agent. The accuracy is unreal."
 </blockquote>
-<div class="flex items-center justify-center gap-3 sm:gap-4">
-<div class="w-10 h-10 sm:w-12 sm:h-12 rounded-full bg-gradient-to-br from-primary to-secondary flex items-center justify-center text-white font-headline font-bold text-sm sm:text-base shadow-lg" aria-hidden="true">S</div>
+<div class="flex items-center justify-center gap-4">
+<div class="w-12 h-12 rounded-full flex items-center justify-center text-white font-headline font-bold text-sm sm:text-base shadow-lg" style="background:linear-gradient(135deg,var(--pk),var(--sk))" aria-hidden="true">S</div>
 <div class="text-left">
 <p class="font-headline font-bold text-sm sm:text-base">Sarah Chen</p>
-<p class="text-on-surface-variant/70 text-xs sm:text-sm">VP of Operations, ZenithTech</p>
+<p class="text-on-surface-variant/60 text-xs sm:text-sm">VP of Operations, ZenithTech</p>
 </div>
 </div>
 </div>
@@ -655,24 +627,24 @@ Handle 10,000+ simultaneous inquiries without breaking a sweat. VoxFlow's infras
 </div>
 </section>
 
-<section class="py-20 sm:py-28 lg:py-32 relative grid-bg" id="cta">
-<div class="noise-layer"></div>
-<div class="relative z-10 max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 reveal-scale">
-<div class="text-center gradient-border-card p-8 sm:p-12 lg:p-16 relative overflow-hidden">
-<div class="absolute -top-24 -left-24 w-48 sm:w-64 h-48 sm:h-64 bg-primary/10 blur-[120px] rounded-full pointer-events-none" aria-hidden="true"></div>
-<div class="absolute -bottom-24 -right-24 w-48 sm:w-64 h-48 sm:h-64 bg-secondary/10 blur-[120px] rounded-full pointer-events-none" aria-hidden="true"></div>
-<h2 class="font-headline font-extrabold fluid-h2 mb-4 sm:mb-6 relative z-10 tracking-tight leading-tight text-balance">
-Ready to automate your <span class="gradient-text">voice layer</span>?
+<section class="py-24 sm:py-32 lg:py-36 relative grid-bg" id="cta">
+<div class="grain"></div>
+<div class="relative z-10 max-w-4xl mx-auto px-5 sm:px-8 lg:px-10 fade-s">
+<div class="text-center grad-card p-10 sm:p-14 lg:p-18 relative overflow-hidden">
+<div class="absolute -top-24 -left-24 w-56 h-56 pointer-events-none" style="background:radial-gradient(circle,rgba(255,45,120,.08) 0%,transparent 70%)"></div>
+<div class="absolute -bottom-24 -right-24 w-56 h-56 pointer-events-none" style="background:radial-gradient(circle,rgba(0,255,204,.08) 0%,transparent 70%)"></div>
+<h2 class="font-headline font-extrabold fluid-h2 mb-5 relative z-10 tracking-tight leading-tight text-balance">
+Ready to automate your <span class="grad-anim">voice layer</span>?
 </h2>
-<p class="text-on-surface-variant text-sm sm:text-base lg:text-lg mb-8 sm:mb-10 relative z-10 max-w-xl mx-auto">
+<p class="text-on-surface-variant/70 text-sm sm:text-base lg:text-lg mb-10 relative z-10 max-w-xl mx-auto">
 Join the next generation of operational efficiency. Seamless integration with your existing CRM and tech stack.
 </p>
-<div class="flex flex-col sm:flex-row gap-3 sm:gap-4 justify-center relative z-10">
-<a href="#" class="group inline-flex items-center gap-2 bg-primary text-on-primary px-6 sm:px-10 py-3.5 sm:py-5 font-headline font-bold rounded-xl transition-all duration-300 hover:shadow-[0_0_30px_rgba(255,45,120,0.5)] hover:scale-[1.03] active:scale-95 text-sm sm:text-base">
-Start Your Free Pilot
-<span class="material-symbols-outlined group-hover:translate-x-1 transition-transform">arrow_forward</span>
+<div class="flex flex-col sm:flex-row gap-4 justify-center relative z-10">
+<a href="#" class="group neon-border-btn inline-flex items-center gap-2 px-8 sm:px-11 py-4 sm:py-5 font-headline font-bold rounded-xl neon-hover text-sm sm:text-base" style="color:var(--pk)">
+  Start Your Free Pilot
+  <span class="material-symbols-outlined group-hover:translate-x-1 transition-transform">arrow_forward</span>
 </a>
-<a href="#" class="inline-flex items-center gap-2 bg-surface-variant/50 text-on-surface px-6 sm:px-10 py-3.5 sm:py-5 font-headline font-bold rounded-xl hover:bg-surface-container-highest/50 transition-all duration-300 active:scale-95 text-sm sm:text-base border border-outline-variant/20 hover:border-primary/20">
+<a href="#" class="neon-border-btn-secondary inline-flex items-center gap-2 px-8 sm:px-11 py-4 sm:py-5 font-headline font-bold rounded-xl text-sm sm:text-base text-on-surface/70">
 Speak to Sales
 </a>
 </div>
@@ -681,66 +653,66 @@ Speak to Sales
 </section>
 </main>
 
-<footer class="bg-surface-container-lowest pt-16 sm:pt-20 pb-8 sm:pb-12 border-t border-outline-variant/12 reveal" role="contentinfo">
-<div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-<div class="grid sm:grid-cols-2 lg:grid-cols-4 gap-10 sm:gap-12 lg:gap-16 mb-12 sm:mb-16">
-<div class="space-y-5 sm:space-y-6">
-<div class="flex items-center gap-2">
-<div class="relative w-8 h-8 flex items-center justify-center">
-<div class="absolute inset-0 bg-primary/20 blur-md rounded-full"></div>
-<span class="material-symbols-outlined text-primary text-2xl sm:text-3xl font-bold relative z-10" style="font-variation-settings:'FILL'1">graphic_eq</span>
+<footer class="pt-16 sm:pt-20 pb-10 sm:pb-12 border-t border-outline-variant/10 fade-up" role="contentinfo" style="background:var(--bg)">
+<div class="max-w-7xl mx-auto px-5 sm:px-8 lg:px-10">
+<div class="grid sm:grid-cols-2 lg:grid-cols-4 gap-12 lg:gap-16 mb-14 sm:mb-18">
+<div class="space-y-5">
+<div class="flex items-center gap-2.5">
+<div class="w-8 h-8 flex items-center justify-center">
+<div class="absolute w-8 h-8 bg-primary/15 blur-sm rounded-full"></div>
+<span class="material-symbols-outlined text-primary text-2xl sm:text-3xl" style="font-variation-settings:'FILL'1">graphic_eq</span>
 </div>
-<span class="text-lg sm:text-xl font-headline font-bold text-on-surface">VoxFlow</span>
+<span class="text-lg sm:text-xl font-headline font-bold">VoxFlow</span>
 </div>
-<p class="text-on-surface-variant/70 text-sm sm:text-base font-body leading-relaxed max-w-xs">
+<p class="text-on-surface-variant/60 text-sm sm:text-base font-body leading-relaxed max-w-xs">
 The voice layer for modern operations. Automated, secure, and built for scale.
 </p>
-<div class="flex gap-3 sm:gap-4">
-<a class="w-9 h-9 rounded-lg bg-surface-variant/50 flex items-center justify-center hover:bg-primary/20 transition-colors border border-outline-variant/10" href="#" aria-label="Twitter">
-<span class="material-symbols-outlined text-sm text-on-surface-variant/70">alternate_email</span>
+<div class="flex gap-3">
+<a class="w-9 h-9 rounded-lg flex items-center justify-center border transition-colors hover:border-primary/30" style="background:rgba(30,30,48,.4);border-color:rgba(255,255,255,.05)" href="#" aria-label="Twitter">
+<span class="material-symbols-outlined text-sm text-on-surface-variant/50">alternate_email</span>
 </a>
-<a class="w-9 h-9 rounded-lg bg-surface-variant/50 flex items-center justify-center hover:bg-primary/20 transition-colors border border-outline-variant/10" href="#" aria-label="LinkedIn">
-<span class="material-symbols-outlined text-sm text-on-surface-variant/70">hub</span>
+<a class="w-9 h-9 rounded-lg flex items-center justify-center border transition-colors hover:border-primary/30" style="background:rgba(30,30,48,.4);border-color:rgba(255,255,255,.05)" href="#" aria-label="LinkedIn">
+<span class="material-symbols-outlined text-sm text-on-surface-variant/50">hub</span>
 </a>
-<a class="w-9 h-9 rounded-lg bg-surface-variant/50 flex items-center justify-center hover:bg-primary/20 transition-colors border border-outline-variant/10" href="#" aria-label="GitHub">
-<span class="material-symbols-outlined text-sm text-on-surface-variant/70">code</span>
+<a class="w-9 h-9 rounded-lg flex items-center justify-center border transition-colors hover:border-primary/30" style="background:rgba(30,30,48,.4);border-color:rgba(255,255,255,.05)" href="#" aria-label="GitHub">
+<span class="material-symbols-outlined text-sm text-on-surface-variant/50">code</span>
 </a>
 </div>
 </div>
 <div class="space-y-4">
-<h4 class="font-label text-xs uppercase tracking-widest text-on-surface/60 mb-4">Product</h4>
-<ul class="space-y-2.5 sm:space-y-3">
-<li><a class="text-sm sm:text-base text-on-surface-variant/70 hover:text-secondary transition-colors" href="#">Real-time Transcription</a></li>
-<li><a class="text-sm sm:text-base text-on-surface-variant/70 hover:text-secondary transition-colors" href="#">Integrations</a></li>
-<li><a class="text-sm sm:text-base text-on-surface-variant/70 hover:text-secondary transition-colors" href="#">API Reference</a></li>
-<li><a class="text-sm sm:text-base text-on-surface-variant/70 hover:text-secondary transition-colors" href="#">Pricing</a></li>
+<h4 class="font-label text-xs uppercase tracking-widest text-on-surface/50 mb-4">Product</h4>
+<ul class="space-y-3">
+<li><a class="text-sm sm:text-base text-on-surface-variant/60 hover:text-secondary transition-colors" href="#">Real-time Transcription</a></li>
+<li><a class="text-sm sm:text-base text-on-surface-variant/60 hover:text-secondary transition-colors" href="#">Integrations</a></li>
+<li><a class="text-sm sm:text-base text-on-surface-variant/60 hover:text-secondary transition-colors" href="#">API Reference</a></li>
+<li><a class="text-sm sm:text-base text-on-surface-variant/60 hover:text-secondary transition-colors" href="#">Pricing</a></li>
 </ul>
 </div>
 <div class="space-y-4">
-<h4 class="font-label text-xs uppercase tracking-widest text-on-surface/60 mb-4">Company</h4>
-<ul class="space-y-2.5 sm:space-y-3">
-<li><a class="text-sm sm:text-base text-on-surface-variant/70 hover:text-secondary transition-colors" href="#">About Us</a></li>
-<li><a class="text-sm sm:text-base text-on-surface-variant/70 hover:text-secondary transition-colors" href="#">Careers</a></li>
-<li><a class="text-sm sm:text-base text-on-surface-variant/70 hover:text-secondary transition-colors" href="#">Blog</a></li>
-<li><a class="text-sm sm:text-base text-on-surface-variant/70 hover:text-secondary transition-colors" href="#">Contact</a></li>
+<h4 class="font-label text-xs uppercase tracking-widest text-on-surface/50 mb-4">Company</h4>
+<ul class="space-y-3">
+<li><a class="text-sm sm:text-base text-on-surface-variant/60 hover:text-secondary transition-colors" href="#">About Us</a></li>
+<li><a class="text-sm sm:text-base text-on-surface-variant/60 hover:text-secondary transition-colors" href="#">Careers</a></li>
+<li><a class="text-sm sm:text-base text-on-surface-variant/60 hover:text-secondary transition-colors" href="#">Blog</a></li>
+<li><a class="text-sm sm:text-base text-on-surface-variant/60 hover:text-secondary transition-colors" href="#">Contact</a></li>
 </ul>
 </div>
 <div class="space-y-4">
-<h4 class="font-label text-xs uppercase tracking-widest text-on-surface/60 mb-4">Compliance</h4>
-<ul class="space-y-2.5 sm:space-y-3">
-<li><a class="text-sm sm:text-base text-on-surface-variant/70 hover:text-secondary transition-colors" href="#">Privacy Policy</a></li>
-<li><a class="text-sm sm:text-base text-on-surface-variant/70 hover:text-secondary transition-colors" href="#">Terms of Service</a></li>
-<li><a class="text-sm sm:text-base text-on-surface-variant/70 hover:text-secondary transition-colors" href="#">Security</a></li>
-<li><a class="text-sm sm:text-base text-on-surface-variant/70 hover:text-secondary transition-colors" href="#">Trust Center</a></li>
+<h4 class="font-label text-xs uppercase tracking-widest text-on-surface/50 mb-4">Compliance</h4>
+<ul class="space-y-3">
+<li><a class="text-sm sm:text-base text-on-surface-variant/60 hover:text-secondary transition-colors" href="#">Privacy Policy</a></li>
+<li><a class="text-sm sm:text-base text-on-surface-variant/60 hover:text-secondary transition-colors" href="#">Terms of Service</a></li>
+<li><a class="text-sm sm:text-base text-on-surface-variant/60 hover:text-secondary transition-colors" href="#">Security</a></li>
+<li><a class="text-sm sm:text-base text-on-surface-variant/60 hover:text-secondary transition-colors" href="#">Trust Center</a></li>
 </ul>
 </div>
 </div>
-<div class="border-t border-outline-variant/12 pt-6 sm:pt-8 flex flex-col sm:flex-row justify-between items-center gap-4">
-<p class="text-on-surface-variant/60 text-xs sm:text-sm font-body">&copy; 2026 VoxFlow AI. Voice Operations. Automated.</p>
-<div class="flex gap-4 sm:gap-6">
-<a class="text-on-surface-variant/60 text-xs sm:text-sm hover:text-primary transition-colors" href="#">Status</a>
-<a class="text-on-surface-variant/60 text-xs sm:text-sm hover:text-primary transition-colors" href="#">Sitemap</a>
-<a class="text-on-surface-variant/60 text-xs sm:text-sm hover:text-primary transition-colors" href="#">Cookie Policy</a>
+<div class="border-t border-outline-variant/8 pt-7 sm:pt-9 flex flex-col sm:flex-row justify-between items-center gap-4">
+<p class="text-on-surface-variant/50 text-xs sm:text-sm font-body">&copy; 2026 VoxFlow AI. Voice Operations. Automated.</p>
+<div class="flex gap-5 sm:gap-7">
+<a class="text-on-surface-variant/50 text-xs sm:text-sm hover:text-primary transition-colors" href="#">Status</a>
+<a class="text-on-surface-variant/50 text-xs sm:text-sm hover:text-primary transition-colors" href="#">Sitemap</a>
+<a class="text-on-surface-variant/50 text-xs sm:text-sm hover:text-primary transition-colors" href="#">Cookie Policy</a>
 </div>
 </div>
 </div>
@@ -749,185 +721,61 @@ The voice layer for modern operations. Automated, secure, and built for scale.
 <script>
 (function(){
 'use strict';
+window.addEventListener('load',function(){var l=document.getElementById('ld');if(l)setTimeout(function(){l.classList.add('h')},300)});
+function t(f,m){var l=0;return function(){var n=Date.now();if(n-l>=m){l=n;f.apply(this,arguments)}}}
 
-window.addEventListener('load',function(){
-var loader=document.getElementById('loader');
-if(loader) setTimeout(function(){loader.classList.add('hidden')},400);
-});
+// Scroll progress
+(function(){var b=document.getElementById('sp');if(!b)return;
+window.addEventListener('scroll',t(function(){var h=document.documentElement.scrollHeight-window.innerHeight;b.style.width=(h>0?(window.scrollY/h)*100:0)+'%'},16))})();
 
-function throttle(fn,ms){var last=0;return function(){var now=Date.now();if(now-last>=ms){last=now;fn.apply(this,arguments);}}}
+// Reveal
+(function(){var e=document.querySelectorAll('.fade-up,.fade-l,.fade-r,.fade-s,.stg');if(!e.length)return;
+var o=new IntersectionObserver(function(n){n.forEach(function(i){if(i.isIntersecting){i.classList.add('v');o.unobserve(i)}})},{threshold:.05,rootMargin:'0px 0px -40px 0px'});
+e.forEach(function(i){o.observe(i)})})();
 
-/* ── Scroll progress ── */
-function initScrollProgress(){
-var bar=document.getElementById('scroll-progress');
-if(!bar) return;
-window.addEventListener('scroll',throttle(function(){
-var h=document.documentElement.scrollHeight-window.innerHeight;
-var p= h>0 ? (window.scrollY/h)*100 : 0;
-bar.style.width=p+'%';
-},16));
-}
+// Counters
+(function(){var e=document.querySelectorAll('[data-n]');if(!e.length)return;
+var o=new IntersectionObserver(function(n){n.forEach(function(i){if(i.isIntersecting){var el=i.target,n=parseFloat(el.getAttribute('data-n'));if(isNaN(n))return;o.unobserve(el);
+var d=1800,s=performance.now();!function u(t){var p=Math.min((t-s)/d,1),v=n*(1-Math.pow(1-p,3));
+el.textContent=Number.isInteger(n)?Math.floor(v):v.toFixed(1);if(p<1)requestAnimationFrame(u)}()}})},{threshold:.3});
+e.forEach(function(i){o.observe(i)})})();
 
-/* ── Scroll Reveal ── */
-function initReveal(){
-var els=document.querySelectorAll('.reveal,.reveal-left,.reveal-right,.reveal-scale,.stagger-children');
-if(!els.length) return;
-var obs=new IntersectionObserver(function(entries){
-entries.forEach(function(entry){
-if(entry.isIntersecting){entry.target.classList.add('visible');obs.unobserve(entry.target);}
-});
-},{threshold:0.06,rootMargin:'0px 0px -40px 0px'});
-els.forEach(function(el){obs.observe(el);});
-}
+// Clock
+(function(){var c=document.getElementById('clk');if(!c)return;
+!function u(){var d=new Date(),m=d.toUTCString().match(/\d{2}:\d{2}:\d{2}/);if(m)c.textContent=m[0]+' UTC';setTimeout(u,1000)}()})();
 
-/* ── Counter animation ── */
-function initCounters(){
-var counters=document.querySelectorAll('.counter-value');
-if(!counters.length) return;
-var obs=new IntersectionObserver(function(entries){
-entries.forEach(function(entry){
-if(entry.isIntersecting){
-var el=entry.target;
-var target=parseFloat(el.getAttribute('data-target'));
-if(isNaN(target)) return;
-obs.unobserve(el);
-var duration=2000,start=performance.now();
-function update(now){
-var elapsed=now-start;
-var progress=Math.min(elapsed/duration,1);
-var eased=1-Math.pow(1-progress,3);
-var current=target*eased;
-if(Number.isInteger(target)) el.textContent=Math.floor(current);
-else el.textContent=current.toFixed(1);
-if(progress<1) requestAnimationFrame(update);
-}
-requestAnimationFrame(update);
-}
-});
-},{threshold:0.3});
-counters.forEach(function(el){obs.observe(el);});
-}
+// Particles
+(function(){var c=document.getElementById('pt');if(!c)return;var n=window.innerWidth<768?15:30,cl=['#ff2d78','#00ffcc','#ffe04a'];
+var s=document.createElement('style');s.textContent='@keyframes p{0%{opacity:0;transform:translateY(0) translateX(0)}15%{opacity:.4}85%{opacity:.25}100%{opacity:0;transform:translateY(-90px) translateX(25px)}}';
+document.head.appendChild(s);
+for(var i=0;i<n;i++){var p=document.createElement('div');p.className='p';p.style.left=Math.random()*100+'%';p.style.top=Math.random()*100+'%';p.style.background=cl[i%3];
+p.style.boxShadow='0 0 6px '+cl[i%3];p.style.width=(1+Math.random()*2)+'px';p.style.height=p.style.width;p.style.animation='p '+(6+Math.random()*10)+'s ease-in-out '+(Math.random()*15)+'s infinite alternate';c.appendChild(p)}})();
 
-/* ── Live clock ── */
-function initClock(){
-var clock=document.getElementById('live-clock');
-if(!clock) return;
-function update(){
-var d=new Date();
-var utc=d.toUTCString().match(/\d{2}:\d{2}:\d{2}/);
-if(utc) clock.textContent=utc[0]+' UTC';
-}
-update();
-setInterval(update,1000);
-}
-
-/* ── Particles ── */
-function initParticles(){
-var container=document.getElementById('particles');
-if(!container) return;
-var count=window.innerWidth<768?20:40;
-var colors=['#ff2d78','#00ffcc','#ffe04a'];
-var style=document.createElement('style');
-style.textContent='@keyframes pf{0%{opacity:0;transform:translateY(0) translateX(0)}15%{opacity:0.5}85%{opacity:0.3}100%{opacity:0;transform:translateY(-100px) translateX(30px)}}';
-document.head.appendChild(style);
-for(var i=0;i<count;i++){
-var p=document.createElement('div');
-p.className='particle';
-p.style.left=Math.random()*100+'%';
-p.style.top=Math.random()*100+'%';
-p.style.background=colors[i%3];
-p.style.boxShadow='0 0 6px '+colors[i%3];
-p.style.width=(1+Math.random()*2.5)+'px';
-p.style.height=p.style.width;
-p.style.animation='pf '+(5+Math.random()*10)+'s ease-in-out '+(Math.random()*12)+'s infinite alternate';
-container.appendChild(p);
-}
-}
-
-/* ── Custom cursor ── */
-function initCursor(){
-var dot=document.getElementById('cursorDot');
-var ring=document.getElementById('cursorRing');
-if(!dot||!ring) return;
+// Cursor
+(function(){var d=document.getElementById('cd'),r=document.getElementById('cr');if(!d||!r)return;
 var mx=0,my=0,rx=0,ry=0;
-document.addEventListener('mousemove',function(e){mx=e.clientX;my=e.clientY;dot.style.left=mx+'px';dot.style.top=my+'px';});
-(function anim(){rx+=(mx-rx)*0.12;ry+=(my-ry)*0.12;ring.style.left=rx+'px';ring.style.top=ry+'px';requestAnimationFrame(anim);})();
-document.querySelectorAll('a,button,[role="button"],input,select,textarea').forEach(function(el){
-el.addEventListener('mouseenter',function(){dot.style.width='12px';dot.style.height='12px';ring.style.width='44px';ring.style.height='44px';ring.style.borderColor='rgba(255,45,120,0.6)';});
-el.addEventListener('mouseleave',function(){dot.style.width='8px';dot.style.height='8px';ring.style.width='32px';ring.style.height='32px';ring.style.borderColor='rgba(255,45,120,0.35)';});
-});
-}
+document.addEventListener('mousemove',function(e){mx=e.clientX;my=e.clientY;d.style.left=mx+'px';d.style.top=my+'px'});
+!function a(){rx+=(mx-rx)*.1;ry+=(my-ry)*.1;r.style.left=rx+'px';r.style.top=ry+'px';requestAnimationFrame(a)}();
+document.querySelectorAll('a,button,[role="button"]').forEach(function(e){e.addEventListener('mouseenter',function(){d.style.width='10px';d.style.height='10px';r.style.width='40px';r.style.height='40px';r.style.borderColor='rgba(255,45,120,.5)'});
+e.addEventListener('mouseleave',function(){d.style.width='6px';d.style.height='6px';r.style.width='28px';r.style.height='28px';r.style.borderColor='rgba(255,45,120,.25)'})})})();
 
-/* ── Header ── */
-function initHeader(){
-var header=document.getElementById('site-header');
-var inner=document.getElementById('header-inner');
-if(!header) return;
-var last=0;
-window.addEventListener('scroll',throttle(function(){
-var cur=window.pageYOffset||document.documentElement.scrollTop;
-if(cur>80){
-inner.style.borderColor='rgba(48,40,64,0.25)';
-inner.style.boxShadow='0 4px 30px rgba(0,0,0,0.3)';
-}else{
-inner.style.borderColor='rgba(48,40,64,0.15)';
-inner.style.boxShadow='none';
-}
-if(cur>200&&cur>last) header.style.transform='translateY(-100%)';
-else header.style.transform='translateY(0)';
-last=cur;
-},100));
-}
+// Header
+(function(){var h=document.getElementById('hdr'),n=document.getElementById('hin');if(!h)return;var l=0;
+window.addEventListener('scroll',t(function(){var c=window.pageYOffset||document.documentElement.scrollTop;
+if(c>80){n.style.borderColor='rgba(48,40,64,.2)';n.style.boxShadow='0 4px 30px rgba(0,0,0,.3)'}else{n.style.borderColor='rgba(48,40,64,.1)';n.style.boxShadow='none'}
+if(c>200&&c>l)h.style.transform='translateY(-100%)';else h.style.transform='translateY(0)';l=c},100))})();
 
-/* ── Mobile menu ── */
-function initMobileMenu(){
-var toggle=document.getElementById('menu-toggle');
-var menu=document.getElementById('mobile-menu');
-var icon=document.getElementById('menu-icon');
-if(!toggle||!menu||!icon) return;
-toggle.addEventListener('click',function(){
-var open=menu.getAttribute('aria-hidden')==='true';
-menu.setAttribute('aria-hidden',open?'false':'true');
-menu.style.transform=open?'translateX(0)':'translateX(100%)';
-icon.textContent=open?'close':'menu';
-toggle.setAttribute('aria-expanded',open?'true':'false');
-document.body.style.overflow=open?'hidden':'';
-});
-menu.querySelectorAll('[data-mobile-link]').forEach(function(link){
-link.addEventListener('click',function(){
-menu.setAttribute('aria-hidden','true');
-menu.style.transform='translateX(100%)';
-icon.textContent='menu';
-toggle.setAttribute('aria-expanded','false');
-document.body.style.overflow='';
-});
-});
-}
+// Mobile menu
+(function(){var t=document.getElementById('mt'),m=document.getElementById('mm'),i=document.getElementById('mi');if(!t||!m||!i)return;
+t.addEventListener('click',function(){var o=m.getAttribute('aria-hidden')==='true';m.setAttribute('aria-hidden',o?'false':'true');m.style.transform=o?'translateX(0)':'translateX(100%')';
+i.textContent=o?'close':'menu';t.setAttribute('aria-expanded',o?'true':'false');document.body.style.overflow=o?'hidden':''});
+m.querySelectorAll('[data-ml]').forEach(function(l){l.addEventListener('click',function(){m.setAttribute('aria-hidden','true');m.style.transform='translateX(100%)';i.textContent='menu';t.setAttribute('aria-expanded','false');document.body.style.overflow=''})})})();
 
-/* ── Dashboard tilt effect ── */
-function initTilt(){
-var card=document.getElementById('dashboard-tilt');
-if(!card||window.innerWidth<768) return;
-var rect=card.getBoundingClientRect();
-var cx=rect.left+rect.width/2,cy=rect.top+rect.height/2;
-card.addEventListener('mousemove',function(e){
-var dx=(e.clientX-cx)/20,dy=(e.clientY-cy)/20;
-card.style.transform='rotateY('+dx+'deg) rotateX('+(-dy)+'deg)';
-});
-card.addEventListener('mouseleave',function(){card.style.transform='rotateY(0deg) rotateX(0deg)';});
-}
-
-document.addEventListener('DOMContentLoaded',function(){
-initScrollProgress();
-initReveal();
-initCounters();
-initClock();
-initParticles();
-initCursor();
-initHeader();
-initMobileMenu();
-initTilt();
-});
+// Dashboard tilt
+(function(){var c=document.getElementById('dt');if(!c||window.innerWidth<768)return;
+var r=function(){var b=c.getBoundingClientRect();return{x:b.left+b.width/2,y:b.top+b.height/2}}();
+c.addEventListener('mousemove',function(e){var d=r();c.style.transform='rotateY('+((e.clientX-d.x)/25)+'deg) rotateX('+(-(e.clientY-d.y)/25)+'deg)'});
+c.addEventListener('mouseleave',function(){c.style.transform='rotateY(0) rotateX(0)'})})();
 })();
 </script>
 </body>
