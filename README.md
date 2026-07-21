@@ -86,10 +86,10 @@ VoxFlow supports **SQLite** for local development (`./voxflow.db`) and **Supabas
 
 To configure Supabase in `.env`:
 ```env
-DATABASE_URL=postgresql://postgres:password@db.xxx.supabase.co:5432/postgres
-SUPABASE_URL=https://xxx.supabase.co
-SUPABASE_ANON_KEY=...
-SUPABASE_SERVICE_ROLE_KEY=...
+DATABASE_URL=postgresql://postgres:<your-password>@db.<your-project-ref>.supabase.co:5432/postgres
+SUPABASE_URL=https://<your-project-ref>.supabase.co
+SUPABASE_ANON_KEY=<your-anon-key>
+SUPABASE_SERVICE_ROLE_KEY=<your-service-role-key>
 ```
 
 See [schema.md](file:///Users/jeeveshsingale/VoxFlow/voxflow-voice-agent/schema.md) for the complete SQL DDL definitions and Row-Level Security (RLS) policies.
