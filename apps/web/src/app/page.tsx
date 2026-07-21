@@ -75,56 +75,48 @@ export default function Home() {
   return (
     <>
       {/* ==================== HERO ==================== */}
-      <section className="relative min-h-screen flex items-center overflow-hidden border-b border-border">
-        <div className="absolute inset-0 vox-grid vox-radial" />
-        <div className="absolute bottom-0 vox-signal" />
-        <div className="absolute top-1/3 left-1/4 w-[600px] h-[600px] bg-primary/5 rounded-full blur-[120px]" />
+      <section className="relative min-h-screen flex items-center overflow-hidden border-b border-[#302840]/20 bg-[#0a0a12] grid-bg">
+        <div className="absolute top-1/4 left-1/4 w-[500px] h-[500px] bg-[#ff2d78]/10 blur-[140px] rounded-full pointer-events-none" />
+        <div className="absolute bottom-1/4 right-1/4 w-[400px] h-[400px] bg-[#00ffcc]/10 blur-[140px] rounded-full pointer-events-none" />
 
-        <div className="relative z-10 mx-auto max-w-7xl w-full px-4 sm:px-6 lg:px-8 pt-24 pb-16 sm:pb-20">
-          <div className="lg:grid lg:grid-cols-[0.9fr_1.1fr] lg:gap-12 items-center">
+        <div className="relative z-10 mx-auto max-w-7xl w-full px-4 sm:px-6 lg:px-8 pt-28 pb-16 sm:pb-24">
+          <div className="lg:grid lg:grid-cols-2 lg:gap-16 items-center">
             {/* Left: Text */}
             <div className="max-w-xl">
               <FadeUp>
-                <div className="inline-flex items-center gap-2 rounded-sm border border-primary/30 bg-primary/10 px-2 py-1 font-mono text-[9px] uppercase tracking-[0.12em] text-primary mb-6">
-                  <span className="h-1.5 w-1.5 rounded-full bg-success-500 pulse-dot" />
-                  Voice operations, automated
-                </div>
+                <span className="font-label text-[#00ffcc] uppercase tracking-[0.2em] text-xs mb-4 sm:mb-6 block">
+                  ✦ Next-Gen Voice Operations
+                </span>
               </FadeUp>
 
               <FadeUp delay={0.1}>
-                <h1 className="text-5xl sm:text-6xl lg:text-7xl font-bold tracking-[-0.055em] leading-[1.03] text-foreground text-balance">
-                  Every call. Every detail.{" "}
-                  <span className="text-primary">Handled.</span>
+                <h1 className="font-headline font-extrabold text-4xl sm:text-6xl lg:text-7xl leading-[1.08] tracking-tight text-[#e8e0f0] mb-6">
+                  Every call.<br />Every detail.<br />
+                  <span className="text-[#ff2d78] neon-text">Handled.</span>
                 </h1>
               </FadeUp>
 
               <FadeUp delay={0.2}>
-                <p className="mt-6 text-base sm:text-lg text-muted-foreground leading-7 sm:leading-8 max-w-lg">
-                  VoxFlow Voice Agent resolves supplier calls with the context, controls, and operational memory your business needs to move with confidence.
+                <p className="text-[#a098b0] text-base sm:text-lg mb-8 max-w-md font-body leading-relaxed">
+                  VoxFlow is the voice layer for modern operations — built for scale, trusted by leading teams to automate high-stakes conversations.
                 </p>
               </FadeUp>
 
               <FadeUp delay={0.3}>
-                <div className="mt-8 flex flex-col sm:flex-row items-start gap-3">
+                <div className="flex flex-wrap gap-4">
                   <Link
                     href="/sign-up"
-                    className="inline-flex items-center gap-2 px-5 py-2.5 rounded-lg bg-primary text-primary-foreground text-sm font-medium hover:bg-primary/90 transition-all duration-200 group"
+                    className="inline-flex items-center gap-2 bg-[#ff2d78] text-[#1a0010] px-7 py-3.5 font-headline font-bold rounded-xl hover:shadow-[0_0_30px_rgba(255,45,120,0.5)] transition-all duration-300 active:scale-95 text-sm sm:text-base group"
                   >
-                    Request an operations pilot
-                    <ArrowRight size={14} className="transition-transform duration-200 group-hover:translate-x-1" />
+                    Request Pilot
+                    <ArrowRight size={16} className="transition-transform duration-200 group-hover:translate-x-1" />
                   </Link>
                   <Link
                     href="#operations"
-                    className="inline-flex items-center gap-2 px-5 py-2.5 rounded-lg border border-border bg-accent text-foreground text-sm font-medium hover:bg-accent/80 transition-all duration-200"
+                    className="inline-flex items-center gap-2 border border-[#302840]/60 text-[#e8e0f0] px-7 py-3.5 font-headline font-bold rounded-xl hover:bg-[#1e1e30] transition-all duration-300 active:scale-95 text-sm sm:text-base"
                   >
-                    Explore call operations
+                    Explore Operations
                   </Link>
-                </div>
-              </FadeUp>
-
-              <FadeUp delay={0.35}>
-                <div className="mt-6 text-xs text-muted-foreground font-mono tracking-[0.08em]">
-                  Hindi + English &middot; controlled rollout
                 </div>
               </FadeUp>
             </div>

@@ -29,11 +29,10 @@ recordings/
 .env.local
 .env.*.local
 
-# IDE
-.vscode/
-.idea/
-*.swp
-.DS_Store
+# Build
+dist/
+build/
+.vercel/
 
 # Docker
 docker-compose.override.yml
@@ -42,10 +41,16 @@ docker-compose.override.yml
 *.log
 logs/
 
-# Build
-dist/
-build/
-.vercel
+# IDE & AI Tools
+.vscode/
+.idea/
+*.swp
+.DS_Store
+.aidesigner/
+.claude/
+.gemini/
+.cursor/
+.mcp.json
 
 # Internal
 .planning/
