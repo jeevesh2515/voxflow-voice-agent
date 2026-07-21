@@ -46,3 +46,9 @@ logs/
 dist/
 build/
 .vercel
+
+# Internal
+.planning/
+data/
+docs/
+Makefile
