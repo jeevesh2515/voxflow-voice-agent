@@ -1,0 +1,1082 @@
+<!DOCTYPE html>
+<html class="dark" lang="en">
+<head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0, viewport-fit=cover" name="viewport"/>
+<meta content="VoxFlow | Voice Operations. Automated." name="title"/>
+<meta content="VoxFlow is the voice layer for modern operations — built for scale, trusted by leading teams to automate high-stakes conversations." name="description"/>
+<meta content="voice AI, voice operations, call automation, conversational AI, VoxFlow" name="keywords"/>
+<title>VoxFlow | Voice Operations. Automated.</title>
+<!-- Google Fonts -->
+<link href="https://fonts.googleapis.com/css2?family=Sora:wght@400;600;700;800;900&family=Inter:wght@400;500;600&family=Space+Grotesk:wght@500;700&display=swap" rel="stylesheet"/>
+<!-- Material Symbols -->
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200&display=swap" rel="stylesheet"/>
+<!-- Tailwind CSS -->
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<script>
+    tailwind.config = {
+      darkMode: "class",
+      theme: {
+        extend: {
+          colors: {
+            "surface-variant": "#1e1e30",
+            "outline-variant": "#302840",
+            "surface-container-low": "#111118",
+            "surface-bright": "#1a1a2e",
+            "surface-container-highest": "#28283e",
+            "outline": "#5a5068",
+            "surface-dim": "#0f0f1a",
+            "background": "#0a0a12",
+            "primary": "#ff2d78",
+            "on-error-container": "#ffa0a0",
+            "tertiary": "#ffe04a",
+            "on-primary": "#1a0010",
+            "surface": "#0f0f1a",
+            "surface-container": "#141422",
+            "on-surface-variant": "#a098b0",
+            "on-surface": "#e8e0f0",
+            "inverse-surface": "#e8e0f0",
+            "surface-container-lowest": "#0a0a12",
+            "error": "#ff4444",
+            "secondary": "#00ffcc",
+            "on-tertiary": "#1a1000"
+          },
+          fontFamily: {
+            headline: ["Sora", "sans-serif"],
+            display: ["Sora", "sans-serif"],
+            body: ["Inter", "sans-serif"],
+            label: ["Space Grotesk", "monospace"]
+          },
+          borderRadius: {
+            DEFAULT: "0.125rem",
+            lg: "0.25rem",
+            xl: "0.5rem",
+            "2xl": "1rem",
+            "3xl": "1.5rem"
+          }
+        }
+      }
+    }
+  </script>
+<style>
+    *, *::before, *::after { box-sizing: border-box; }
+
+    :root {
+      --neon-primary: #ff2d78;
+      --neon-secondary: #00ffcc;
+      --neon-tertiary: #ffe04a;
+      --bg-deep: #07070f;
+      --bg-surface: #0a0a12;
+      --text-primary: #e8e0f0;
+      --text-muted: #a098b0;
+      --glow-primary: 0 0 8px var(--neon-primary);
+      --glow-secondary: 0 0 8px var(--neon-secondary);
+    }
+
+    html { scroll-behavior: smooth; }
+
+    body {
+      background-color: var(--bg-deep);
+      color: var(--text-primary);
+      font-family: 'Inter', sans-serif;
+      overflow-x: hidden;
+      -webkit-font-smoothing: antialiased;
+      -moz-osx-font-smoothing: grayscale;
+    }
+
+    /* ── Scan-line overlay ── */
+    body::after {
+      content: '';
+      position: fixed;
+      inset: 0;
+      pointer-events: none;
+      z-index: 9999;
+      background: repeating-linear-gradient(
+        0deg,
+        transparent,
+        transparent 2px,
+        rgba(0, 0, 0, 0.15) 2px,
+        rgba(0, 0, 0, 0.15) 4px
+      );
+    }
+
+    /* ── Grid background ── */
+    .grid-bg {
+      background-image:
+        radial-gradient(circle at 50% 50%, rgba(255, 45, 120, 0.05) 0%, transparent 50%),
+        linear-gradient(rgba(30, 30, 48, 0.15) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(30, 30, 48, 0.15) 1px, transparent 1px);
+      background-size: 100% 100%, 40px 40px, 40px 40px;
+    }
+
+    /* ── Noise texture ── */
+    .noise::before {
+      content: '';
+      position: absolute;
+      inset: 0;
+      opacity: 0.03;
+      background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)'/%3E%3C/svg%3E");
+      background-repeat: repeat;
+      pointer-events: none;
+      z-index: 0;
+    }
+
+    /* ── Neon utilities ── */
+    .neon-text {
+      text-shadow: 0 0 8px currentColor, 0 0 20px currentColor;
+    }
+    .neon-text-sm {
+      text-shadow: 0 0 4px currentColor;
+    }
+    .neon-border {
+      border: 1px solid rgba(255, 45, 120, 0.3);
+      box-shadow: inset 0 0 12px rgba(255, 45, 120, 0.05);
+    }
+    .neon-border-card {
+      border: 1px solid rgba(255, 45, 120, 0.2);
+      transition: border-color 0.4s, box-shadow 0.4s;
+    }
+    .neon-border-card:hover {
+      border-color: rgba(255, 45, 120, 0.6);
+      box-shadow: 0 0 20px rgba(255, 45, 120, 0.15), inset 0 0 16px rgba(255, 45, 120, 0.08);
+    }
+
+    /* ── Glass ── */
+    .glass {
+      background: rgba(15, 15, 26, 0.65);
+      backdrop-filter: blur(16px);
+      -webkit-backdrop-filter: blur(16px);
+    }
+    .glass-strong {
+      background: rgba(15, 15, 26, 0.85);
+      backdrop-filter: blur(20px);
+      -webkit-backdrop-filter: blur(20px);
+    }
+
+    /* ── Marquee ── */
+    .marquee-track {
+      display: flex;
+      overflow: hidden;
+      user-select: none;
+      gap: 4rem;
+    }
+    .marquee-content {
+      flex-shrink: 0;
+      display: flex;
+      justify-content: space-around;
+      gap: 4rem;
+      min-width: 100%;
+      animation: marquee-scroll 30s linear infinite;
+    }
+    @keyframes marquee-scroll {
+      from { transform: translateX(0); }
+      to { transform: translateX(-100%); }
+    }
+
+    /* ── Waveform ── */
+    .waveform-bar {
+      animation: wave 1.2s ease-in-out infinite alternate;
+      transform-origin: bottom;
+    }
+    @keyframes wave {
+      0% { height: 20%; }
+      100% { height: 80%; }
+    }
+
+    /* ── Float ── */
+    .animate-float {
+      animation: float 6s ease-in-out infinite;
+    }
+    @keyframes float {
+      0%, 100% { transform: translateY(0) rotate(0deg); }
+      50% { transform: translateY(-16px) rotate(0.5deg); }
+    }
+    .animate-float-delayed {
+      animation: float 7s ease-in-out 1s infinite;
+    }
+    @keyframes float-delayed {
+      0%, 100% { transform: translateY(0) rotate(0deg); }
+      50% { transform: translateY(-12px) rotate(-0.5deg); }
+    }
+
+    /* ── Pulse glow ── */
+    .pulse-glow {
+      animation: pulse-glow 3s ease-in-out infinite;
+    }
+    @keyframes pulse-glow {
+      0%, 100% { opacity: 0.4; }
+      50% { opacity: 0.8; }
+    }
+
+    /* ── Reveal animations ── */
+    .reveal {
+      opacity: 0;
+      transform: translateY(24px);
+      transition: opacity 0.8s cubic-bezier(0.16, 1, 0.3, 1),
+                  transform 0.8s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+    .reveal.visible {
+      opacity: 1;
+      transform: translateY(0);
+    }
+    .reveal-left {
+      opacity: 0;
+      transform: translateX(-30px);
+      transition: opacity 0.8s cubic-bezier(0.16, 1, 0.3, 1),
+                  transform 0.8s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+    .reveal-left.visible {
+      opacity: 1;
+      transform: translateX(0);
+    }
+    .reveal-right {
+      opacity: 0;
+      transform: translateX(30px);
+      transition: opacity 0.8s cubic-bezier(0.16, 1, 0.3, 1),
+                  transform 0.8s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+    .reveal-right.visible {
+      opacity: 1;
+      transform: translateX(0);
+    }
+    .reveal-scale {
+      opacity: 0;
+      transform: scale(0.92);
+      transition: opacity 0.8s cubic-bezier(0.16, 1, 0.3, 1),
+                  transform 0.8s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+    .reveal-scale.visible {
+      opacity: 1;
+      transform: scale(1);
+    }
+
+    .stagger-children > * {
+      opacity: 0;
+      transform: translateY(16px);
+      transition: opacity 0.6s cubic-bezier(0.16, 1, 0.3, 1),
+                  transform 0.6s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+    .stagger-children.visible > *:nth-child(1) { transition-delay: 0.05s; opacity: 1; transform: translateY(0); }
+    .stagger-children.visible > *:nth-child(2) { transition-delay: 0.1s; opacity: 1; transform: translateY(0); }
+    .stagger-children.visible > *:nth-child(3) { transition-delay: 0.15s; opacity: 1; transform: translateY(0); }
+    .stagger-children.visible > *:nth-child(4) { transition-delay: 0.2s; opacity: 1; transform: translateY(0); }
+    .stagger-children.visible > *:nth-child(5) { transition-delay: 0.25s; opacity: 1; transform: translateY(0); }
+    .stagger-children.visible > *:nth-child(6) { transition-delay: 0.3s; opacity: 1; transform: translateY(0); }
+
+    /* ── Custom cursor ── */
+    .cursor-dot {
+      position: fixed;
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: var(--neon-primary);
+      pointer-events: none;
+      z-index: 99999;
+      transform: translate(-50%, -50%);
+      transition: width 0.2s, height 0.2s, background 0.2s;
+      mix-blend-mode: screen;
+      box-shadow: 0 0 12px var(--neon-primary), 0 0 24px var(--neon-primary);
+    }
+    .cursor-ring {
+      position: fixed;
+      width: 32px;
+      height: 32px;
+      border-radius: 50%;
+      border: 1px solid rgba(255, 45, 120, 0.4);
+      pointer-events: none;
+      z-index: 99998;
+      transform: translate(-50%, -50%);
+      transition: width 0.3s, height 0.3s, border-color 0.3s;
+      box-shadow: 0 0 8px rgba(255, 45, 120, 0.15);
+    }
+
+    @media (hover: none) and (pointer: coarse) {
+      .cursor-dot, .cursor-ring { display: none; }
+    }
+
+    /* ── Floating particles ── */
+    .particle {
+      position: absolute;
+      width: 3px;
+      height: 3px;
+      border-radius: 50%;
+      background: var(--neon-primary);
+      opacity: 0;
+      pointer-events: none;
+      box-shadow: 0 0 6px var(--neon-primary);
+    }
+
+    /* ── Scrollbar ── */
+    ::-webkit-scrollbar { width: 6px; }
+    ::-webkit-scrollbar-track { background: var(--bg-deep); }
+    ::-webkit-scrollbar-thumb { background: rgba(255, 45, 120, 0.3); border-radius: 3px; }
+    ::-webkit-scrollbar-thumb:hover { background: rgba(255, 45, 120, 0.5); }
+
+    /* ── Focus ── */
+    :focus-visible {
+      outline: 2px solid var(--neon-primary);
+      outline-offset: 2px;
+      border-radius: 4px;
+    }
+
+    /* ── Reduced motion ── */
+    @media (prefers-reduced-motion: reduce) {
+      *, *::before, *::after {
+        animation-duration: 0.01ms !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: 0.01ms !important;
+      }
+      html { scroll-behavior: auto; }
+      .cursor-dot, .cursor-ring { display: none !important; }
+      body::after { display: none; }
+      [class*="reveal"] { opacity: 1 !important; transform: none !important; }
+    }
+
+    /* ── Loading screen ── */
+    #loader {
+      position: fixed;
+      inset: 0;
+      z-index: 100000;
+      background: var(--bg-deep);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: opacity 0.6s ease, visibility 0.6s ease;
+    }
+    #loader.hidden {
+      opacity: 0;
+      visibility: hidden;
+    }
+    .loader-bar {
+      width: 120px;
+      height: 2px;
+      background: rgba(255, 45, 120, 0.15);
+      border-radius: 2px;
+      overflow: hidden;
+    }
+    .loader-bar-fill {
+      height: 100%;
+      width: 0%;
+      background: var(--neon-primary);
+      border-radius: 2px;
+      box-shadow: 0 0 8px var(--neon-primary);
+      animation: loader-fill 1.2s ease-in-out forwards;
+    }
+    @keyframes loader-fill {
+      0% { width: 0%; }
+      50% { width: 60%; }
+      100% { width: 100%; }
+    }
+  </style>
+</head>
+<body class="selection:bg-primary selection:text-on-primary">
+<!-- Scan line overlay via CSS pseudo -->
+<!-- Loading screen -->
+<div id="loader" role="status" aria-label="Loading">
+<div class="text-center">
+<div class="flex items-center justify-center gap-2 mb-6">
+<span class="material-symbols-outlined text-primary text-4xl font-bold" style="font-variation-settings:'FILL'1">graphic_eq</span>
+</div>
+<div class="loader-bar">
+<div class="loader-bar-fill"></div>
+</div>
+</div>
+</div>
+
+<!-- Custom cursor -->
+<div class="cursor-dot" id="cursorDot" aria-hidden="true"></div>
+<div class="cursor-ring" id="cursorRing" aria-hidden="true"></div>
+
+<!-- Floating particles container -->
+<div id="particles" class="fixed inset-0 pointer-events-none z-0 overflow-hidden" aria-hidden="true"></div>
+
+<!-- Navigation -->
+<header id="site-header" class="fixed top-0 left-0 right-0 z-50 transition-all duration-500">
+<div class="glass-strong border-b border-outline-variant/20 transition-all duration-500" id="header-inner">
+<div class="flex justify-between items-center w-full px-4 sm:px-6 lg:px-8 py-3 sm:py-4 max-w-7xl mx-auto">
+<div class="flex items-center gap-2 z-10">
+<div class="relative w-8 h-8 flex items-center justify-center">
+<span class="material-symbols-outlined text-primary text-3xl font-bold" style="font-variation-settings:'FILL'1">graphic_eq</span>
+</div>
+<span class="text-xl sm:text-2xl font-headline font-black tracking-tighter text-on-surface">VoxFlow</span>
+</div>
+<nav class="hidden md:flex items-center gap-8" aria-label="Main navigation">
+<a class="text-primary font-bold border-b-2 border-primary pb-1 font-label text-sm" href="#platform">Platform</a>
+<a class="text-on-surface-variant hover:text-primary transition-colors duration-300 font-label text-sm" href="#solutions">Solutions</a>
+<a class="text-on-surface-variant hover:text-primary transition-colors duration-300 font-label text-sm" href="#network">Network</a>
+<a class="text-on-surface-variant hover:text-primary transition-colors duration-300 font-label text-sm" href="#company">Company</a>
+</nav>
+<div class="flex items-center gap-3 z-10">
+<button class="hidden sm:inline-flex text-on-surface-variant hover:text-primary transition-all font-label text-sm">Sign In</button>
+<button class="bg-primary text-on-primary px-5 sm:px-6 py-2 font-headline font-bold rounded-xl hover:shadow-[0_0_20px_rgba(255,45,120,0.5)] transition-all active:scale-95 duration-150 text-sm">
+Get Started
+</button>
+<button id="menu-toggle" class="md:hidden flex items-center justify-center w-10 h-10 rounded-lg text-on-surface hover:bg-surface-variant transition-colors" aria-label="Toggle navigation menu" aria-expanded="false">
+<span class="material-symbols-outlined text-2xl" id="menu-icon">menu</span>
+</button>
+</div>
+</div>
+</div>
+<!-- Mobile menu -->
+<div id="mobile-menu" class="fixed inset-0 z-40 bg-background/95 backdrop-blur-xl translate-x-full transition-transform duration-400 ease-in-out md:hidden" aria-hidden="true">
+<div class="flex flex-col items-center justify-center h-full gap-8 text-lg">
+<a class="text-primary font-bold font-label text-xl" href="#platform" data-mobile-link>Platform</a>
+<a class="text-on-surface-variant hover:text-primary transition-colors font-label text-xl" href="#solutions" data-mobile-link>Solutions</a>
+<a class="text-on-surface-variant hover:text-primary transition-colors font-label text-xl" href="#network" data-mobile-link>Network</a>
+<a class="text-on-surface-variant hover:text-primary transition-colors font-label text-xl" href="#company" data-mobile-link>Company</a>
+<hr class="w-16 border-outline-variant/30 my-4"/>
+<button class="text-on-surface-variant font-label">Sign In</button>
+<button class="bg-primary text-on-primary px-8 py-3 font-headline font-bold rounded-xl">Get Started</button>
+</div>
+</div>
+</header>
+
+<main>
+<!-- Hero Section -->
+<section class="relative min-h-screen flex items-center pt-24 pb-16 sm:pt-28 sm:pb-24 overflow-hidden grid-bg" id="hero">
+<!-- Glow orbs -->
+<div class="absolute top-1/4 left-1/4 w-[40vw] h-[40vw] max-w-[500px] max-h-[500px] bg-primary/8 blur-[120px] rounded-full pulse-glow pointer-events-none" aria-hidden="true"></div>
+<div class="absolute bottom-1/4 right-1/4 w-[35vw] h-[35vw] max-w-[400px] max-h-[400px] bg-secondary/8 blur-[120px] rounded-full animate-float-delayed pointer-events-none" aria-hidden="true"></div>
+<div class="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[60vw] h-[60vw] max-w-[600px] max-h-[600px] bg-primary/3 blur-[150px] rounded-full pointer-events-none" aria-hidden="true"></div>
+
+<div class="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 grid lg:grid-cols-2 gap-8 lg:gap-16 items-center">
+<div class="reveal stagger-children" id="hero-content">
+<div>
+<span class="font-label text-secondary tracking-[0.2em] uppercase text-xs sm:text-sm mb-4 sm:mb-6 block neon-text-sm" role="text">
+<span aria-hidden="true">✦</span> Next-Gen Voice Operations
+</span>
+<h1 class="font-headline font-extrabold text-4xl sm:text-5xl lg:text-7xl xl:text-8xl leading-[1.1] tracking-tight mb-6">
+Every&nbsp;call.<br/>Every&nbsp;detail.<br/>
+<span class="text-primary neon-text">Handled.</span>
+</h1>
+<p class="text-on-surface-variant text-base sm:text-lg lg:text-xl mb-8 sm:mb-10 max-w-md font-body leading-relaxed">
+VoxFlow is the voice layer for modern operations — built for scale, trusted by leading teams to automate high-stakes conversations.
+</p>
+<div class="flex flex-wrap gap-3 sm:gap-4">
+<a href="#" class="group inline-flex items-center gap-2 bg-primary text-on-primary px-6 sm:px-8 py-3 sm:py-4 font-headline font-bold rounded-xl transition-all duration-300 hover:shadow-[0_0_30px_rgba(255,45,120,0.5)] hover:scale-[1.03] active:scale-95">
+Request Pilot
+<span class="material-symbols-outlined group-hover:translate-x-1 transition-transform">arrow_forward</span>
+</a>
+<a href="#" class="inline-flex items-center gap-2 border border-outline-variant/50 text-on-surface px-6 sm:px-8 py-3 sm:py-4 font-headline font-bold rounded-xl hover:bg-surface-variant transition-all duration-300 hover:border-primary/40 active:scale-95">
+Explore Operations
+</a>
+</div>
+</div>
+</div>
+
+<!-- Dashboard mockup -->
+<div class="relative reveal-right" id="hero-dashboard">
+<div class="animate-float">
+<div class="absolute -inset-2 bg-gradient-to-r from-primary/15 to-secondary/15 blur-3xl rounded-3xl pointer-events-none" aria-hidden="true"></div>
+<div class="relative glass neon-border rounded-2xl overflow-hidden shadow-2xl border-outline-variant/20">
+<!-- Browser chrome -->
+<div class="bg-surface-variant/80 px-3 sm:px-4 py-2.5 sm:py-3 flex items-center gap-2 border-b border-outline-variant/20">
+<div class="flex gap-1.5" aria-hidden="true">
+<div class="w-2.5 h-2.5 rounded-full bg-red-500/40"></div>
+<div class="w-2.5 h-2.5 rounded-full bg-yellow-500/40"></div>
+<div class="w-2.5 h-2.5 rounded-full bg-green-500/40"></div>
+</div>
+<div class="mx-auto bg-surface-container px-3 py-1 rounded text-[10px] text-on-surface-variant font-label border border-outline-variant/20 flex items-center gap-2 max-w-[200px] truncate">
+<span class="material-symbols-outlined text-[12px] shrink-0">lock</span>
+<span class="truncate">app.voxflow.ai/operations</span>
+</div>
+<div class="w-14" aria-hidden="true"></div>
+</div>
+<!-- Dashboard body -->
+<div class="p-3 sm:p-5 md:p-6 grid grid-cols-12 gap-3 sm:gap-4">
+<!-- Sidebar -->
+<div class="col-span-3 space-y-2 sm:space-y-3">
+<div class="bg-primary/10 border border-primary/30 p-1.5 sm:p-2 rounded-lg text-[10px] text-primary flex items-center gap-1.5 sm:gap-2 transition-colors">
+<span class="material-symbols-outlined text-[12px] sm:text-[14px]">dashboard</span>
+<span class="hidden sm:inline">Overview</span>
+</div>
+<div class="p-1.5 sm:p-2 rounded-lg text-[10px] text-on-surface-variant flex items-center gap-1.5 sm:gap-2 hover:bg-surface-variant transition-colors">
+<span class="material-symbols-outlined text-[12px] sm:text-[14px]">call</span>
+<span class="hidden sm:inline">Calls</span>
+</div>
+<div class="p-1.5 sm:p-2 rounded-lg text-[10px] text-on-surface-variant flex items-center gap-1.5 sm:gap-2 hover:bg-surface-variant transition-colors">
+<span class="material-symbols-outlined text-[12px] sm:text-[14px]">inventory_2</span>
+<span class="hidden sm:inline">Orders</span>
+</div>
+<div class="p-1.5 sm:p-2 rounded-lg text-[10px] text-on-surface-variant flex items-center gap-1.5 sm:gap-2 hover:bg-surface-variant transition-colors">
+<span class="material-symbols-outlined text-[12px] sm:text-[14px]">account_circle</span>
+<span class="hidden sm:inline">Contacts</span>
+</div>
+</div>
+<!-- Content -->
+<div class="col-span-9 space-y-3 sm:space-y-4">
+<div class="flex justify-between items-center mb-1 sm:mb-2">
+<h3 class="font-headline font-bold text-xs sm:text-sm">Live Operations</h3>
+<span class="flex items-center gap-1.5 text-[9px] sm:text-[10px] text-secondary font-label">
+<span class="w-1.5 h-1.5 bg-secondary rounded-full animate-pulse"></span>
+All systems active
+</span>
+</div>
+<div class="grid grid-cols-3 gap-2 sm:gap-3">
+<div class="bg-surface-container-high/80 p-2 sm:p-3 rounded-lg border border-outline-variant/20">
+<p class="text-[8px] sm:text-[9px] text-on-surface-variant mb-1">Live Calls</p>
+<p class="text-base sm:text-xl font-headline font-bold">12</p>
+<div class="h-3 sm:h-4 flex items-end gap-0.5 mt-1 sm:mt-2 overflow-hidden">
+<div class="waveform-bar w-1 bg-primary/40" style="animation-delay:0.1s"></div>
+<div class="waveform-bar w-1 bg-primary/60" style="animation-delay:0.3s"></div>
+<div class="waveform-bar w-1 bg-primary" style="animation-delay:0.5s"></div>
+<div class="waveform-bar w-1 bg-primary/70" style="animation-delay:0.2s"></div>
+<div class="waveform-bar w-1 bg-primary/40" style="animation-delay:0.4s"></div>
+</div>
+</div>
+<div class="bg-surface-container-high/80 p-2 sm:p-3 rounded-lg border border-outline-variant/20">
+<p class="text-[8px] sm:text-[9px] text-on-surface-variant mb-1">Calls Handled</p>
+<p class="text-base sm:text-xl font-headline font-bold">48</p>
+<p class="text-[7px] sm:text-[8px] text-secondary mt-1">+18% Today</p>
+</div>
+<div class="bg-surface-container-high/80 p-2 sm:p-3 rounded-lg border border-outline-variant/20">
+<p class="text-[8px] sm:text-[9px] text-on-surface-variant mb-1">Orders</p>
+<p class="text-base sm:text-xl font-headline font-bold">223</p>
+<p class="text-[7px] sm:text-[8px] text-secondary mt-1">+24% Today</p>
+</div>
+</div>
+<!-- Active call card -->
+<div class="bg-surface-container-highest/80 p-2 sm:p-3 rounded-lg border border-primary/15 relative overflow-hidden">
+<div class="absolute top-0 right-0 w-20 h-20 bg-primary/5 blur-2xl rounded-full pointer-events-none" aria-hidden="true"></div>
+<div class="flex justify-between items-center mb-2 sm:mb-3 relative">
+<div class="flex items-center gap-1.5 sm:gap-2">
+<span class="material-symbols-outlined text-primary text-sm">support_agent</span>
+<span class="text-[9px] sm:text-[10px] font-bold">Active Call: Customer #8292</span>
+</div>
+<span class="bg-primary/20 text-primary text-[7px] sm:text-[8px] px-1.5 py-0.5 rounded uppercase font-bold tracking-wider">Live</span>
+</div>
+<div class="space-y-1.5 sm:space-y-2 relative">
+<div class="flex gap-1.5 sm:gap-2">
+<div class="w-3 h-3 sm:w-4 sm:h-4 rounded-full bg-secondary/20 flex-shrink-0 mt-0.5"></div>
+<div class="bg-surface-variant/50 p-1.5 sm:p-2 rounded-r-lg rounded-bl-lg text-[8px] sm:text-[9px] text-on-surface-variant italic leading-relaxed max-w-[80%]">
+"I'd like to check the status of my recent shipment for order #9921."
+</div>
+</div>
+<div class="flex gap-1.5 sm:gap-2 justify-end">
+<div class="bg-primary/10 p-1.5 sm:p-2 rounded-l-lg rounded-br-lg text-[8px] sm:text-[9px] text-on-surface border border-primary/10 leading-relaxed max-w-[85%]">
+"Checking order #9921 now. It's currently in transit and expected to arrive by Tuesday."
+</div>
+<div class="w-3 h-3 sm:w-4 sm:h-4 rounded-full bg-primary/20 flex-shrink-0 mt-0.5"></div>
+</div>
+</div>
+</div>
+</div>
+</div>
+</div>
+</div>
+</div>
+</div>
+</section>
+
+<!-- Trusted By Section -->
+<section class="py-10 sm:py-12 border-y border-outline-variant/15 relative overflow-hidden reveal" id="trusted">
+<div class="noise absolute inset-0 pointer-events-none" aria-hidden="true"></div>
+<p class="text-center text-on-surface-variant font-label text-xs tracking-[0.2em] uppercase mb-6 sm:mb-8 relative z-10">Trusted by industry leaders</p>
+<div class="marquee-track relative z-10">
+<div class="marquee-content">
+<div class="flex items-center gap-2 sm:gap-3 grayscale opacity-30 hover:grayscale-0 hover:opacity-100 transition-all duration-500 cursor-default group" role="img" aria-label="Zenith Tech">
+<span class="material-symbols-outlined text-2xl sm:text-3xl">token</span>
+<span class="font-headline font-bold text-lg sm:text-xl tracking-tight">ZENITH-TECH</span>
+</div>
+<div class="flex items-center gap-2 sm:gap-3 grayscale opacity-30 hover:grayscale-0 hover:opacity-100 transition-all duration-500 cursor-default group" role="img" aria-label="Nexus AI">
+<span class="material-symbols-outlined text-2xl sm:text-3xl">polyline</span>
+<span class="font-headline font-bold text-lg sm:text-xl tracking-tight">NEXUS_AI</span>
+</div>
+<div class="flex items-center gap-2 sm:gap-3 grayscale opacity-30 hover:grayscale-0 hover:opacity-100 transition-all duration-500 cursor-default group" role="img" aria-label="Corp Core">
+<span class="material-symbols-outlined text-2xl sm:text-3xl">grid_view</span>
+<span class="font-headline font-bold text-lg sm:text-xl tracking-tight">CORP_CORE</span>
+</div>
+<div class="flex items-center gap-2 sm:gap-3 grayscale opacity-30 hover:grayscale-0 hover:opacity-100 transition-all duration-500 cursor-default group" role="img" aria-label="Platform X">
+<span class="material-symbols-outlined text-2xl sm:text-3xl">hub</span>
+<span class="font-headline font-bold text-lg sm:text-xl tracking-tight">PLATFORM_X</span>
+</div>
+<div class="flex items-center gap-2 sm:gap-3 grayscale opacity-30 hover:grayscale-0 hover:opacity-100 transition-all duration-500 cursor-default group" role="img" aria-label="Zenith Tech">
+<span class="material-symbols-outlined text-2xl sm:text-3xl">token</span>
+<span class="font-headline font-bold text-lg sm:text-xl tracking-tight">ZENITH-TECH</span>
+</div>
+<div class="flex items-center gap-2 sm:gap-3 grayscale opacity-30 hover:grayscale-0 hover:opacity-100 transition-all duration-500 cursor-default group" role="img" aria-label="Nexus AI">
+<span class="material-symbols-outlined text-2xl sm:text-3xl">polyline</span>
+<span class="font-headline font-bold text-lg sm:text-xl tracking-tight">NEXUS_AI</span>
+</div>
+<div class="flex items-center gap-2 sm:gap-3 grayscale opacity-30 hover:grayscale-0 hover:opacity-100 transition-all duration-500 cursor-default group" role="img" aria-label="Corp Core">
+<span class="material-symbols-outlined text-2xl sm:text-3xl">grid_view</span>
+<span class="font-headline font-bold text-lg sm:text-xl tracking-tight">CORP_CORE</span>
+</div>
+</div>
+</div>
+</section>
+
+<!-- Features Section -->
+<section class="py-20 sm:py-28 lg:py-32 relative grid-bg" id="platform">
+<div class="absolute inset-0 noise pointer-events-none" aria-hidden="true"></div>
+<div class="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+<div class="text-center mb-14 sm:mb-20 reveal">
+<span class="font-label text-secondary tracking-[0.2em] uppercase text-xs mb-3 sm:mb-4 block neon-text-sm">Platform</span>
+<h2 class="font-headline font-bold text-3xl sm:text-4xl lg:text-5xl mb-4 tracking-tight">Enterprise Grade Intelligence</h2>
+<p class="text-on-surface-variant text-base sm:text-lg max-w-2xl mx-auto font-body">Standardize every customer interaction with surgical precision and persistent context.</p>
+</div>
+<div class="grid sm:grid-cols-2 lg:grid-cols-3 gap-5 sm:gap-6 lg:gap-8 stagger-children" id="features-grid">
+<div class="glass rounded-2xl neon-border-card p-6 sm:p-8 transition-all duration-400 group hover:-translate-y-1 relative overflow-hidden">
+<div class="absolute top-0 right-0 w-32 h-32 bg-primary/3 blur-3xl rounded-full pointer-events-none group-hover:bg-primary/8 transition-all duration-500" aria-hidden="true"></div>
+<div class="w-12 h-12 sm:w-14 sm:h-14 bg-surface-container-high rounded-xl flex items-center justify-center mb-5 sm:mb-6 border border-outline-variant/20 group-hover:scale-110 transition-transform duration-400 relative">
+<span class="material-symbols-outlined text-secondary text-2xl sm:text-3xl" style="font-variation-settings:'FILL'1">waves</span>
+</div>
+<h3 class="font-headline font-bold text-lg sm:text-xl mb-3 sm:mb-4">Unmatched Consistency</h3>
+<p class="text-on-surface-variant text-sm sm:text-base leading-relaxed">Ensure every agent adheres to brand protocols perfectly. Zero variability in tone, accuracy, or professional compliance.</p>
+</div>
+<div class="glass rounded-2xl neon-border-card p-6 sm:p-8 transition-all duration-400 group hover:-translate-y-1 relative overflow-hidden">
+<div class="absolute top-0 right-0 w-32 h-32 bg-primary/3 blur-3xl rounded-full pointer-events-none group-hover:bg-primary/8 transition-all duration-500" aria-hidden="true"></div>
+<div class="w-12 h-12 sm:w-14 sm:h-14 bg-surface-container-high rounded-xl flex items-center justify-center mb-5 sm:mb-6 border border-outline-variant/20 group-hover:scale-110 transition-transform duration-400 relative">
+<span class="material-symbols-outlined text-primary text-2xl sm:text-3xl" style="font-variation-settings:'FILL'1">database</span>
+</div>
+<h3 class="font-headline font-bold text-lg sm:text-xl mb-3 sm:mb-4">Operational Memory</h3>
+<p class="text-on-surface-variant text-sm sm:text-base leading-relaxed">Integrated real-time database access allows agents to remember history, preferences, and complex order details across sessions.</p>
+</div>
+<div class="glass rounded-2xl border border-tertiary/15 hover:border-tertiary/40 p-6 sm:p-8 transition-all duration-400 group hover:-translate-y-1 relative overflow-hidden">
+<div class="absolute top-0 right-0 w-32 h-32 bg-tertiary/3 blur-3xl rounded-full pointer-events-none group-hover:bg-tertiary/8 transition-all duration-500" aria-hidden="true"></div>
+<div class="w-12 h-12 sm:w-14 sm:h-14 bg-surface-container-high rounded-xl flex items-center justify-center mb-5 sm:mb-6 border border-outline-variant/20 group-hover:scale-110 transition-transform duration-400 relative">
+<span class="material-symbols-outlined text-tertiary text-2xl sm:text-3xl" style="font-variation-settings:'FILL'1">shield_lock</span>
+</div>
+<h3 class="font-headline font-bold text-lg sm:text-xl mb-3 sm:mb-4">Strategic Control</h3>
+<p class="text-on-surface-variant text-sm sm:text-base leading-relaxed">Complete visibility into every dialogue path. Instant audit logs and real-time intervention for edge cases.</p>
+</div>
+</div>
+</div>
+</section>
+
+<!-- Scale Section -->
+<section class="py-20 sm:py-28 lg:py-32 bg-surface-container-lowest relative overflow-hidden" id="solutions">
+<div class="absolute top-0 left-0 w-64 h-64 bg-primary/5 blur-[120px] rounded-full pointer-events-none" aria-hidden="true"></div>
+<div class="absolute bottom-0 right-0 w-64 h-64 bg-secondary/5 blur-[120px] rounded-full pointer-events-none" aria-hidden="true"></div>
+<div class="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 grid lg:grid-cols-2 gap-12 lg:gap-20 items-center">
+<div class="reveal-left">
+<span class="font-label text-secondary tracking-[0.2em] uppercase text-xs mb-3 sm:mb-4 block neon-text-sm">Scale</span>
+<h2 class="font-headline font-extrabold text-3xl sm:text-4xl lg:text-5xl xl:text-6xl mb-6 tracking-tight leading-tight">
+Built for <span class="text-primary neon-text">Scale.</span>
+</h2>
+<p class="text-on-surface-variant text-base sm:text-lg lg:text-xl leading-relaxed mb-8">
+Handle 10,000+ simultaneous inquiries without breaking a sweat. VoxFlow's infrastructure is distributed across low-latency edge nodes for instantaneous response times.
+</p>
+<div class="flex flex-wrap items-center gap-4 sm:gap-6">
+<div class="flex -space-x-3">
+<div class="w-9 h-9 sm:w-10 sm:h-10 rounded-full border-2 border-background bg-surface-variant" aria-hidden="true"></div>
+<div class="w-9 h-9 sm:w-10 sm:h-10 rounded-full border-2 border-background bg-primary" aria-hidden="true"></div>
+<div class="w-9 h-9 sm:w-10 sm:h-10 rounded-full border-2 border-background bg-secondary" aria-hidden="true"></div>
+</div>
+<p class="text-xs sm:text-sm font-label text-on-surface-variant"><span class="text-on-surface font-bold">2.4M+</span> interactions handled this month</p>
+</div>
+</div>
+<div class="relative reveal-right">
+<div class="relative glass neon-border rounded-2xl sm:rounded-3xl overflow-hidden p-4 sm:p-8">
+<div class="absolute -inset-1 bg-gradient-to-r from-primary/10 to-secondary/10 blur-2xl opacity-50 pointer-events-none" aria-hidden="true"></div>
+<div class="grid grid-cols-2 gap-4 sm:gap-6 relative">
+<div class="bg-surface-container-high/60 rounded-xl p-4 sm:p-6 border border-outline-variant/20 text-center">
+<span class="material-symbols-outlined text-primary text-3xl sm:text-4xl mb-2" style="font-variation-settings:'FILL'1">cloud</span>
+<p class="text-lg sm:text-2xl font-headline font-bold">99.99%</p>
+<p class="text-[10px] sm:text-xs text-on-surface-variant">Uptime SLA</p>
+</div>
+<div class="bg-surface-container-high/60 rounded-xl p-4 sm:p-6 border border-outline-variant/20 text-center">
+<span class="material-symbols-outlined text-secondary text-3xl sm:text-4xl mb-2" style="font-variation-settings:'FILL'1">bolt</span>
+<p class="text-lg sm:text-2xl font-headline font-bold">&lt;50ms</p>
+<p class="text-[10px] sm:text-xs text-on-surface-variant">Avg Response</p>
+</div>
+<div class="bg-surface-container-high/60 rounded-xl p-4 sm:p-6 border border-outline-variant/20 text-center">
+<span class="material-symbols-outlined text-tertiary text-3xl sm:text-4xl mb-2" style="font-variation-settings:'FILL'1">language</span>
+<p class="text-lg sm:text-2xl font-headline font-bold">50+</p>
+<p class="text-[10px] sm:text-xs text-on-surface-variant">Languages</p>
+</div>
+<div class="bg-surface-container-high/60 rounded-xl p-4 sm:p-6 border border-outline-variant/20 text-center">
+<span class="material-symbols-outlined text-primary text-3xl sm:text-4xl mb-2" style="font-variation-settings:'FILL'1">verified</span>
+<p class="text-lg sm:text-2xl font-headline font-bold">SOC 2</p>
+<p class="text-[10px] sm:text-xs text-on-surface-variant">Type II Certified</p>
+</div>
+</div>
+</div>
+</div>
+</div>
+</section>
+
+<!-- Stats Strip -->
+<section class="py-16 sm:py-20 lg:py-24 border-t border-outline-variant/20 relative reveal" id="stats">
+<div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+<div class="grid grid-cols-2 lg:grid-cols-4 gap-6 sm:gap-8">
+<div class="text-center p-4 sm:p-6 rounded-2xl bg-surface-container/30 backdrop-blur-sm border border-outline-variant/10">
+<p class="text-3xl sm:text-4xl lg:text-5xl font-headline font-black text-primary mb-1 sm:mb-2 neon-text">99.8%</p>
+<p class="text-[10px] sm:text-xs font-label tracking-widest uppercase text-on-surface-variant">Transcription Accuracy</p>
+</div>
+<div class="text-center p-4 sm:p-6 rounded-2xl bg-surface-container/30 backdrop-blur-sm border border-outline-variant/10">
+<p class="text-3xl sm:text-4xl lg:text-5xl font-headline font-black text-secondary mb-1 sm:mb-2 neon-text-sm">&lt;100ms</p>
+<p class="text-[10px] sm:text-xs font-label tracking-widest uppercase text-on-surface-variant">Global Latency</p>
+</div>
+<div class="text-center p-4 sm:p-6 rounded-2xl bg-surface-container/30 backdrop-blur-sm border border-outline-variant/10">
+<p class="text-3xl sm:text-4xl lg:text-5xl font-headline font-black text-tertiary mb-1 sm:mb-2 neon-text-sm">SOC2</p>
+<p class="text-[10px] sm:text-xs font-label tracking-widest uppercase text-on-surface-variant">Type II Security</p>
+</div>
+<div class="text-center p-4 sm:p-6 rounded-2xl bg-surface-container/30 backdrop-blur-sm border border-outline-variant/10">
+<p class="text-3xl sm:text-4xl lg:text-5xl font-headline font-black text-on-surface mb-1 sm:mb-2">50+</p>
+<p class="text-[10px] sm:text-xs font-label tracking-widest uppercase text-on-surface-variant">Languages Supported</p>
+</div>
+</div>
+</div>
+</section>
+
+<!-- Integration Showcase -->
+<section class="py-20 sm:py-28 lg:py-32 relative grid-bg" id="network">
+<div class="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+<div class="text-center mb-14 sm:mb-20 reveal">
+<span class="font-label text-secondary tracking-[0.2em] uppercase text-xs mb-3 sm:mb-4 block neon-text-sm">Integrations</span>
+<h2 class="font-headline font-bold text-3xl sm:text-4xl lg:text-5xl mb-4 tracking-tight">Seamless Connectivity</h2>
+<p class="text-on-surface-variant text-base sm:text-lg max-w-2xl mx-auto font-body">VoxFlow plugs directly into your existing stack. No rip and replace.</p>
+</div>
+<div class="grid sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6 stagger-children" id="integrations-grid">
+<div class="glass rounded-xl sm:rounded-2xl p-5 sm:p-8 border border-outline-variant/20 hover:border-secondary/30 transition-all duration-400 group text-center hover:-translate-y-1">
+<div class="w-12 h-12 sm:w-16 sm:h-16 bg-surface-container-high rounded-2xl flex items-center justify-center mx-auto mb-4 sm:mb-5 border border-outline-variant/20 group-hover:scale-110 transition-transform duration-400">
+<span class="material-symbols-outlined text-secondary text-2xl sm:text-3xl" style="font-variation-settings:'FILL'1">salesforce</span>
+</div>
+<h4 class="font-headline font-bold text-sm sm:text-base">CRM Sync</h4>
+<p class="text-on-surface-variant text-xs sm:text-sm mt-1 sm:mt-2">Real-time contact &amp; deal updates</p>
+</div>
+<div class="glass rounded-xl sm:rounded-2xl p-5 sm:p-8 border border-outline-variant/20 hover:border-secondary/30 transition-all duration-400 group text-center hover:-translate-y-1">
+<div class="w-12 h-12 sm:w-16 sm:h-16 bg-surface-container-high rounded-2xl flex items-center justify-center mx-auto mb-4 sm:mb-5 border border-outline-variant/20 group-hover:scale-110 transition-transform duration-400">
+<span class="material-symbols-outlined text-secondary text-2xl sm:text-3xl" style="font-variation-settings:'FILL'1">chat</span>
+</div>
+<h4 class="font-headline font-bold text-sm sm:text-base">Slack &amp; Teams</h4>
+<p class="text-on-surface-variant text-xs sm:text-sm mt-1 sm:mt-2">Dispatch alerts &amp; summaries</p>
+</div>
+<div class="glass rounded-xl sm:rounded-2xl p-5 sm:p-8 border border-outline-variant/20 hover:border-secondary/30 transition-all duration-400 group text-center hover:-translate-y-1">
+<div class="w-12 h-12 sm:w-16 sm:h-16 bg-surface-container-high rounded-2xl flex items-center justify-center mx-auto mb-4 sm:mb-5 border border-outline-variant/20 group-hover:scale-110 transition-transform duration-400">
+<span class="material-symbols-outlined text-secondary text-2xl sm:text-3xl" style="font-variation-settings:'FILL'1">database</span>
+</div>
+<h4 class="font-headline font-bold text-sm sm:text-base">Data Warehouses</h4>
+<p class="text-on-surface-variant text-xs sm:text-sm mt-1 sm:mt-2">Snowflake, BigQuery, Redshift</p>
+</div>
+<div class="glass rounded-xl sm:rounded-2xl p-5 sm:p-8 border border-outline-variant/20 hover:border-secondary/30 transition-all duration-400 group text-center hover:-translate-y-1">
+<div class="w-12 h-12 sm:w-16 sm:h-16 bg-surface-container-high rounded-2xl flex items-center justify-center mx-auto mb-4 sm:mb-5 border border-outline-variant/20 group-hover:scale-110 transition-transform duration-400">
+<span class="material-symbols-outlined text-secondary text-2xl sm:text-3xl" style="font-variation-settings:'FILL'1">api</span>
+</div>
+<h4 class="font-headline font-bold text-sm sm:text-base">REST &amp; Webhook</h4>
+<p class="text-on-surface-variant text-xs sm:text-sm mt-1 sm:mt-2">Custom integrations API</p>
+</div>
+</div>
+</div>
+</section>
+
+<!-- Testimonial -->
+<section class="py-16 sm:py-20 lg:py-24 relative reveal" id="testimonial">
+<div class="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
+<div class="glass rounded-2xl sm:rounded-3xl p-8 sm:p-12 lg:p-16 border border-outline-variant/20 relative overflow-hidden">
+<div class="absolute top-0 left-1/2 -translate-x-1/2 w-48 h-48 bg-primary/5 blur-[100px] rounded-full pointer-events-none" aria-hidden="true"></div>
+<div class="relative">
+<span class="material-symbols-outlined text-primary/20 text-5xl sm:text-6xl block mb-4 sm:mb-6" style="font-variation-settings:'FILL'1">format_quote</span>
+<blockquote class="text-lg sm:text-xl lg:text-2xl font-body leading-relaxed text-on-surface mb-6 sm:mb-8 italic">
+"VoxFlow transformed our call center overnight. We scaled from 50 to 5,000 daily calls without adding a single agent. The accuracy is unreal."
+</blockquote>
+<div class="flex items-center justify-center gap-3 sm:gap-4">
+<div class="w-10 h-10 sm:w-12 sm:h-12 rounded-full bg-gradient-to-br from-primary to-secondary flex items-center justify-center text-white font-headline font-bold text-sm sm:text-base" aria-hidden="true">S</div>
+<div class="text-left">
+<p class="font-headline font-bold text-sm sm:text-base">Sarah Chen</p>
+<p class="text-on-surface-variant text-xs sm:text-sm">VP of Operations, ZenithTech</p>
+</div>
+</div>
+</div>
+</div>
+</div>
+</section>
+
+<!-- CTA Section -->
+<section class="py-20 sm:py-28 lg:py-32 relative grid-bg" id="cta">
+<div class="absolute inset-0 noise pointer-events-none" aria-hidden="true"></div>
+<div class="relative z-10 max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 reveal-scale">
+<div class="text-center glass p-8 sm:p-12 lg:p-16 rounded-2xl sm:rounded-3xl border border-primary/20 relative overflow-hidden">
+<div class="absolute -top-24 -left-24 w-48 sm:w-64 h-48 sm:h-64 bg-primary/15 blur-[120px] rounded-full pointer-events-none" aria-hidden="true"></div>
+<div class="absolute -bottom-24 -right-24 w-48 sm:w-64 h-48 sm:h-64 bg-secondary/15 blur-[120px] rounded-full pointer-events-none" aria-hidden="true"></div>
+<h2 class="font-headline font-extrabold text-2xl sm:text-3xl lg:text-4xl xl:text-5xl mb-4 sm:mb-6 relative z-10 tracking-tight leading-tight">
+Ready to automate your <span class="text-primary neon-text">voice layer</span>?
+</h2>
+<p class="text-on-surface-variant text-sm sm:text-base lg:text-lg mb-8 sm:mb-10 relative z-10 max-w-xl mx-auto">
+Join the next generation of operational efficiency. Seamless integration with your existing CRM and tech stack.
+</p>
+<div class="flex flex-col sm:flex-row gap-3 sm:gap-4 justify-center relative z-10">
+<a href="#" class="group inline-flex items-center gap-2 bg-primary text-on-primary px-6 sm:px-10 py-3 sm:py-5 font-headline font-bold rounded-xl transition-all duration-300 hover:shadow-[0_0_30px_rgba(255,45,120,0.5)] hover:scale-[1.03] active:scale-95 text-sm sm:text-base">
+Start Your Free Pilot
+<span class="material-symbols-outlined group-hover:translate-x-1 transition-transform">arrow_forward</span>
+</a>
+<a href="#" class="inline-flex items-center gap-2 bg-surface-variant text-on-surface px-6 sm:px-10 py-3 sm:py-5 font-headline font-bold rounded-xl hover:bg-surface-container-highest transition-all duration-300 active:scale-95 text-sm sm:text-base border border-outline-variant/20">
+Speak to Sales
+</a>
+</div>
+</div>
+</div>
+</section>
+</main>
+
+<!-- Footer -->
+<footer class="bg-surface-container-lowest pt-16 sm:pt-20 pb-8 sm:pb-12 border-t border-outline-variant/15 reveal" role="contentinfo">
+<div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+<div class="grid sm:grid-cols-2 lg:grid-cols-4 gap-10 sm:gap-12 lg:gap-16 mb-12 sm:mb-16">
+<div class="space-y-5 sm:space-y-6">
+<div class="flex items-center gap-2">
+<span class="material-symbols-outlined text-primary text-2xl sm:text-3xl font-bold" style="font-variation-settings:'FILL'1">graphic_eq</span>
+<span class="text-lg sm:text-xl font-headline font-bold text-on-surface">VoxFlow</span>
+</div>
+<p class="text-on-surface-variant text-sm sm:text-base font-body leading-relaxed">
+The voice layer for modern operations. Automated, secure, and built for scale.
+</p>
+<div class="flex gap-3 sm:gap-4">
+<a class="w-8 h-8 sm:w-9 sm:h-9 rounded-lg bg-surface-variant flex items-center justify-center hover:bg-primary/20 transition-colors" href="#" aria-label="Twitter">
+<span class="material-symbols-outlined text-sm">alternate_email</span>
+</a>
+<a class="w-8 h-8 sm:w-9 sm:h-9 rounded-lg bg-surface-variant flex items-center justify-center hover:bg-primary/20 transition-colors" href="#" aria-label="LinkedIn">
+<span class="material-symbols-outlined text-sm">hub</span>
+</a>
+<a class="w-8 h-8 sm:w-9 sm:h-9 rounded-lg bg-surface-variant flex items-center justify-center hover:bg-primary/20 transition-colors" href="#" aria-label="GitHub">
+<span class="material-symbols-outlined text-sm">code</span>
+</a>
+</div>
+</div>
+<div class="space-y-4">
+<h4 class="font-label text-xs uppercase tracking-widest text-on-surface mb-4">Product</h4>
+<ul class="space-y-2.5 sm:space-y-3">
+<li><a class="text-sm sm:text-base text-on-surface-variant hover:text-secondary transition-colors" href="#">Real-time Transcription</a></li>
+<li><a class="text-sm sm:text-base text-on-surface-variant hover:text-secondary transition-colors" href="#">Integrations</a></li>
+<li><a class="text-sm sm:text-base text-on-surface-variant hover:text-secondary transition-colors" href="#">API Reference</a></li>
+<li><a class="text-sm sm:text-base text-on-surface-variant hover:text-secondary transition-colors" href="#">Pricing</a></li>
+</ul>
+</div>
+<div class="space-y-4">
+<h4 class="font-label text-xs uppercase tracking-widest text-on-surface mb-4">Company</h4>
+<ul class="space-y-2.5 sm:space-y-3">
+<li><a class="text-sm sm:text-base text-on-surface-variant hover:text-secondary transition-colors" href="#">About Us</a></li>
+<li><a class="text-sm sm:text-base text-on-surface-variant hover:text-secondary transition-colors" href="#">Careers</a></li>
+<li><a class="text-sm sm:text-base text-on-surface-variant hover:text-secondary transition-colors" href="#">Blog</a></li>
+<li><a class="text-sm sm:text-base text-on-surface-variant hover:text-secondary transition-colors" href="#">Contact</a></li>
+</ul>
+</div>
+<div class="space-y-4">
+<h4 class="font-label text-xs uppercase tracking-widest text-on-surface mb-4">Compliance</h4>
+<ul class="space-y-2.5 sm:space-y-3">
+<li><a class="text-sm sm:text-base text-on-surface-variant hover:text-secondary transition-colors" href="#">Privacy Policy</a></li>
+<li><a class="text-sm sm:text-base text-on-surface-variant hover:text-secondary transition-colors" href="#">Terms of Service</a></li>
+<li><a class="text-sm sm:text-base text-on-surface-variant hover:text-secondary transition-colors" href="#">Security</a></li>
+<li><a class="text-sm sm:text-base text-on-surface-variant hover:text-secondary transition-colors" href="#">Trust Center</a></li>
+</ul>
+</div>
+</div>
+<div class="border-t border-outline-variant/15 pt-6 sm:pt-8 flex flex-col sm:flex-row justify-between items-center gap-4">
+<p class="text-on-surface-variant text-xs sm:text-sm font-body">&copy; 2026 VoxFlow AI. Voice Operations. Automated.</p>
+<div class="flex gap-4 sm:gap-6">
+<a class="text-on-surface-variant text-xs sm:text-sm hover:text-primary transition-colors" href="#">Status</a>
+<a class="text-on-surface-variant text-xs sm:text-sm hover:text-primary transition-colors" href="#">Sitemap</a>
+<a class="text-on-surface-variant text-xs sm:text-sm hover:text-primary transition-colors" href="#">Cookie Policy</a>
+</div>
+</div>
+</div>
+</footer>
+
+<script>
+    (function() {
+      'use strict';
+
+      /* ── Loader ── */
+      window.addEventListener('load', function() {
+        var loader = document.getElementById('loader');
+        if (loader) {
+          setTimeout(function() { loader.classList.add('hidden'); }, 400);
+        }
+      });
+
+      /* ── Debounce helper ── */
+      function debounce(fn, ms) {
+        var timer;
+        return function() {
+          var ctx = this, args = arguments;
+          clearTimeout(timer);
+          timer = setTimeout(function() { fn.apply(ctx, args); }, ms);
+        };
+      }
+
+      /* ── Throttle helper ── */
+      function throttle(fn, ms) {
+        var last = 0;
+        return function() {
+          var now = Date.now();
+          if (now - last >= ms) {
+            last = now;
+            fn.apply(this, arguments);
+          }
+        };
+      }
+
+      /* ── Scroll Reveal ── */
+      function initReveal() {
+        var els = document.querySelectorAll('.reveal, .reveal-left, .reveal-right, .reveal-scale, .stagger-children');
+        if (!els.length) return;
+
+        var obs = new IntersectionObserver(function(entries) {
+          entries.forEach(function(entry) {
+            if (entry.isIntersecting) {
+              entry.target.classList.add('visible');
+              obs.unobserve(entry.target);
+            }
+          });
+        }, { threshold: 0.08, rootMargin: '0px 0px -40px 0px' });
+
+        els.forEach(function(el) { obs.observe(el); });
+      }
+
+      /* ── Particles ── */
+      function initParticles() {
+        var container = document.getElementById('particles');
+        if (!container) return;
+        var count = window.innerWidth < 768 ? 15 : 30;
+        var colors = ['var(--neon-primary)', 'var(--neon-secondary)', 'var(--neon-tertiary)'];
+
+        for (var i = 0; i < count; i++) {
+          var p = document.createElement('div');
+          p.className = 'particle';
+          p.style.left = Math.random() * 100 + '%';
+          p.style.top = Math.random() * 100 + '%';
+          p.style.background = colors[i % 3];
+          p.style.boxShadow = '0 0 6px ' + colors[i % 3];
+          p.style.width = (1 + Math.random() * 2) + 'px';
+          p.style.height = p.style.width;
+          var dur = 4 + Math.random() * 8;
+          var delay = Math.random() * 10;
+          p.style.animation = 'particle-float ' + dur + 's ease-in-out ' + delay + 's infinite alternate';
+          container.appendChild(p);
+        }
+      }
+
+      /* Particle keyframes injected once */
+      var particleStyle = document.createElement('style');
+      particleStyle.textContent = '@keyframes particle-float { 0% { opacity:0; transform:translateY(0) translateX(0); } 20% { opacity:0.6; } 80% { opacity:0.4; } 100% { opacity:0; transform:translateY(-80px) translateX(20px); } }';
+      document.head.appendChild(particleStyle);
+
+      /* ── Custom cursor ── */
+      function initCursor() {
+        var dot = document.getElementById('cursorDot');
+        var ring = document.getElementById('cursorRing');
+        if (!dot || !ring) return;
+
+        var mouseX = 0, mouseY = 0;
+        var ringX = 0, ringY = 0;
+
+        document.addEventListener('mousemove', function(e) {
+          mouseX = e.clientX;
+          mouseY = e.clientY;
+          dot.style.left = mouseX + 'px';
+          dot.style.top = mouseY + 'px';
+        });
+
+        function animateRing() {
+          ringX += (mouseX - ringX) * 0.12;
+          ringY += (mouseY - ringY) * 0.12;
+          ring.style.left = ringX + 'px';
+          ring.style.top = ringY + 'px';
+          requestAnimationFrame(animateRing);
+        }
+        animateRing();
+
+        // Scale cursor on interactive elements
+        document.querySelectorAll('a, button, [role="button"], input, select, textarea').forEach(function(el) {
+          el.addEventListener('mouseenter', function() {
+            dot.style.width = '12px';
+            dot.style.height = '12px';
+            ring.style.width = '44px';
+            ring.style.height = '44px';
+            ring.style.borderColor = 'rgba(255, 45, 120, 0.6)';
+          });
+          el.addEventListener('mouseleave', function() {
+            dot.style.width = '8px';
+            dot.style.height = '8px';
+            ring.style.width = '32px';
+            ring.style.height = '32px';
+            ring.style.borderColor = 'rgba(255, 45, 120, 0.4)';
+          });
+        });
+      }
+
+      /* ── Header scroll behavior ── */
+      function initHeader() {
+        var header = document.getElementById('site-header');
+        var headerInner = document.getElementById('header-inner');
+        if (!header) return;
+        var lastScroll = 0;
+
+        window.addEventListener('scroll', throttle(function() {
+          var currentScroll = window.pageYOffset || document.documentElement.scrollTop;
+
+          if (currentScroll > 80) {
+            headerInner.style.borderColor = 'rgba(48, 40, 64, 0.3)';
+            headerInner.style.boxShadow = '0 4px 30px rgba(0,0,0,0.3)';
+          } else {
+            headerInner.style.borderColor = 'rgba(48, 40, 64, 0.2)';
+            headerInner.style.boxShadow = 'none';
+          }
+
+          if (currentScroll > 200 && currentScroll > lastScroll) {
+            header.style.transform = 'translateY(-100%)';
+          } else {
+            header.style.transform = 'translateY(0)';
+          }
+          lastScroll = currentScroll;
+        }, 100));
+      }
+
+      /* ── Mobile menu ── */
+      function initMobileMenu() {
+        var toggle = document.getElementById('menu-toggle');
+        var menu = document.getElementById('mobile-menu');
+        var icon = document.getElementById('menu-icon');
+        if (!toggle || !menu || !icon) return;
+
+        toggle.addEventListener('click', function() {
+          var open = menu.getAttribute('aria-hidden') === 'true';
+          menu.setAttribute('aria-hidden', open ? 'false' : 'true');
+          menu.style.transform = open ? 'translateX(0)' : 'translateX(100%)';
+          icon.textContent = open ? 'close' : 'menu';
+          toggle.setAttribute('aria-expanded', open ? 'true' : 'false');
+          document.body.style.overflow = open ? 'hidden' : '';
+        });
+
+        // Close on link click
+        menu.querySelectorAll('[data-mobile-link]').forEach(function(link) {
+          link.addEventListener('click', function() {
+            menu.setAttribute('aria-hidden', 'true');
+            menu.style.transform = 'translateX(100%)';
+            icon.textContent = 'menu';
+            toggle.setAttribute('aria-expanded', 'false');
+            document.body.style.overflow = '';
+          });
+        });
+      }
+
+      /* ── Magnetic effect on buttons ── */
+      function initMagnetic() {
+        var magnets = document.querySelectorAll('.magnetic-btn');
+        magnets.forEach(function(btn) {
+          btn.addEventListener('mousemove', function(e) {
+            var rect = btn.getBoundingClientRect();
+            var x = e.clientX - rect.left - rect.width / 2;
+            var y = e.clientY - rect.top - rect.height / 2;
+            btn.style.transform = 'translate(' + (x * 0.2) + 'px, ' + (y * 0.2) + 'px)';
+          });
+          btn.addEventListener('mouseleave', function() {
+            btn.style.transform = 'translate(0, 0)';
+          });
+        });
+      }
+
+      /* ── Init all ── */
+      document.addEventListener('DOMContentLoaded', function() {
+        initReveal();
+        initParticles();
+        initCursor();
+        initHeader();
+        initMobileMenu();
+        initMagnetic();
+      });
+    })();
+  </script>
+</body>
+</html>
