@@ -52,7 +52,9 @@ class Settings(BaseSettings):
     database_url: str = "sqlite:///./voxflow.db"
     supabase_url: str = ""
     supabase_anon_key: str = ""
+    supabase_publishable_key: str = ""
     supabase_service_role_key: str = ""
+    supabase_jwks_url: str = ""
 
     # ----- Logging -----
     log_level: str = "INFO"
