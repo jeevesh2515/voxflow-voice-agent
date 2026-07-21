@@ -202,31 +202,9 @@ body::after {
 .stagger-children.visible > *:nth-child(5) { transition-delay: 0.25s; opacity: 1; transform: translateY(0); }
 .stagger-children.visible > *:nth-child(6) { transition-delay: 0.3s; opacity: 1; transform: translateY(0); }
 
-/* ── Custom cursor ── */
-.cursor-dot {
-  position: fixed;
-  width: 8px;
-  height: 8px;
-  border-radius: 50%;
-  background: var(--neon-primary);
-  pointer-events: none;
-  z-index: 99999;
-  transform: translate(-50%, -50%);
-  transition: width 0.2s, height 0.2s, background 0.2s;
-  mix-blend-mode: screen;
-  box-shadow: 0 0 12px var(--neon-primary), 0 0 24px var(--neon-primary);
-}
-.cursor-ring {
-  position: fixed;
-  width: 32px;
-  height: 32px;
-  border-radius: 50%;
-  border: 1px solid rgba(255, 45, 120, 0.4);
-  pointer-events: none;
-  z-index: 99998;
-  transform: translate(-50%, -50%);
-  transition: width 0.3s, height 0.3s, border-color 0.3s;
-  box-shadow: 0 0 8px rgba(255, 45, 120, 0.15);
+/* ── Custom cursor disabled ── */
+.cursor-dot, .cursor-ring {
+  display: none !important;
 }
 
 @media (hover: none) and (pointer: coarse) {
