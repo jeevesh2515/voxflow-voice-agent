@@ -4,30 +4,97 @@ import { FadeUp, StaggerContainer, StaggerItem } from "@/components/ScrollAnimat
 
 const tiers = [
   {
-    name: "Starter Pilot", price: "$0", period: "/month", tag: null,
-    features: ["1 Active Workspace", "Up to 50 calls/month", "Hindi-English & Regional Dialects", "Basic Dashboard & Analytics", "Standard Support"],
-    missing: ["Custom Voice Cloning", "Dedicated Account Manager", "SSO & Custom Integrations", "Sub-50ms SLA Guarantee"],
-    cta: "Request Free Pilot", href: "/sign-up", popular: false,
+    id: "starter",
+    name: "Starter Pilot",
+    price: "$0",
+    period: "/month",
+    tag: null,
+    features: [
+      "1 Active Workspace",
+      "Up to 100 calls/month",
+      "Hindi-English & Regional Dialects",
+      "Basic Call Log & Analytics",
+      "Standard Support",
+    ],
+    missing: [
+      "Real-time Order & PO Capture",
+      "Custom Voice Tone",
+      "REST & Webhooks API",
+      "Dedicated Infrastructure",
+    ],
+    cta: "Start Free Pilot",
+    href: "/sign-up?plan=starter",
+    popular: false,
   },
   {
-    name: "Pro Operations", price: "$499", period: "/month", tag: "Most Popular",
-    features: ["5 Workspaces", "Up to 5,000 calls/month", "Real-time Order & PO Capture", "Advanced Analytics & Transcripts", "Priority Support", "REST & Webhooks API"],
-    missing: [],
-    cta: "Start 14-Day Trial", href: "/sign-up", popular: true,
+    id: "pro",
+    name: "Pro Operations",
+    price: "$49",
+    period: "/month",
+    tag: "Most Popular",
+    features: [
+      "3 Workspaces",
+      "Up to 1,500 calls/month",
+      "Real-time Order & PO Capture",
+      "Advanced Analytics & Transcripts",
+      "Priority Email & Chat Support",
+      "Webhook & Database Export",
+    ],
+    missing: [
+      "Custom Voice Tone",
+      "REST & Webhooks API",
+    ],
+    cta: "Start 14-Day Trial",
+    href: "/sign-up?plan=pro",
+    popular: true,
   },
   {
-    name: "Enterprise Scale", price: "Custom", period: "", tag: null,
-    features: ["Unlimited Workspaces", "Unlimited Voice Calls", "Custom Voice Cloning & Tone", "Dedicated Infrastructure & SLA", "Custom ERP & CRM Integrations", "SOC2 Type II & Audit Logs", "24/7 Dedicated Support"],
+    id: "scale",
+    name: "Scale Operations",
+    price: "$99",
+    period: "/month",
+    tag: null,
+    features: [
+      "10 Workspaces",
+      "Up to 5,000 calls/month",
+      "Real-time Order & PO Capture",
+      "Custom Voice Tone & Speed",
+      "Live Human Handoff Triggers",
+      "REST & Webhooks API Access",
+      "99.9% Uptime SLA",
+    ],
     missing: [],
-    cta: "Contact Enterprise Team", href: "/sign-up", popular: false,
+    cta: "Upgrade to Scale",
+    href: "/sign-up?plan=scale",
+    popular: false,
+  },
+  {
+    id: "enterprise",
+    name: "Enterprise Scale",
+    price: "Custom",
+    period: "",
+    tag: null,
+    features: [
+      "Unlimited Workspaces & Calls",
+      "Custom Voice Cloning & Tone",
+      "Dedicated Edge Infrastructure",
+      "Custom ERP & CRM Integrations",
+      "SOC2 Type II & Audit Logs",
+      "24/7 Dedicated Support",
+      "Sub-50ms SLA Guarantee",
+    ],
+    missing: [],
+    cta: "Contact Enterprise Team",
+    href: "/sign-up?plan=enterprise",
+    popular: false,
   },
 ];
 
 const faqs = [
-  { q: "How fast can we deploy a voice flow?", a: "Pre-built templates for inventory check, PO verification, and customer calls deploy in under 15 minutes." },
+  { q: "How do the $0, $49, and $99 plans work?", a: "Start completely free with $0 for testing. As your call volume grows, seamlessly upgrade to $49 (Pro) or $99 (Scale) to unlock more capacity and advanced APIs." },
+  { q: "Can I change or upgrade my plan anytime?", a: "Yes! You can switch plans or upgrade instantly from your dashboard. Unused call quotas roll over into your new tier." },
+  { q: "What happens when I click a plan CTA?", a: "Each plan button takes you directly to the workspace setup form with your selected tier pre-configured and ready to deploy." },
   { q: "What languages and dialects are supported?", a: "VoxFlow supports Hindi, Indian-English, Hinglish, Tamil, Telugu, Marathi, Gujarati, and over 50 global languages natively." },
-  { q: "Can VoxFlow integrate with our existing ERP or CRM?", a: "Yes. VoxFlow connects seamlessly via REST APIs, Webhooks, Supabase, PostgreSQL, Salesforce, and custom database webhooks." },
-  { q: "What happens if a caller asks a complex question?", a: "VoxFlow detects intent confidence dynamically and escalates the conversation to a human agent with full call summary context." },
   { q: "Is caller data and audio secure?", a: "All streams are encrypted in transit (TLS 1.3) and at rest (AES-256). VoxFlow is SOC 2 Type II compliant." },
 ];
 
@@ -42,47 +109,51 @@ export default function PricingPage() {
         <h1 className="font-headline font-extrabold text-4xl sm:text-6xl tracking-tight text-[#e8e0f0] mb-4 leading-tight">
           Flexible plans for <span className="text-[#ff2d78] neon-text">every team.</span>
         </h1>
-        <p className="text-lg text-[#a098b0] font-body">Scale your voice operations predictably. Start with a free pilot today.</p>
+        <p className="text-lg text-[#a098b0] font-body">
+          Choose between $0 Free Pilot, $49 Pro, $99 Scale, or Custom Enterprise plans. Instant workspace activation.
+        </p>
       </FadeUp>
 
-      {/* Pricing Cards */}
-      <StaggerContainer className="max-w-6xl mx-auto grid grid-cols-1 md:grid-cols-3 gap-6 mb-24">
+      {/* Pricing Cards — 4 Columns */}
+      <StaggerContainer className="max-w-7xl mx-auto grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-24">
         {tiers.map((tier) => (
           <StaggerItem
-            key={tier.name}
-            className={`relative rounded-2xl border p-8 flex flex-col transition-all duration-300 ${
+            key={tier.id}
+            className={`relative rounded-2xl border p-6 sm:p-7 flex flex-col transition-all duration-300 ${
               tier.popular
-                ? "border-[#ff2d78]/60 bg-[#141422] shadow-[0_0_40px_rgba(255,45,120,0.15)] hover:border-[#ff2d78]"
-                : "border-[#302840]/40 bg-[#0f0f1a]/80 hover:border-[#ff2d78]/30"
+                ? "border-[#ff2d78]/60 bg-[#141422] shadow-[0_0_40px_rgba(255,45,120,0.18)] hover:border-[#ff2d78] scale-[1.02] z-10"
+                : "border-[#302840]/40 bg-[#0f0f1a]/80 hover:border-[#ff2d78]/40"
             }`}
           >
             {tier.tag && (
-              <span className="absolute -top-3 left-1/2 -translate-x-1/2 text-[10px] font-label font-bold uppercase tracking-widest bg-[#ff2d78] text-[#1a0010] px-4 py-1 rounded-full shadow-[0_0_12px_rgba(255,45,120,0.6)]">
+              <span className="absolute -top-3 left-1/2 -translate-x-1/2 text-[10px] font-label font-bold uppercase tracking-widest bg-[#ff2d78] text-[#1a0010] px-3.5 py-1 rounded-full shadow-[0_0_12px_rgba(255,45,120,0.6)]">
                 {tier.tag}
               </span>
             )}
-            <h3 className="font-headline font-bold text-xl text-[#e8e0f0] mb-2">{tier.name}</h3>
-            <div className="flex items-baseline gap-1 mb-6">
-              <span className="font-headline font-black text-4xl sm:text-5xl text-[#e8e0f0]">{tier.price}</span>
-              <span className="text-sm font-label text-[#a098b0]">{tier.period}</span>
+            <h3 className="font-headline font-bold text-xl text-[#e8e0f0] mb-1">{tier.name}</h3>
+            <div className="flex items-baseline gap-1 mb-5">
+              <span className="font-headline font-black text-4xl sm:text-5xl text-[#e8e0f0]">
+                {tier.price}
+              </span>
+              <span className="text-xs font-label text-[#a098b0]">{tier.period}</span>
             </div>
-            <ul className="space-y-3.5 mb-8 flex-1">
+            <ul className="space-y-3 mb-8 flex-1">
               {tier.features.map((f) => (
-                <li key={f} className="flex items-start gap-2.5 text-sm text-[#e8e0f0]/90 font-body">
-                  <Check size={16} className="text-[#00ffcc] mt-0.5 shrink-0" />
+                <li key={f} className="flex items-start gap-2.5 text-xs sm:text-sm text-[#e8e0f0]/90 font-body">
+                  <Check size={15} className="text-[#00ffcc] mt-0.5 shrink-0" />
                   {f}
                 </li>
               ))}
               {tier.missing.map((f) => (
-                <li key={f} className="flex items-start gap-2.5 text-sm text-[#a098b0]/40 font-body line-through">
-                  <span className="w-4 shrink-0" />
+                <li key={f} className="flex items-start gap-2.5 text-xs sm:text-sm text-[#a098b0]/35 font-body line-through">
+                  <span className="w-3.5 shrink-0" />
                   {f}
                 </li>
               ))}
             </ul>
             <Link
               href={tier.href}
-              className={`text-center font-headline font-bold text-sm px-6 py-3.5 rounded-xl transition-all duration-200 active:scale-95 ${
+              className={`text-center font-headline font-bold text-xs sm:text-sm px-5 py-3 rounded-xl transition-all duration-200 active:scale-95 ${
                 tier.popular
                   ? "bg-[#ff2d78] text-[#1a0010] hover:shadow-[0_0_25px_rgba(255,45,120,0.5)]"
                   : "bg-[#1e1e30] text-[#e8e0f0] hover:bg-[#28283e] border border-[#302840]/60"
@@ -97,7 +168,9 @@ export default function PricingPage() {
       {/* FAQ */}
       <div className="max-w-4xl mx-auto">
         <FadeUp>
-          <h2 className="font-headline font-extrabold text-3xl text-[#e8e0f0] text-center mb-10">Frequently Asked Questions</h2>
+          <h2 className="font-headline font-extrabold text-3xl text-[#e8e0f0] text-center mb-10">
+            Frequently Asked Questions
+          </h2>
         </FadeUp>
         <StaggerContainer className="space-y-4">
           {faqs.map((faq) => (
