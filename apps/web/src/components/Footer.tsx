@@ -2,59 +2,138 @@ import Link from "next/link";
 
 export default function Footer() {
   return (
-    <footer className="border-t border-[#302840]/20 bg-[#0a0a12]">
-      <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-12 sm:py-16">
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-8 lg:gap-12">
-          <div className="sm:col-span-2">
-            <Link href="/" className="flex items-center gap-2.5 mb-4">
-              <div className="h-8 w-8 rounded-lg bg-[#ff2d78] grid place-items-center font-bold text-[#1a0010] text-sm">
-                V
-              </div>
-              <span className="font-bold tracking-tight text-[#e8e0f0] text-xl font-headline">
+    <footer
+      className="bg-surface-container-lowest pt-16 sm:pt-20 pb-8 sm:pb-12 border-t border-outline-variant/15 reveal"
+      role="contentinfo"
+    >
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-10 sm:gap-12 lg:gap-16 mb-12 sm:mb-16">
+          <div className="space-y-5 sm:space-y-6">
+            <div className="flex items-center gap-2">
+              <span
+                className="material-symbols-outlined text-primary text-2xl sm:text-3xl font-bold"
+                style={{ fontVariationSettings: "'FILL' 1" }}
+              >
+                graphic_eq
+              </span>
+              <span className="text-lg sm:text-xl font-headline font-bold text-on-surface">
                 VoxFlow
               </span>
-            </Link>
-            <p className="text-sm text-[#a098b0] leading-relaxed max-w-sm font-body">
+            </div>
+            <p className="text-on-surface-variant text-sm sm:text-base font-body leading-relaxed">
               The voice layer for modern operations. Automated, secure, and built for scale.
             </p>
+            <div className="flex gap-3 sm:gap-4">
+              <a
+                className="w-8 h-8 sm:w-9 sm:h-9 rounded-lg bg-surface-variant flex items-center justify-center hover:bg-primary/20 transition-colors"
+                href="#"
+                aria-label="Twitter"
+              >
+                <span className="material-symbols-outlined text-sm">
+                  alternate_email
+                </span>
+              </a>
+              <a
+                className="w-8 h-8 sm:w-9 sm:h-9 rounded-lg bg-surface-variant flex items-center justify-center hover:bg-primary/20 transition-colors"
+                href="#"
+                aria-label="LinkedIn"
+              >
+                <span className="material-symbols-outlined text-sm">hub</span>
+              </a>
+              <a
+                className="w-8 h-8 sm:w-9 sm:h-9 rounded-lg bg-surface-variant flex items-center justify-center hover:bg-primary/20 transition-colors"
+                href="#"
+                aria-label="GitHub"
+              >
+                <span className="material-symbols-outlined text-sm">code</span>
+              </a>
+            </div>
           </div>
-          <div>
-            <h4 className="text-xs font-label uppercase tracking-widest text-[#e8e0f0] mb-4">
+
+          <div className="space-y-4">
+            <h4 className="font-label text-xs uppercase tracking-widest text-on-surface mb-4">
               Product
             </h4>
-            <div className="flex flex-col gap-3">
-              <Link href="/pricing" className="text-sm text-[#a098b0] hover:text-[#00ffcc] transition-colors">
-                Pricing
-              </Link>
-              <Link href="/#platform" className="text-sm text-[#a098b0] hover:text-[#00ffcc] transition-colors">
-                Platform
-              </Link>
-              <Link href="/about" className="text-sm text-[#a098b0] hover:text-[#00ffcc] transition-colors">
-                About VoxFlow
-              </Link>
-            </div>
+            <ul className="space-y-2.5 sm:space-y-3">
+              <li>
+                <Link
+                  className="text-sm sm:text-base text-on-surface-variant hover:text-secondary transition-colors"
+                  href="/#platform"
+                >
+                  Platform
+                </Link>
+              </li>
+              <li>
+                <Link
+                  className="text-sm sm:text-base text-on-surface-variant hover:text-secondary transition-colors"
+                  href="/#network"
+                >
+                  Integrations
+                </Link>
+              </li>
+              <li>
+                <Link
+                  className="text-sm sm:text-base text-on-surface-variant hover:text-secondary transition-colors"
+                  href="/pricing"
+                >
+                  Pricing
+                </Link>
+              </li>
+            </ul>
           </div>
-          <div>
-            <h4 className="text-xs font-label uppercase tracking-widest text-[#e8e0f0] mb-4">
-              Support
+
+          <div className="space-y-4">
+            <h4 className="font-label text-xs uppercase tracking-widest text-on-surface mb-4">
+              Company
             </h4>
-            <div className="flex flex-col gap-3">
-              <Link href="/sign-in" className="text-sm text-[#a098b0] hover:text-[#00ffcc] transition-colors">
-                Sign In
-              </Link>
-              <Link href="/sign-up" className="text-sm text-[#a098b0] hover:text-[#00ffcc] transition-colors">
-                Request Pilot
-              </Link>
-            </div>
+            <ul className="space-y-2.5 sm:space-y-3">
+              <li>
+                <Link
+                  className="text-sm sm:text-base text-on-surface-variant hover:text-secondary transition-colors"
+                  href="/about"
+                >
+                  About Us
+                </Link>
+              </li>
+              <li>
+                <Link
+                  className="text-sm sm:text-base text-on-surface-variant hover:text-secondary transition-colors"
+                  href="/sign-up"
+                >
+                  Careers
+                </Link>
+              </li>
+            </ul>
+          </div>
+
+          <div className="space-y-4">
+            <h4 className="font-label text-xs uppercase tracking-widest text-on-surface mb-4">
+              Compliance
+            </h4>
+            <ul className="space-y-2.5 sm:space-y-3">
+              <li>
+                <span className="text-sm sm:text-base text-on-surface-variant">
+                  SOC 2 Type II Certified
+                </span>
+              </li>
+              <li>
+                <span className="text-sm sm:text-base text-on-surface-variant">
+                  Privacy Policy &amp; Security
+                </span>
+              </li>
+            </ul>
           </div>
         </div>
-        <div className="mt-12 pt-6 border-t border-[#302840]/20 flex flex-col sm:flex-row items-center justify-between gap-3">
-          <span className="text-xs text-[#a098b0] font-body">
+
+        <div className="border-t border-outline-variant/15 pt-6 sm:pt-8 flex flex-col sm:flex-row justify-between items-center gap-4">
+          <p className="text-on-surface-variant text-xs sm:text-sm font-body">
             &copy; 2026 VoxFlow AI. Voice Operations. Automated.
-          </span>
-          <span className="text-[10px] font-label uppercase tracking-widest text-[#a098b0] border border-[#302840]/40 px-2.5 py-1 rounded-md">
-            SOC2 Type II Certified
-          </span>
+          </p>
+          <div className="flex gap-4 sm:gap-6">
+            <span className="text-on-surface-variant text-xs sm:text-sm">
+              Status: Operational
+            </span>
+          </div>
         </div>
       </div>
     </footer>
