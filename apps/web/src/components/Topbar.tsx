@@ -2,29 +2,25 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { ArrowLeft, Building2, Circle, Plus, LogOut } from "lucide-react";
+import Link from "next/link";
+import {
+  Search,
+  CheckCircle2,
+  ChevronDown,
+  Plus,
+  LogOut,
+  User,
+  Zap,
+} from "lucide-react";
 import { useTenant } from "@/lib/tenant-context";
 
-export default function Topbar({ title, subtitle }: { title: string; subtitle?: string }) {
-  const [now, setNow] = useState<string>("");
+export default function Topbar({ title, subtitle }: { title?: string; subtitle?: string }) {
+  const router = useRouter();
+  const { activeTenantId, activeTenant, tenants, setActiveTenantId, addTenant } = useTenant();
+
   const [isAddingTenant, setIsAddingTenant] = useState(false);
   const [newCompanyName, setNewCompanyName] = useState("");
-
-  const router = useRouter();
-  const { activeTenantId, tenants, setActiveTenantId, addTenant } = useTenant();
-
-  useEffect(() => {
-    const tick = () =>
-      setNow(
-        new Date().toLocaleTimeString("en-IN", {
-          hour12: false,
-          timeZone: "Asia/Kolkata",
-        }),
-      );
-    tick();
-    const id = setInterval(tick, 1000);
-    return () => clearInterval(id);
-  }, []);
+  const [searchQuery, setSearchQuery] = useState("");
 
   const handleAddCompanySubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -41,92 +37,126 @@ export default function Topbar({ title, subtitle }: { title: string; subtitle?: 
   };
 
   return (
-    <header className="border-b border-ink-700/60 bg-ink-900/40 px-6 py-3 flex items-center justify-between">
-      <div className="flex items-center gap-3">
-        <button
-          onClick={() => router.push("/dashboard")}
-          className="text-ink-400 hover:text-ink-50 p-1 rounded hover:bg-ink-800/60 transition-colors"
-          aria-label="Back"
-        >
-          <ArrowLeft size={16} />
-        </button>
-        <div>
-          <h1 className="text-base font-semibold text-ink-50 tracking-tight">{title}</h1>
-          {subtitle && <p className="text-[11px] font-mono text-ink-400 uppercase tracking-wider">{subtitle}</p>}
-        </div>
-      </div>
+    <nav className="w-full z-50 bg-[#0a0a12]/90 backdrop-blur-md border-b border-[#ff2d78]/20 shadow-[0_0_20px_rgba(255,45,120,0.1)] px-6 py-3.5 flex justify-between items-center shrink-0">
+      <div className="flex items-center gap-6 lg:gap-10">
+        {/* Brand Logo */}
+        <Link href="/" className="flex items-center gap-2.5">
+          <div className="w-8 h-8 rounded-lg bg-[#ff2d78]/20 border border-[#ff2d78]/40 flex items-center justify-center text-[#ff2d78] font-black font-headline text-lg shadow-[0_0_12px_rgba(255,45,120,0.4)]">
+            V
+          </div>
+          <span className="text-xl lg:text-2xl font-headline font-black tracking-tighter text-[#e8e0f0]">
+            VoxFlow
+          </span>
+        </Link>
 
-      <div className="flex items-center gap-4">
-        {/* Company / Tenant Selector & Add Action */}
-        <div className="flex items-center gap-2">
+        {/* Company Selector Dropdown & Add Action */}
+        <div className="hidden sm:flex items-center gap-3">
           {isAddingTenant ? (
-            <form onSubmit={handleAddCompanySubmit} className="flex items-center gap-1">
+            <form onSubmit={handleAddCompanySubmit} className="flex items-center gap-1.5 bg-[#1e1e30] border border-[#ff2d78] rounded-xl px-3 py-1.5">
               <input
                 type="text"
                 autoFocus
                 value={newCompanyName}
                 onChange={(e) => setNewCompanyName(e.target.value)}
                 placeholder="Company Name..."
-                className="bg-ink-900 border border-vox-500/80 rounded px-2.5 py-1 text-xs text-ink-100 placeholder:text-ink-400 focus:outline-none"
+                className="bg-transparent text-xs text-[#e8e0f0] placeholder:text-[#a098b0]/50 focus:outline-none w-36 font-body"
               />
               <button
                 type="submit"
-                className="bg-vox-500 hover:bg-vox-400 text-ink-950 font-bold px-2 py-1 rounded text-xs"
+                className="bg-[#ff2d78] text-[#1a0010] font-headline font-bold text-[10px] uppercase px-2 py-1 rounded-md"
               >
                 Add
               </button>
               <button
                 type="button"
                 onClick={() => setIsAddingTenant(false)}
-                className="text-ink-400 hover:text-ink-200 px-1 text-xs"
+                className="text-[#a098b0] hover:text-[#e8e0f0] text-xs px-1"
               >
                 ✕
               </button>
             </form>
           ) : (
-            <div className="flex items-center gap-1.5 bg-ink-800/60 border border-ink-700/80 rounded-md px-3 py-1.5 text-xs text-ink-200">
-              <Building2 size={14} className="text-vox-400 shrink-0" />
-              <select
-                value={activeTenantId}
-                onChange={(e) => setActiveTenantId(e.target.value)}
-                className="bg-transparent text-ink-100 font-medium focus:outline-none cursor-pointer pr-2 max-w-[200px] truncate"
-              >
-                {tenants.map((t) => (
-                  <option key={t.id} value={t.id} className="bg-ink-900 text-ink-100">
-                    {t.name}
-                  </option>
-                ))}
-              </select>
+            <div className="flex items-center gap-3 bg-[#1e1e30]/60 backdrop-blur-sm px-3.5 py-1.5 rounded-xl border border-[#302840]/60 hover:border-[#ff2d78]/50 transition-all group">
+              <div className="w-8 h-8 rounded-lg bg-[#ff2d78]/20 flex items-center justify-center text-[#ff2d78] font-bold text-xs border border-[#ff2d78]/30 shadow-[0_0_10px_rgba(255,45,120,0.2)] shrink-0">
+                {activeTenant.name.charAt(0).toUpperCase()}
+              </div>
+              <div className="flex flex-col">
+                <div className="flex items-center gap-1.5">
+                  <select
+                    value={activeTenantId}
+                    onChange={(e) => setActiveTenantId(e.target.value)}
+                    className="bg-transparent text-xs font-headline font-bold text-[#e8e0f0] focus:outline-none cursor-pointer pr-1 max-w-[170px] truncate"
+                  >
+                    {tenants.map((t) => (
+                      <option key={t.id} value={t.id} className="bg-[#141422] text-[#e8e0f0]">
+                        {t.name}
+                      </option>
+                    ))}
+                  </select>
+                  <CheckCircle2 size={13} className="text-[#00ffcc] shrink-0" />
+                </div>
+                <div className="flex items-center gap-2 text-[9px] font-label text-[#a098b0] uppercase tracking-wider">
+                  <span>12 Active Agents</span>
+                  <span className="text-[#302840]">·</span>
+                  <span className="flex items-center gap-1 text-[#00ffcc] font-bold">
+                    <span className="w-1 h-1 rounded-full bg-[#00ffcc] animate-ping" />
+                    99.9% Uptime
+                  </span>
+                </div>
+              </div>
               <button
                 type="button"
                 onClick={() => setIsAddingTenant(true)}
-                title="Add New Company Workspace"
-                className="text-vox-400 hover:text-vox-300 p-0.5 rounded hover:bg-ink-700/50"
+                title="Add New Workspace"
+                className="text-[#ff2d78] hover:text-[#ff2d78]/80 p-1 rounded hover:bg-[#ff2d78]/10 ml-1 transition-colors"
               >
                 <Plus size={14} />
               </button>
             </div>
           )}
         </div>
+      </div>
 
-        <div className="flex items-center gap-3 text-[11px] font-mono text-ink-400">
-          <span className="flex items-center gap-1.5">
-            <Circle size={8} className="text-success-500 fill-success-500 pulse-dot" />
-            LIVE
-          </span>
-          <span className="text-ink-500">·</span>
-          <span>{now} IST</span>
-          <span className="text-ink-500">·</span>
+      {/* Right Controls */}
+      <div className="flex items-center gap-4 lg:gap-6">
+        {/* Search Bar */}
+        <div className="relative hidden md:block group">
+          <Search size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-[#a098b0] group-focus-within:text-[#ff2d78] transition-colors" />
+          <input
+            type="text"
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            placeholder="Search agents, calls, or logs..."
+            className="bg-[#0a0a12] border border-[#302840] rounded-xl pl-10 pr-14 py-2 text-xs text-[#e8e0f0] focus:ring-1 focus:ring-[#ff2d78] focus:border-[#ff2d78] outline-none w-64 lg:w-72 transition-all placeholder:text-[#a098b0]/50 font-body"
+          />
+          <div className="absolute right-3 top-1/2 -translate-y-1/2 flex gap-1 pointer-events-none">
+            <kbd className="px-1.5 py-0.5 rounded bg-[#1e1e30] border border-[#302840] text-[9px] font-label text-[#a098b0]">⌘</kbd>
+            <kbd className="px-1.5 py-0.5 rounded bg-[#1e1e30] border border-[#302840] text-[9px] font-label text-[#a098b0]">K</kbd>
+          </div>
+        </div>
+
+        {/* Pilot CTA Button */}
+        <Link
+          href="/sign-up"
+          className="bg-[#b3004e] text-[#ffe0ec] px-4 py-2 rounded-full font-label text-xs font-bold uppercase tracking-widest hover:scale-105 active:scale-95 transition-all shadow-[0_0_15px_rgba(255,45,120,0.3)] hidden sm:inline-block"
+        >
+          Request Pilot
+        </Link>
+
+        {/* User Profile & Logout */}
+        <div className="flex items-center gap-2 border-l border-[#302840] pl-4 sm:pl-6">
+          <div className="w-8 h-8 rounded-full bg-[#1e1e30] border border-[#302840] flex items-center justify-center text-[#00ffcc]">
+            <User size={15} />
+          </div>
           <button
             onClick={handleLogout}
-            title="Log Out"
-            className="flex items-center gap-1 text-ink-400 hover:text-vox-400 transition-colors"
+            title="Sign Out"
+            className="p-1.5 text-[#a098b0] hover:text-[#ff2d78] hover:bg-[#1e1e30] rounded-lg transition-colors"
           >
-            <LogOut size={13} />
-            Exit
+            <LogOut size={15} />
           </button>
         </div>
       </div>
-    </header>
+    </nav>
   );
 }
