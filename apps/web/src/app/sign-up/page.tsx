@@ -1,9 +1,10 @@
 "use client";
 
 import Link from "next/link";
-import { useSearchParams } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { Suspense, useState } from "react";
 import { FadeUp } from "@/components/ScrollAnimations";
+import { useTenant } from "@/lib/tenant-context";
 
 const planNames: Record<string, { label: string; price: string }> = {
   starter: { label: "Starter Pilot", price: "$0/mo" },
@@ -13,10 +14,61 @@ const planNames: Record<string, { label: string; price: string }> = {
 };
 
 function SignUpContent() {
+  const router = useRouter();
   const searchParams = useSearchParams();
+  const { addTenant } = useTenant();
+
   const planKey = searchParams.get("plan") || "pro";
   const [selectedPlan, setSelectedPlan] = useState(planKey);
+  const [name, setName] = useState("");
+  const [email, setEmail] = useState("");
+  const [company, setCompany] = useState("");
+  const [loading, setLoading] = useState(false);
+
   const activePlan = planNames[selectedPlan] || planNames.pro;
+
+  const handleSignUp = (e: React.FormEvent) => {
+    e.preventDefault();
+    setLoading(true);
+
+    const compName = company.trim() || "My Voice Operation";
+    const tenant = addTenant(compName);
+
+    localStorage.setItem(
+      "voxflow_session",
+      JSON.stringify({
+        user: {
+          name: name.trim() || "Operations Admin",
+          email: email.trim() || "admin@company.com",
+          tenant_id: tenant.id,
+          plan: selectedPlan,
+        },
+        token: `demo-token-${Date.now()}`,
+      })
+    );
+
+    setTimeout(() => {
+      router.push("/dashboard");
+    }, 400);
+  };
+
+  const handleDemoAccess = () => {
+    setLoading(true);
+    const tenant = addTenant("Varun Beverages (PepsiCo)");
+    localStorage.setItem(
+      "voxflow_session",
+      JSON.stringify({
+        user: {
+          name: "Demo Admin",
+          email: "demo@voxflow.ai",
+          tenant_id: tenant.id,
+          plan: "pro",
+        },
+        token: "demo-token-12345",
+      })
+    );
+    router.push("/dashboard");
+  };
 
   return (
     <FadeUp className="w-full max-w-lg relative z-10">
@@ -39,7 +91,7 @@ function SignUpContent() {
           </div>
         </div>
 
-        <form className="space-y-4" onSubmit={(e) => e.preventDefault()}>
+        <form className="space-y-4" onSubmit={handleSignUp}>
           {/* Plan Selector Radios */}
           <div>
             <label className="text-xs font-label uppercase tracking-widest text-[#e8e0f0] block mb-2">
@@ -76,6 +128,9 @@ function SignUpContent() {
             <input
               id="name"
               type="text"
+              required
+              value={name}
+              onChange={(e) => setName(e.target.value)}
               placeholder="Sarah Chen"
               className="w-full px-4 py-3 rounded-xl bg-[#141422] border border-[#302840]/60 text-[#e8e0f0] text-sm placeholder:text-[#a098b0]/40 focus:outline-none focus:border-[#ff2d78] focus:ring-1 focus:ring-[#ff2d78]/40 transition-all font-body"
             />
@@ -88,6 +143,9 @@ function SignUpContent() {
             <input
               id="email"
               type="email"
+              required
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
               placeholder="sarah@company.com"
               className="w-full px-4 py-3 rounded-xl bg-[#141422] border border-[#302840]/60 text-[#e8e0f0] text-sm placeholder:text-[#a098b0]/40 focus:outline-none focus:border-[#ff2d78] focus:ring-1 focus:ring-[#ff2d78]/40 transition-all font-body"
             />
@@ -100,20 +158,34 @@ function SignUpContent() {
             <input
               id="company"
               type="text"
-              placeholder="ZenithTech Logistics"
+              required
+              value={company}
+              onChange={(e) => setCompany(e.target.value)}
+              placeholder="e.g. Apple, Shree Traders, ZenithTech"
               className="w-full px-4 py-3 rounded-xl bg-[#141422] border border-[#302840]/60 text-[#e8e0f0] text-sm placeholder:text-[#a098b0]/40 focus:outline-none focus:border-[#ff2d78] focus:ring-1 focus:ring-[#ff2d78]/40 transition-all font-body"
             />
           </div>
 
           <button
             type="submit"
-            className="w-full py-3.5 rounded-xl bg-[#ff2d78] text-[#1a0010] font-headline font-bold text-sm hover:shadow-[0_0_25px_rgba(255,45,120,0.5)] transition-all duration-200 active:scale-95 mt-2"
+            disabled={loading}
+            className="w-full py-3.5 rounded-xl bg-[#ff2d78] text-[#1a0010] font-headline font-bold text-sm hover:shadow-[0_0_25px_rgba(255,45,120,0.5)] transition-all duration-200 active:scale-95 mt-2 disabled:opacity-50"
           >
-            Deploy {activePlan.label} ({activePlan.price})
+            {loading ? "Activating Workspace..." : `Deploy ${activePlan.label} (${activePlan.price})`}
           </button>
         </form>
 
-        <p className="text-center text-xs font-label text-[#a098b0] mt-8">
+        <div className="mt-4 pt-4 border-t border-[#302840]/40 text-center">
+          <button
+            type="button"
+            onClick={handleDemoAccess}
+            className="w-full py-2.5 rounded-xl bg-[#1e1e30] border border-[#00ffcc]/30 text-[#00ffcc] font-label text-xs hover:bg-[#00ffcc]/10 transition-colors"
+          >
+            ⚡ Quick Demo Instant Login to Dashboard
+          </button>
+        </div>
+
+        <p className="text-center text-xs font-label text-[#a098b0] mt-6">
           Already have a workspace?{" "}
           <Link href="/sign-in" className="text-[#00ffcc] hover:text-[#00ffcc]/80 transition-colors font-bold">
             Sign In
