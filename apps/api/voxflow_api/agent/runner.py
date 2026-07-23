@@ -13,13 +13,15 @@ from __future__ import annotations
 import json
 import time
 from dataclasses import dataclass, field
-from typing import Any
+from typing import TYPE_CHECKING, Any
+
+if TYPE_CHECKING:
+    from ..voice.pipeline import CallSession
 
 from ..config import get_settings
 from ..llm import get_llm
-from ..llm.base import ChatTurn
+from ..llm.base import ChatTurn, LLMProvider
 from ..logging import get_logger
-from ..voice.pipeline import CallSession
 from .prompts import build_system_prompt
 from .tools import TOOL_DEFINITIONS, execute_tool
 
@@ -36,8 +38,9 @@ class AgentTurnResult:
 
 
 class AgentRunner:
-    def __init__(self) -> None:
+    def __init__(self, llm: LLMProvider | None = None) -> None:
         s = get_settings()
+        self._llm = llm
         self.system_prompt = build_system_prompt(business_name=s.business_name)
         self.max_iterations = 5  # safety: prevent infinite tool loops
 
@@ -50,7 +53,7 @@ class AgentRunner:
         return turns
 
     async def handle_turn(self, session: CallSession, user_text: str) -> AgentTurnResult:
-        llm = get_llm()
+        llm = self._llm or get_llm()
         history = self._history(session)
         actions: list[dict[str, Any]] = []
         all_tool_calls: list[dict[str, Any]] = []

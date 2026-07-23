@@ -7,7 +7,10 @@ from __future__ import annotations
 import json
 import uuid
 from datetime import datetime, timezone
-from typing import Any
+from typing import TYPE_CHECKING, Any
+
+if TYPE_CHECKING:
+    from ..voice.pipeline import CallSession
 
 from sqlalchemy import select
 
@@ -22,7 +25,6 @@ from ..db import (
     session_scope,
 )
 from ..logging import get_logger
-from ..voice.pipeline import CallSession
 
 
 log = get_logger(__name__)

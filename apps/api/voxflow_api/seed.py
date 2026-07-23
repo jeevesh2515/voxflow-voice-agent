@@ -164,6 +164,19 @@ def seed(reset: bool = False) -> None:
                     created_at=now - timedelta(days=1),
                 )
             )
+            # Sample PO for Haldirams
+            db.add(
+                Order(
+                    id="PO-1717000000-003",
+                    tenant_id="haldirams",
+                    supplier_id="sup-hal-001",
+                    status="confirmed",
+                    items_json=json.dumps([{"sku": "HAL-BHUJIA-1KG", "quantity": 30}]),
+                    total_qty=30,
+                    notes="Express dispatch",
+                    created_at=now - timedelta(hours=12),
+                )
+            )
             log.info("seed.orders")
 
             # Sample Shipment

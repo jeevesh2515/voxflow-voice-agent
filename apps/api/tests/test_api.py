@@ -72,15 +72,15 @@ def test_suppliers_list(client):
     r = client.get("/api/suppliers")
     assert r.status_code == 200
     suppliers = r.json()
-    assert any(s["name"] == "Shree Traders" for s in suppliers)
+    assert any(s["name"] == "Sharma Beverages Wholesale" for s in suppliers)
 
 
 def test_supplier_search(client):
-    r = client.get("/api/suppliers?q=shree")
+    r = client.get("/api/suppliers?q=sharma")
     assert r.status_code == 200
     data = r.json()
     assert len(data) >= 1
-    assert "shree" in data[0]["name"].lower()
+    assert "sharma" in data[0]["name"].lower()
 
 
 def test_stock(client):
@@ -91,10 +91,10 @@ def test_stock(client):
 
 
 def test_stock_by_warehouse(client):
-    r = client.get("/api/stock?warehouse=Gurgaon%20DC")
+    r = client.get("/api/stock?warehouse=Gurgaon-WH1")
     assert r.status_code == 200
     items = r.json()
-    assert all(it["warehouse"] == "Gurgaon DC" for it in items)
+    assert all(it["warehouse"] == "Gurgaon-WH1" for it in items)
 
 
 def test_orders_list(client):
@@ -106,20 +106,20 @@ def test_orders_list(client):
 def test_shipments(client):
     r = client.get("/api/shipments")
     assert r.status_code == 200
-    assert len(r.json()) >= 2
+    assert len(r.json()) >= 1
 
 
 def test_calls(client):
     r = client.get("/api/calls")
     assert r.status_code == 200
     calls = r.json()
-    assert len(calls) >= 2
+    assert len(calls) >= 1
     assert calls[0]["transcript"]
 
 
 def test_create_order(client):
     payload = {
-        "supplier_id": "sup_001",
+        "supplier_id": "sup-varun-001",
         "items": [{"sku": "PEP-250ML-12", "quantity": 10}],
         "notes": "test order",
     }
@@ -138,8 +138,8 @@ def test_lookup_supplier_tool():
     s = CallSession(call_id="test")
     res = execute_tool("lookup_supplier", {"phone": "+919876543210"}, s)
     assert res["found"] is True
-    assert res["name"] == "Shree Traders"
-    assert s.supplier_id == "sup_001"
+    assert res["name"] == "Sharma Beverages Wholesale"
+    assert s.supplier_id == "sup-varun-001"
 
 
 def test_check_stock_tool():
@@ -157,7 +157,7 @@ def test_shipment_status_tool():
     from voxflow_api.voice.pipeline import CallSession
 
     s = CallSession(call_id="test")
-    res = execute_tool("get_shipment_status", {"order_id": "PO-1718000001-SHREE"}, s)
+    res = execute_tool("get_shipment_status", {"order_id": "PO-1717000000-001"}, s)
     assert res["found"] is True
     assert res["status"] == "in_transit"
 
@@ -167,26 +167,23 @@ def test_create_po_tool():
     from voxflow_api.voice.pipeline import CallSession
 
     s = CallSession(call_id="test")
-    s.supplier_id = "sup_001"
+    s.supplier_id = "sup-varun-001"
     res = execute_tool(
         "create_po",
-        {"items": [{"sku": "PEP-250ML-12", "quantity": 25}, {"sku": "7UP-250ML-12", "quantity": 10}]},
+        {"items": [{"sku": "PEP-250ML-12", "quantity": 25}, {"sku": "7UP-500ML-24", "quantity": 10}]},
         s,
     )
     assert res["ok"] is True
     assert res["total_qty"] == 35
-    assert res["supplier_name"] == "Shree Traders"
+    assert res["supplier_name"] == "Sharma Beverages Wholesale"
 
 
 def test_agent_runner_uses_fake_llm(monkeypatch):
     """End-to-end: agent receives a fake tool call from the LLM, executes the tool, replies."""
     import asyncio
-    from voxflow_api.llm import factory
     from voxflow_api.voice.pipeline import CallSession
     from voxflow_api.agent.runner import AgentRunner
-    from voxflow_api.voice.tts import TextToSpeech
 
-    # Patch the LLM factory to return a fake one
     fake = FakeLLM([
         # First turn: tool call to look up supplier
         {
@@ -205,15 +202,14 @@ def test_agent_runner_uses_fake_llm(monkeypatch):
         # Second turn: final text reply
         "हाँ राजेश जी, आपकी मदद के लिए तैयार हूँ।",
     ])
-    monkeypatch.setattr(factory, "get_llm", lambda: fake)
 
     async def run():
         s = CallSession(call_id="test_agent")
-        runner = AgentRunner()
-        result = await runner.handle_turn(session=s, user_text="हाँ, मैं राजेश बोल रहा हूँ, Shree Traders से")
+        runner = AgentRunner(llm=fake)
+        result = await runner.handle_turn(session=s, user_text="हाँ, मैं राजेश बोल रहा हूँ, Sharma Beverages से")
         return s, result
 
     s, result = asyncio.run(run())
     assert "राजेश" in result.reply or "मदद" in result.reply
     assert any(a["name"] == "lookup_supplier" for a in result.actions)
-    assert s.supplier_id == "sup_001"
+    assert s.supplier_id == "sup-varun-001"

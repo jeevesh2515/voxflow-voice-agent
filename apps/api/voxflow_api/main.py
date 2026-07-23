@@ -18,8 +18,8 @@ from .llm.base import ChatTurn
 from .logging import get_logger, setup_logging
 from .routes import data as data_routes
 from .routes import ws as ws_routes
+from .routes.ws import get_pipeline
 from .schemas import ChatMessage, ChatRequest, ChatResponse
-from .voice.pipeline import get_pipeline
 from .voice.tts import TextToSpeech
 
 

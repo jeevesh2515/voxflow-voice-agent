@@ -346,8 +346,24 @@ def _order_out(o: Order) -> dict[str, Any]:
 def _call_out(c: Call) -> dict[str, Any]:
     transcript_raw = json.loads(c.transcript_json or "[]")
     actions_raw = json.loads(c.actions_json or "[]")
-    transcript = [CallTurn(role=t["role"], text=t["text"], at=datetime.fromtimestamp(t["at"], tz=timezone.utc)) for t in transcript_raw]
-    actions = [CallAction(name=a["name"], args=a.get("args", {}), result=a.get("result"), at=datetime.fromtimestamp(a["at"], tz=timezone.utc)) for a in actions_raw]
+    now_ts = (c.started_at or datetime.now(timezone.utc)).timestamp()
+    transcript = [
+        CallTurn(
+            role=t.get("role", "agent"),
+            text=t.get("text", ""),
+            at=datetime.fromtimestamp(t.get("at", now_ts), tz=timezone.utc),
+        )
+        for t in transcript_raw
+    ]
+    actions = [
+        CallAction(
+            name=a.get("name", ""),
+            args=a.get("args", {}),
+            result=a.get("result"),
+            at=datetime.fromtimestamp(a.get("at", now_ts), tz=timezone.utc),
+        )
+        for a in actions_raw
+    ]
     return {
         "id": c.id,
         "started_at": c.started_at,

@@ -51,9 +51,15 @@ logs/
 .gemini/
 .cursor/
 .mcp.json
+.ai/
+designer/
 
-# Internal
+# Internal / Personal Folders
 .planning/
 data/
 docs/
+files/
+resources/
+Resources/
+stitch*/
 Makefile
