@@ -14,6 +14,7 @@ import {
   MessageSquare,
   FileText,
   Zap,
+  X,
 } from "lucide-react";
 import clsx from "clsx";
 
@@ -30,13 +31,34 @@ const NAV = [
   { href: "https://github.com/jeevesh2515/voxflow-voice-agent", label: "Docs", icon: FileText, external: true },
 ];
 
-export default function Sidebar() {
+export default function Sidebar({ isOpen, onClose }: { isOpen: boolean; onClose: () => void }) {
   const pathname = usePathname();
 
   return (
-    <aside className="w-64 bg-[#111118] border-r border-[#302840]/60 flex flex-col hide-scrollbar overflow-y-auto shrink-0 select-none">
-      <div className="py-4 space-y-0.5">
-        <div className="px-4 mb-2">
+    <>
+      {/* Mobile overlay backdrop */}
+      {isOpen && (
+        <div className="fixed inset-0 z-30 bg-black/50 lg:hidden" onClick={onClose} />
+      )}
+
+      <aside
+        className={clsx(
+          "w-64 bg-[#111118] border-r border-[#302840]/60 flex flex-col hide-scrollbar overflow-y-auto shrink-0 select-none",
+          "fixed lg:static inset-y-0 left-0 z-40 transition-transform duration-200",
+          isOpen ? "translate-x-0" : "-translate-x-full lg:translate-x-0",
+        )}
+      >
+      <div className="flex items-center justify-between px-4 pt-4 pb-2 lg:hidden">
+        <span className="text-[10px] font-label text-[#a098b0]/50 uppercase tracking-[0.2em] font-bold">
+          Navigation
+        </span>
+        <button onClick={onClose} className="p-1 text-[#a098b0] hover:text-[#e8e0f0]">
+          <X size={18} />
+        </button>
+      </div>
+
+      <div className="py-2 lg:py-4 space-y-0.5">
+        <div className="px-4 mb-2 hidden lg:block">
           <span className="text-[10px] font-label text-[#a098b0]/50 uppercase tracking-[0.2em] font-bold">
             Navigation
           </span>
@@ -50,6 +72,7 @@ export default function Sidebar() {
               key={item.href}
               href={item.href}
               target={item.external ? "_blank" : undefined}
+              onClick={onClose}
               className={clsx(
                 "flex items-center gap-3 px-4 py-2.5 transition-all duration-200 group text-sm font-medium",
                 active
@@ -90,5 +113,6 @@ export default function Sidebar() {
         </div>
       </div>
     </aside>
+    </>
   );
 }

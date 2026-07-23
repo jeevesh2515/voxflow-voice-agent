@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import {
   Search,
+  Menu,
   CheckCircle2,
   ChevronDown,
   Plus,
@@ -18,7 +19,7 @@ import {
 import { useTenant } from "@/lib/tenant-context";
 import { useTheme } from "@/lib/theme-context";
 
-export default function Topbar({ title, subtitle }: { title?: string; subtitle?: string }) {
+export default function Topbar({ title, subtitle, onToggleSidebar }: { title?: string; subtitle?: string; onToggleSidebar?: () => void }) {
   const router = useRouter();
   const { activeTenantId, activeTenant, tenants, setActiveTenantId, addTenant } = useTenant();
   const { theme, toggleTheme } = useTheme();
@@ -43,7 +44,16 @@ export default function Topbar({ title, subtitle }: { title?: string; subtitle?:
 
   return (
     <nav className="w-full z-50 bg-[#0a0a12]/90 dark:bg-[#0a0a12]/95 light:bg-white/95 backdrop-blur-md border-b border-[#ff2d78]/20 dark:border-[#ff2d78]/20 light:border-slate-200 shadow-sm px-6 py-3 flex justify-between items-center shrink-0 transition-colors duration-300">
-      <div className="flex items-center gap-6 lg:gap-8">
+      <div className="flex items-center gap-3 lg:gap-6">
+        {/* Mobile menu toggle */}
+        <button
+          onClick={onToggleSidebar}
+          className="p-2 lg:hidden text-[#a098b0] hover:text-[#e8e0f0] hover:bg-[#1e1e30] rounded-lg transition-colors"
+          aria-label="Toggle sidebar"
+        >
+          <Menu size={20} />
+        </button>
+
         {/* Brand Logo */}
         <Link href="/" className="flex items-center gap-2.5">
           <div className="w-8 h-8 rounded-lg bg-[#ff2d78]/20 border border-[#ff2d78]/40 flex items-center justify-center text-[#ff2d78] font-black font-headline text-lg shadow-[0_0_12px_rgba(255,45,120,0.4)]">

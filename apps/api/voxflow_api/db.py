@@ -55,8 +55,17 @@ def _async_db_url(url: str) -> str:
         return url.replace("postgresql://", "postgresql+asyncpg://", 1)
     return url
 
+
+def _pooled_url(url: str) -> str:
+    switch = _settings.supabase_use_pooler
+    if not switch:
+        return url
+    return url.replace(":5432/", ":6543/").replace(
+        ".supabase.co", ".pooler.supabase.co"
+    )
+
 _async_engine = create_async_engine(
-    _async_db_url(_settings.database_url),
+    _async_db_url(_pooled_url(_settings.database_url)),
     echo=False,
     future=True,
 )

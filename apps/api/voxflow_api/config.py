@@ -55,6 +55,7 @@ class Settings(BaseSettings):
     supabase_publishable_key: str = ""
     supabase_service_role_key: str = ""
     supabase_jwks_url: str = ""
+    supabase_use_pooler: bool = False
 
     # ----- Logging -----
     log_level: str = "INFO"
