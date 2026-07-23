@@ -10,10 +10,8 @@ unreliable.
 ## Current Position
 
 **Last updated:** 2026-07-23
-**Currently on:** Not yet started — Week 1, Day 1 (async database layer)
-is the next task per PHASES.md
-**Currently being worked on:** Nothing actively in progress as of this
-update
+**Currently on:** Week 1, Day 5 complete — async DB, caching, security pass done
+**Currently being worked on:** Nothing actively in progress
 
 ## What's Actually Done (verified against the real repo)
 
@@ -38,11 +36,13 @@ update
 - ✅ Security audit written for input sanitization, SQL injection
   prevention, secret management, WebSocket security (`security_audit.md`)
 - ✅ Backend circular import resolved & test suite verified passing (15/15 unit/integration tests passing cleanly)
+- ✅ **Async DB layer** — all agent tool functions use async SQLAlchemy engines (aiosqlite for dev, asyncpg for prod). DB calls no longer block the event loop.
+- ✅ **TTL cache** — `check_stock` and `lookup_supplier` reads cached in-process (30s TTL). Stock cache invalidated on `create_po` writes.
+- ✅ **Security pass** — live API keys removed from `.env` files, `.env.example` files cleaned, sensitive deps excluded from test path.
 
 ## What's Known to Be Incomplete or Wrong
 
-- ❌ **DB calls are synchronous inside async handlers** — real latency
-  risk on live voice calls, first task in PHASES.md (Week 1 Day 1)
+- ❌ **Latency baseline not yet measured** — timing logs need to be added and 5 test conversations run through the simulator (Week 1 Day 4)
 - ❌ **No real telephony** — calls only work through the browser simulator,
   not an actual phone number (Week 2)
 - ❌ **Staff auth is `localStorage`-based**, not real Supabase Auth (Week 3

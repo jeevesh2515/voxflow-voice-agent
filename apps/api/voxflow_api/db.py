@@ -1,14 +1,17 @@
 """SQLite (dev) / Postgres (prod) data layer.
 
+Both sync and async engines — sync for REST routes (FastAPI runs them in a
+thread pool), async for the agent tool functions that run inside async handlers.
+
 Single declarative base — schema created via `Base.metadata.create_all`.
 Supports multi-tenant isolation via `tenant_id` foreign keys.
 """
 
 from __future__ import annotations
 
-from contextlib import contextmanager
+from contextlib import asynccontextmanager, contextmanager
 from datetime import datetime, timezone
-from typing import Iterator
+from typing import AsyncIterator, Iterator
 
 from sqlalchemy import (
     JSON,
@@ -20,6 +23,7 @@ from sqlalchemy import (
     Text,
     create_engine,
 )
+from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 from sqlalchemy.orm import (
     DeclarativeBase,
     Mapped,
@@ -33,6 +37,8 @@ from .config import get_settings
 
 
 _settings = get_settings()
+
+# Sync engine — for REST routes, CLI scripts
 _engine = create_engine(
     _settings.database_url,
     connect_args={"check_same_thread": False} if _settings.database_url.startswith("sqlite") else {},
@@ -40,6 +46,21 @@ _engine = create_engine(
     future=True,
 )
 SessionLocal = sessionmaker(bind=_engine, autoflush=False, autocommit=False, expire_on_commit=False)
+
+# Async engine — for agent tool functions inside async handlers
+def _async_db_url(url: str) -> str:
+    if url.startswith("sqlite"):
+        return url.replace("sqlite:///", "sqlite+aiosqlite:///", 1)
+    if url.startswith("postgresql://"):
+        return url.replace("postgresql://", "postgresql+asyncpg://", 1)
+    return url
+
+_async_engine = create_async_engine(
+    _async_db_url(_settings.database_url),
+    echo=False,
+    future=True,
+)
+AsyncSessionLocal = async_sessionmaker(bind=_async_engine, autoflush=False, expire_on_commit=False)
 
 
 class Base(DeclarativeBase):
@@ -214,6 +235,19 @@ def session_scope() -> Iterator[Session]:
         raise
     finally:
         db.close()
+
+
+@asynccontextmanager
+async def async_session_scope() -> AsyncIterator[AsyncSession]:
+    db = AsyncSessionLocal()
+    try:
+        yield db
+        await db.commit()
+    except Exception:
+        await db.rollback()
+        raise
+    finally:
+        await db.close()
 
 
 def reset_db() -> None:

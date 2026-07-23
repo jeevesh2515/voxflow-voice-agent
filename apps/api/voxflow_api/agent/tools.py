@@ -1,4 +1,4 @@
-"""Tools the agent can call. Each tool is a Python function
+"""Tools the agent can call. Each tool is an async function
 backed by the SQLite/Postgres database. Multi-tenant aware via `session.tenant_id`.
 """
 
@@ -14,6 +14,7 @@ if TYPE_CHECKING:
 
 from sqlalchemy import select
 
+from ..cache import stock_cache, supplier_cache
 from ..db import (
     Appointment,
     CommunicationLog,
@@ -22,7 +23,7 @@ from ..db import (
     Stock,
     Supplier,
     WorksheetLog,
-    session_scope,
+    async_session_scope,
 )
 from ..logging import get_logger
 
@@ -33,20 +34,25 @@ log = get_logger(__name__)
 # ---------- Tool implementations ----------
 
 
-def lookup_supplier(session: CallSession, phone: str | None = None, name: str | None = None) -> dict[str, Any]:
+async def lookup_supplier(session: CallSession, phone: str | None = None, name: str | None = None) -> dict[str, Any]:
     """Find a supplier by phone number or partial name within the active tenant."""
-    with session_scope() as db:
+    cache_key_parts = [session.tenant_id, phone or "", name or ""]
+    cached = supplier_cache.get(*cache_key_parts)
+    if cached is not None:
+        return cached
+
+    async with async_session_scope() as db:
         q = select(Supplier).where(Supplier.tenant_id == session.tenant_id)
         if phone:
             digits = "".join(c for c in phone if c.isdigit())[-10:]
             q = q.where(Supplier.phone.like(f"%{digits}"))
-        sup = db.execute(q).scalars().first()
+        sup = (await db.execute(q)).scalars().first()
         if not sup and name:
             q_name = select(Supplier).where(
                 Supplier.tenant_id == session.tenant_id,
                 Supplier.name.ilike(f"%{name}%"),
             )
-            sup = db.execute(q_name).scalars().first()
+            sup = (await db.execute(q_name)).scalars().first()
 
         if not sup:
             return {"found": False, "phone": phone, "name": name}
@@ -66,15 +72,17 @@ def lookup_supplier(session: CallSession, phone: str | None = None, name: str | 
             "contact_person": sup.contact_person,
             "gstin": sup.gstin,
         }
+        supplier_cache.set(*cache_key_parts, value=result)
+        return result
 
 
-def verify_caller(session: CallSession, city_or_gstin: str) -> dict[str, Any]:
+async def verify_caller(session: CallSession, city_or_gstin: str) -> dict[str, Any]:
     """Verify caller identity against supplier records."""
     if not session.supplier_id:
         return {"verified": False, "reason": "supplier_unknown"}
 
-    with session_scope() as db:
-        sup = db.get(Supplier, session.supplier_id)
+    async with async_session_scope() as db:
+        sup = await db.get(Supplier, session.supplier_id)
         if not sup:
             return {"verified": False, "reason": "supplier_not_found"}
 
@@ -85,15 +93,20 @@ def verify_caller(session: CallSession, city_or_gstin: str) -> dict[str, Any]:
     return {"verified": False, "reason": "mismatch"}
 
 
-def check_stock(session: CallSession, sku: str | None = None, warehouse: str | None = None) -> dict[str, Any]:
+async def check_stock(session: CallSession, sku: str | None = None, warehouse: str | None = None) -> dict[str, Any]:
     """Look up stock for a SKU within the active tenant."""
-    with session_scope() as db:
+    cache_key_parts = [session.tenant_id, sku or "*", warehouse or "*"]
+    cached = stock_cache.get(*cache_key_parts)
+    if cached is not None:
+        return cached
+
+    async with async_session_scope() as db:
         q = select(Stock).where(Stock.tenant_id == session.tenant_id)
         if sku:
             q = q.where(Stock.sku == sku)
         if warehouse:
             q = q.where(Stock.warehouse == warehouse)
-        rows = db.execute(q).scalars().all()
+        rows = (await db.execute(q)).scalars().all()
         if not rows:
             return {"available": False, "sku": sku, "warehouses": []}
 
@@ -102,17 +115,19 @@ def check_stock(session: CallSession, sku: str | None = None, warehouse: str | N
             for r in rows
         ]
         total = sum(r.quantity for r in rows)
-        return {"available": total > 0, "sku": sku, "total": total, "warehouses": warehouses}
+        result = {"available": total > 0, "sku": sku, "total": total, "warehouses": warehouses}
+        stock_cache.set(*cache_key_parts, value=result)
+        return result
 
 
-def get_shipment_status(session: CallSession, order_id: str | None = None, supplier_phone: str | None = None) -> dict[str, Any]:
+async def get_shipment_status(session: CallSession, order_id: str | None = None, supplier_phone: str | None = None) -> dict[str, Any]:
     """Get latest shipment for an order within the active tenant."""
-    with session_scope() as db:
+    async with async_session_scope() as db:
         q = select(Shipment).where(Shipment.tenant_id == session.tenant_id)
         if order_id:
             q = q.where(Shipment.order_id == order_id)
         q = q.order_by(Shipment.last_update.desc())
-        ship = db.execute(q).scalars().first()
+        ship = (await db.execute(q)).scalars().first()
         if not ship:
             return {"found": False}
 
@@ -130,7 +145,7 @@ def get_shipment_status(session: CallSession, order_id: str | None = None, suppl
         }
 
 
-def create_po(
+async def create_po(
     session: CallSession,
     supplier_id: str | None = None,
     items: list[dict[str, Any]] | None = None,
@@ -161,8 +176,10 @@ def create_po(
     total_qty = sum(v["quantity"] for v in validated)
     order_id = f"PO-{int(datetime.now(timezone.utc).timestamp())}-{session.call_id[-4:]}"
 
-    with session_scope() as db:
-        sup = db.get(Supplier, supplier_id)
+    stock_cache.clear()
+
+    async with async_session_scope() as db:
+        sup = await db.get(Supplier, supplier_id)
         if not sup:
             return {"ok": False, "error": "supplier_not_found"}
         order = Order(
@@ -175,7 +192,7 @@ def create_po(
             notes=notes,
         )
         db.add(order)
-        db.flush()
+        await db.flush()
 
     return {
         "ok": True,
@@ -188,10 +205,10 @@ def create_po(
     }
 
 
-def verify_po(session: CallSession, order_id: str) -> dict[str, Any]:
+async def verify_po(session: CallSession, order_id: str) -> dict[str, Any]:
     """Confirm that a PO exists in the tenant's records."""
-    with session_scope() as db:
-        o = db.get(Order, order_id)
+    async with async_session_scope() as db:
+        o = await db.get(Order, order_id)
         if not o or o.tenant_id != session.tenant_id:
             return {"ok": False, "error": "not_found", "order_id": order_id}
         return {
@@ -205,7 +222,7 @@ def verify_po(session: CallSession, order_id: str) -> dict[str, Any]:
         }
 
 
-def schedule_appointment(session: CallSession, datetime_str: str, purpose: str = "") -> dict[str, Any]:
+async def schedule_appointment(session: CallSession, datetime_str: str, purpose: str = "") -> dict[str, Any]:
     """Schedule a supplier appointment."""
     app_id = f"app-{uuid.uuid4().hex[:6]}"
     try:
@@ -213,7 +230,7 @@ def schedule_appointment(session: CallSession, datetime_str: str, purpose: str =
     except Exception:
         dt = datetime.now(timezone.utc)
 
-    with session_scope() as db:
+    async with async_session_scope() as db:
         app = Appointment(
             id=app_id,
             tenant_id=session.tenant_id,
@@ -227,10 +244,10 @@ def schedule_appointment(session: CallSession, datetime_str: str, purpose: str =
     return {"ok": True, "appointment_id": app_id, "datetime": dt.isoformat(), "purpose": purpose}
 
 
-def send_email(session: CallSession, to_address: str, subject: str, body: str) -> dict[str, Any]:
+async def send_email(session: CallSession, to_address: str, subject: str, body: str) -> dict[str, Any]:
     """Send an email notification."""
     comm_id = f"comm-email-{uuid.uuid4().hex[:6]}"
-    with session_scope() as db:
+    async with async_session_scope() as db:
         comm = CommunicationLog(
             id=comm_id,
             tenant_id=session.tenant_id,
@@ -246,10 +263,10 @@ def send_email(session: CallSession, to_address: str, subject: str, body: str) -
     return {"ok": True, "comm_id": comm_id, "channel": "email", "recipient": to_address}
 
 
-def send_whatsapp_message(session: CallSession, to_phone: str, message: str) -> dict[str, Any]:
+async def send_whatsapp_message(session: CallSession, to_phone: str, message: str) -> dict[str, Any]:
     """Send a WhatsApp message notification."""
     comm_id = f"comm-wa-{uuid.uuid4().hex[:6]}"
-    with session_scope() as db:
+    async with async_session_scope() as db:
         comm = CommunicationLog(
             id=comm_id,
             tenant_id=session.tenant_id,
@@ -265,9 +282,9 @@ def send_whatsapp_message(session: CallSession, to_phone: str, message: str) -> 
     return {"ok": True, "comm_id": comm_id, "channel": "whatsapp", "recipient": to_phone}
 
 
-def update_worksheet(session: CallSession, worksheet_name: str, action: str, row_data: dict[str, Any]) -> dict[str, Any]:
+async def update_worksheet(session: CallSession, worksheet_name: str, action: str, row_data: dict[str, Any]) -> dict[str, Any]:
     """Record an audit entry in the worksheet log."""
-    with session_scope() as db:
+    async with async_session_scope() as db:
         log_entry = WorksheetLog(
             tenant_id=session.tenant_id,
             worksheet_name=worksheet_name,
@@ -279,13 +296,13 @@ def update_worksheet(session: CallSession, worksheet_name: str, action: str, row
     return {"ok": True, "worksheet": worksheet_name, "action": action}
 
 
-def type_notes(session: CallSession, text: str) -> dict[str, Any]:
+async def type_notes(session: CallSession, text: str) -> dict[str, Any]:
     """Record free-form notes during a call."""
     log.info("notes.typed", text=text)
     return {"ok": True, "note": text}
 
 
-def escalate_to_human(session: CallSession, reason: str = "", summary: str = "") -> dict[str, Any]:
+async def escalate_to_human(session: CallSession, reason: str = "", summary: str = "") -> dict[str, Any]:
     """Flag the call as needing a human follow-up."""
     session.escalated = True
     session.intent = session.intent or "escalation"
@@ -296,32 +313,32 @@ def escalate_to_human(session: CallSession, reason: str = "", summary: str = "")
 # ---------- Dispatcher ----------
 
 
-def execute_tool(name: str, args: dict[str, Any], session: CallSession) -> dict[str, Any]:
+async def execute_tool(name: str, args: dict[str, Any], session: CallSession) -> dict[str, Any]:
     try:
         if name == "lookup_supplier":
-            return lookup_supplier(session, **(args or {}))
+            return await lookup_supplier(session, **(args or {}))
         if name == "verify_caller":
-            return verify_caller(session, **(args or {}))
+            return await verify_caller(session, **(args or {}))
         if name == "check_stock":
-            return check_stock(session, **(args or {}))
+            return await check_stock(session, **(args or {}))
         if name == "get_shipment_status":
-            return get_shipment_status(session, **(args or {}))
+            return await get_shipment_status(session, **(args or {}))
         if name == "create_po":
-            return create_po(session, **(args or {}))
+            return await create_po(session, **(args or {}))
         if name == "verify_po":
-            return verify_po(session, **(args or {}))
+            return await verify_po(session, **(args or {}))
         if name == "schedule_appointment":
-            return schedule_appointment(session, **(args or {}))
+            return await schedule_appointment(session, **(args or {}))
         if name == "send_email":
-            return send_email(session, **(args or {}))
+            return await send_email(session, **(args or {}))
         if name == "send_whatsapp_message":
-            return send_whatsapp_message(session, **(args or {}))
+            return await send_whatsapp_message(session, **(args or {}))
         if name == "update_worksheet":
-            return update_worksheet(session, **(args or {}))
+            return await update_worksheet(session, **(args or {}))
         if name == "type_notes":
-            return type_notes(session, **(args or {}))
+            return await type_notes(session, **(args or {}))
         if name == "escalate_to_human":
-            return escalate_to_human(session, **(args or {}))
+            return await escalate_to_human(session, **(args or {}))
         return {"ok": False, "error": f"unknown_tool:{name}"}
     except Exception as e:
         log.error("tool.error", name=name, error=str(e))

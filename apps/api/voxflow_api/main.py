@@ -20,7 +20,7 @@ from .routes import data as data_routes
 from .routes import ws as ws_routes
 from .routes.ws import get_pipeline
 from .schemas import ChatMessage, ChatRequest, ChatResponse
-from .voice.tts import TextToSpeech
+
 
 
 setup_logging()
@@ -98,6 +98,7 @@ def create_app() -> FastAPI:
     async def tts(req: TTSRequest) -> StreamingResponse:
         if not req.text.strip():
             raise HTTPException(status_code=400, detail="empty_text")
+        from .voice.tts import TextToSpeech
         synth = TextToSpeech()
         res = await synth.synth(req.text, lang_hint=req.lang)
         return StreamingResponse(iter([res.audio_bytes]), media_type=res.mime)
@@ -127,7 +128,7 @@ def create_app() -> FastAPI:
         for a in result.actions:
             session.actions.append(a)
         # Persist immediately (don't wait for end_session)
-        pipeline._persist(session)
+        await pipeline._persist(session)
         pipeline._sessions.pop(session.call_id, None)
         return {
             "call_id": session.call_id,

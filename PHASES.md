@@ -24,14 +24,14 @@ or you'll be debugging two hard problems (async correctness + real-time
 audio) at once.
 
 **Checklist:**
-- [ ] Add `asyncpg` (Postgres) to `requirements.txt`
-- [ ] Convert `db.py` to `create_async_engine` + `async_sessionmaker`
-- [ ] Convert `session_scope()` to an `async def` context manager
-- [ ] Update every function in `tools.py` to `async def`, using
+- [x] Add `asyncpg` (Postgres) + `aiosqlite` (SQLite) to `requirements.txt`
+- [x] Convert `db.py` to `create_async_engine` + `async_sessionmaker`
+- [x] Convert `session_scope()` to an `async def` context manager (`async_session_scope`)
+- [x] Update every function in `tools.py` to `async def`, using
       `await db.execute(...)` / `await db.get(...)`
-- [ ] Update `execute_tool()` dispatcher in `tools.py` to `await` each tool
-- [ ] Update `runner.py`'s tool-calling loop to `await execute_tool(...)`
-- [ ] Run existing tests (`pytest apps/api/tests`), fix any breakage
+- [x] Update `execute_tool()` dispatcher in `tools.py` to `await` each tool
+- [x] Update `runner.py`'s tool-calling loop to `await execute_tool(...)`
+- [x] Run existing tests (`pytest apps/api/tests`), fix any breakage
 
 **Definition of Done:** All existing tests pass. A manual check confirms
 no `def` (non-async) function in `tools.py` makes a blocking DB call.
@@ -44,15 +44,15 @@ wasted latency. An in-process cache with a short TTL (30-60s) removes this
 without adding infrastructure.
 
 **Checklist:**
-- [ ] Add a simple TTL cache utility (e.g. `cachetools.TTLCache`, or a
-      hand-rolled dict + timestamp) in a new `voxflow_api/cache.py`
-- [ ] Wrap `check_stock` reads with the cache, keyed by `(tenant_id, sku,
+- [x] Add a simple TTL cache utility (a hand-rolled dict + timestamp) in a
+      new `voxflow_api/cache.py`
+- [x] Wrap `check_stock` reads with the cache, keyed by `(tenant_id, sku,
       warehouse)`
-- [ ] Wrap `lookup_supplier` reads with the cache, keyed by
+- [x] Wrap `lookup_supplier` reads with the cache, keyed by
       `(tenant_id, phone)`
-- [ ] Ensure `create_po` and any stock-mutating action invalidates the
+- [x] Ensure `create_po` and any stock-mutating action invalidates the
       relevant cache entries
-- [ ] Add a note in ARCHITECTURE.md if you deviate from in-process caching
+- [x] Add a note in ARCHITECTURE.md if you deviate from in-process caching
       (e.g. if you add Redis instead)
 
 **Definition of Done:** Repeated calls to `check_stock` for the same SKU

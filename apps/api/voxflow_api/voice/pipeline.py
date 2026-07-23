@@ -22,11 +22,9 @@ import numpy as np
 
 from ..agent.runner import AgentRunner
 from ..config import get_settings
-from ..db import Call, session_scope
+from ..db import Call, async_session_scope
 from ..logging import get_logger
 from ..schemas import CallTurn
-from .stt import SpeechToText
-from .tts import TextToSpeech
 
 
 log = get_logger(__name__)
@@ -61,6 +59,9 @@ class VoicePipeline:
     """Manages live call sessions over WebSocket."""
 
     def __init__(self) -> None:
+        from .stt import SpeechToText
+        from .tts import TextToSpeech
+
         self.stt = SpeechToText.instance()
         self.tts = TextToSpeech()
         self.agent = AgentRunner()
@@ -95,13 +96,13 @@ class VoicePipeline:
     def get_session(self, call_id: str) -> CallSession | None:
         return self._sessions.get(call_id)
 
-    def end_session(self, call_id: str, outcome: str = "resolved") -> CallSession | None:
+    async def end_session(self, call_id: str, outcome: str = "resolved") -> CallSession | None:
         session = self._sessions.pop(call_id, None)
         if not session:
             return None
         session.ended_at = time.time()
         session.outcome = outcome
-        self._persist(session)
+        await self._persist(session)
         log.info(
             "call.ended",
             call_id=call_id,
@@ -167,12 +168,12 @@ class VoicePipeline:
 
     # ---------- Persistence ----------
 
-    def _persist(self, session: CallSession) -> None:
+    async def _persist(self, session: CallSession) -> None:
         import json as _json
         from datetime import datetime, timezone
 
         try:
-            with session_scope() as db:
+            async with async_session_scope() as db:
                 row = Call(
                     id=session.call_id,
                     tenant_id=session.tenant_id,
@@ -194,7 +195,7 @@ class VoicePipeline:
                     ),
                     actions_json=_json.dumps(session.actions),
                 )
-                db.merge(row)
+                await db.merge(row)
         except Exception as e:
             log.error("call.persist_failed", call_id=session.call_id, error=str(e))
 

@@ -126,7 +126,7 @@ async def call_socket(ws: WebSocket) -> None:
 
             elif t == "end":
                 if session is not None:
-                    pipeline.end_session(session.call_id, outcome="resolved")
+                    await pipeline.end_session(session.call_id, outcome="resolved")
                     await ws.send_json({"type": "ended", "call_id": session.call_id})
                 break
 
@@ -135,7 +135,7 @@ async def call_socket(ws: WebSocket) -> None:
 
     except WebSocketDisconnect:
         if session is not None:
-            pipeline.end_session(session.call_id, outcome="abandoned")
+            await pipeline.end_session(session.call_id, outcome="abandoned")
     except Exception as e:
         log.error("ws.error", error=str(e))
         try:
@@ -143,4 +143,4 @@ async def call_socket(ws: WebSocket) -> None:
         except Exception:
             pass
         if session is not None:
-            pipeline.end_session(session.call_id, outcome="error")
+            await pipeline.end_session(session.call_id, outcome="error")

@@ -130,45 +130,49 @@ def test_create_order(client):
     assert data["status"] == "pending"
 
 
-def test_lookup_supplier_tool():
+@pytest.mark.asyncio
+async def test_lookup_supplier_tool():
     """Tool dispatch without an LLM."""
     from voxflow_api.agent.tools import execute_tool
     from voxflow_api.voice.pipeline import CallSession
 
     s = CallSession(call_id="test")
-    res = execute_tool("lookup_supplier", {"phone": "+919876543210"}, s)
+    res = await execute_tool("lookup_supplier", {"phone": "+919876543210"}, s)
     assert res["found"] is True
     assert res["name"] == "Sharma Beverages Wholesale"
     assert s.supplier_id == "sup-varun-001"
 
 
-def test_check_stock_tool():
+@pytest.mark.asyncio
+async def test_check_stock_tool():
     from voxflow_api.agent.tools import execute_tool
     from voxflow_api.voice.pipeline import CallSession
 
     s = CallSession(call_id="test")
-    res = execute_tool("check_stock", {"sku": "PEP-250ML-12"}, s)
+    res = await execute_tool("check_stock", {"sku": "PEP-250ML-12"}, s)
     assert res["available"] is True
     assert res["total"] > 0
 
 
-def test_shipment_status_tool():
+@pytest.mark.asyncio
+async def test_shipment_status_tool():
     from voxflow_api.agent.tools import execute_tool
     from voxflow_api.voice.pipeline import CallSession
 
     s = CallSession(call_id="test")
-    res = execute_tool("get_shipment_status", {"order_id": "PO-1717000000-001"}, s)
+    res = await execute_tool("get_shipment_status", {"order_id": "PO-1717000000-001"}, s)
     assert res["found"] is True
     assert res["status"] == "in_transit"
 
 
-def test_create_po_tool():
+@pytest.mark.asyncio
+async def test_create_po_tool():
     from voxflow_api.agent.tools import execute_tool
     from voxflow_api.voice.pipeline import CallSession
 
     s = CallSession(call_id="test")
     s.supplier_id = "sup-varun-001"
-    res = execute_tool(
+    res = await execute_tool(
         "create_po",
         {"items": [{"sku": "PEP-250ML-12", "quantity": 25}, {"sku": "7UP-500ML-24", "quantity": 10}]},
         s,
