@@ -6,10 +6,11 @@ import { api } from "@/lib/api";
 import { fmtRelative, statusBg, statusColor } from "@/lib/format";
 import { Truck } from "lucide-react";
 import { useTenant } from "@/lib/tenant-context";
+import type { Shipment } from "@/lib/types";
 
 export default function ShipmentsPage() {
   const { activeTenantId, activeTenant } = useTenant();
-  const { data: shipments } = useSWR(["shipments", activeTenantId], () =>
+  const { data: shipments, error, isLoading } = useSWR(["shipments", activeTenantId], () =>
     api.shipments(undefined, activeTenantId),
   );
 
@@ -17,7 +18,9 @@ export default function ShipmentsPage() {
     <>
       <Topbar title="Shipment Tracking" subtitle={`${activeTenant.name} · ${shipments?.length ?? 0} active`} />
       <div className="p-6 space-y-3">
-        {shipments?.map((s) => (
+        {isLoading && <div className="text-center text-ink-400 py-12 text-sm">Loading shipments...</div>}
+        {error && <div className="rounded border border-danger-500/30 bg-danger-500/10 p-3 text-sm text-danger-400">Failed to load shipments. Is the API running?</div>}
+        {(shipments as Shipment[])?.map((s) => (
           <div key={s.id} className="rounded-lg border border-ink-700/60 bg-ink-900/40 p-4">
             <div className="flex items-center gap-3 mb-3">
               <Truck className="text-vox-400" size={18} />
@@ -33,7 +36,7 @@ export default function ShipmentsPage() {
             </div>
             {s.history && s.history.length > 0 && (
               <div className="border-l border-ink-700/60 pl-4 space-y-2">
-                {s.history.map((h: any, i: number) => (
+                {(s.history as Shipment["history"]).map((h, i) => (
                   <div key={i} className="text-xs">
                     <div className={`font-mono uppercase tracking-wider ${statusColor(h.status)}`}>
                       {h.status}
@@ -51,7 +54,7 @@ export default function ShipmentsPage() {
             )}
           </div>
         ))}
-        {(!shipments || shipments.length === 0) && (
+        {!isLoading && !error && (!shipments || shipments.length === 0) && (
           <div className="rounded-lg border border-dashed border-ink-700/60 p-12 text-center">
             <Truck className="mx-auto mb-3 text-ink-600" />
             <div className="text-sm text-ink-300">No shipments found for {activeTenant.name}.</div>

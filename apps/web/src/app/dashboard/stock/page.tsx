@@ -8,7 +8,7 @@ import { useTenant } from "@/lib/tenant-context";
 
 export default function StockPage() {
   const { activeTenantId, activeTenant } = useTenant();
-  const { data: stock } = useSWR(["stock", activeTenantId], () =>
+  const { data: stock, error, isLoading } = useSWR(["stock", activeTenantId], () =>
     api.stock({ tenant_id: activeTenantId }),
   );
 
@@ -61,7 +61,9 @@ export default function StockPage() {
             </table>
           </div>
         ))}
-        {(!stock || stock.length === 0) && (
+        {isLoading && <div className="text-center text-ink-400 py-12 text-sm">Loading stock data...</div>}
+        {error && <div className="rounded border border-danger-500/30 bg-danger-500/10 p-3 text-sm text-danger-400">Failed to load stock. Is the API running?</div>}
+        {!isLoading && !error && (!stock || stock.length === 0) && (
           <div className="rounded-lg border border-dashed border-ink-700/60 p-12 text-center">
             <Boxes className="mx-auto mb-3 text-ink-600" />
             <div className="text-sm text-ink-300">No stock data found for {activeTenant.name}.</div>

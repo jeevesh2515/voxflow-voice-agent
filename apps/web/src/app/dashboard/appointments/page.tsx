@@ -1,14 +1,14 @@
 "use client";
 
 import useSWR from "swr";
-import { Calendar, Clock, CheckCircle2, AlertCircle } from "lucide-react";
+import { Calendar, Clock } from "lucide-react";
 import Topbar from "@/components/Topbar";
 import { api } from "@/lib/api";
 import { useTenant } from "@/lib/tenant-context";
 
 export default function AppointmentsPage() {
   const { activeTenantId, activeTenant } = useTenant();
-  const { data: appointments } = useSWR(["appointments", activeTenantId], () =>
+  const { data: appointments, error, isLoading } = useSWR(["appointments", activeTenantId], () =>
     api.appointments(activeTenantId),
   );
 
@@ -28,8 +28,10 @@ export default function AppointmentsPage() {
             </span>
           </div>
 
+          {isLoading && <div className="px-5 py-12 text-center text-sm text-ink-500">Loading appointments...</div>}
+          {error && <div className="m-4 rounded border border-danger-500/30 bg-danger-500/10 p-3 text-sm text-danger-400">Failed to load appointments. Is the API running?</div>}
           <div className="divide-y divide-ink-800/60">
-            {appointments?.map((app: any) => (
+            {appointments?.map((app) => (
               <div key={app.id} className="p-5 flex items-start justify-between gap-4 hover:bg-ink-800/20 transition-colors">
                 <div className="space-y-1">
                   <div className="flex items-center gap-2">
@@ -55,7 +57,7 @@ export default function AppointmentsPage() {
               </div>
             ))}
 
-            {(!appointments || appointments.length === 0) && (
+            {!isLoading && !error && (!appointments || appointments.length === 0) && (
               <div className="px-5 py-12 text-center text-sm text-ink-500">
                 No appointments booked for {activeTenant.name}.
               </div>

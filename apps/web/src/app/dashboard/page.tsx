@@ -23,11 +23,12 @@ import {
 } from "lucide-react";
 import { api } from "@/lib/api";
 import { useTenant } from "@/lib/tenant-context";
+import type { Call } from "@/lib/types";
 
 export default function DashboardOverview() {
   const { activeTenantId, activeTenant } = useTenant();
-  const { data: summary } = useSWR(["summary", activeTenantId], () => api.summary(activeTenantId));
-  const { data: calls } = useSWR(["calls", activeTenantId], () => api.calls(8, activeTenantId));
+  const { data: summary, error: summaryErr, isLoading: summaryLoading } = useSWR(["summary", activeTenantId], () => api.summary(activeTenantId));
+  const { data: calls, error: callsErr, isLoading: callsLoading } = useSWR(["calls", activeTenantId], () => api.calls(8, activeTenantId));
   const { data: suppliers } = useSWR(["suppliers", activeTenantId], () => api.suppliers(undefined, activeTenantId));
 
   const [activeKeypad, setActiveKeypad] = useState<string | null>(null);
@@ -50,14 +51,24 @@ export default function DashboardOverview() {
           </p>
         </div>
         <div className="flex items-center gap-3">
-          <button className="bg-[#28283e] border border-[#302840] px-4 py-2 rounded-lg text-xs font-label font-bold uppercase tracking-widest flex items-center gap-2 hover:border-[#00ffcc] text-[#e8e0f0] transition-all">
+          <button
+            onClick={() => window.open("/api/calls/export", "_blank")}
+            className="bg-[#28283e] border border-[#302840] px-4 py-2 rounded-lg text-xs font-label font-bold uppercase tracking-widest flex items-center gap-2 hover:border-[#00ffcc] text-[#e8e0f0] transition-all"
+          >
             <Download size={14} className="text-[#00ffcc]" /> Export
           </button>
-          <button className="bg-[#ff2d78] text-[#1a0010] px-4 py-2 rounded-lg text-xs font-label font-bold uppercase tracking-widest flex items-center gap-2 neon-glow-primary hover:scale-105 active:scale-95 transition-all">
+          <Link
+            href="/dashboard/simulator"
+            className="bg-[#ff2d78] text-[#1a0010] px-4 py-2 rounded-lg text-xs font-label font-bold uppercase tracking-widest flex items-center gap-2 neon-glow-primary hover:scale-105 active:scale-95 transition-all"
+          >
             <Plus size={14} /> New Campaign
-          </button>
+          </Link>
         </div>
       </header>
+
+      {/* Loading / error banners */}
+      {summaryLoading && <div className="text-center text-ink-400 text-sm py-4">Loading dashboard...</div>}
+      {summaryErr && <div className="rounded border border-danger-500/30 bg-danger-500/10 p-3 text-sm text-danger-400">Failed to load dashboard data. Is the API running?</div>}
 
       {/* ==================== STAT CARDS ROW ==================== */}
       <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-6">
@@ -215,9 +226,13 @@ export default function DashboardOverview() {
                         >
                           Join
                         </Link>
-                        <button className="p-1.5 bg-[#28283e] border border-[#302840] rounded hover:border-[#ff2d78] text-[#a098b0] hover:text-[#e8e0f0] transition-colors">
+                        <Link
+                          href="/dashboard/calls"
+                          className="p-1.5 bg-[#28283e] border border-[#302840] rounded hover:border-[#ff2d78] text-[#a098b0] hover:text-[#e8e0f0] transition-colors inline-block"
+                          aria-label="View details"
+                        >
                           <Sliders size={14} />
-                        </button>
+                        </Link>
                       </div>
                     </td>
                   </tr>
@@ -249,15 +264,19 @@ export default function DashboardOverview() {
                         >
                           View
                         </Link>
-                        <button className="p-1.5 bg-[#28283e] border border-[#302840] rounded hover:border-[#ff2d78] text-[#a098b0] hover:text-[#e8e0f0] transition-colors">
+                        <Link
+                          href="/dashboard/calls"
+                          className="p-1.5 bg-[#28283e] border border-[#302840] rounded hover:border-[#ff2d78] text-[#a098b0] hover:text-[#e8e0f0] transition-colors inline-block"
+                          aria-label="View details"
+                        >
                           <Sliders size={14} />
-                        </button>
+                        </Link>
                       </div>
                     </td>
                   </tr>
 
                   {/* SWR Dynamic Calls */}
-                  {calls?.slice(0, 4).map((c) => (
+                  {(calls as Call[])?.slice(0, 4).map((c) => (
                     <tr key={c.id} className="hover:bg-[#1a1a2e]/50 transition-colors group">
                       <td className="px-6 py-4">
                         <span className="text-sm font-label text-[#ff2d78] font-bold">#{c.id.substring(0, 8)}</span>

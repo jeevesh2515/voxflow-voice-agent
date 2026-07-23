@@ -26,23 +26,9 @@ export default function Footer() {
             <div className="flex gap-3 sm:gap-4">
               <a
                 className="w-8 h-8 sm:w-9 sm:h-9 rounded-lg bg-surface-variant flex items-center justify-center hover:bg-primary/20 transition-colors"
-                href="#"
-                aria-label="Twitter"
-              >
-                <span className="material-symbols-outlined text-sm">
-                  alternate_email
-                </span>
-              </a>
-              <a
-                className="w-8 h-8 sm:w-9 sm:h-9 rounded-lg bg-surface-variant flex items-center justify-center hover:bg-primary/20 transition-colors"
-                href="#"
-                aria-label="LinkedIn"
-              >
-                <span className="material-symbols-outlined text-sm">hub</span>
-              </a>
-              <a
-                className="w-8 h-8 sm:w-9 sm:h-9 rounded-lg bg-surface-variant flex items-center justify-center hover:bg-primary/20 transition-colors"
-                href="#"
+                href="https://github.com/jeevesh2515/voxflow-voice-agent"
+                target="_blank"
+                rel="noopener noreferrer"
                 aria-label="GitHub"
               >
                 <span className="material-symbols-outlined text-sm">code</span>
@@ -98,7 +84,7 @@ export default function Footer() {
               <li>
                 <Link
                   className="text-sm sm:text-base text-on-surface-variant hover:text-secondary transition-colors"
-                  href="/sign-up"
+                  href="/about"
                 >
                   Careers
                 </Link>

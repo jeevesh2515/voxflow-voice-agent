@@ -8,7 +8,7 @@ import { useTenant } from "@/lib/tenant-context";
 
 export default function SuppliersPage() {
   const { activeTenantId, activeTenant } = useTenant();
-  const { data: suppliers } = useSWR(["suppliers", activeTenantId], () =>
+  const { data: suppliers, error, isLoading } = useSWR(["suppliers", activeTenantId], () =>
     api.suppliers(undefined, activeTenantId),
   );
 
@@ -16,6 +16,8 @@ export default function SuppliersPage() {
     <>
       <Topbar title="Suppliers Directory" subtitle={`${activeTenant.name} · ${suppliers?.length ?? 0} total`} />
       <div className="p-6">
+        {isLoading && <div className="text-center text-ink-400 py-12 text-sm">Loading suppliers...</div>}
+        {error && <div className="rounded border border-danger-500/30 bg-danger-500/10 p-3 text-sm text-danger-400">Failed to load suppliers. Is the API running?</div>}
         <div className="rounded-lg border border-ink-700/60 bg-ink-900/40 overflow-hidden">
           <table className="w-full text-sm">
             <thead className="bg-ink-900/60 text-[10px] font-mono uppercase tracking-wider text-ink-400">
@@ -43,7 +45,7 @@ export default function SuppliersPage() {
               ))}
             </tbody>
           </table>
-          {(!suppliers || suppliers.length === 0) && (
+          {!isLoading && !error && (!suppliers || suppliers.length === 0) && (
             <div className="px-4 py-12 text-center">
               <Users className="mx-auto mb-3 text-ink-600" />
               <div className="text-sm text-ink-300">No registered suppliers for {activeTenant.name}.</div>

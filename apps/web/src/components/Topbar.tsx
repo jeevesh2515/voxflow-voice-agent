@@ -151,6 +151,7 @@ export default function Topbar({ title, subtitle }: { title?: string; subtitle?:
             type="text"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
+            onKeyDown={(e) => { if (e.key === "Enter" && searchQuery.trim()) router.push(`/dashboard/calls?q=${encodeURIComponent(searchQuery.trim())}`); }}
             placeholder="Search agents, calls..."
             className="bg-[#0a0a12] dark:bg-[#0a0a12] light:bg-slate-50 border border-[#302840] dark:border-[#302840] light:border-slate-300 rounded-xl pl-9 pr-12 py-2 text-xs text-[#e8e0f0] dark:text-[#e8e0f0] light:text-slate-900 focus:ring-1 focus:ring-[#ff2d78] outline-none w-56 lg:w-64 transition-all placeholder:text-[#a098b0]/50 font-body"
           />

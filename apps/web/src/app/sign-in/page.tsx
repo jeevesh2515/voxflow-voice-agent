@@ -13,9 +13,13 @@ export default function SignInPage() {
   const [password, setPassword] = useState("");
   const [selectedTenant, setSelectedTenant] = useState(tenants[0]?.id || "varun");
   const [loading, setLoading] = useState(false);
+  const [signInError, setSignInError] = useState("");
 
   const handleSignIn = (e: React.FormEvent) => {
     e.preventDefault();
+    setSignInError("");
+    if (!email.trim()) { setSignInError("Email is required"); return; }
+    if (!password.trim()) { setSignInError("Password is required"); return; }
     setLoading(true);
 
     setActiveTenantId(selectedTenant);
@@ -23,8 +27,8 @@ export default function SignInPage() {
       "voxflow_session",
       JSON.stringify({
         user: {
-          name: email ? email.split("@")[0] : "Operations Admin",
-          email: email || "admin@company.com",
+          name: email.split("@")[0],
+          email: email,
           tenant_id: selectedTenant,
         },
         token: `auth-token-${Date.now()}`,
@@ -100,7 +104,7 @@ export default function SignInPage() {
             <div>
               <div className="flex justify-between items-center mb-1.5">
                 <label htmlFor="password" className="text-xs font-label uppercase tracking-widest text-[#e8e0f0] block">Password</label>
-                <a href="#" className="text-xs font-label text-[#00ffcc] hover:underline">Forgot?</a>
+                <span className="text-xs font-label text-[#a098b0] cursor-default" title="Password reset coming soon">Forgot?</span>
               </div>
               <input
                 id="password"
@@ -112,6 +116,7 @@ export default function SignInPage() {
                 className="w-full px-4 py-3 rounded-xl bg-[#141422] border border-[#302840]/60 text-[#e8e0f0] text-sm placeholder:text-[#a098b0]/40 focus:outline-none focus:border-[#ff2d78] focus:ring-1 focus:ring-[#ff2d78]/40 transition-all font-body"
               />
             </div>
+            {signInError && <div className="text-xs text-danger-500 bg-danger-500/10 border border-danger-500/30 rounded-md p-2">{signInError}</div>}
             <button
               type="submit"
               disabled={loading}
