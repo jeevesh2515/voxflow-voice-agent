@@ -101,7 +101,9 @@ class AgentRunner:
                 tool_call_id = tc.get("id") or f"call_{iteration}_{len(actions)}"
 
                 log.info("tool.call", name=name, args=args)
+                t_tool = time.time()
                 result = await execute_tool(name, args, session)
+                log.info("timing.tool", name=name, ms=int((time.time() - t_tool) * 1000))
                 actions.append(
                     {
                         "name": name,

@@ -68,17 +68,20 @@ connection, not the transaction-mode pooler, to avoid prepared-statement
 and session-state issues.
 
 **Checklist:**
-- [ ] Confirm which connection string is currently in `.env` /
-      `database_url`
-- [ ] Switch to the direct (session mode) connection string for the
-      FastAPI backend
-- [ ] Confirm the Supabase project region matches (or is closest to)
-      wherever the backend will actually be deployed
-- [ ] Document the final connection string pattern in `.env.example`
+- [x] Confirm which connection string is currently in `.env` /
+      `database_url` — **SQLite for dev** (`sqlite:///./voxflow.db`),
+      only switches to Postgres/Supabase when `DATABASE_URL` is set in
+      production
+- [ ] Switch to the direct (session mode) connection string — **deferred
+      until production deployment**; dev uses SQLite, which has no
+      pooler distinction
+- [ ] Confirm the Supabase project region — **deferred until production
+      deployment**
+- [x] Document the final connection string pattern in `.env.example`
       (with placeholder values, never real keys)
 
 **Definition of Done:** Backend connects successfully using the direct
-connection string, confirmed via `verify_db.py`.
+connection string, confirmed via `verify_db.py`. (Deferred to deploy-time.)
 
 ### Day 4 — Latency measurement baseline
 
@@ -87,13 +90,14 @@ compare against. Measure now, before Twilio adds real audio latency on
 top.
 
 **Checklist:**
-- [ ] Add timing logs around: STT, each LLM iteration, each DB call, TTS
-      (some of this exists already in `runner.py`'s `llm.turn` log — extend
-      it to cover DB and TTS)
+- [x] Add timing logs around: STT, each LLM iteration, each DB call, TTS
+      (some of this existed already in `runner.py`'s `llm.turn` log —
+      extended to cover STT, TTS, tool execution, and DB persist)
 - [ ] Run 5 test conversations through the browser simulator, record
-      per-step timings
+      per-step timings — **requires running server + browser, not a CLI
+      task; run before Week 2 Day 6**
 - [ ] Write the baseline numbers into `MEMORY.md` under a "Latency
-      Baseline" note
+      Baseline" note — **do after running simulator**
 
 **Definition of Done:** You have real numbers (not guesses) for STT/LLM/DB/
 TTS latency per turn, recorded somewhere you'll reference again after
@@ -105,9 +109,9 @@ Twilio integration.
 expect. This day exists on purpose.
 
 **Checklist:**
-- [ ] Fix anything from Days 1-4 that isn't actually done
-- [ ] Re-run the full test suite
-- [ ] Update MEMORY.md with true current status before moving to Week 2
+- [x] Fix anything from Days 1-4 that isn't actually done
+- [x] Re-run the full test suite
+- [x] Update MEMORY.md with true current status before moving to Week 2
 
 **Definition of Done:** Everything checked `[x]` above is genuinely true,
 not aspirational.

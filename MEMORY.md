@@ -9,9 +9,9 @@ unreliable.
 
 ## Current Position
 
-**Last updated:** 2026-07-23
-**Currently on:** Week 1, Day 5 complete — async DB, caching, security pass done
-**Currently being worked on:** Nothing actively in progress
+**Last updated:** 2026-07-23 (revised)
+**Currently on:** Week 1 complete — Days 1-5 marked done. Timing logs added.
+**Currently being worked on:** Nothing actively in progress (Week 2 next)
 
 ## What's Actually Done (verified against the real repo)
 
@@ -39,10 +39,11 @@ unreliable.
 - ✅ **Async DB layer** — all agent tool functions use async SQLAlchemy engines (aiosqlite for dev, asyncpg for prod). DB calls no longer block the event loop.
 - ✅ **TTL cache** — `check_stock` and `lookup_supplier` reads cached in-process (30s TTL). Stock cache invalidated on `create_po` writes.
 - ✅ **Security pass** — live API keys removed from `.env` files, `.env.example` files cleaned, sensitive deps excluded from test path.
+- ✅ **Timing logs added** — STT, TTS, tool execution, and DB persist all logged with millisecond precision; LLM timing was already present in `runner.py`.
 
 ## What's Known to Be Incomplete or Wrong
 
-- ❌ **Latency baseline not yet measured** — timing logs need to be added and 5 test conversations run through the simulator (Week 1 Day 4)
+- ❌ **Latency baseline not yet measured** — timing logs are in place but need 5 test conversations run through the simulator to get real numbers (Week 1 Day 4)
 - ❌ **No real telephony** — calls only work through the browser simulator,
   not an actual phone number (Week 2)
 - ❌ **Staff auth is `localStorage`-based**, not real Supabase Auth (Week 3

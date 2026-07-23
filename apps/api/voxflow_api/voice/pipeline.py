@@ -124,11 +124,13 @@ class VoicePipeline:
         session.reset_pcm()
 
         loop = asyncio.get_running_loop()
+        t0 = time.time()
         transcription = await loop.run_in_executor(
             None,
             lambda: self.stt.transcribe_pcm(pcm, sample_rate=session.pcm_sample_rate),
         )
         user_text = transcription.text.strip()
+        log.info("timing.stt", ms=int((time.time() - t0) * 1000), confidence=transcription.confidence, lang=transcription.language)
         if not user_text:
             return {"type": "info", "message": "empty_transcript"}
 
@@ -153,7 +155,9 @@ class VoicePipeline:
                 session.escalated = True
 
         # TTS
+        t0 = time.time()
         tts_result = await self.tts.synth(agent_text, lang_hint=session.language)
+        log.info("timing.tts", ms=int((time.time() - t0) * 1000), text_len=len(agent_text))
 
         return {
             "type": "turn",
@@ -172,6 +176,7 @@ class VoicePipeline:
         import json as _json
         from datetime import datetime, timezone
 
+        t0 = time.time()
         try:
             async with async_session_scope() as db:
                 row = Call(
@@ -196,6 +201,7 @@ class VoicePipeline:
                     actions_json=_json.dumps(session.actions),
                 )
                 await db.merge(row)
+            log.info("timing.persist", call_id=session.call_id, ms=int((time.time() - t0) * 1000))
         except Exception as e:
             log.error("call.persist_failed", call_id=session.call_id, error=str(e))
 
