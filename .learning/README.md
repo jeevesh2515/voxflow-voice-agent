@@ -24,6 +24,8 @@ Minimum update expectations:
 - `day-02-async-db-and-latency-theory.md`
 - `day-03-twilio-and-telephony-theory.md`
 - `day-04-next-up-async-db-implementation.md`
+- `day-05-async-complete-and-caching.md`
+- `day-06-frontend-polish-and-bugfix.md`
 
 ## Current learning status
 
@@ -32,18 +34,39 @@ Minimum update expectations:
 | Day 1 | Project Foundation And Vision | ✅ Complete |
 | Day 2 | Async DB And Latency Theory | ✅ Complete |
 | Day 3 | Twilio And Telephony Theory | ✅ Complete |
-| Day 4 | Async DB Implementation (Week 1 Day 1) | 📋 Planned |
+| Day 4 | Async DB Implementation | ✅ Complete |
+| Day 5 | Cache Layer + Security Pass | ✅ Complete |
+| Day 6 | Frontend Polish + Bug Fixes | ✅ Complete |
+
+## Week 1 summary
+
+All Week 1 objectives complete:
+
+| Day | Actual work | Key outcome |
+| --- | --- | --- |
+| Day 1 | Async DB layer | All tools async, dual sync/async engines |
+| Day 2 | TTL cache | `stock_cache` + `supplier_cache` on hot reads |
+| Day 3 | Supabase hygiene | Documented direct/pooled switch, deferred to deploy |
+| Day 4 | Timing & latency logs | `timing.stt`, `timing.tts`, `timing.tool`, `timing.persist` |
+| Day 5 | Buffer/security | Live keys stripped, MEMORY.md updated, tests green |
+| Day 6 | Frontend polish | Loading/error states, dead buttons fixed, `any`→types, mock data removed, cache bug fixed |
+
+## What was fixed in the audit
+
+- **Bug:** `lookup_supplier` cache.set after return statement (dead code since Day 2). Cache now properly populated.
+- **Bug:** Cache hits skipped `session.supplier_id` assignment — fixed by restoring session state from cache data.
+- **Bug:** `schedule_appointment` silently used `datetime.now()` on invalid input — now returns error.
+- **Mock data removed:** Dashboard no longer shows fake call counts (12,482), fake orders (439), fake supplier images, or hardcoded interaction rows. All data now comes from API.
+- **Fake stats stripped:** Topbar removed fake "12 Active Agents", "99.9% Uptime", "1,242 / 1,500 calls".
+- **All 15 tests pass, 17/17 frontend pages compile.**
 
 ## Current completed phases
 
 - **Phase 0** — Repo setup, FastAPI skeleton, Supabase/Groq/Twilio config, Next.js frontend scaffold
 - **Phase 1** — Database schema with multi-tenant models, RLS policies, seed data across 4 tenants
 - **Phase 2** — Staff sign-up/sign-in flows, multi-tenant dashboard with workspace switcher, session persistence
-
-## Current phase in progress
-
-- **Phase 3 — Voice Integration (Twilio)** — async DB layer must be fixed first (Week 1)
+- **Week 1 polish** — Async DB, caching layer, timing instrumentation, frontend quality pass
 
 ## Next up
 
-See [day-04-next-up-async-db-implementation.md](./day-04-next-up-async-db-implementation.md) for the next implementation checklist: convert synchronous SQLAlchemy to async, add caching layer, fix Supabase connection hygiene.
+Week 2 — Twilio telephony integration and multi-tenancy hardening.

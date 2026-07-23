@@ -39,6 +39,9 @@ async def lookup_supplier(session: CallSession, phone: str | None = None, name: 
     cache_key_parts = [session.tenant_id, phone or "", name or ""]
     cached = supplier_cache.get(*cache_key_parts)
     if cached is not None:
+        if cached.get("found"):
+            session.supplier_id = cached["id"]
+            session.caller_name = cached.get("contact_person", "") or cached["name"]
         return cached
 
     async with async_session_scope() as db:
@@ -62,7 +65,7 @@ async def lookup_supplier(session: CallSession, phone: str | None = None, name: 
         if not session.caller_phone:
             session.caller_phone = sup.phone
 
-        return {
+        result = {
             "found": True,
             "id": sup.id,
             "name": sup.name,
@@ -228,7 +231,7 @@ async def schedule_appointment(session: CallSession, datetime_str: str, purpose:
     try:
         dt = datetime.fromisoformat(datetime_str)
     except Exception:
-        dt = datetime.now(timezone.utc)
+        return {"ok": False, "error": "invalid_datetime", "appointment_id": None}
 
     async with async_session_scope() as db:
         app = Appointment(

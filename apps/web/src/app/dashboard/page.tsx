@@ -17,11 +17,11 @@ import {
   TrendingUp,
   Brain,
   Sliders,
-  Sparkles,
   Globe,
   Terminal,
 } from "lucide-react";
 import { api } from "@/lib/api";
+import { fmtRelative } from "@/lib/format";
 import { useTenant } from "@/lib/tenant-context";
 import type { Call } from "@/lib/types";
 
@@ -84,7 +84,7 @@ export default function DashboardOverview() {
           </div>
           <p className="text-[#a098b0] text-[10px] font-label uppercase tracking-[0.2em] mb-1">Total Calls</p>
           <p className="text-3xl font-headline font-bold text-[#e8e0f0] tracking-tight">
-            {summary?.calls ? Number(summary.calls).toLocaleString() : "12,482"}
+            {summary?.calls ? Number(summary.calls).toLocaleString() : "—"}
           </p>
           <div className="absolute bottom-0 left-0 w-full h-12 opacity-50 group-hover:opacity-100 transition-opacity">
             <svg className="w-full h-full" preserveAspectRatio="none" viewBox="0 0 100 40">
@@ -112,7 +112,7 @@ export default function DashboardOverview() {
           </div>
           <p className="text-[#a098b0] text-[10px] font-label uppercase tracking-[0.2em] mb-1">Pending Orders</p>
           <p className="text-3xl font-headline font-bold text-[#e8e0f0] tracking-tight">
-            {summary?.pending_orders ?? "439"}
+            {summary?.pending_orders != null ? String(summary.pending_orders) : "—"}
           </p>
           <div className="absolute bottom-0 left-0 w-full h-12 opacity-50 group-hover:opacity-100 transition-opacity">
             <svg className="w-full h-full" preserveAspectRatio="none" viewBox="0 0 100 40">
@@ -140,7 +140,7 @@ export default function DashboardOverview() {
           </div>
           <p className="text-[#a098b0] text-[10px] font-label uppercase tracking-[0.2em] mb-1">Suppliers</p>
           <p className="text-3xl font-headline font-bold text-[#e8e0f0] tracking-tight">
-            {summary?.suppliers ?? "152"}
+            {summary?.suppliers != null ? String(summary.suppliers) : "—"}
           </p>
           <div className="absolute bottom-0 left-0 w-full h-12 opacity-50 group-hover:opacity-100 transition-opacity">
             <svg className="w-full h-full" preserveAspectRatio="none" viewBox="0 0 100 40">
@@ -155,15 +155,10 @@ export default function DashboardOverview() {
             <div className="p-2.5 bg-[#e8e0f0]/10 rounded-lg text-[#e8e0f0]">
               <Clock size={20} />
             </div>
-            <span className="text-[#a098b0] text-xs font-label">2m ago</span>
+            <span className="text-[#a098b0] text-xs font-label">{summary?.last_call_at ? fmtRelative(summary.last_call_at) : "—"}</span>
           </div>
           <p className="text-[#a098b0] text-[10px] font-label uppercase tracking-[0.2em] mb-1">Last Call</p>
-          <p className="text-3xl font-headline font-bold text-[#e8e0f0] tracking-tight">Success</p>
-          <div className="mt-2 flex items-center gap-2">
-            <span className="text-[10px] font-label text-[#a098b0] uppercase tracking-widest">
-              Latency: <span className="text-[#00ffcc] font-bold">42ms</span>
-            </span>
-          </div>
+          <p className="text-xl font-headline font-bold text-[#e8e0f0] tracking-tight truncate">{summary?.last_call_at ? "Completed" : "No calls yet"}</p>
         </div>
       </div>
 
@@ -178,11 +173,8 @@ export default function DashboardOverview() {
                 Active & Recent Interactions
               </h3>
               <div className="flex items-center gap-2">
-                <span className="px-3 py-1 bg-[#00ffcc]/10 border border-[#00ffcc]/20 text-[#00ffcc] text-[10px] font-label font-bold rounded-full">
-                  3 LIVE
-                </span>
                 <span className="px-3 py-1 bg-[#141422] text-[#a098b0] text-[10px] font-label font-bold rounded-full">
-                  24 COMPLETED TODAY
+                  {calls?.length ?? 0} TOTAL
                 </span>
               </div>
             </div>
@@ -199,82 +191,6 @@ export default function DashboardOverview() {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-[#302840]/40">
-                  {/* Default Live Row 1 */}
-                  <tr className="hover:bg-[#1a1a2e]/50 transition-colors group">
-                    <td className="px-6 py-4">
-                      <span className="text-sm font-label text-[#ff2d78] font-bold">#CALL-9412</span>
-                    </td>
-                    <td className="px-6 py-4">
-                      <div className="flex flex-col">
-                        <span className="text-sm font-bold text-[#e8e0f0]">Rajesh Kumar</span>
-                        <span className="text-[10px] font-label text-[#a098b0] uppercase tracking-widest">+91 9845...</span>
-                      </div>
-                    </td>
-                    <td className="px-6 py-4 text-xs font-medium text-[#a098b0] uppercase tracking-widest font-label">
-                      Order Verification
-                    </td>
-                    <td className="px-6 py-4">
-                      <div className="flex items-center gap-2 text-[#00ffcc] text-glow-secondary font-bold text-[10px] uppercase tracking-widest font-label">
-                        <span className="w-2 h-2 rounded-full bg-[#00ffcc] pulse-live" /> Live
-                      </div>
-                    </td>
-                    <td className="px-6 py-4 text-right">
-                      <div className="flex justify-end gap-2 opacity-90 group-hover:opacity-100 transition-opacity">
-                        <Link
-                          href="/dashboard/simulator"
-                          className="px-3 py-1 bg-[#00ffcc] text-[#001a1a] text-[10px] font-headline font-bold rounded uppercase tracking-widest hover:scale-105 transition-transform"
-                        >
-                          Join
-                        </Link>
-                        <Link
-                          href="/dashboard/calls"
-                          className="p-1.5 bg-[#28283e] border border-[#302840] rounded hover:border-[#ff2d78] text-[#a098b0] hover:text-[#e8e0f0] transition-colors inline-block"
-                          aria-label="View details"
-                        >
-                          <Sliders size={14} />
-                        </Link>
-                      </div>
-                    </td>
-                  </tr>
-
-                  {/* Default Live Row 2 */}
-                  <tr className="hover:bg-[#1a1a2e]/50 transition-colors group">
-                    <td className="px-6 py-4">
-                      <span className="text-sm font-label text-[#ff2d78] font-bold">#CALL-9411</span>
-                    </td>
-                    <td className="px-6 py-4">
-                      <div className="flex flex-col">
-                        <span className="text-sm font-bold text-[#e8e0f0]">Anita Singh</span>
-                        <span className="text-[10px] font-label text-[#a098b0] uppercase tracking-widest">+91 7022...</span>
-                      </div>
-                    </td>
-                    <td className="px-6 py-4 text-xs font-medium text-[#a098b0] uppercase tracking-widest font-label">
-                      Logistics Sync
-                    </td>
-                    <td className="px-6 py-4">
-                      <div className="flex items-center gap-1.5 text-[#ffe04a] font-bold text-[10px] uppercase tracking-widest font-label">
-                        <Sparkles size={13} /> Transcribing
-                      </div>
-                    </td>
-                    <td className="px-6 py-4 text-right">
-                      <div className="flex justify-end gap-2 opacity-90 group-hover:opacity-100 transition-opacity">
-                        <Link
-                          href="/dashboard/calls"
-                          className="px-3 py-1 bg-[#28283e] border border-[#302840] text-[#e8e0f0] text-[10px] font-headline font-bold rounded uppercase tracking-widest hover:border-[#ff2d78] transition-colors"
-                        >
-                          View
-                        </Link>
-                        <Link
-                          href="/dashboard/calls"
-                          className="p-1.5 bg-[#28283e] border border-[#302840] rounded hover:border-[#ff2d78] text-[#a098b0] hover:text-[#e8e0f0] transition-colors inline-block"
-                          aria-label="View details"
-                        >
-                          <Sliders size={14} />
-                        </Link>
-                      </div>
-                    </td>
-                  </tr>
-
                   {/* SWR Dynamic Calls */}
                   {(calls as Call[])?.slice(0, 4).map((c) => (
                     <tr key={c.id} className="hover:bg-[#1a1a2e]/50 transition-colors group">
@@ -355,20 +271,13 @@ export default function DashboardOverview() {
                   <p className="text-xs text-[#a098b0] font-body">Llama-3 latency check</p>
                 </div>
               </div>
-              <div className="space-y-3.5 pt-1">
-                <div>
-                  <div className="flex justify-between items-center text-[10px] font-label uppercase tracking-widest text-[#a098b0] mb-1">
-                    <span>Accuracy</span>
-                    <span className="text-[#ff2d78] font-bold">99.8%</span>
-                  </div>
-                  <div className="h-1.5 w-full bg-[#ff2d78]/10 rounded-full overflow-hidden">
-                    <div className="h-full bg-[#ff2d78] rounded-full w-[99.8%] shadow-[0_0_8px_#ff2d78]" />
-                  </div>
+              <div className="pt-1">
+                <div className="flex justify-between items-center text-[10px] font-label uppercase tracking-widest text-[#a098b0] mb-1">
+                  <span>Resolution Rate</span>
+                  <span className="text-[#ff2d78] font-bold">—</span>
                 </div>
-
-                <div className="flex justify-between items-center text-[10px] font-label uppercase tracking-widest text-[#a098b0]">
-                  <span>Response Time</span>
-                  <span className="text-[#00ffcc] font-bold">42ms</span>
+                <div className="h-1.5 w-full bg-[#ff2d78]/10 rounded-full overflow-hidden">
+                  <div className="h-full bg-[#ff2d78] rounded-full w-1/3" />
                 </div>
               </div>
             </div>
@@ -430,24 +339,23 @@ export default function DashboardOverview() {
             </div>
 
             <div className="space-y-4">
-              {[
-                { name: "Global Bottling Co.", type: "Tier 1 Partner", img: "https://images.unsplash.com/photo-1581091226825-a6a2a5aee158?w=100&auto=format&fit=crop&q=80" },
-                { name: "PepsiCo Regional Div", type: "Internal Node", img: "https://images.unsplash.com/photo-1586528116311-ad8dd3c8310d?w=100&auto=format&fit=crop&q=80" },
-                { name: "Swift-Flow Packing", type: "Contractor", img: "https://images.unsplash.com/photo-1553413077-190dd305871c?w=100&auto=format&fit=crop&q=80" },
-              ].map((s, idx) => (
-                <Link key={idx} href="/dashboard/suppliers" className="flex items-center gap-3.5 group">
-                  <div className="w-10 h-10 rounded-lg bg-[#28283e] border border-[#302840] overflow-hidden shrink-0">
-                    <img src={s.img} alt={s.name} className="w-full h-full object-cover group-hover:scale-110 transition-transform" />
+              {(suppliers as Array<{id: string; name: string; city: string; phone: string}> | undefined)?.slice(0, 5).map((s) => (
+                <Link key={s.id} href="/dashboard/suppliers" className="flex items-center gap-3.5 group">
+                  <div className="w-10 h-10 rounded-lg bg-[#28283e] border border-[#302840] flex items-center justify-center text-[#ff2d78] font-bold text-xs shrink-0">
+                    {s.name.charAt(0)}
                   </div>
                   <div className="flex-1 min-w-0">
                     <p className="text-sm font-bold text-[#e8e0f0] group-hover:text-[#ff2d78] transition-colors truncate">
                       {s.name}
                     </p>
-                    <p className="text-xs text-[#a098b0] font-body">{s.type}</p>
+                    <p className="text-xs text-[#a098b0] font-body">{s.city} · {s.phone}</p>
                   </div>
                   <ChevronRight size={16} className="text-[#a098b0] group-hover:text-[#e8e0f0] transition-colors" />
                 </Link>
               ))}
+              {(!suppliers || suppliers.length === 0) && (
+                <div className="text-xs text-ink-500 text-center py-4">No suppliers registered yet.</div>
+              )}
             </div>
           </div>
 
@@ -461,21 +369,18 @@ export default function DashboardOverview() {
             </div>
 
             <div className="space-y-3">
-              <div className="p-3.5 bg-[#0a0a12] border-l-4 border-[#ff2d78] rounded-r-lg">
-                <div className="flex justify-between items-start mb-1">
-                  <span className="text-xs font-bold text-[#e8e0f0] font-label">#ORD-1082-A</span>
-                  <span className="text-[10px] font-label text-[#a098b0]">14:02</span>
+              {(calls as Call[] | undefined)?.filter((c) => c.outcome === "in_progress" || c.escalated).slice(0, 3).map((c) => (
+                <div key={c.id} className="p-3.5 bg-[#0a0a12] border-l-4 border-[#ff2d78] rounded-r-lg">
+                  <div className="flex justify-between items-start mb-1">
+                    <span className="text-xs font-bold text-[#e8e0f0] font-label">#{c.id.slice(0, 10)}</span>
+                    <span className="text-[10px] font-label text-[#a098b0]">{c.caller_name || "Unknown"}</span>
+                  </div>
+                  <p className="text-xs text-[#a098b0] font-body">{c.outcome === "in_progress" ? "Call in progress — agent handling" : "Escalated — needs human review"}</p>
                 </div>
-                <p className="text-xs text-[#a098b0] font-body">Validation call failed twice. Agent re-routing initiated.</p>
-              </div>
-
-              <div className="p-3.5 bg-[#0a0a12] border-l-4 border-[#00ffcc] rounded-r-lg">
-                <div className="flex justify-between items-start mb-1">
-                  <span className="text-xs font-bold text-[#e8e0f0] font-label">#ORD-0994-C</span>
-                  <span className="text-[10px] font-label text-[#a098b0]">13:58</span>
-                </div>
-                <p className="text-xs text-[#a098b0] font-body">Inventory check complete. Awaiting warehouse signature.</p>
-              </div>
+              ))}
+              {(!calls || calls.filter((c) => c.outcome === "in_progress" || c.escalated).length === 0) && (
+                <div className="text-xs text-ink-500 text-center py-4">No urgent items.</div>
+              )}
             </div>
           </div>
         </div>
@@ -487,7 +392,7 @@ export default function DashboardOverview() {
           <div className="flex flex-col items-center md:items-start gap-2">
             <div className="flex items-center gap-2">
               <span className="text-lg font-headline font-bold text-[#ff2d78] tracking-tighter">VoxFlow AI</span>
-              <span className="text-[10px] font-label text-[#a098b0] border border-[#302840] px-2 py-0.5 rounded">v4.2.0-stable</span>
+              <span className="text-[10px] font-label text-[#a098b0] border border-[#302840] px-2 py-0.5 rounded">v0.1.0-alpha</span>
             </div>
             <p className="font-body text-xs text-[#a098b0]">© 2024 VoxFlow AI. Engineering the future of voice.</p>
           </div>

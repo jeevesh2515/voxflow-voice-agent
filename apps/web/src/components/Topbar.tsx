@@ -101,11 +101,9 @@ export default function Topbar({ title, subtitle }: { title?: string; subtitle?:
                   <CheckCircle2 size={13} className="text-[#00ffcc] dark:text-[#00ffcc] light:text-teal-600 shrink-0" />
                 </div>
                 <div className="flex items-center gap-2 text-[9px] font-label text-[#a098b0] dark:text-[#a098b0] light:text-slate-500 uppercase tracking-wider">
-                  <span>12 Active Agents</span>
-                  <span>·</span>
                   <span className="flex items-center gap-1 text-[#00ffcc] dark:text-[#00ffcc] light:text-teal-600 font-bold">
                     <span className="w-1 h-1 rounded-full bg-[#00ffcc] dark:bg-[#00ffcc] light:bg-teal-600 animate-ping" />
-                    99.9% Uptime
+                    Live
                   </span>
                 </div>
               </div>
@@ -127,8 +125,7 @@ export default function Topbar({ title, subtitle }: { title?: string; subtitle?:
         {/* Subscription Plan Quota Badge */}
         <div className="hidden xl:flex items-center gap-2 px-3 py-1.5 rounded-xl bg-[#141422] dark:bg-[#141422] light:bg-slate-100 border border-[#00ffcc]/30 dark:border-[#00ffcc]/30 light:border-teal-300 text-xs font-label">
           <Crown size={14} className="text-[#ffe04a] shrink-0" />
-          <span className="text-[#e8e0f0] dark:text-[#e8e0f0] light:text-slate-900 font-semibold">Pro Plan</span>
-          <span className="text-[#a098b0] dark:text-[#a098b0] light:text-slate-500">1,242 / 1,500 calls</span>
+          <span className="text-[#e8e0f0] dark:text-[#e8e0f0] light:text-slate-900 font-semibold">Pilot</span>
           <Link href="/pricing" className="text-[10px] uppercase font-bold text-[#00ffcc] dark:text-[#00ffcc] light:text-teal-600 hover:underline ml-1">
             Upgrade
           </Link>

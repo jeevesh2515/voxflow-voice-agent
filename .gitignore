@@ -54,6 +54,9 @@ logs/
 .ai/
 designer/
 
+# Generated
+graphify-out/
+
 # Internal / Personal Folders
 .planning/
 data/
