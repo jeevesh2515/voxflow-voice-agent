@@ -26,6 +26,8 @@ Minimum update expectations:
 - `day-04-next-up-async-db-implementation.md`
 - `day-05-async-complete-and-caching.md`
 - `day-06-frontend-polish-and-bugfix.md`
+- `day-07-twilio-media-streams-websocket.md`
+- `day-08-stt-into-twilio-stream.md`
 
 ## Current learning status
 
@@ -37,6 +39,8 @@ Minimum update expectations:
 | Day 4 | Async DB Implementation | ✅ Complete |
 | Day 5 | Cache Layer + Security Pass | ✅ Complete |
 | Day 6 | Frontend Polish + Bug Fixes | ✅ Complete |
+| Day 7 | Twilio Media Streams WebSocket | ✅ Complete |
+| Day 8 | Wire STT into Twilio Stream | 📋 Planned (next) |
 
 ## Week 1 summary
 
@@ -50,6 +54,7 @@ All Week 1 objectives complete:
 | Day 4 | Timing & latency logs | `timing.stt`, `timing.tts`, `timing.tool`, `timing.persist` |
 | Day 5 | Buffer/security | Live keys stripped, MEMORY.md updated, tests green |
 | Day 6 | Frontend polish | Loading/error states, dead buttons fixed, `any`→types, mock data removed, cache bug fixed |
+| Day 7 | Media Streams WebSocket | TwiML endpoint + mulaw→PCM + resampling + frame logging, double-Topbar fix, PCM buffer cap |
 
 ## What was fixed in the audit
 
@@ -69,4 +74,6 @@ All Week 1 objectives complete:
 
 ## Next up
 
-Week 2 — Twilio telephony integration and multi-tenancy hardening.
+Day 8 — Wire STT into Twilio stream (audio buffer → VAD → SpeechToText → transcripts).
+Day 9 — Close the loop: agent reply → TTS → encode mulaw → stream back to Twilio.
+Day 10 — Multi-caller real-world testing.

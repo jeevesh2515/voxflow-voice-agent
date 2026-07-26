@@ -94,7 +94,7 @@ as written. Keep entries short.)*
 ## Day 8 Prep (Next Session)
 
 1. Wire decoded PCM buffer → `SpeechToText` in `routes/twilio.py`
-2. Implement VAD (voice activity detection) for phone audio — use amplitude threshold or `webrtcvad`
+2. Implement VAD (voice activity detection) for phone audio
 3. Create `CallSession` on Twilio `start` event, manage buffer per `callSid`
 4. Log transcripts from real Twilio calls
-5. See `NEXT.md` for full Day 8 theory and implementation plan
+5. See `.learning/day-08-stt-into-twilio-stream.md` for full plan
