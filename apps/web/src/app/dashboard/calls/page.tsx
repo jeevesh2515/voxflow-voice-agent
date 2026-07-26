@@ -2,7 +2,6 @@
 
 import useSWR from "swr";
 import { PhoneCall } from "lucide-react";
-import Topbar from "@/components/Topbar";
 import { api } from "@/lib/api";
 import { fmtRelative, fmtDuration, statusBg, statusColor } from "@/lib/format";
 import { useTenant } from "@/lib/tenant-context";
@@ -14,7 +13,10 @@ export default function CallsPage() {
 
   return (
     <>
-      <Topbar title="Call Logs & Transcripts" subtitle={`${activeTenant.name} · ${calls?.length ?? 0} calls`} />
+      <div className="px-6 pt-6 pb-2 flex items-baseline gap-3">
+        <h1 className="text-xl font-bold text-[#e8e0f0]">Call Logs & Transcripts</h1>
+        <span className="text-xs text-[#a098b0]">{activeTenant.name} · {calls?.length ?? 0} calls</span>
+      </div>
       <div className="p-6 space-y-3">
         {isLoading && <div className="text-center text-ink-400 py-12 text-sm">Loading calls...</div>}
         {error && <div className="rounded border border-danger-500/30 bg-danger-500/10 p-3 text-sm text-danger-400">Failed to load calls. Is the API running?</div>}

@@ -9,9 +9,9 @@ unreliable.
 
 ## Current Position
 
-**Last updated:** 2026-07-23 (revised)
-**Currently on:** Week 1 complete — Days 1-5 marked done. Timing logs added.
-**Currently being worked on:** Nothing actively in progress (Week 2 next)
+**Last updated:** 2026-07-26
+**Currently on:** Week 2 — Days 1-7 code complete. Twilio Media Streams wired. Frontend double-Topbar fixed.
+**Currently being worked on:** Day 8 — Wire STT into Twilio stream (next).
 
 ## What's Actually Done (verified against the real repo)
 
@@ -40,12 +40,14 @@ unreliable.
 - ✅ **TTL cache** — `check_stock` and `lookup_supplier` reads cached in-process (30s TTL). Stock cache invalidated on `create_po` writes.
 - ✅ **Security pass** — live API keys removed from `.env` files, `.env.example` files cleaned, sensitive deps excluded from test path.
 - ✅ **Timing logs added** — STT, TTS, tool execution, and DB persist all logged with millisecond precision; LLM timing was already present in `runner.py`.
+- ✅ **Day 6 — Twilio webhook skeleton** — `POST /twilio/voice` returns TwiML with `<Connect><Stream>` pointing to WebSocket route.
+- ✅ **Day 7 — Media Streams WebSocket** — `/twilio/media` receives mulaw 8kHz frames, decodes to PCM via `_ulaw2linear()`, resamples to 16kHz via linear interpolation, logs frame stats. Requires Twilio account to test end-to-end.
 
 ## What's Known to Be Incomplete or Wrong
 
 - ❌ **Latency baseline not yet measured** — timing logs are in place but need 5 test conversations run through the simulator to get real numbers (Week 1 Day 4)
-- ❌ **No real telephony** — calls only work through the browser simulator,
-  not an actual phone number (Week 2)
+- ❌ **Twilio phone number not yet configured** — Media Streams WebSocket route (`/twilio/media`) and TwiML endpoint (`/twilio/voice`) are implemented, but need a real Twilio account + phone number to test (Week 2 Day 6)
+- ❌ **STT not wired into Twilio stream** — Day 8: need to connect decoded PCM → SpeechToText pipeline for real phone calls
 - ❌ **Staff auth is `localStorage`-based**, not real Supabase Auth (Week 3
   Day 11)
 - ❌ **Caller auth is city/GSTIN only** — no PIN/stronger verification for
@@ -78,12 +80,21 @@ as written. Keep entries short.)*
 - 2026-07-23 — Decided to stay on Supabase Postgres rather than migrate to
   Neon; latency concern was diagnosed as a synchronous-DB-call architecture
   issue, not a vendor issue. See ARCHITECTURE.md section 2.
+- 2026-07-25 — Twilio Media Streams route created as a separate file
+  (`routes/twilio.py`) rather than merged into `routes/ws.py`; the browser
+  simulator and Twilio stream share the same pipeline but have different
+  wire formats (WebSocket message protocol), justifying separate route
+  files.
+- 2026-07-25 — Frontend double-Topbar bug: `DashboardLayout` rendered a
+  `<Topbar>` but each child page also imported `<Topbar>`. Fixed by replacing
+  per-page Topbar imports with inline page headers — keeps layout's global
+  Topbar (brand, company selector, search, user menu) while showing
+  page-specific titles.
 
-## Next Session Should Start With
+## Day 8 Prep (Next Session)
 
-1. Read this file first
-2. Read PHASES.md, find the first unchecked `- [ ]` item
-3. Read RULES.md if touching anything infra/library-related
-4. Do the work
-5. Update this file before ending the session — new "What's Actually
-   Done," update "Currently on," add a Decisions Log entry if applicable
+1. Wire decoded PCM buffer → `SpeechToText` in `routes/twilio.py`
+2. Implement VAD (voice activity detection) for phone audio — use amplitude threshold or `webrtcvad`
+3. Create `CallSession` on Twilio `start` event, manage buffer per `callSid`
+4. Log transcripts from real Twilio calls
+5. See `NEXT.md` for full Day 8 theory and implementation plan

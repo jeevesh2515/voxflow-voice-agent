@@ -2,7 +2,6 @@
 
 import { useEffect, useRef, useState, useCallback } from "react";
 import { Mic, MicOff, Phone, PhoneOff, Send, Volume2, Loader2 } from "lucide-react";
-import Topbar from "@/components/Topbar";
 import { useTenant } from "@/lib/tenant-context";
 
 type Turn = { role: "caller" | "agent"; text: string; at: number };
@@ -217,7 +216,10 @@ export default function PhoneSimulator() {
 
   return (
     <>
-      <Topbar title="Phone simulator" subtitle="Browser mic → Vaani · live" />
+      <div className="px-6 pt-6 pb-2 flex items-baseline gap-3">
+        <h1 className="text-xl font-bold text-[#e8e0f0]">Phone Simulator</h1>
+        <span className="text-xs text-[#a098b0]">Browser mic → Vaani · live</span>
+      </div>
       <div className="flex-1 min-h-0 grid grid-cols-1 lg:grid-cols-[400px_1fr]">
         {/* Left: phone */}
         <div className="border-r border-ink-700/60 p-6 flex flex-col">

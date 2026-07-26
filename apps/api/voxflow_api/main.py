@@ -17,6 +17,7 @@ from .llm import get_llm
 from .llm.base import ChatTurn
 from .logging import get_logger, setup_logging
 from .routes import data as data_routes
+from .routes import twilio as twilio_routes
 from .routes import ws as ws_routes
 from .routes.ws import get_pipeline
 from .schemas import ChatMessage, ChatRequest, ChatResponse
@@ -60,6 +61,7 @@ def create_app() -> FastAPI:
     # Mount routers
     app.include_router(data_routes.router, prefix="/api", tags=["data"])
     app.include_router(ws_routes.router, tags=["ws"])
+    app.include_router(twilio_routes.router)
 
     # ----- LLM test endpoint (POST /chat) -----
     @app.post("/chat", response_model=ChatResponse)

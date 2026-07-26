@@ -1,7 +1,6 @@
 "use client";
 
 import useSWR from "swr";
-import Topbar from "@/components/Topbar";
 import { api } from "@/lib/api";
 import { fmtRelative, statusBg, statusColor } from "@/lib/format";
 import { Package } from "lucide-react";
@@ -16,7 +15,10 @@ export default function OrdersPage() {
 
   return (
     <>
-      <Topbar title="Purchase Orders" subtitle={`${activeTenant.name} · ${orders?.length ?? 0} total`} />
+      <div className="px-6 pt-6 pb-2 flex items-baseline gap-3">
+        <h1 className="text-xl font-bold text-[#e8e0f0]">Purchase Orders</h1>
+        <span className="text-xs text-[#a098b0]">{activeTenant.name} · {orders?.length ?? 0} total</span>
+      </div>
       <div className="p-6">
         {isLoading && <div className="text-center text-ink-400 py-12 text-sm">Loading orders...</div>}
         {error && <div className="rounded border border-danger-500/30 bg-danger-500/10 p-3 text-sm text-danger-400">Failed to load orders. Is the API running?</div>}

@@ -1,7 +1,6 @@
 "use client";
 
 import useSWR from "swr";
-import Topbar from "@/components/Topbar";
 import { api } from "@/lib/api";
 import { Boxes } from "lucide-react";
 import { useTenant } from "@/lib/tenant-context";
@@ -20,10 +19,10 @@ export default function StockPage() {
 
   return (
     <>
-      <Topbar
-        title="Stock & Inventory"
-        subtitle={`${activeTenant.name} · ${stock?.length ?? 0} SKUs across ${Object.keys(byWarehouse).length} warehouses`}
-      />
+      <div className="px-6 pt-6 pb-2 flex items-baseline gap-3">
+        <h1 className="text-xl font-bold text-[#e8e0f0]">Stock & Inventory</h1>
+        <span className="text-xs text-[#a098b0]">{activeTenant.name} · {stock?.length ?? 0} SKUs across {Object.keys(byWarehouse).length} warehouses</span>
+      </div>
       <div className="p-6 space-y-4">
         {Object.entries(byWarehouse).map(([wh, items]) => (
           <div key={wh} className="rounded-lg border border-ink-700/60 bg-ink-900/40 overflow-hidden">

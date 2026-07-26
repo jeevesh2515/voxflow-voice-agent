@@ -49,7 +49,11 @@ class CallSession:
     pcm_sample_rate: int = 16000
 
     def append_pcm(self, chunk: bytes) -> None:
-        self.pcm_buffer.extend(chunk)
+        # ponytail: cap at 60s of 16kHz PCM (~1.9 MB) to prevent OOM
+        MAX_BYTES = 1_920_000
+        if len(self.pcm_buffer) >= MAX_BYTES:
+            return
+        self.pcm_buffer.extend(chunk[: MAX_BYTES - len(self.pcm_buffer)])
 
     def reset_pcm(self) -> None:
         self.pcm_buffer.clear()

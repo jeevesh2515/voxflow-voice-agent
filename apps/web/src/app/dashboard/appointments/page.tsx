@@ -2,7 +2,6 @@
 
 import useSWR from "swr";
 import { Calendar, Clock } from "lucide-react";
-import Topbar from "@/components/Topbar";
 import { api } from "@/lib/api";
 import { useTenant } from "@/lib/tenant-context";
 
@@ -14,7 +13,10 @@ export default function AppointmentsPage() {
 
   return (
     <>
-      <Topbar title="Supplier Appointments" subtitle={activeTenant.name} />
+      <div className="px-6 pt-6 pb-2 flex items-baseline gap-3">
+        <h1 className="text-xl font-bold text-[#e8e0f0]">Supplier Appointments</h1>
+        <span className="text-xs text-[#a098b0]">{activeTenant.name}</span>
+      </div>
 
       <div className="p-6 space-y-6">
         <div className="rounded-lg border border-ink-700/60 bg-ink-900/40 overflow-hidden">

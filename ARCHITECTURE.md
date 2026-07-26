@@ -1,6 +1,6 @@
 # VoxFlow — Architecture
 
-**Last updated:** 2026-07-23
+**Last updated:** 2026-07-25
 **Scope:** Directs app flow, component boundaries, folder structure, and
 the specific latency-sensitive design decisions for the voice path.
 
@@ -161,27 +161,39 @@ anything shared between the two (types, constants) should move into
 | Layer | Choice | Status |
 |---|---|---|
 | Backend framework | FastAPI 0.115 | ✅ in place |
-| ORM | SQLAlchemy 2.0 (sync) | ⚠️ needs async migration |
+| ORM | SQLAlchemy 2.0 (async + sync) | ✅ async migration complete |
 | Database | Supabase Postgres (prod) / SQLite (dev) | ✅ keep, fix async layer |
 | LLM | Groq (Llama 3.1), Ollama, OpenRouter (pluggable) | ✅ in place |
 | STT | faster-whisper (local, CPU) | ✅ in place |
 | TTS | edge-tts | ✅ in place |
-| Telephony | — | ❌ not started, Phase 3 |
+| Telephony | Twilio Media Streams via WebSocket | ✅ routes/twilio.py: TwiML + mulaw decoder + WS handler |
 | Frontend | Next.js 14, Tailwind | ✅ in place |
 | Auth (staff) | localStorage session (temporary) | ⚠️ needs real Supabase Auth |
 | Realtime (dashboard) | — | ❌ not started, Phase 5 |
 | Deployment | Vercel (frontend), TBD (backend — Railway mentioned in README) | ⚠️ backend host not finalized |
 
-## 6. Twilio Integration Plan (Phase 3 target)
+## 6. Twilio Integration (Days 6-7, continuing)
 
-1. Twilio Voice webhook → FastAPI endpoint returns TwiML that opens a
-   Media Stream to a new WebSocket route (reuse `routes/ws.py` pattern,
-   don't fork it into a separate handler)
-2. Incoming Twilio phone number maps to `tenant_id` via a new
-   `tenant_phone_numbers` table (one distributor may eventually want more
-   than one number, e.g. per region — model it as one-to-many from the
-   start)
-3. Everything downstream (STT → agent → TTS) reuses the existing
-   `VoicePipeline` and `AgentRunner` — the only new code is the Twilio
-   webhook handler and the PCM format adaptation (Twilio sends mulaw
-   8kHz, current pipeline expects 16kHz PCM — needs a resampling step)
+### Status: WebSocket receive path complete (Day 7)
+
+The Twilio integration lives in `apps/api/voxflow_api/routes/twilio.py`:
+
+1. **`POST /twilio/voice`** — TwiML webhook. Returns XML that plays a
+   greeting and opens a `<Connect><Stream>` to the `/twilio/media`
+   WebSocket endpoint. (Day 6)
+2. **`WebSocket /twilio/media`** — receives 8kHz μ-law audio frames from
+   Twilio Media Streams. Decodes mulaw→PCM (16-bit linear) via a hand-
+   rolled `_ulaw2linear()` function, then resamples 8kHz→16kHz via
+   linear interpolation. Logs frame statistics every 100 frames. (Day 7)
+
+### What's next (Days 8-10):
+
+3. Wire decoded PCM → `SpeechToText` pipeline (Day 8)
+4. Implement VAD-based utterance detection (Day 8)
+5. Connect `callSid` → `CallSession` → `AgentRunner` (Day 9)
+6. Encode TTS output back to mulaw and stream back to Twilio (Day 9)
+7. Multi-caller real-world testing (Day 10)
+
+### Future (post-pilot):
+
+8. `tenant_phone_numbers` table for mapping phone numbers to tenants

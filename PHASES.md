@@ -128,10 +128,11 @@ before wiring in STT/agent/TTS.
 
 **Checklist:**
 - [ ] Set up Twilio account, buy/configure a trial number
-- [ ] Add a new FastAPI route for the Twilio Voice webhook
-      (`POST /twilio/voice`), returning TwiML that plays a static test
-      message
-- [ ] Confirm calling the Twilio number plays the test message
+- [x] Add a new FastAPI route for the Twilio Voice webhook
+       (`POST /twilio/voice`), returning TwiML that opens a
+       `<Connect><Stream>` to the Media Streams WebSocket
+- [ ] Confirm calling the Twilio number produces audible audio
+       from your server — proves the basic webhook + TwiML path works
 
 **Definition of Done:** Calling the Twilio number produces audible audio
 from your server — proves the basic webhook + TwiML path works.
@@ -143,12 +144,41 @@ mulaw 8kHz audio frames. This is a different format than the pipeline
 currently expects (16kHz PCM from the browser simulator) — a resampling/
 transcoding step is needed.
 
+Twilio's WebSocket protocol uses JSON messages with an `event` field:
+- `connected` — confirms the WebSocket is open
+- `start` — contains `streamSid` and `callSid` identifiers
+- `media` — contains `payload` (base64-encoded mulaw audio at 8kHz, ~20ms
+  frames containing ~160 bytes of mulaw data)
+- `stop` — Twilio is closing the stream
+- `mark` — acknowledgement of a mark sent by the server (not used on Day 7)
+
+The `routes/twilio.py` file implements:
+1. `POST /twilio/voice` — returns TwiML with `<Connect><Stream>` pointing
+   to the WebSocket endpoint
+2. `WebSocket /twilio/media` — receives mulaw frames, decodes to linear PCM
+   using a hand-rolled μ-law expansion table, then resamples from 8kHz to
+   16kHz via linear interpolation (doubles sample count)
+3. Logging every 100th frame with accumulated byte counts
+
+**Implementation notes:**
+- Python's `audioop` module is deprecated/not available on all platforms.
+  The hand-rolled `_ulaw2linear()` function is ~100 bytes and avoids the
+  dependency concern. Add via `pip install audioop-lts` if needed for
+  production.
+- Linear interpolation is the laziest correct resampler. For production,
+  swap it for `librosa.resample()` or `scipy.signal.resample()`.
+- The pipeline integration (STT → agent → TTS loop) is **not wired yet** —
+  Day 7 is just audio reception + decoding. Day 8 adds the full loop.
+
 **Checklist:**
-- [ ] Update TwiML to open a `<Connect><Stream>` to a new WebSocket route
-- [ ] Implement the WebSocket handler receiving Twilio's audio frames
-- [ ] Add mulaw→PCM decoding and 8kHz→16kHz resampling (e.g. via
-      `audioop`/`av`, already a dependency)
-- [ ] Log received audio frame count/size to confirm data is flowing
+- [x] Add Post /twilio/voice TwiML route with `<Connect><Stream>` to
+       `/twilio/media`
+- [x] Implement WebSocket /twilio/media handler receiving mulaw audio frames
+- [x] Add mulaw→PCM decoding via hand-rolled `_ulaw2linear()` function
+- [x] Add 8kHz→16kHz resampling via linear interpolation (`resample_8k_to_16k`)
+- [x] Log received audio frame count/size every 100 frames
+- [ ] Set up Twilio account, configure phone number to POST to
+       `/twilio/voice`, confirm audio frames are received
 
 **Definition of Done:** Speaking on a real call produces logged audio
 frames on the server, correctly decoded (verify by writing a short sample
@@ -156,38 +186,111 @@ to a `.wav` file and listening to it).
 
 ### Day 8 — Wire STT into the Twilio stream
 
+**Theory:** Now that Day 7 delivers decoded 16kHz PCM frames inside the
+`/twilio/media` WebSocket handler, the next step is to feed those frames
+into the existing `SpeechToText` pipeline (`apps/api/voxflow_api/voice/stt.py`).
+
+**Key architectural decisions:**
+- **Audio buffering strategy:** Twilio delivers frames in real time
+  (~20ms of audio per frame at 8kHz, ~320 PCM bytes after resampling to
+  16kHz). The handler must accumulate frames in a buffer and only send
+  to STT when a complete utterance is detected (end-of-speech / silence
+  threshold). Sending single frames to STT would produce no useful
+  transcripts.
+- **End-of-utterance detection:** The browser simulator uses a simple
+  700ms silence threshold. Phone audio has different characteristics:
+  - Network jitter means "silence" may include background noise
+  - The caller may pause mid-sentence (thinking about what to say)
+  - The frame size from Twilio is ~20ms vs the browser's ~50ms
+  
+  Recommended: use `webrtcvad` (WebRTC Voice Activity Detection) which
+  is purpose-built for telephony audio and handles noise gating better
+  than a raw amplitude threshold. Falls back to the amplitude-based
+  approach from `pipeline.py`.
+- **Utterance vs. streaming:** faster-whisper supports both a streaming
+  mode (transcribes incrementally) and a file mode (transcribes a complete
+  buffer). For Day 8, use the file mode on completed utterances — it's
+  simpler and more accurate. Streaming can be added later if there's a
+  specific UX need for partial transcripts during the call.
+- **Session wiring:** The Twilio `callSid` from the `start` event is the
+  natural `call_id` for the `CallSession` object. On the `start` event,
+  create a `CallSession` via `pipeline.start_session()`, pass the `callSid`
+  and any caller metadata (from Twilio's `From` header). On the `stop`
+  event, commit any buffered audio and call `pipeline.end_session()`.
+
+**Implementation plan:**
+1. In the `/twilio/media` WebSocket handler, maintain a `bytearray` PCM
+   buffer per call (keyed by `streamSid` or `callSid`)
+2. On each `media` event, decode→resample→append to buffer
+3. On every N frames (or on a timer), run VAD on the buffer
+4. If silence detected for ≥ 700ms, flush the accumulated speech segment
+   to STT
+5. STT result → `AgentRunner.handle_turn()` → TTS → send back via Twilio
+   Media Streams (Day 9 handles the TTS→Twilio encoding)
+
 **Checklist:**
 - [ ] Feed decoded/resampled PCM into the existing `SpeechToText`
-      pipeline
+       pipeline
 - [ ] Implement end-of-utterance detection appropriate for phone audio
-      (may need a different silence threshold than the browser simulator)
+       (may need a different silence threshold than the browser simulator)
 - [ ] Log transcripts from real phone calls
+- [ ] Wire `callSid` → `CallSession` mapping in the Media Streams handler
 
 **Definition of Done:** Speaking a test sentence on a real call produces
 an accurate transcript in the logs.
 
 ### Day 9 — Wire agent + TTS into the Twilio stream, full loop
 
+**Theory:** Day 8 gives us transcripts from phone audio. Day 9 closes the
+loop by sending agent audio back through the Twilio Media Stream.
+
+**Key details:**
+- Twilio Media Streams accepts 8kHz mulaw audio. The pipeline's TTS
+  output (edge-tts or custom) produces 16-bit PCM at 16-24kHz. The full
+  audio path is: `TTS → PCM → resample 16kHz→8kHz → PCM→mulaw encode →
+  send as base64 payload in a `media` message`.
+- Sending audio back to Twilio is done via the same WebSocket. The
+  message format is a `media` message with a `payload` field containing
+  base64-encoded mulaw audio.
+- There is a timing constraint: Twilio's Media Streams expects audio data
+  at roughly real-time rate. Sending too fast can cause buffer overruns;
+  sending too slow creates gaps. The simplest correct approach is to send
+  the mulaw payload as soon as TTS produces it (TTS generates audio slower
+  than real time in most cases, which naturally paces the stream).
+
 **Checklist:**
 - [ ] Connect transcript → `AgentRunner.handle_turn` → TTS → encode back
-      to mulaw 8kHz → stream to Twilio
+       to mulaw 8kHz → stream to Twilio
 - [ ] Run one complete real phone call: greet → identify → stock check →
-      confirm
+       confirm
 
 **Definition of Done:** A real phone call to the Twilio number completes
 one full scenario correctly, entirely by voice.
 
 ### Day 10 — Multi-caller real-world testing
 
+**Theory:** Before Days 6-9, the voice loop was only testable via the
+browser simulator (localhost, controlled environment). Now that it runs
+over real phone networks, the failure surface expands:
+- Network jitter causes audio frame timing issues
+- Different phones have different microphone quality
+- Background noise varies wildly
+- Real callers don't speak at the same pace as the developer
+
+This day is deliberately scoped to finding and documenting the top
+failure mode, not fixing everything. The pilot conversation (Day 19)
+will surface more; fix the most impactful one today and leave the rest
+for between Day 19 and the pilot.
+
 **Checklist:**
 - [ ] Test with at least 3 different real people calling in, different
-      accents/phone qualities
+       accents/phone qualities
 - [ ] Log every failure mode observed (misheard words, awkward timing,
-      dropped calls)
+       dropped calls)
 - [ ] Fix only the highest-frequency failure — resist fixing everything
-      today
+       today
 - [ ] Update MEMORY.md with real latency numbers now that Twilio is in
-      the loop, compared against the Week 1 baseline
+       the loop, compared against the Week 1 baseline
 
 **Definition of Done:** 3+ real people have completed a real call
 successfully; failure modes are documented, not just noticed.

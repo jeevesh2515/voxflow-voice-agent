@@ -1,7 +1,6 @@
 "use client";
 
 import useSWR from "swr";
-import Topbar from "@/components/Topbar";
 import { api } from "@/lib/api";
 import { fmtRelative, statusBg, statusColor } from "@/lib/format";
 import { Truck } from "lucide-react";
@@ -16,7 +15,10 @@ export default function ShipmentsPage() {
 
   return (
     <>
-      <Topbar title="Shipment Tracking" subtitle={`${activeTenant.name} · ${shipments?.length ?? 0} active`} />
+      <div className="px-6 pt-6 pb-2 flex items-baseline gap-3">
+        <h1 className="text-xl font-bold text-[#e8e0f0]">Shipment Tracking</h1>
+        <span className="text-xs text-[#a098b0]">{activeTenant.name} · {shipments?.length ?? 0} active</span>
+      </div>
       <div className="p-6 space-y-3">
         {isLoading && <div className="text-center text-ink-400 py-12 text-sm">Loading shipments...</div>}
         {error && <div className="rounded border border-danger-500/30 bg-danger-500/10 p-3 text-sm text-danger-400">Failed to load shipments. Is the API running?</div>}
