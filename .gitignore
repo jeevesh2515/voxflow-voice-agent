@@ -56,6 +56,10 @@ designer/
 
 # Generated
 graphify-out/
+.ruff_cache/
+
+# Learning journal (private, never pushed)
+.learning/
 
 # Internal / Personal Folders
 .planning/
