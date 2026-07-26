@@ -5,7 +5,7 @@ from __future__ import annotations
 from datetime import datetime
 from typing import Any, Literal
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 
 
 # ---------- Suppliers ----------
@@ -21,8 +21,7 @@ class SupplierOut(BaseModel):
     contact_person: str
     gstin: str
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 
 # ---------- Products & Stock ----------
@@ -36,8 +35,7 @@ class StockItem(BaseModel):
     pack_size: str
     mrp_inr: float
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 
 # ---------- Orders ----------

@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-import json
+from contextlib import asynccontextmanager
 from datetime import datetime, timezone
 from typing import Any
 
@@ -20,12 +20,20 @@ from .routes import data as data_routes
 from .routes import twilio as twilio_routes
 from .routes import ws as ws_routes
 from .routes.ws import get_pipeline
-from .schemas import ChatMessage, ChatRequest, ChatResponse
+from .schemas import ChatRequest, ChatResponse
 
 
 
 setup_logging()
 log = get_logger(__name__)
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    settings = get_settings()
+    init_db()
+    log.info("api.startup", provider=settings.llm_provider, model=getattr(settings, f"{settings.llm_provider}_model", ""))
+    yield
 
 
 def create_app() -> FastAPI:
@@ -34,6 +42,7 @@ def create_app() -> FastAPI:
         title="VoxFlow Voice Agent",
         version="0.1.0",
         description="Voice operations, automated. Hindi + English supplier call agent.",
+        lifespan=lifespan,
     )
 
     app.add_middleware(
@@ -43,11 +52,6 @@ def create_app() -> FastAPI:
         allow_methods=["*"],
         allow_headers=["*"],
     )
-
-    @app.on_event("startup")
-    def _startup() -> None:
-        init_db()
-        log.info("api.startup", provider=settings.llm_provider, model=getattr(settings, f"{settings.llm_provider}_model", ""))
 
     @app.get("/")
     def root() -> dict[str, Any]:

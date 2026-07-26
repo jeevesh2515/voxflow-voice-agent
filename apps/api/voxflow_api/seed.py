@@ -28,7 +28,6 @@ from .db import (
     Stock,
     Supplier,
     Tenant,
-    WorksheetLog,
     init_db,
     reset_db,
     session_scope,

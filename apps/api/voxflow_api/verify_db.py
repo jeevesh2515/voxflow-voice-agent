@@ -6,11 +6,8 @@ import sys
 from sqlalchemy import select
 from .db import (
     Appointment,
-    Call,
     CommunicationLog,
-    Order,
     Product,
-    Shipment,
     Stock,
     Supplier,
     Tenant,

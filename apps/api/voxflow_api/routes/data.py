@@ -6,9 +6,8 @@ import json
 from datetime import datetime, timezone
 from typing import Any
 
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, HTTPException, Query
 from sqlalchemy import desc, select
-from sqlalchemy.orm import Session
 
 from ..db import (
     Appointment,
@@ -20,7 +19,6 @@ from ..db import (
     Stock,
     Supplier,
     Tenant,
-    WorksheetLog,
     session_scope,
 )
 from ..llm import get_llm

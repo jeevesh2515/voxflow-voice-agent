@@ -11,12 +11,10 @@ The frontend handles capture (mic) and playback (audio element).
 from __future__ import annotations
 
 import asyncio
-import json
 import time
 import uuid
-from collections import deque
 from dataclasses import dataclass, field
-from typing import Any, AsyncIterator
+from typing import Any
 
 import numpy as np
 
@@ -81,7 +79,6 @@ class VoicePipeline:
         language: str | None = None,
         tenant_id: str | None = None,
     ) -> CallSession:
-        from ..config import get_settings
 
         s = get_settings()
         call_id = f"call_{int(time.time() * 1000)}_{uuid.uuid4().hex[:6]}"
