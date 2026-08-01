@@ -1,6 +1,6 @@
 # VoxFlow — Product Requirements Document
 
-**Status:** Living document — Phase 2 of build complete, Phase 3 (voice/Twilio) next
+**Status:** Living document — Phase 3 (voice/Twilio) in progress: Days 6-8 done (TwiML webhook, Media Streams receive path, STT→agent→TTS wired), Day 9 closes the audio loop back to the caller
 **Owner:** Jesse (Jeevesh Singale)
 **Repo:** github.com/jeevesh2515/voxflow-voice-agent
 **Last updated:** 2026-07-23
@@ -83,8 +83,10 @@ Already implemented in the repo:
   DESIGN.md)
 
 **Not yet implemented:**
-- Real telephony (Twilio) — calls currently only work through the browser
-  simulator, not an actual phone number
+- Real telephony end-to-end — Twilio Media Streams receive path works (mulaw
+  decode → VAD → STT → agent → TTS, Day 8) but agent audio is not yet streamed
+  back to the caller (Day 9) and no real Twilio number has been wired up to
+  validate a live call; the browser simulator remains the fully-working demo path
 - Async/non-blocking DB layer (current DB calls are synchronous inside
   async request handlers — see ARCHITECTURE.md)
 - Caller-side PIN/stronger auth beyond city/GSTIN verification
