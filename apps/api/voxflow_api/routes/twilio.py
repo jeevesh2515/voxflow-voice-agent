@@ -1,16 +1,18 @@
-"""Twilio Voice + Media Streams routes (Day 7-8).
+"""Twilio Voice + Media Streams routes (Day 7-9).
 
 Day 7: TwiML webhook + Media Streams WebSocket, mulaw->PCM decode, 8k->16k resample.
 Day 8: buffers decoded PCM per call, detects utterance boundaries via a simple
-amplitude VAD, and feeds completed utterances into the existing STT -> agent -> TTS
-pipeline (voice/pipeline.py `commit_audio`). Transcripts are logged; streaming the
-agent's TTS audio back is Day 9.
+amplitude VAD, and feeds completed utterances into STT -> agent -> TTS pipeline.
+Day 9: decodes agent TTS audio (MP3 -> PCM 8k), encodes to G.711 μ-law, and streams
+paced 20ms frames back over the Media Streams WebSocket so the caller hears the reply.
+Supports barge-in (cancellation on speech).
 """
 
 from __future__ import annotations
 
 import asyncio
 import base64
+import io
 import json
 import math
 import re
@@ -19,6 +21,7 @@ import time
 from dataclasses import dataclass
 from typing import Any
 
+import av
 from fastapi import APIRouter, HTTPException, Request, WebSocket, WebSocketDisconnect
 from fastapi.responses import Response
 
@@ -60,6 +63,28 @@ def _ulaw2linear(ulaw_byte: int) -> int:
     return -sample if sign else sample
 
 
+def linear_to_ulaw(sample: int) -> int:
+    """Compress a 16-bit signed linear PCM sample to 8-bit μ-law byte (G.711).
+
+    Inverse of _ulaw2linear. Clamps sample to int16 range, computes sign,
+    exponent, and mantissa, then returns the bit-inverted byte.
+    """
+    sample = max(-32768, min(32767, sample))
+    sign = 0x80 if sample < 0 else 0x00
+    mag = -sample if sample < 0 else sample
+    mag_biased = (mag >> 2) + 33
+    mag_biased = min(mag_biased, 8159)
+
+    exponent = 0
+    for exp in range(7, -1, -1):
+        if mag_biased & (1 << (exp + 5)):
+            exponent = exp
+            break
+
+    mantissa = (mag_biased >> (exponent + 1)) & 0x0F
+    return ~(sign | (exponent << 4) | mantissa) & 0xFF
+
+
 def mulaw_to_pcm(mulaw_bytes: bytes) -> bytes:
     """Decode 8-bit mulaw audio to 16-bit linear PCM (little-endian).
 
@@ -73,11 +98,35 @@ def mulaw_to_pcm(mulaw_bytes: bytes) -> bytes:
     return bytes(pcm)
 
 
+def pcm_to_mulaw(pcm_bytes: bytes) -> bytes:
+    """Encode 16-bit linear PCM (little-endian, 8 kHz) to 8-bit mulaw."""
+    n = len(pcm_bytes) // 2
+    mulaw = bytearray(n)
+    for i in range(n):
+        sample = struct.unpack_from("<h", pcm_bytes, i * 2)[0]
+        mulaw[i] = linear_to_ulaw(sample)
+    return bytes(mulaw)
+
+
+def mp3_to_pcm8k(mp3_bytes: bytes) -> bytes:
+    """Decode MP3 audio bytes to 16-bit signed LE mono PCM at 8 kHz using PyAV."""
+    container = av.open(io.BytesIO(mp3_bytes))
+    resampler = av.AudioResampler(format="s16", layout="mono", rate=8000)
+    pcm_chunks = []
+    for frame in container.decode(audio=0):
+        resampled = resampler.resample(frame)
+        for rf in resampled:
+            pcm_chunks.append(rf.to_ndarray().tobytes())
+    for rf in resampler.resample(None):
+        pcm_chunks.append(rf.to_ndarray().tobytes())
+    return b"".join(pcm_chunks)
+
+
 def resample_8k_to_16k(pcm_8k: bytes) -> bytes:
     """Simple linear interpolation from 8 kHz → 16 kHz.
 
     Doubles sample count. For production, use a proper resampler (librosa /
-    webrtcvad). This is good enough for Day 8.
+    webrtcvad). This is good enough for Day 8-9.
     """
     n = len(pcm_8k) // 2
     out = bytearray(n * 4)
@@ -158,13 +207,63 @@ class _StreamState:
     last_speech_at: float = 0.0
     processing: bool = False
     task: asyncio.Task | None = None
+    send_task: asyncio.Task | None = None
     last_turn: dict[str, Any] | None = None
     total_frames: int = 0
     total_bytes: int = 0
 
 
-async def _process_utterance(st: _StreamState) -> None:
-    """Flush the buffered utterance through STT -> agent -> TTS and log it."""
+async def _send_agent_audio(ws: WebSocket, st: _StreamState, agent_audio_b64: str) -> None:
+    """Decode agent TTS MP3, encode to 8kHz mulaw, and stream paced frames to Twilio."""
+    try:
+        mp3_bytes = base64.b64decode(agent_audio_b64)
+        pcm_8k = mp3_to_pcm8k(mp3_bytes)
+        mulaw_bytes = pcm_to_mulaw(pcm_8k)
+
+        # 20ms frame at 8kHz mulaw (1 byte per sample) = 160 bytes
+        frame_size = 160
+        total_bytes = len(mulaw_bytes)
+        offset = 0
+
+        log.info(
+            "twilio.media.send_audio_start",
+            call_sid=st.call_sid,
+            stream_sid=st.stream_sid,
+            pcm_len=len(pcm_8k),
+            mulaw_len=total_bytes,
+        )
+
+        burst_frames = 3  # Initial 60ms lookahead burst
+        while offset < total_bytes:
+            chunk = mulaw_bytes[offset : offset + frame_size]
+            offset += len(chunk)
+            payload = base64.b64encode(chunk).decode("utf-8")
+            msg = {
+                "event": "media",
+                "streamSid": st.stream_sid,
+                "media": {"payload": payload},
+            }
+            await ws.send_text(json.dumps(msg))
+
+            if burst_frames > 0:
+                burst_frames -= 1
+            else:
+                await asyncio.sleep(0.02)
+
+        log.info("twilio.media.send_audio_complete", call_sid=st.call_sid)
+    except asyncio.CancelledError:
+        log.info("twilio.media.send_audio_cancelled", call_sid=st.call_sid)
+        try:
+            clear_msg = {"event": "clear", "streamSid": st.stream_sid}
+            await ws.send_text(json.dumps(clear_msg))
+        except Exception:
+            pass
+    except Exception as e:
+        log.error("twilio.media.send_audio_error", call_sid=st.call_sid, error=str(e))
+
+
+async def _process_utterance(st: _StreamState, ws: WebSocket) -> None:
+    """Flush the buffered utterance through STT -> agent -> TTS and stream audio back."""
     session = st.session
     if session is None:
         return
@@ -179,8 +278,13 @@ async def _process_utterance(st: _StreamState) -> None:
                 user_language=result.get("user_language"),
                 user_confidence=result.get("user_confidence"),
             )
-            # Day 9: encode agent_audio_b64 -> mulaw 8k and stream back.
             st.last_turn = result
+            agent_audio_b64 = result.get("agent_audio_b64")
+            if agent_audio_b64:
+                # Cancel existing send task if running (barge-in / next turn)
+                if st.send_task and not st.send_task.done():
+                    st.send_task.cancel()
+                st.send_task = asyncio.create_task(_send_agent_audio(ws, st, agent_audio_b64))
     except Exception as e:
         log.error("twilio.media.processing_error", call_sid=st.call_sid, error=str(e))
     finally:
@@ -194,6 +298,12 @@ async def _finalize_stream(st: _StreamState | None) -> None:
     if st.task:
         try:
             await st.task
+        except Exception:
+            pass
+    if st.send_task and not st.send_task.done():
+        try:
+            st.send_task.cancel()
+            await st.send_task
         except Exception:
             pass
     session = st.session
@@ -217,7 +327,8 @@ async def twilio_media_stream(ws: WebSocket) -> None:
 
     Receives μ-law audio at 8 kHz, decodes to PCM, resamples to 16 kHz, buffers
     it per call, and on end-of-utterance (≥700ms of silence after speech) flushes
-    the utterance into the STT -> agent -> TTS pipeline. Transcripts are logged.
+    the utterance into the STT -> agent -> TTS pipeline. Transcripts are logged
+    and agent TTS audio is encoded and streamed back over the WebSocket.
     """
     await ws.accept()
     st: _StreamState | None = None
@@ -271,6 +382,9 @@ async def twilio_media_stream(ws: WebSocket) -> None:
                 if rms > _SILENCE_RMS:
                     st.speech = True
                     st.last_speech_at = now
+                    # User speech barge-in: cancel active agent audio playback
+                    if st.send_task and not st.send_task.done():
+                        st.send_task.cancel()
 
                 st.session.append_pcm(resample_8k_to_16k(pcm_8k))
                 st.total_frames += 1
@@ -295,7 +409,7 @@ async def twilio_media_stream(ws: WebSocket) -> None:
                     and (now - st.last_speech_at) * 1000 >= _SILENCE_MS
                 ):
                     st.processing = True
-                    st.task = asyncio.create_task(_process_utterance(st))
+                    st.task = asyncio.create_task(_process_utterance(st, ws))
 
             elif event == "stop":
                 break

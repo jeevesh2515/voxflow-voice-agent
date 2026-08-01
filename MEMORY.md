@@ -10,8 +10,8 @@ unreliable.
 ## Current Position
 
 **Last updated:** 2026-08-01
-**Currently on:** Week 2 — Day 8 complete: STT wired into Twilio Media Stream (audio buffer → VAD → SpeechToText → agent → TTS, transcripts logged).
-**Currently being worked on:** Day 9 — Stream agent TTS audio back to Twilio (encode → mulaw 8kHz → send `media` messages).
+**Currently on:** Week 2 — Day 9 complete: Full loop audio streaming back to Twilio over WebSockets (MP3 -> PCM 8k -> G.711 μ-law -> 20ms paced JSON frames, barge-in support).
+**Currently being worked on:** Day 10 — Multi-caller testing and VAD tuning on live phone calls.
 
 ## What's Actually Done (verified against the real repo)
 
@@ -41,14 +41,13 @@ unreliable.
 - ✅ **Security pass** — live API keys removed from `.env` files, `.env.example` files cleaned, sensitive deps excluded from test path.
 - ✅ **Timing logs added** — STT, TTS, tool execution, and DB persist all logged with millisecond precision; LLM timing was already present in `runner.py`.
 - ✅ **Day 6 — Twilio webhook skeleton** — `POST /twilio/voice` returns TwiML with `<Connect><Stream>` pointing to WebSocket route.
-- ✅ **Day 7 — Media Streams WebSocket** — `/twilio/media` receives mulaw 8kHz frames, decodes to PCM via `_ulaw2linear()`, resamples to 16kHz via linear interpolation, logs frame stats. Requires Twilio account to test end-to-end.
-- ✅ **Day 8 — STT wired into Twilio stream** — per-call PCM buffer keyed by `callSid`, amplitude-RMS VAD (speech threshold 800, 700ms trailing silence = utterance end), flushes each utterance into `pipeline.commit_audio()` (STT → agent → TTS) via a background task, logs `twilio.media.transcript`. Caller phone captured from the `/twilio/voice` webhook form and wired into the `CallSession`. **Bug fixed:** `_ulaw2linear()` was using a wrong G.711 expansion formula (silence decoded to a 528 DC offset; loud samples overflowed int16) — corrected to the standard `((2*mantissa+33)<<exponent)-33` then `<<2`, verified against known G.711 codeword values. Tests: 23/23 passing (8 new Twilio tests incl. an end-to-end WebSocket VAD→flush test with a fake pipeline).
+- ✅ **Day 7 — Media Streams WebSocket** — `/twilio/media` receives mulaw 8kHz frames, decodes to PCM via `_ulaw2linear()`, resamples to 16kHz via linear interpolation, logs frame stats.
+- ✅ **Day 8 — STT wired into Twilio stream** — per-call PCM buffer keyed by `callSid`, amplitude-RMS VAD (speech threshold 800, 700ms trailing silence = utterance end), flushes each utterance into `pipeline.commit_audio()` (STT → agent → TTS) via a background task, logs `twilio.media.transcript`. Caller phone captured from the `/twilio/voice` webhook form and wired into the `CallSession`. Fixed `_ulaw2linear()` G.711 expansion formula.
+- ✅ **Day 9 — Full loop agent TTS streamed back to Twilio** — `linear_to_ulaw()` G.711 encoder implemented and unit-tested for 100% quantization point accuracy. MP3 from `edge-tts` decoded to 8kHz mono PCM using PyAV (`av`), encoded to μ-law, and streamed back in 20ms paced frames (160 bytes each) over `/twilio/media`. Barge-in support cancels active playback when the caller speaks. Tests: 26/26 passing (3 new Day 9 tests).
 
 ## What's Known to Be Incomplete or Wrong
 
 - ❌ **Latency baseline not yet measured** — timing logs are in place but need 5 test conversations run through the simulator to get real numbers (Week 1 Day 4)
-- ❌ **Twilio phone number not yet configured** — Media Streams WebSocket route (`/twilio/media`) and TwiML endpoint (`/twilio/voice`) are implemented, but need a real Twilio account + phone number to test (Week 2 Day 6)
-- ❌ **Agent audio not streamed back to Twilio** — Day 8 stores the agent turn (`last_turn` with `agent_audio_b64`) but does not encode it to mulaw 8kHz and send it back — Day 9
 - ❌ **VAD threshold not tuned on real calls** — amplitude RMS threshold (800) and 700ms silence are Day 8 defaults; needs real multi-caller testing (Day 10) to tune
 - ❌ **Staff auth is `localStorage`-based**, not real Supabase Auth (Week 3
   Day 11)

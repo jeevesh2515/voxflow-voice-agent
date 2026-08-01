@@ -159,3 +159,95 @@ def test_media_stream_flushes_utterance_on_silence(monkeypatch):
     assert any(c["call_id"] == "CA123" and c["pcm_bytes"] > 0 for c in fp.commits)
     # Session ended on stop.
     assert fp.ends[0] == {"call_id": "CA123", "outcome": "resolved"}
+
+
+def test_linear_to_ulaw_roundtrip():
+    """Verify linear_to_ulaw preserves all G.711 PCM quantization points."""
+    from voxflow_api.routes.twilio import _ulaw2linear, linear_to_ulaw
+
+    for b in range(256):
+        pcm = _ulaw2linear(b)
+        re_b = linear_to_ulaw(pcm)
+        re_pcm = _ulaw2linear(re_b)
+        assert re_pcm == pcm
+
+
+def test_mp3_to_pcm8k_decodes_audio():
+    """Test mp3_to_pcm8k decoding using PyAV."""
+    import asyncio
+    import edge_tts
+    from voxflow_api.routes.twilio import mp3_to_pcm8k
+
+    async def _gen_mp3():
+        tts = edge_tts.Communicate("Hello", "en-IN-NeerjaNeural")
+        buf = bytearray()
+        async for chunk in tts.stream():
+            if chunk["type"] == "audio":
+                buf.extend(chunk["data"])
+        return bytes(buf)
+
+    mp3_data = asyncio.run(_gen_mp3())
+    assert len(mp3_data) > 0
+
+    pcm = mp3_to_pcm8k(mp3_data)
+    assert len(pcm) > 0
+    # Must be 16-bit mono PCM (even byte length)
+    assert len(pcm) % 2 == 0
+
+
+def test_media_stream_sends_outbound_audio(monkeypatch):
+    """Verify WebSocket handler streams outbound media frames when turn returns agent_audio_b64."""
+    from fastapi.testclient import TestClient
+    import voxflow_api.routes.twilio as tw
+    from voxflow_api.main import create_app
+
+    # Create a tiny 160-byte mulaw payload as fake agent_audio_b64
+    fake_pcm = b"\x00\x00" * 80  # 80 samples 8kHz PCM = 10ms
+    fake_mp3_b64 = base64.b64encode(b"fake_mp3").decode()
+
+    class _OutboundPipeline(_FakePipeline):
+        async def commit_audio(self, session):
+            return {
+                "type": "turn",
+                "user_text": "hello",
+                "agent_text": "hi there",
+                "agent_audio_b64": fake_mp3_b64,
+            }
+
+    fp = _OutboundPipeline()
+    monkeypatch.setattr(tw, "get_pipeline", lambda: fp)
+    monkeypatch.setattr(tw, "_SILENCE_MS", 20)
+    monkeypatch.setattr(tw, "mp3_to_pcm8k", lambda mp3_b: fake_pcm)
+
+    speech_b64 = base64.b64encode(b"\x00" * 160).decode()
+    silence_b64 = base64.b64encode(b"\xff" * 160).decode()
+
+    client = TestClient(create_app())
+    client.post("/twilio/voice", data={"CallSid": "CA456", "From": "+919876543210"})
+
+    outbound_msgs = []
+
+    with client.websocket_connect("/twilio/media") as ws:
+        ws.send_text(json.dumps({"event": "connected"}))
+        ws.send_text(
+            json.dumps({"event": "start", "start": {"streamSid": "MX2", "callSid": "CA456"}})
+        )
+        ws.send_text(json.dumps({"event": "media", "media": {"payload": speech_b64}}))
+        time.sleep(0.05)
+        ws.send_text(json.dumps({"event": "media", "media": {"payload": silence_b64}}))
+        time.sleep(0.1)
+
+        # Receive outbound media frames sent back by server
+        while True:
+            try:
+                raw = ws.receive_text()
+                msg = json.loads(raw)
+                if msg.get("event") == "media":
+                    outbound_msgs.append(msg)
+            except Exception:
+                break
+
+    assert len(outbound_msgs) > 0
+    assert outbound_msgs[0]["streamSid"] == "MX2"
+    assert "payload" in outbound_msgs[0]["media"]
+
