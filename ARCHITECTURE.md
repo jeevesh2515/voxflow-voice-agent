@@ -166,7 +166,7 @@ anything shared between the two (types, constants) should move into
 | LLM | Groq (Llama 3.1), Ollama, OpenRouter (pluggable) | ✅ in place |
 | STT | faster-whisper (local, CPU) | ✅ in place |
 | TTS | edge-tts | ✅ in place |
-| Telephony | Twilio Media Streams via WebSocket | ✅ routes/twilio.py: TwiML + mulaw decoder + WS handler |
+| Telephony | Twilio Media Streams via WebSocket | ✅ routes/twilio.py: TwiML + mulaw decoder + VAD + STT flush (agent audio streaming = Day 9) |
 | Frontend | Next.js 14, Tailwind | ✅ in place |
 | Auth (staff) | localStorage session (temporary) | ⚠️ needs real Supabase Auth |
 | Realtime (dashboard) | — | ❌ not started, Phase 5 |
@@ -174,25 +174,33 @@ anything shared between the two (types, constants) should move into
 
 ## 6. Twilio Integration (Days 6-7, continuing)
 
-### Status: WebSocket receive path complete (Day 7)
+### Status: STT wired into the receive path (Day 8)
 
 The Twilio integration lives in `apps/api/voxflow_api/routes/twilio.py`:
 
 1. **`POST /twilio/voice`** — TwiML webhook. Returns XML that plays a
    greeting and opens a `<Connect><Stream>` to the `/twilio/media`
-   WebSocket endpoint. (Day 6)
+   WebSocket endpoint. Also captures `CallSid` + `From` so the WebSocket
+   can build a `CallSession` with the caller's phone. (Day 6)
 2. **`WebSocket /twilio/media`** — receives 8kHz μ-law audio frames from
-   Twilio Media Streams. Decodes mulaw→PCM (16-bit linear) via a hand-
-   rolled `_ulaw2linear()` function, then resamples 8kHz→16kHz via
-   linear interpolation. Logs frame statistics every 100 frames. (Day 7)
+   Twilio Media Streams. Decodes mulaw→PCM (16-bit linear, correct G.711
+   expansion), resamples 8kHz→16kHz via linear interpolation. (Day 7)
+3. **Per-call buffering + VAD (Day 8)** — decoded PCM is appended to a
+   per-`callSid` buffer on the `CallSession`. A simple amplitude VAD
+   (RMS > 800 = speech) tracks speech; after ≥700ms of trailing silence
+   the utterance is flushed in a background task via
+   `pipeline.commit_audio()` (STT → `AgentRunner` → edge-tts), and the
+   transcript is logged as `twilio.media.transcript`. The agent's reply
+   + TTS audio (`last_turn`) is retained on the stream state for Day 9.
+   On `stop`/disconnect, any in-flight flush and leftover buffer are
+   drained, then `pipeline.end_session()` persists the call.
 
-### What's next (Days 8-10):
+### What's next (Days 9-10):
 
-3. Wire decoded PCM → `SpeechToText` pipeline (Day 8)
-4. Implement VAD-based utterance detection (Day 8)
-5. Connect `callSid` → `CallSession` → `AgentRunner` (Day 9)
-6. Encode TTS output back to mulaw and stream back to Twilio (Day 9)
-7. Multi-caller real-world testing (Day 10)
+4. Encode the stored TTS audio back to mulaw 8kHz and stream it to Twilio
+   as `media` messages (Day 9)
+5. Full closed loop: greet → identify → stock check → confirm by voice (Day 9)
+6. Multi-caller real-world testing + VAD tuning (Day 10)
 
 ### Future (post-pilot):
 

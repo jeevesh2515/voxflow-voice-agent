@@ -78,10 +78,11 @@ class VoicePipeline:
         caller_name: str = "",
         language: str | None = None,
         tenant_id: str | None = None,
+        call_id: str | None = None,
     ) -> CallSession:
 
         s = get_settings()
-        call_id = f"call_{int(time.time() * 1000)}_{uuid.uuid4().hex[:6]}"
+        call_id = call_id or f"call_{int(time.time() * 1000)}_{uuid.uuid4().hex[:6]}"
         lang = language or s.tts_default_lang
         session = CallSession(
             call_id=call_id,

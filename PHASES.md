@@ -229,12 +229,25 @@ into the existing `SpeechToText` pipeline (`apps/api/voxflow_api/voice/stt.py`).
    Media Streams (Day 9 handles the TTS→Twilio encoding)
 
 **Checklist:**
-- [ ] Feed decoded/resampled PCM into the existing `SpeechToText`
+- [x] Feed decoded/resampled PCM into the existing `SpeechToText`
        pipeline
-- [ ] Implement end-of-utterance detection appropriate for phone audio
+- [x] Implement end-of-utterance detection appropriate for phone audio
        (may need a different silence threshold than the browser simulator)
-- [ ] Log transcripts from real phone calls
-- [ ] Wire `callSid` → `CallSession` mapping in the Media Streams handler
+       — amplitude-RMS VAD, 700ms trailing-silence; `webrtcvad` kept as an
+       upgrade path if noise becomes a problem
+- [x] Log transcripts from real phone calls
+       — logged as `twilio.media.transcript` (code complete; a real Twilio
+       number is still needed to capture a live call)
+- [x] Wire `callSid` → `CallSession` mapping in the Media Streams handler
+       — `callSid` is used as the `CallSession.call_id`; caller phone comes
+       from the `/twilio/voice` webhook form (`From`) via `_call_meta`
+
+**Notes / deferred:**
+- `_ulaw2linear()` fixed to the correct G.711 expansion during Day 8 —
+  the original formula produced a DC offset on silence and int16 overflow
+  on loud samples, which would have corrupted STT input.
+- VAD threshold (RMS 800) and silence window (700ms) are Day 8 defaults;
+  tune against real calls on Day 10.
 
 **Definition of Done:** Speaking a test sentence on a real call produces
 an accurate transcript in the logs.
