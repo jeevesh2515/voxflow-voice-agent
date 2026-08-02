@@ -1,25 +1,15 @@
 """Smoke tests for the API and agent. Run with `pytest -q`."""
 
-import os
-import sys
-from pathlib import Path
-
-# Ensure we can import voxflow_api when running `pytest` from apps/api/
-ROOT = Path(__file__).resolve().parent.parent
-sys.path.insert(0, str(ROOT))
-
-# Force a deterministic test config BEFORE importing the app
-os.environ.setdefault("LLM_PROVIDER", "ollama")
-os.environ.setdefault("DATABASE_URL", "sqlite:///./voxflow_test.db")
-
+# sys.path and the deterministic test environment are configured in
+# conftest.py, which pytest imports before this module — so these imports can
+# sit at the top of the file where they belong.
 import pytest
 from fastapi.testclient import TestClient
 
-from voxflow_api.config import get_settings
-from voxflow_api.db import init_db, reset_db
+from voxflow_api.db import reset_db
+from voxflow_api.llm.base import LLMProvider, LLMResponse
 from voxflow_api.main import create_app
 from voxflow_api.seed import seed
-from voxflow_api.llm.base import LLMProvider, ChatTurn, LLMResponse
 
 
 class FakeLLM(LLMProvider):

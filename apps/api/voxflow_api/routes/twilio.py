@@ -11,6 +11,7 @@ Supports barge-in (cancellation on speech).
 from __future__ import annotations
 
 import asyncio
+import contextlib
 import base64
 import io
 import json
@@ -25,6 +26,7 @@ import av
 from fastapi import APIRouter, HTTPException, Request, WebSocket, WebSocketDisconnect
 from fastapi.responses import Response
 
+from ..config import get_settings
 from ..logging import get_logger
 from ..voice.pipeline import CallSession
 from .ws import get_pipeline
@@ -43,6 +45,109 @@ _SILENCE_MS = 450
 # CallSid -> caller metadata captured on the POST /voice webhook; the WebSocket
 # `start` event consumes it (Twilio's start event carries no From/To).
 _call_meta: dict[str, dict[str, str]] = {}
+
+# Sliding-window rate limit for the public webhook, keyed by client IP.
+_RATE_LIMIT_MAX = 30       # requests...
+_RATE_LIMIT_WINDOW = 60.0  # ...per this many seconds
+_rate_buckets: dict[str, list[float]] = {}
+
+
+def _rate_limited(client_ip: str) -> bool:
+    """True if this IP has exceeded the webhook rate limit.
+
+    /twilio/voice is a public unauthenticated POST endpoint. Without a cap,
+    anyone who finds the URL can spin the agent up in a loop and burn the
+    Groq/Twilio quota.
+    """
+    now = time.monotonic()
+    hits = _rate_buckets.setdefault(client_ip, [])
+    cutoff = now - _RATE_LIMIT_WINDOW
+    hits[:] = [t for t in hits if t > cutoff]
+    if len(hits) >= _RATE_LIMIT_MAX:
+        return True
+    hits.append(now)
+    if len(_rate_buckets) > 5000:  # crude cap so the dict can't grow unbounded
+        for ip in [k for k, v in _rate_buckets.items() if not v]:
+            _rate_buckets.pop(ip, None)
+    return False
+
+
+def _public_url(request: Request, path: str) -> str:
+    """The absolute https URL Twilio used to reach us.
+
+    Behind Caddy/nginx the app sees plain http on an internal port, so the URL
+    Starlette reports is not the one Twilio signed. Signature validation fails
+    unless we reconstruct it from the configured public base URL.
+    """
+    base = (get_settings().public_base_url or "").rstrip("/")
+    if base:
+        return f"{base}{path}"
+    host = request.headers.get("host", "localhost:8000")
+    proto = request.headers.get("x-forwarded-proto", request.url.scheme)
+    return f"{proto}://{host}{path}"
+
+
+def _validate_twilio_signature(request: Request, form: dict[str, Any], path: str) -> bool:
+    """Verify the X-Twilio-Signature header. Returns True when the request is trusted."""
+    s = get_settings()
+    if not s.twilio_validate_signature:
+        return True
+    if not s.twilio_auth_token:
+        log.warning("twilio.signature_skipped", reason="no_auth_token_configured")
+        return False
+
+    signature = request.headers.get("X-Twilio-Signature", "")
+    if not signature:
+        return False
+
+    try:
+        from twilio.request_validator import RequestValidator
+    except ImportError:
+        log.error("twilio.sdk_missing", hint="pip install twilio")
+        return False
+
+    validator = RequestValidator(s.twilio_auth_token)
+    return bool(validator.validate(_public_url(request, path), form, signature))
+
+
+async def _resolve_tenant(to_number: str) -> str:
+    """Map the dialed number to its tenant.
+
+    Multi-tenancy is only real if the tenant comes from the number the caller
+    dialed. Falling back to a default tenant for an unmapped number would serve
+    one company's order data to another company's caller, so an unmapped number
+    is logged loudly.
+    """
+    s = get_settings()
+    if not to_number:
+        return s.default_tenant_id
+
+    from sqlalchemy import select
+
+    from ..db import TenantPhoneNumber, async_session_scope
+
+    try:
+        async with async_session_scope() as db:
+            row = (
+                await db.execute(
+                    select(TenantPhoneNumber).where(
+                        TenantPhoneNumber.phone_number == to_number,
+                        TenantPhoneNumber.active == 1,
+                    )
+                )
+            ).scalars().first()
+            if row:
+                return row.tenant_id
+    except Exception as e:
+        log.error("twilio.tenant_lookup_failed", to=to_number, error=str(e))
+
+    log.warning(
+        "twilio.unmapped_number",
+        to=to_number,
+        fallback=s.default_tenant_id,
+        hint="Add this number to tenant_phone_numbers to route it correctly.",
+    )
+    return s.default_tenant_id
 
 
 # ---------- mulaw / PCM utilities ----------
@@ -168,27 +273,51 @@ _TWIML_TEMPLATE = """<?xml version="1.0" encoding="UTF-8"?>
 
 @router.post("/voice")
 async def voice_webhook(request: Request) -> Response:
-    """Return TwiML to open a Media Streams connection."""
+    """Return TwiML that opens a Media Streams connection back to this server."""
+    client_ip = request.client.host if request.client else "unknown"
+    if _rate_limited(client_ip):
+        log.warning("twilio.rate_limited", ip=client_ip)
+        raise HTTPException(status_code=429, detail="rate_limited")
+
     host = request.headers.get("host", "localhost:8000")
-    # ponytail: simple hostname validation — only allow safe chars
     if not re.match(r"^[\w\.\-]+(:\d+)?$", host):
         raise HTTPException(status_code=400, detail="invalid_host")
 
-    # Capture caller metadata so the WebSocket `start` event can build a CallSession.
-    call_sid = ""
-    caller_phone = ""
+    form_dict: dict[str, Any] = {}
     try:
         form = await request.form()
-        call_sid = str(form.get("CallSid") or "")
-        caller_phone = str(form.get("From") or "")
+        form_dict = {k: str(v) for k, v in form.items()}
     except Exception:
         pass
-    if call_sid:
-        _call_meta[call_sid] = {"caller_phone": caller_phone}
-    if len(_call_meta) > 1000:
-        _call_meta.clear()  # ponytail: cap; entries are popped on `start`
 
-    xml = _TWIML_TEMPLATE.replace("{host}", host)
+    if not _validate_twilio_signature(request, form_dict, "/twilio/voice"):
+        log.warning("twilio.invalid_signature", ip=client_ip, call_sid=form_dict.get("CallSid", ""))
+        raise HTTPException(status_code=403, detail="invalid_signature")
+
+    call_sid = form_dict.get("CallSid", "")
+    caller_phone = form_dict.get("From", "")
+    to_number = form_dict.get("To", "")
+
+    tenant_id = await _resolve_tenant(to_number)
+
+    # Stash metadata for the WebSocket `start` event — Twilio's start payload
+    # carries neither From nor To.
+    if call_sid:
+        _call_meta[call_sid] = {
+            "caller_phone": caller_phone,
+            "to_number": to_number,
+            "tenant_id": tenant_id,
+        }
+    if len(_call_meta) > 1000:
+        _call_meta.clear()  # entries are normally popped on `start`
+
+    log.info("twilio.voice_webhook", call_sid=call_sid, from_=caller_phone, to=to_number, tenant_id=tenant_id)
+
+    # Prefer the configured public URL: behind a reverse proxy the Host header
+    # is not necessarily the address Twilio can dial back on.
+    base = (get_settings().public_base_url or "").rstrip("/")
+    ws_host = base.split("://", 1)[-1] if base else host
+    xml = _TWIML_TEMPLATE.replace("{host}", ws_host)
     return Response(content=xml, media_type="application/xml")
 
 
@@ -252,12 +381,15 @@ async def _send_agent_audio(ws: WebSocket, st: _StreamState, agent_audio_b64: st
 
         log.info("twilio.media.send_audio_complete", call_sid=st.call_sid)
     except asyncio.CancelledError:
+        # Barge-in: the caller started talking over the agent. Tell Twilio to
+        # drop whatever it has already buffered so the agent stops mid-word.
         log.info("twilio.media.send_audio_cancelled", call_sid=st.call_sid)
-        try:
+        with contextlib.suppress(Exception, asyncio.CancelledError):
             clear_msg = {"event": "clear", "streamSid": st.stream_sid}
             await ws.send_text(json.dumps(clear_msg))
-        except Exception:
-            pass
+        # Re-raise so the task is correctly reported as cancelled rather than
+        # completing normally — callers rely on that to know playback stopped.
+        raise
     except Exception as e:
         log.error("twilio.media.send_audio_error", call_sid=st.call_sid, error=str(e))
 
@@ -292,33 +424,49 @@ async def _process_utterance(st: _StreamState, ws: WebSocket) -> None:
 
 
 async def _finalize_stream(st: _StreamState | None) -> None:
-    """Drain any in-flight utterance + leftover buffer, persist, clean up."""
+    """Drain any in-flight utterance + leftover buffer, persist, clean up.
+
+    Reaching `end_session()` is non-negotiable — it is what writes the call to
+    Postgres and pushes the outcome row to Google Sheets. Nothing above it may
+    be allowed to skip it.
+
+    Note on `CancelledError`: it inherits from `BaseException`, not `Exception`.
+    Awaiting a task we just cancelled therefore raises straight through a bare
+    `except Exception`. That previously escaped this function and skipped
+    persistence entirely — so any caller who hung up while the agent was
+    speaking (a very common case) left no record of the call at all.
+    """
     if st is None:
         return
-    if st.task:
-        try:
-            await st.task
-        except Exception:
-            pass
-    if st.send_task and not st.send_task.done():
-        try:
+
+    try:
+        if st.task:
+            with contextlib.suppress(Exception, asyncio.CancelledError):
+                await st.task
+
+        if st.send_task and not st.send_task.done():
             st.send_task.cancel()
-            await st.send_task
-        except Exception:
-            pass
-    session = st.session
-    if session is not None and session.pcm_buffer:
+            with contextlib.suppress(Exception, asyncio.CancelledError):
+                await st.send_task
+
+        session = st.session
+        if session is not None and session.pcm_buffer:
+            try:
+                result = await get_pipeline().commit_audio(session)
+                if result.get("type") == "turn":
+                    log.info(
+                        "twilio.media.transcript_flush",
+                        call_sid=st.call_sid,
+                        user_text=result["user_text"],
+                    )
+            except Exception as e:
+                log.error("twilio.media.final_flush_error", call_sid=st.call_sid, error=str(e))
+    finally:
+        # Always persist the call, whatever happened while draining above.
         try:
-            result = await get_pipeline().commit_audio(session)
-            if result.get("type") == "turn":
-                log.info(
-                    "twilio.media.transcript_flush",
-                    call_sid=st.call_sid,
-                    user_text=result["user_text"],
-                )
+            await get_pipeline().end_session(st.call_sid, outcome="resolved")
         except Exception as e:
-            log.error("twilio.media.final_flush_error", call_sid=st.call_sid, error=str(e))
-    await get_pipeline().end_session(st.call_sid, outcome="resolved")
+            log.error("twilio.media.end_session_failed", call_sid=st.call_sid, error=str(e))
 
 
 @router.websocket("/media")
@@ -357,6 +505,7 @@ async def twilio_media_stream(ws: WebSocket) -> None:
                 meta = _call_meta.pop(call_sid, {})
                 session = get_pipeline().start_session(
                     caller_phone=meta.get("caller_phone", ""),
+                    tenant_id=meta.get("tenant_id"),
                     call_id=call_sid,
                 )
                 st = _StreamState(
@@ -365,7 +514,12 @@ async def twilio_media_stream(ws: WebSocket) -> None:
                     caller_phone=meta.get("caller_phone", ""),
                     session=session,
                 )
-                log.info("twilio.media.start", stream_sid=stream_sid, call_sid=call_sid)
+                log.info(
+                    "twilio.media.start",
+                    stream_sid=stream_sid,
+                    call_sid=call_sid,
+                    tenant_id=session.tenant_id,
+                )
 
             elif event == "media":
                 if st is None or st.session is None:

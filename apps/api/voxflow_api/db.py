@@ -104,6 +104,9 @@ class Supplier(Base):
     pincode: Mapped[str] = mapped_column(String(16))
     contact_person: Mapped[str] = mapped_column(String(255), default="")
     gstin: Mapped[str] = mapped_column(String(32), default="")
+    # Which side of the trade this contact sits on.
+    # customer = they buy from us | supplier = they sell to us | both
+    contact_type: Mapped[str] = mapped_column(String(16), default="customer", index=True)
     active: Mapped[int] = mapped_column(Integer, default=1)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_utcnow)
 
@@ -142,6 +145,13 @@ class Order(Base):
     items_json: Mapped[str] = mapped_column(Text)  # JSON list of {sku, qty}
     total_qty: Mapped[int] = mapped_column(Integer, default=0)
     notes: Mapped[str] = mapped_column(Text, default="")
+    # --- PO acknowledgement / dispatch tracking (customer-support flow) ---
+    # The customer's own PO number on their side, e.g. "VB/PO/2026/0912".
+    customer_po_ref: Mapped[str] = mapped_column(String(128), default="", index=True)
+    po_signed: Mapped[int] = mapped_column(Integer, default=0)  # 0 = unsigned, 1 = signed
+    po_signed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    po_signed_by: Mapped[str] = mapped_column(String(255), default="")
+    dispatched_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_utcnow)
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_utcnow, onupdate=_utcnow)
 
@@ -179,6 +189,39 @@ class Call(Base):
     escalated: Mapped[int] = mapped_column(Integer, default=0)
     transcript_json: Mapped[str] = mapped_column(Text, default="[]")
     actions_json: Mapped[str] = mapped_column(Text, default="[]")
+    # --- Structured call outcome (written by the log_call_outcome tool) ---
+    # Why they called, in the caller's own framing.
+    reason: Mapped[str] = mapped_column(Text, default="")
+    # What the agent actually told/did for them.
+    solution: Mapped[str] = mapped_column(Text, default="")
+    # resolved | partial | unresolved
+    resolution_status: Mapped[str] = mapped_column(String(16), default="", index=True)
+    # happy | neutral | unhappy
+    satisfaction: Mapped[str] = mapped_column(String(16), default="", index=True)
+    follow_up_required: Mapped[int] = mapped_column(Integer, default=0)
+    # Filled in by staff from the dashboard after following up on an escalation.
+    staff_resolution: Mapped[str] = mapped_column(Text, default="")
+    staff_resolved_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    # Whether this call's outcome row reached Google Sheets.
+    sheet_synced: Mapped[int] = mapped_column(Integer, default=0)
+    verified: Mapped[int] = mapped_column(Integer, default=0)
+
+
+class TenantPhoneNumber(Base):
+    """Maps an inbound Twilio number to the tenant that owns it.
+
+    Without this, every inbound call falls through to the default tenant —
+    which silently breaks multi-tenant isolation the moment a second
+    customer is onboarded.
+    """
+
+    __tablename__ = "tenant_phone_numbers"
+
+    phone_number: Mapped[str] = mapped_column(String(32), primary_key=True)  # E.164, e.g. +14155551234
+    tenant_id: Mapped[str] = mapped_column(String(64), ForeignKey("tenants.id"), index=True)
+    label: Mapped[str] = mapped_column(String(128), default="")
+    active: Mapped[int] = mapped_column(Integer, default=1)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_utcnow)
 
 
 class Appointment(Base):

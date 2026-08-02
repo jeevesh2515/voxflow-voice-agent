@@ -14,6 +14,7 @@ import asyncio
 import time
 import uuid
 from dataclasses import dataclass, field
+from datetime import datetime, timezone
 from typing import Any
 
 import numpy as np
@@ -45,6 +46,22 @@ class CallSession:
     outcome: str = "in_progress"
     pcm_buffer: bytearray = field(default_factory=bytearray)
     pcm_sample_rate: int = 16000
+
+    # ---- Caller verification state ----
+    # True only after a successful two-factor verify_caller. Write actions and
+    # order details must not be disclosed until this flips.
+    verified: bool = False
+    verify_attempts: int = 0
+    company_name: str = ""
+
+    # ---- Structured outcome, filled by the log_call_outcome tool ----
+    reason: str = ""
+    solution: str = ""
+    resolution_status: str = ""  # resolved | partial | unresolved
+    satisfaction: str = ""  # happy | neutral | unhappy
+    follow_up_required: bool = False
+    related_order: str = ""
+    sheet_synced: bool = False
 
     def append_pcm(self, chunk: bytes) -> None:
         # ponytail: cap at 60s of 16kHz PCM (~1.9 MB) to prevent OOM
@@ -103,7 +120,10 @@ class VoicePipeline:
         if not session:
             return None
         session.ended_at = time.time()
-        session.outcome = outcome
+        # Only overwrite the outcome if the agent didn't already log a real one.
+        if not session.resolution_status:
+            session.outcome = outcome
+        await self._log_abandoned_if_needed(session)
         await self._persist(session)
         log.info(
             "call.ended",
@@ -174,9 +194,57 @@ class VoicePipeline:
 
     # ---------- Persistence ----------
 
+    async def _log_abandoned_if_needed(self, session: CallSession) -> None:
+        """Write a Sheets row for calls that ended without a logged outcome.
+
+        A caller who hangs up mid-verification, or a call that drops, would
+        otherwise leave no trace in the ops sheet — which is exactly the kind
+        of failure the ops team most needs to see.
+        """
+        if session.resolution_status:
+            return  # the agent already logged a real outcome
+
+        from datetime import timedelta
+
+        from ..integrations.gsheets import get_sheets_client
+
+        turns = len(session.transcript)
+        session.reason = session.reason or (
+            "Caller hung up before stating a request" if turns <= 1 else "Call ended before resolution"
+        )
+        session.solution = session.solution or "No solution given — call ended early"
+        session.resolution_status = "unresolved"
+        session.satisfaction = session.satisfaction or "neutral"
+        session.follow_up_required = True
+        session.outcome = "abandoned"
+
+        ist = timezone(timedelta(hours=5, minutes=30))
+        try:
+            result = await get_sheets_client().append_call_outcome(
+                {
+                    "timestamp": datetime.now(ist).strftime("%Y-%m-%d %H:%M:%S"),
+                    "call_id": session.call_id,
+                    "caller_phone": session.caller_phone,
+                    "caller_name": session.caller_name,
+                    "company": session.company_name,
+                    "verified": session.verified,
+                    "language": session.language,
+                    "reason": session.reason,
+                    "solution": session.solution,
+                    "resolution_status": session.resolution_status,
+                    "satisfaction": session.satisfaction,
+                    "follow_up_required": True,
+                    "escalated": session.escalated,
+                    "duration_sec": int((session.ended_at or time.time()) - session.started_at),
+                    "related_order": session.related_order,
+                }
+            )
+            session.sheet_synced = bool(result.get("ok"))
+        except Exception as e:
+            log.warning("call.abandoned_log_failed", call_id=session.call_id, error=str(e))
+
     async def _persist(self, session: CallSession) -> None:
         import json as _json
-        from datetime import datetime, timezone
 
         t0 = time.time()
         try:
@@ -194,6 +262,13 @@ class VoicePipeline:
                     intent=session.intent,
                     outcome=session.outcome,
                     escalated=1 if session.escalated else 0,
+                    reason=session.reason,
+                    solution=session.solution,
+                    resolution_status=session.resolution_status,
+                    satisfaction=session.satisfaction,
+                    follow_up_required=1 if session.follow_up_required else 0,
+                    sheet_synced=1 if session.sheet_synced else 0,
+                    verified=1 if session.verified else 0,
                     transcript_json=_json.dumps(
                         [
                             {"role": t.role, "text": t.text, "at": t.at}

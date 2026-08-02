@@ -1,0 +1,38 @@
+# Caddy reverse proxy for VoxFlow.
+#
+# Caddy obtains and renews a Let's Encrypt certificate automatically — you do
+# not run certbot, and you do not manage renewal. Twilio requires a publicly
+# trusted certificate for both the webhook (https) and the Media Stream (wss),
+# so this is the piece that makes real phone calls possible.
+
+{
+	email {$ACME_EMAIL}
+}
+
+{$DOMAIN} {
+	encode gzip
+
+	# WebSocket upgrades pass through untouched — this carries the live audio.
+	# Caddy handles Connection/Upgrade headers natively, no special config needed.
+	reverse_proxy api:8000 {
+		# Twilio holds the Media Stream open for the whole call. The default
+		#
+		# read timeout would cut long calls off mid-conversation.
+		transport http {
+			read_timeout 3600s
+			write_timeout 3600s
+		}
+
+		# Preserve the real client IP so the webhook rate limiter and the
+		# audit logs see the caller's origin, not the proxy's.
+		header_up X-Real-IP {remote_host}
+		header_up X-Forwarded-Proto {scheme}
+	}
+
+	log {
+		output file /data/access.log {
+			roll_size 10mb
+			roll_keep 5
+		}
+	}
+}

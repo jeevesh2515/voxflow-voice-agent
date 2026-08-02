@@ -41,12 +41,31 @@ export const api = {
     if (tenant_id) qs.set("tenant_id", tenant_id);
     return http<any[]>(`/api/shipments${qs.size ? `?${qs}` : ""}`);
   },
-  calls: (limit = 50, tenant_id?: string) => {
+  calls: (limit = 50, tenant_id?: string, escalated?: boolean, resolution_status?: string) => {
     const qs = new URLSearchParams({ limit: String(limit) });
+    if (tenant_id) qs.set("tenant_id", tenant_id);
+    if (escalated !== undefined) qs.set("escalated", String(escalated));
+    if (resolution_status !== undefined) qs.set("resolution_status", resolution_status);
+    return http<any[]>(`/api/calls?${qs}`);
+  },
+  escalations: (tenant_id?: string) => {
+    // Fetches calls where escalated=true OR follow_up_required=true.
+    // The backend filter only supports escalated; we fetch escalated calls
+    // and rely on the page to also fetch all calls to surface follow_up_required.
+    // For simplicity we fetch a large batch with no server-side escalated filter
+    // and let the client filter — this avoids two requests and an OR query the
+    // backend doesn't support natively.
+    const qs = new URLSearchParams({ limit: "200" });
     if (tenant_id) qs.set("tenant_id", tenant_id);
     return http<any[]>(`/api/calls?${qs}`);
   },
   call: (id: string) => http<any>(`/api/calls/${id}`),
+  patchResolution: (call_id: string, staff_resolution: string) =>
+    http<any>(`/api/calls/${call_id}/resolution`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ staff_resolution }),
+    }),
   appointments: (tenant_id?: string) =>
     http<any[]>(`/api/appointments${tenant_id ? `?tenant_id=${tenant_id}` : ""}`),
   communications: (tenant_id?: string) =>
