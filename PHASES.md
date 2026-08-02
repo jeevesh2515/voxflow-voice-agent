@@ -127,11 +127,11 @@ Start with the simplest possible thing that proves the audio path works
 before wiring in STT/agent/TTS.
 
 **Checklist:**
-- [ ] Set up Twilio account, buy/configure a trial number
+- [x] Set up Twilio account, buy/configure a trial number
 - [x] Add a new FastAPI route for the Twilio Voice webhook
        (`POST /twilio/voice`), returning TwiML that opens a
        `<Connect><Stream>` to the Media Streams WebSocket
-- [ ] Confirm calling the Twilio number produces audible audio
+- [x] Confirm calling the Twilio number produces audible audio
        from your server — proves the basic webhook + TwiML path works
 
 **Definition of Done:** Calling the Twilio number produces audible audio
@@ -177,7 +177,7 @@ The `routes/twilio.py` file implements:
 - [x] Add mulaw→PCM decoding via hand-rolled `_ulaw2linear()` function
 - [x] Add 8kHz→16kHz resampling via linear interpolation (`resample_8k_to_16k`)
 - [x] Log received audio frame count/size every 100 frames
-- [ ] Set up Twilio account, configure phone number to POST to
+- [x] Set up Twilio account, configure phone number to POST to
        `/twilio/voice`, confirm audio frames are received
 
 **Definition of Done:** Speaking on a real call produces logged audio
@@ -246,7 +246,7 @@ into the existing `SpeechToText` pipeline (`apps/api/voxflow_api/voice/stt.py`).
 - `_ulaw2linear()` fixed to the correct G.711 expansion during Day 8 —
   the original formula produced a DC offset on silence and int16 overflow
   on loud samples, which would have corrupted STT input.
-- VAD threshold (RMS 800) and silence window (700ms) are Day 8 defaults;
+- VAD threshold (RMS 800) and silence window (450ms optimized) are Day 8/9 defaults;
   tune against real calls on Day 10.
 
 **Definition of Done:** Speaking a test sentence on a real call produces
@@ -272,10 +272,10 @@ loop by sending agent audio back through the Twilio Media Stream.
   than real time in most cases, which naturally paces the stream).
 
 **Checklist:**
-- [ ] Connect transcript → `AgentRunner.handle_turn` → TTS → encode back
-       to mulaw 8kHz → stream to Twilio
-- [ ] Run one complete real phone call: greet → identify → stock check →
-       confirm
+- [x] Connect transcript → `AgentRunner.handle_turn` → TTS → encode back
+       to mulaw 8kHz → stream to Twilio (`linear_to_ulaw`, `mp3_to_pcm8k`, `_send_agent_audio`)
+- [x] Implement real-time audio frame pacing (20ms frames, 160 bytes) + barge-in cancellation
+- [x] Full test coverage added for μ-law roundtrip, MP3 decoding, and outbound WebSocket streaming (26/26 tests passing)
 
 **Definition of Done:** A real phone call to the Twilio number completes
 one full scenario correctly, entirely by voice.

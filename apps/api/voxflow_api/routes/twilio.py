@@ -38,7 +38,7 @@ router = APIRouter(prefix="/twilio", tags=["twilio"])
 # Tune after real multi-caller testing (Day 10).
 _SILENCE_RMS = 800
 # Trailing silence (ms) that marks the end of an utterance.
-_SILENCE_MS = 700
+_SILENCE_MS = 450
 
 # CallSid -> caller metadata captured on the POST /voice webhook; the WebSocket
 # `start` event consumes it (Twilio's start event carries no From/To).
