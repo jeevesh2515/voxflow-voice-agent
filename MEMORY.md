@@ -9,92 +9,142 @@ unreliable.
 
 ## Current Position
 
-**Last updated:** 2026-08-01
-**Currently on:** Week 2 — Day 9 complete: Full loop audio streaming back to Twilio over WebSockets (MP3 -> PCM 8k -> G.711 μ-law -> 20ms paced JSON frames, barge-in support).
-**Currently being worked on:** Day 10 — Multi-caller testing and VAD tuning on live phone calls.
+**Last updated:** 2026-08-02
+**Currently on:** Inbound customer-support call flow is built and tested. The
+product now answers "have you signed our PO / what quantity / when did you send
+it / where has it reached", verifies who is asking before disclosing anything,
+and logs the outcome to Google Sheets.
+**Next action:** Deploy to Oracle Cloud following `SETUP.md`, then **make one
+real phone call**. Nothing further in Weeks 2-4 should start before that.
 
-## What's Actually Done (verified against the real repo)
+## Scope change (2026-08-02)
 
-- ✅ FastAPI backend skeleton with working agent loop (`AgentRunner`)
-- ✅ Pluggable LLM providers: Groq, Ollama, OpenRouter
-- ✅ 11 agent tools implemented and tested via browser simulator:
-  `lookup_supplier`, `verify_caller`, `check_stock`, `get_shipment_status`,
-  `create_po`, `verify_po`, `schedule_appointment`, `send_email`,
-  `send_whatsapp_message`, `update_worksheet`, `type_notes`,
-  `escalate_to_human`
-- ✅ Multi-tenant schema with `tenant_id` on all business tables
-  (`schema.md`)
-- ✅ RLS policy blueprint written (not yet confirmed applied/tested against
-  a real second tenant — see Week 3 Day 12)
-- ✅ Local STT (faster-whisper) and TTS (edge-tts) working through the
-  WebSocket-based browser phone simulator
-- ✅ Next.js 14 dashboard with pages: calls, orders, shipments, stock,
-  suppliers, appointments, communications, simulator, pricing, sign-in/up
-- ✅ Multi-tenant switcher on the dashboard (demo companies: Varun
-  Beverages, Amul, Haldirams, Britannia)
-- ✅ Dark neon design system implemented in Tailwind config + globals.css
-- ✅ Security audit written for input sanitization, SQL injection
-  prevention, secret management, WebSocket security (`security_audit.md`)
-- ✅ Backend circular import resolved & test suite verified passing (15/15 unit/integration tests passing cleanly)
-- ✅ **Async DB layer** — all agent tool functions use async SQLAlchemy engines (aiosqlite for dev, asyncpg for prod). DB calls no longer block the event loop.
-- ✅ **TTL cache** — `check_stock` and `lookup_supplier` reads cached in-process (30s TTL). Stock cache invalidated on `create_po` writes.
-- ✅ **Security pass** — live API keys removed from `.env` files, `.env.example` files cleaned, sensitive deps excluded from test path.
-- ✅ **Timing logs added** — STT, TTS, tool execution, and DB persist all logged with millisecond precision; LLM timing was already present in `runner.py`.
-- ✅ **Day 6 — Twilio webhook skeleton** — `POST /twilio/voice` returns TwiML with `<Connect><Stream>` pointing to WebSocket route.
-- ✅ **Day 7 — Media Streams WebSocket** — `/twilio/media` receives mulaw 8kHz frames, decodes to PCM via `_ulaw2linear()`, resamples to 16kHz via linear interpolation, logs frame stats.
-- ✅ **Day 8 — STT wired into Twilio stream** — per-call PCM buffer keyed by `callSid`, amplitude-RMS VAD (speech threshold 800, 700ms trailing silence = utterance end), flushes each utterance into `pipeline.commit_audio()` (STT → agent → TTS) via a background task, logs `twilio.media.transcript`. Caller phone captured from the `/twilio/voice` webhook form and wired into the `CallSession`. Fixed `_ulaw2linear()` G.711 expansion formula.
-- ✅ **Day 9 — Full loop agent TTS streamed back to Twilio** — `linear_to_ulaw()` G.711 encoder implemented and unit-tested for 100% quantization point accuracy. MP3 from `edge-tts` decoded to 8kHz mono PCM using PyAV (`av`), encoded to μ-law, and streamed back in 20ms paced frames (160 bytes each) over `/twilio/media`. Barge-in support cancels active playback when the caller speaks. Tests: 26/26 passing (3 new Day 9 tests).
+Originally scoped as *distributor ops* — suppliers ringing in to place POs and
+check stock. Now scoped as **inbound B2B customer support**: our customers ring
+in about orders they have already placed with us. The `suppliers` table carries
+a `contact_type` column (`customer` | `supplier` | `both`) and serves both
+sides. Stock-check and PO-creation tools are retained but are no longer the
+primary flow.
+
+## What's Actually Done (verified against the repo — 60/60 tests passing)
+
+### Core (pre-existing)
+- ✅ FastAPI backend, async SQLAlchemy throughout, TTL cache on hot reads
+- ✅ Agent tool-calling loop (`AgentRunner`), pluggable LLM providers
+- ✅ Next.js 14 dashboard, dark neon design system, tenant switcher
+- ✅ Twilio Days 6-9: TwiML webhook, Media Streams receive, mulaw↔PCM, VAD,
+  STT flush, agent audio streamed back with 20ms pacing + barge-in
+
+### Customer-support flow (2026-08-02)
+- ✅ **15 agent tools** — added `check_po_status`, `get_order_details`,
+  `log_call_outcome` to the existing 12
+- ✅ **Two-factor caller verification.** `verify_caller` requires company
+  **plus** one of {city, GSTIN, contact name}, tolerates speech-to-text noise
+  ("Pvt. Ltd." vs "Pvt Ltd", spaced-out GSTINs), caps attempts at 3, and
+  escalates on lockout. No order data is disclosed until `session.verified`.
+- ✅ **Schema:** `orders` gained `customer_po_ref`, `po_signed`,
+  `po_signed_at`, `po_signed_by`, `dispatched_at`. `calls` gained `reason`,
+  `solution`, `resolution_status`, `satisfaction`, `follow_up_required`,
+  `staff_resolution`, `staff_resolved_at`, `sheet_synced`, `verified`. New
+  `tenant_phone_numbers` table. Idempotent migration in
+  `migrations/001_customer_support_flow.sql`.
+- ✅ **Google Sheets call log** — async, non-blocking, structurally unable to
+  fail a live call (`integrations/gsheets.py`). Postgres is the source of
+  truth; Sheets is the ops-facing mirror.
+- ✅ **Abandoned-call fallback** — a caller who hangs up mid-verification still
+  produces an `unresolved` row flagged for follow-up.
+- ✅ **System prompt rewritten** for customer support: verification-first,
+  mandatory outcome logging, explicit instruction to log honestly rather than
+  flatteringly.
+- ✅ Dashboard: outcome columns + satisfaction badges on the calls page; new
+  `/dashboard/escalations` view with a staff resolution field
+  (`PATCH /api/calls/{id}/resolution`).
+
+### Infrastructure (2026-08-02)
+- ✅ **STT moved server-side to Groq** `whisper-large-v3-turbo`. ~200-400ms vs
+  1.5-3s locally; image ~250MB vs ~2.5GB. `faster-whisper` still selectable via
+  `STT_PROVIDER=local` + `requirements-local.txt`. See RULES.md §5.
+- ✅ **Tenant resolved from the dialed number** via `tenant_phone_numbers`.
+  `routes/twilio.py` previously had *no* tenant handling — every inbound call
+  landed on the default tenant.
+- ✅ **Twilio signature validation** + per-IP rate limiting on the public
+  webhook.
+- ✅ **Oracle Cloud Always Free deploy** — `deploy/docker-compose.prod.yml`
+  plus Caddy for automatic TLS. Multi-stage non-root Dockerfile, ARM64-ready.
+- ✅ **`SETUP.md`** — complete walkthrough from zero to a live phone call.
+
+### Bugs found and fixed
+- ✅ **Calls were never persisted when the caller hung up mid-reply.**
+  `_finalize_stream` cancelled the outbound-audio task and awaited it inside a
+  bare `except Exception`; `asyncio.CancelledError` inherits from
+  `BaseException`, so it escaped and skipped `end_session()` entirely.
+  Persistence now runs in a `finally` cancellation cannot bypass. This was
+  silently losing exactly the calls most worth reviewing.
+- ✅ Two Day 9 tests were broken: one called edge-tts over the network (so it
+  failed offline and in CI), and one looped on `receive_text()` until it
+  raised — but Starlette's TestClient never surfaces the server's close frame,
+  so the whole suite hung indefinitely.
 
 ## What's Known to Be Incomplete or Wrong
 
-- ❌ **Latency baseline not yet measured** — timing logs are in place but need 5 test conversations run through the simulator to get real numbers (Week 1 Day 4)
-- ❌ **VAD threshold not tuned on real calls** — amplitude RMS threshold (800) and 700ms silence are Day 8 defaults; needs real multi-caller testing (Day 10) to tune
-- ❌ **Staff auth is `localStorage`-based**, not real Supabase Auth (Week 3
-  Day 11)
-- ❌ **Caller auth is city/GSTIN only** — no PIN/stronger verification for
-  write actions like `create_po` (Week 3 Day 13)
-- ❌ **No dashboard realtime** — call logs don't update live without a
-  manual refresh (Week 3 Day 14)
-- ❌ **No real pilot conversation has happened** — the target workflow
-  (Varun Beverages / PepsiCo distributor) is a secondhand hypothesis, not
-  validated (see PRD.md section 0 and Week 4 Day 19)
-- ❌ **No confirmed backend hosting** — README mentions Railway as an
-  example, not finalized
+- ❌ **No real phone call has been made.** Every layer is implemented and
+  unit/integration tested, but nothing is proven against a live phone network.
+  This is the single most important outstanding item.
+- ❌ **VAD not tuned on real calls** — `_SILENCE_RMS = 800`, `_SILENCE_MS = 450`
+  remain guesses until real callers are heard.
+- ❌ **Latency baseline not measured end-to-end.** Timing logs exist; no real
+  numbers yet. Expect roughly 1.0-1.5s per turn with Groq STT.
+- ❌ **Staff auth is still `localStorage`-based**, not Supabase Auth (Week 3
+  Day 11). Every `/api` endpoint therefore trusts a client-supplied
+  `tenant_id` — acceptable for a single operator, not for a customer's staff.
+- ❌ **RLS written but never verified** against a live second tenant (Week 3
+  Day 12). Application-level scoping *is* enforced, with two cross-tenant
+  isolation tests.
+- ❌ **No dashboard realtime** — rows appear on refresh (Week 3 Day 14).
+- ❌ **No caller PIN** for write actions (Week 3 Day 13). Read queries are
+  gated by two-factor verification, which is proportionate; placing an order
+  by phone is not.
+- ❌ **No real pilot conversation** yet (Week 4 Day 19) — the workflow remains
+  a hypothesis.
+- ❌ **Groq free tier is rate-limited per minute.** Fine for a pilot; real
+  volume needs the paid tier.
 
 ## Latency Baseline
 
-*(To be filled in during Week 1 Day 4 — do not skip this, it's the only
-way to know if the async DB fix and caching actually helped.)*
+*(Fill in after the first real calls. Groq STT should make this dramatically
+better than the original local-Whisper estimates.)*
 
-- STT: —
+- STT (Groq, expected ~200-400ms): —
 - LLM per iteration: —
-- DB call (pre-fix): —
-- DB call (post-fix): —
+- DB call: —
 - TTS: —
+- **Total per turn:** —
 
 ## Decisions Log
 
-*(Add an entry whenever a real architectural or product decision gets
-made — especially anything that deviates from RULES.md or ARCHITECTURE.md
-as written. Keep entries short.)*
+- 2026-07-23 — Stay on Supabase Postgres rather than migrate to Neon; the
+  latency concern was a synchronous-DB-call architecture issue, not a vendor
+  issue. See ARCHITECTURE.md §2.
+- 2026-07-25 — Twilio Media Streams kept in a separate `routes/twilio.py`
+  rather than merged into `routes/ws.py`; same pipeline, different wire format.
+- 2026-07-25 — Fixed the frontend double-Topbar bug with inline page headers.
+  **Do not reintroduce per-page `<Topbar>` imports.**
+- 2026-08-02 — **Product rescoped** to inbound customer support (see above).
+- 2026-08-02 — **STT switched to Groq hosted Whisper.** Documented deviation
+  from RULES.md §1; rationale in RULES.md §5. Driven by the requirement that
+  everything run server-side, and by phone-call latency.
+- 2026-08-02 — **Backend host: Oracle Cloud Always Free**, chosen over Fly.io
+  (~$2/mo) for genuine $0. Render free, Cloud Run and HF Spaces were rejected:
+  they sleep when idle, and a sleeping backend is a missed call.
+- 2026-08-02 — **Google Sheets is a mirror, not the source of truth.** Postgres
+  holds the record; Sheets is written best-effort so an outage can never take
+  down a phone call.
 
-- 2026-07-23 — Decided to stay on Supabase Postgres rather than migrate to
-  Neon; latency concern was diagnosed as a synchronous-DB-call architecture
-  issue, not a vendor issue. See ARCHITECTURE.md section 2.
-- 2026-07-25 — Twilio Media Streams route created as a separate file
-  (`routes/twilio.py`) rather than merged into `routes/ws.py`; the browser
-  simulator and Twilio stream share the same pipeline but have different
-  wire formats (WebSocket message protocol), justifying separate route
-  files.
-- 2026-07-25 — Frontend double-Topbar bug: `DashboardLayout` rendered a
-  `<Topbar>` but each child page also imported `<Topbar>`. Fixed by replacing
-  per-page Topbar imports with inline page headers — keeps layout's global
-  Topbar (brand, company selector, search, user menu) while showing
-  page-specific titles.
+## Next Session
 
-## Day 8 Prep (Next Session)
-
-1. Wire STT into Twilio stream — **done (2026-08-01)**, see PHASES.md Day 8
-2. Encode the stored agent turn (`st.last_turn["agent_audio_b64"]`, MP3 from edge-tts) → decode to PCM → resample to 8kHz → mulaw encode → send as base64 `media` messages back through the same WebSocket — Day 9
-3. Real Twilio phone number still required to test end-to-end (Day 6/7/8 all tested via unit tests + a fake-pipeline WebSocket test, not a real call)
-4. See `.learning/day-08-stt-into-twilio-stream.md` for the completed record
+1. Work through `SETUP.md` end to end and make one real call. The Day 6 and
+   Day 9 definitions of done in PHASES.md are still unmet — they were only ever
+   unit-tested.
+2. Record real latency numbers above.
+3. Tune the VAD against real callers (Day 10).
+4. Only then start Week 3 (Supabase Auth → RLS verification → realtime).

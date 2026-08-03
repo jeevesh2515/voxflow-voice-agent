@@ -29,6 +29,7 @@ from ..schemas import (
     OrderCreate,
     OrderItemIn,
     OrderOut,
+    ResolutionIn,
     ShipmentOut,
     StockItem,
     SupplierOut,
@@ -231,11 +232,17 @@ def list_shipments(
 def list_calls(
     limit: int = 50,
     tenant_id: str | None = Query(default=None),
+    escalated: bool | None = Query(default=None),
+    resolution_status: str | None = Query(default=None),
 ) -> list[dict[str, Any]]:
     with session_scope() as db:
         stmt = select(Call).order_by(desc(Call.started_at)).limit(limit)
         if tenant_id:
             stmt = stmt.where(Call.tenant_id == tenant_id)
+        if escalated is not None:
+            stmt = stmt.where(Call.escalated == (1 if escalated else 0))
+        if resolution_status is not None:
+            stmt = stmt.where(Call.resolution_status == resolution_status)
         rows = db.execute(stmt).scalars().all()
         return [_call_out(c) for c in rows]
 
@@ -246,6 +253,33 @@ def get_call(call_id: str) -> dict[str, Any]:
         c = db.get(Call, call_id)
         if not c:
             raise HTTPException(status_code=404, detail="call_not_found")
+        return _call_out(c)
+
+
+@router.patch("/calls/{call_id}/resolution", response_model=CallOut)
+def patch_call_resolution(
+    call_id: str,
+    payload: ResolutionIn,
+    tenant_id: str | None = Query(default=None),
+) -> dict[str, Any]:
+    """Record a staff resolution on an escalated or follow-up-required call.
+
+    `tenant_id` here is supplied by the client, so it is a consistency check
+    rather than a real security boundary — the same caveat that applies to
+    every other endpoint in this file while staff auth is still
+    localStorage-based. Genuine enforcement arrives with Supabase Auth
+    (PHASES.md Week 3 Day 11), which derives the tenant from the
+    authenticated session instead of trusting the caller.
+    """
+    with session_scope() as db:
+        c = db.get(Call, call_id)
+        if not c:
+            raise HTTPException(status_code=404, detail="call_not_found")
+        if tenant_id and c.tenant_id != tenant_id:
+            raise HTTPException(status_code=404, detail="call_not_found")
+        c.staff_resolution = payload.staff_resolution
+        c.staff_resolved_at = datetime.now(timezone.utc)
+        db.flush()
         return _call_out(c)
 
 
@@ -376,4 +410,13 @@ def _call_out(c: Call) -> dict[str, Any]:
         "escalated": bool(c.escalated),
         "transcript": transcript,
         "actions": actions,
+        "reason": c.reason or "",
+        "solution": c.solution or "",
+        "resolution_status": c.resolution_status or "",
+        "satisfaction": c.satisfaction or "",
+        "follow_up_required": bool(c.follow_up_required),
+        "staff_resolution": c.staff_resolution or "",
+        "staff_resolved_at": c.staff_resolved_at,
+        "sheet_synced": bool(c.sheet_synced),
+        "verified": bool(c.verified),
     }

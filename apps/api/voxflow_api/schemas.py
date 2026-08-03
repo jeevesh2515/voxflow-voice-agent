@@ -117,6 +117,20 @@ class CallOut(BaseModel):
     escalated: bool
     transcript: list[CallTurn]
     actions: list[CallAction]
+    # Structured call-outcome fields
+    reason: str
+    solution: str
+    resolution_status: str
+    satisfaction: str
+    follow_up_required: bool
+    staff_resolution: str
+    staff_resolved_at: datetime | None
+    sheet_synced: bool
+    verified: bool
+
+
+class ResolutionIn(BaseModel):
+    staff_resolution: str
 
 
 # ---------- LLM / Agent ----------

@@ -1,0 +1,18 @@
+# Optional: local (offline) speech-to-text.
+#
+# You do NOT need this to run or deploy VoxFlow. Production uses Groq's hosted
+# Whisper (STT_PROVIDER=groq), which is faster, free, and keeps the server
+# image small.
+#
+# Install this only if you want to develop with no network dependency on Groq:
+#
+#     pip install -r requirements.txt -r requirements-local.txt
+#     export STT_PROVIDER=local
+#
+# Expect ~2GB of extra install, ~2GB of RAM at runtime, and 1.5-3s per
+# utterance on a typical CPU.
+
+-r requirements.txt
+
+faster-whisper==1.1.0
+soundfile==0.12.1
