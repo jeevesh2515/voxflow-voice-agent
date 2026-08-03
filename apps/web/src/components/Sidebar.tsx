@@ -15,6 +15,7 @@ import {
   FileText,
   Zap,
   X,
+  AlertTriangle,
 } from "lucide-react";
 import clsx from "clsx";
 
@@ -22,6 +23,7 @@ const NAV = [
   { href: "/dashboard", label: "Overview", icon: LayoutDashboard },
   { href: "/dashboard/simulator", label: "Phone Simulator", icon: Phone },
   { href: "/dashboard/calls", label: "Calls", icon: PhoneCall },
+  { href: "/dashboard/escalations", label: "Escalations", icon: AlertTriangle },
   { href: "/dashboard/orders", label: "Orders", icon: Package },
   { href: "/dashboard/shipments", label: "Shipments", icon: Truck },
   { href: "/dashboard/stock", label: "Stock", icon: Boxes },

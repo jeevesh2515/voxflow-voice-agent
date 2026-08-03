@@ -13,7 +13,7 @@ repo. Read this before starting any day's work in PHASES.md.
 | Backend framework | FastAPI | Flask, Django (inconsistent with existing async design) |
 | ORM | SQLAlchemy 2.0 (moving to async engine) | raw `psycopg2` string queries, Django ORM |
 | LLM access | `openai`-compatible SDK against Groq/Ollama/OpenRouter | LangChain, LangGraph as a dependency — the existing `agent/runner.py` already implements the pattern LangGraph would give you; do not add the framework on top of a hand-rolled version of the same thing |
-| STT | `faster-whisper` (local) | Cloud STT APIs, unless a specific accuracy problem is proven first |
+| STT | **Groq hosted `whisper-large-v3-turbo`** (`STT_PROVIDER=groq`) | Do not make a local model the default again — see the 2026-08-02 deviation in §5. `faster-whisper` stays available as `STT_PROVIDER=local` for offline dev only. |
 | TTS | `edge-tts` | ElevenLabs, unless a specific quality problem is proven first — edge-tts is free and already integrated |
 | Telephony | Twilio (Voice + Media Streams) | Do not evaluate alternatives (Vonage, Plivo, etc.) until Twilio is proven insufficient |
 | Database | Supabase Postgres | Do not migrate vendors — see ARCHITECTURE.md section 2 |
@@ -91,3 +91,30 @@ repo:
 If a rule here turns out to be wrong once real Twilio integration or a
 real pilot conversation happens, update RULES.md explicitly and note the
 date and reason — don't silently work around it in code.
+
+### Logged deviations
+
+**2026-08-02 — STT moved from local `faster-whisper` to Groq hosted Whisper.**
+
+The original rule said "cloud STT only if a specific accuracy problem is
+proven first." The problem that actually forced the change was latency and
+hosting cost, not accuracy:
+
+- A `base` model on a small cloud CPU took 1.5-3s per utterance. Added to LLM
+  and TTS time, that put 4-6s of silence between the caller finishing a
+  sentence and the agent replying. On a phone call, silence reads as a dropped
+  line — this is the single most damaging failure mode the product has.
+- The local model forced ~2GB of RAM and a ~2.5GB image, which ruled out every
+  free-tier host and made always-on hosting a paid requirement. Always-on is
+  non-negotiable for inbound telephony: a sleeping backend is a missed call.
+
+Groq's `whisper-large-v3-turbo` returns in ~200-400ms, is free at pilot volume,
+and reuses the Groq key already in use for the LLM. The image drops to ~250MB.
+
+`faster-whisper` was not deleted — it is still selectable via
+`STT_PROVIDER=local` and lives in `requirements-local.txt`. The STT layer is
+now a provider factory mirroring the existing LLM factory, so switching back
+is a one-line env change.
+
+**Constraint that drove this:** the project owner requires everything to run
+server-side with nothing depending on a local machine.

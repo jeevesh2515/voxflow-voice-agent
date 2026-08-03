@@ -28,6 +28,7 @@ from .db import (
     Stock,
     Supplier,
     Tenant,
+    TenantPhoneNumber,
     init_db,
     reset_db,
     session_scope,
@@ -137,16 +138,36 @@ def seed(reset: bool = False) -> None:
     if reset:
         with session_scope() as db:
             now = datetime.now(timezone.utc)
-            # Sample PO for Varun
+            # --- Varun: a SIGNED, dispatched PO. The happy-path demo call. ---
             db.add(
                 Order(
                     id="PO-1717000000-001",
                     tenant_id="varun",
                     supplier_id="sup-varun-001",
-                    status="confirmed",
-                    items_json=json.dumps([{"sku": "PEP-250ML-12", "quantity": 50}]),
-                    total_qty=50,
+                    status="shipped",
+                    items_json=json.dumps([{"sku": "PEP-250ML-12", "quantity": 500}]),
+                    total_qty=500,
                     notes="Urgent delivery required before weekend.",
+                    customer_po_ref="VB/PO/2026/0912",
+                    po_signed=1,
+                    po_signed_at=now - timedelta(days=14),
+                    po_signed_by="Anita Desai",
+                    dispatched_at=now - timedelta(days=10),
+                    created_at=now - timedelta(days=16),
+                )
+            )
+            # --- Varun: an UNSIGNED PO, so you can demo the other answer. ---
+            db.add(
+                Order(
+                    id="PO-1717000000-004",
+                    tenant_id="varun",
+                    supplier_id="sup-varun-001",
+                    status="pending",
+                    items_json=json.dumps([{"sku": "PEP-250ML-12", "quantity": 120}]),
+                    total_qty=120,
+                    notes="Awaiting credit approval before we counter-sign.",
+                    customer_po_ref="VB/PO/2026/1001",
+                    po_signed=0,
                     created_at=now - timedelta(days=2),
                 )
             )
@@ -189,13 +210,29 @@ def seed(reset: bool = False) -> None:
                     tracking_no="VRL-998877",
                     expected_delivery=now + timedelta(days=1),
                     last_update=now - timedelta(hours=3),
+                    # `location` is what the agent reads out as "where it has
+                    # reached" — get_order_details uses the last entry.
                     history_json=json.dumps([
-                        {"at": (now - timedelta(days=1)).isoformat(), "status": "booked", "note": "Order processed"},
-                        {"at": (now - timedelta(hours=3)).isoformat(), "status": "in_transit", "note": "Dispatched from Gurgaon"},
+                        {"at": (now - timedelta(days=10)).isoformat(), "status": "booked",
+                         "location": "Gurgaon DC", "note": "Order processed"},
+                        {"at": (now - timedelta(days=9)).isoformat(), "status": "dispatched",
+                         "location": "Gurgaon DC", "note": "Handed to VRL Logistics"},
+                        {"at": (now - timedelta(hours=3)).isoformat(), "status": "in_transit",
+                         "location": "Ghaziabad Hub", "note": "In transit to destination"},
                     ]),
                 )
             )
             log.info("seed.shipments")
+
+            # --- Map demo Twilio numbers to tenants ---
+            # Replace these with your real Twilio number (see SETUP.md step 7).
+            for number, tid, label in (
+                ("+15550100001", "varun", "Varun Beverages support line"),
+                ("+15550100002", "amul", "Amul support line"),
+            ):
+                if not db.get(TenantPhoneNumber, number):
+                    db.add(TenantPhoneNumber(phone_number=number, tenant_id=tid, label=label))
+            log.info("seed.tenant_phone_numbers")
 
             # Sample Calls
             db.add(

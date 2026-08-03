@@ -1,0 +1,62 @@
+# VoxFlow production stack — Oracle Cloud Always Free (or any Docker host)
+#
+#   docker compose -f deploy/docker-compose.prod.yml up -d
+#
+# Two containers:
+#   caddy — terminates TLS with an automatic Let's Encrypt certificate and
+#           reverse-proxies to the API. Twilio rejects self-signed certs, so
+#           this is required, not optional.
+#   api   — the FastAPI backend. Not published to the host directly; only
+#           Caddy can reach it.
+#
+# The database is Supabase (managed, off-box) and STT/LLM are Groq, so there
+# is no Postgres or model server to run here. That is why this fits
+# comfortably on a free-tier VM.
+
+services:
+  caddy:
+    image: caddy:2-alpine
+    container_name: voxflow-caddy
+    restart: unless-stopped
+    ports:
+      - "80:80"     # required for the ACME HTTP challenge
+      - "443:443"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data      # persists certificates across restarts
+      - caddy_config:/config
+    environment:
+      # Your public hostname, e.g. voxflow.duckdns.org
+      - DOMAIN=${DOMAIN}
+      # Let's Encrypt uses this for expiry warnings
+      - ACME_EMAIL=${ACME_EMAIL}
+    depends_on:
+      - api
+
+  api:
+    build:
+      context: ../apps/api
+      dockerfile: Dockerfile
+    container_name: voxflow-api
+    restart: unless-stopped
+    env_file:
+      - ../.env
+    expose:
+      - "8000"
+    # Give the container a moment to fail loudly if config is wrong, rather
+    # than silently restart-looping.
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/api/health')"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 20s
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+volumes:
+  caddy_data:
+  caddy_config:

@@ -68,6 +68,9 @@ export interface CallAction {
   at: string;
 }
 
+export type ResolutionStatus = "resolved" | "partial" | "unresolved" | "";
+export type Satisfaction = "happy" | "neutral" | "unhappy" | "";
+
 export interface Call {
   id: string;
   started_at: string;
@@ -82,4 +85,14 @@ export interface Call {
   escalated: boolean;
   transcript: CallTurn[];
   actions: CallAction[];
+  // Structured call-outcome fields (may be empty string/null for old rows)
+  reason: string;
+  solution: string;
+  resolution_status: ResolutionStatus;
+  satisfaction: Satisfaction;
+  follow_up_required: boolean;
+  staff_resolution: string;
+  staff_resolved_at: string | null;
+  sheet_synced: boolean;
+  verified: boolean;
 }

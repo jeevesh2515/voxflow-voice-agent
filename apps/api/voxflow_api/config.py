@@ -9,6 +9,7 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
 LLMProvider = Literal["ollama", "groq", "openrouter"]
+STTProvider = Literal["local", "groq"]
 
 
 class Settings(BaseSettings):
@@ -34,6 +35,11 @@ class Settings(BaseSettings):
     openrouter_model: str = "meta-llama/llama-3.1-8b-instruct:free"
 
     # ----- Voice -----
+    # "groq"  = Groq whisper-large-v3-turbo, server-side (~200-400ms). Default.
+    # "local" = faster-whisper on this box (~1.5-3s, needs requirements-local.txt).
+    stt_provider: STTProvider = "groq"
+    groq_stt_model: str = "whisper-large-v3-turbo"
+
     whisper_model_size: str = "base"
     whisper_device: str = "auto"
     whisper_compute_type: str = "int8"
@@ -55,6 +61,29 @@ class Settings(BaseSettings):
     supabase_service_role_key: str = ""
     supabase_jwks_url: str = ""
     supabase_use_pooler: bool = False
+
+    # ----- Twilio -----
+    twilio_account_sid: str = ""
+    twilio_auth_token: str = ""
+    # Public https base URL of THIS backend, e.g. https://voxflow-api.up.railway.app
+    # Used to build the <Stream> URL in TwiML and to validate webhook signatures.
+    public_base_url: str = ""
+    # Reject unsigned/forged webhook requests. Keep true in production.
+    twilio_validate_signature: bool = True
+    # Tenant used when an inbound number isn't mapped in tenant_phone_numbers.
+    default_tenant_id: str = "varun"
+
+    # ----- Google Sheets (call-outcome log) -----
+    # Paste the full service-account JSON as a single-line env var, OR set
+    # google_service_account_file to a path on disk. JSON wins if both are set.
+    google_service_account_json: str = ""
+    google_service_account_file: str = ""
+    # The spreadsheet ID from its URL:
+    # docs.google.com/spreadsheets/d/<THIS_PART>/edit
+    google_sheet_id: str = ""
+    # Tab name inside that spreadsheet.
+    google_sheet_tab: str = "Call Log"
+    sheets_enabled: bool = False
 
     # ----- Logging -----
     log_level: str = "INFO"
