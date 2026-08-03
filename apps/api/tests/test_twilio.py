@@ -405,3 +405,126 @@ def test_mapped_number_resolves_to_its_own_tenant():
             )
 
     assert asyncio.run(tw._resolve_tenant("+14155550123")) == "acme"
+
+
+# ---------------------------------------------------------------------------
+# Vectorised codec equivalence
+#
+# mulaw_to_pcm / pcm_to_mulaw / resample_8k_to_16k / _rms are numpy table
+# lookups for speed. These tests pin them to the scalar reference
+# implementations (_ulaw2linear / linear_to_ulaw), which are what the G.711
+# spec is encoded in. If someone "optimises" further and changes a single
+# sample, these fail.
+# ---------------------------------------------------------------------------
+
+
+def _ref_mulaw_to_pcm(mulaw_bytes: bytes) -> bytes:
+    from voxflow_api.routes.twilio import _ulaw2linear
+
+    pcm = bytearray(len(mulaw_bytes) * 2)
+    for i, b in enumerate(mulaw_bytes):
+        struct.pack_into("<h", pcm, i * 2, _ulaw2linear(b))
+    return bytes(pcm)
+
+
+def _ref_pcm_to_mulaw(pcm_bytes: bytes) -> bytes:
+    from voxflow_api.routes.twilio import linear_to_ulaw
+
+    n = len(pcm_bytes) // 2
+    out = bytearray(n)
+    for i in range(n):
+        out[i] = linear_to_ulaw(struct.unpack_from("<h", pcm_bytes, i * 2)[0])
+    return bytes(out)
+
+
+def _ref_resample(pcm_8k: bytes) -> bytes:
+    n = len(pcm_8k) // 2
+    out = bytearray(n * 4)
+    for i in range(n):
+        s0 = struct.unpack_from("<h", pcm_8k, i * 2)[0]
+        out[i * 4 : i * 4 + 2] = struct.pack("<h", s0)
+        if i + 1 < n:
+            mid = (s0 + struct.unpack_from("<h", pcm_8k, (i + 1) * 2)[0]) // 2
+        else:
+            mid = s0
+        out[i * 4 + 2 : i * 4 + 4] = struct.pack("<h", mid)
+    return bytes(out)
+
+
+def test_mulaw_decode_matches_reference_for_every_codeword():
+    """All 256 possible μ-law bytes must decode identically."""
+    from voxflow_api.routes.twilio import mulaw_to_pcm
+
+    every = bytes(range(256))
+    assert mulaw_to_pcm(every) == _ref_mulaw_to_pcm(every)
+
+
+def test_mulaw_encode_matches_reference_for_every_int16():
+    """All 65536 int16 sample values must encode identically.
+
+    Exhaustive rather than sampled — the encode table is indexed by sample
+    value, so an off-by-one in the offset would corrupt audio subtly rather
+    than crash, and only show up as distortion on a live call.
+    """
+    from voxflow_api.routes.twilio import pcm_to_mulaw
+
+    every = b"".join(struct.pack("<h", s) for s in range(-32768, 32768))
+    assert pcm_to_mulaw(every) == _ref_pcm_to_mulaw(every)
+
+
+def test_resample_matches_reference_on_random_buffers():
+    import random
+
+    from voxflow_api.routes.twilio import resample_8k_to_16k
+
+    random.seed(1234)
+    for _ in range(50):
+        n = random.randint(0, 300)
+        buf = b"".join(struct.pack("<h", random.randint(-32768, 32767)) for _ in range(n))
+        assert resample_8k_to_16k(buf) == _ref_resample(buf)
+
+
+def test_rms_matches_reference_on_random_buffers():
+    import random
+
+    from voxflow_api.routes.twilio import _rms as fast_rms
+
+    random.seed(99)
+    for _ in range(50):
+        n = random.randint(1, 300)
+        buf = b"".join(struct.pack("<h", random.randint(-32768, 32767)) for _ in range(n))
+        expected = math.sqrt(
+            sum(struct.unpack_from("<h", buf, i * 2)[0] ** 2 for i in range(n)) / n
+        )
+        assert abs(fast_rms(buf) - expected) < 1e-9
+
+
+def test_codecs_handle_empty_and_odd_length_input():
+    """Frame boundaries can hand us an empty or truncated buffer."""
+    from voxflow_api.routes.twilio import (
+        _rms as fast_rms,
+        mulaw_to_pcm,
+        pcm_to_mulaw,
+        resample_8k_to_16k,
+    )
+
+    assert mulaw_to_pcm(b"") == b""
+    assert pcm_to_mulaw(b"") == b""
+    assert resample_8k_to_16k(b"") == b""
+    assert fast_rms(b"") == 0.0
+
+    # A stray odd byte must be dropped, not crash np.frombuffer.
+    assert pcm_to_mulaw(b"\x01") == b""
+    assert resample_8k_to_16k(b"\x01") == b""
+    assert fast_rms(b"\x01") == 0.0
+    assert len(pcm_to_mulaw(b"\x01\x02\x03")) == 1
+
+
+def test_roundtrip_through_both_codecs_is_stable():
+    """Encoding then decoding twice must converge (μ-law is lossy but idempotent)."""
+    from voxflow_api.routes.twilio import mulaw_to_pcm, pcm_to_mulaw
+
+    original = b"".join(struct.pack("<h", s) for s in range(-30000, 30000, 337))
+    once = mulaw_to_pcm(pcm_to_mulaw(original))
+    twice = mulaw_to_pcm(pcm_to_mulaw(once))
+    assert once == twice
