@@ -9,13 +9,13 @@ unreliable.
 
 ## Current Position
 
-**Last updated:** 2026-08-02
-**Currently on:** Inbound customer-support call flow is built and tested. The
-product now answers "have you signed our PO / what quantity / when did you send
-it / where has it reached", verifies who is asking before disclosing anything,
-and logs the outcome to Google Sheets.
-**Next action:** Deploy to Oracle Cloud following `SETUP.md`, then **make one
-real phone call**. Nothing further in Weeks 2-4 should start before that.
+**Last updated:** 2026-08-05
+**Currently on:** Code complete and deploy-ready. Oracle VM provisioned
+(`193.123.187.97`, `VM.Standard.E2.1.Micro`, 1 GB / 1-8th OCPU, uk-london-1),
+Docker installed, both firewall layers open, repo cloned.
+**Next action:** add swap → populate `.env` → `bash scripts/preflight.sh` →
+`docker compose ... up -d --build` → `python -m voxflow_api.selftest` → **make
+one real phone call**. Nothing in Weeks 3-4 should start before that call.
 
 ## Scope change (2026-08-02)
 
@@ -71,7 +71,26 @@ primary flow.
   webhook.
 - ✅ **Oracle Cloud Always Free deploy** — `deploy/docker-compose.prod.yml`
   plus Caddy for automatic TLS. Multi-stage non-root Dockerfile, ARM64-ready.
-- ✅ **`SETUP.md`** — complete walkthrough from zero to a live phone call.
+- ✅ **`SETUP.md`** — complete walkthrough from zero to a live phone call,
+  corrected for the machine actually in use.
+- ✅ **Audio codecs vectorised with numpy** — 17.1ms → 0.87ms of CPU per second
+  of call audio (20x). Verified byte-identical across all 256 μ-law codewords
+  and all 65536 int16 values. This is what makes a 1/8-OCPU instance viable
+  after A1 capacity turned out to be unobtainable.
+- ✅ **`scripts/preflight.sh`** — validates host, repo, `.env`, DNS and firewall
+  before the build. Catches the 6543-vs-5432 pooler mistake, a trailing slash in
+  `PUBLIC_BASE_URL`, `DOMAIN`/`PUBLIC_BASE_URL` mismatch, missing swap and closed
+  iptables. Never prints secret values.
+- ✅ **`python -m voxflow_api.selftest`** — exercises every component of a real
+  call except Twilio's transport: config, DB + migration detection, LLM, TTS,
+  the full codec chain, an **STT round-trip through the μ-law path**, and one
+  complete agent turn with tool calls. Prints the per-turn latency baseline.
+  Everything green ⇒ a failed call is Twilio configuration specifically.
+- ✅ **Google Sheets write is now non-blocking.** It used to be awaited mid-call
+  with a 10s HTTP timeout, so a slow Google response would have been heard by
+  the caller as up to ten seconds of dead air. It now runs as a background task
+  drained by `end_session()` after the caller hangs up, keeping `sheet_synced`
+  accurate at zero cost to the caller. Timeout also cut to 6s.
 
 ### Bugs found and fixed
 - ✅ **Calls were never persisted when the caller hung up mid-reply.**
@@ -139,6 +158,49 @@ better than the original local-Whisper estimates.)*
 - 2026-08-02 — **Google Sheets is a mirror, not the source of truth.** Postgres
   holds the record; Sheets is written best-effort so an outage can never take
   down a phone call.
+- 2026-08-05 — **Shape: `VM.Standard.E2.1.Micro`** (1 GB, 1/8 OCPU). Ampere A1
+  was out of capacity in every London AD across repeated attempts. Viable only
+  because the audio codecs were vectorised first.
+- 2026-08-05 — **Phone numbers:** UK (+44) for testing since the developer is
+  UK-based and will test from a UK mobile. **+91 is unobtainable** without an
+  Indian entity (TRAI requires local company + GST). For an Indian pilot the
+  route is the distributor **forwarding their existing landline** to our number,
+  which also keeps the number their callers already know. Production India means
+  an Indian provider (Exotel / Ozonetel / Knowlarity / Plivo) and a new adapter
+  beside `routes/twilio.py`; the pipeline and all 15 tools stay untouched.
+- 2026-08-05 — **`SHEETS_ENABLED=false` is the default and a supported state.**
+  Deferring Sheets loses nothing: outcomes are captured in full and persisted to
+  Postgres regardless.
+- 2026-08-05 — **Sheets writes are fire-and-forget during a call.** Dead air is
+  the worst failure this product can have, and it must never be caused by a
+  third party. If the process dies mid-write the row is still in Postgres with
+  `sheet_synced=0` — recoverable and visible.
+
+## Post-pilot backlog (deliberately NOT built yet)
+
+Ideas that are sound but must wait until a real call has succeeded — per
+RULES.md §4, one phase at a time.
+
+- **Outbound webhook fan-out.** Fire one fire-and-forget POST on call end
+  (`call_id`, company, reason, solution, resolution_status, satisfaction,
+  escalated, order ref) and let Zapier / Make / n8n do the downstream work:
+  append to Sheets, Slack the escalations, create a CRM task, email a digest.
+  Chosen over putting Zapier MCP in the tool loop because (a) a Zapier hop is
+  0.5-2s and would be heard as dead air, (b) Zapier's free tier is 100
+  tasks/month — one per call — and Starter at ~$20/mo would be 4x the entire
+  infra + Twilio bill, and (c) a third party has no business in the critical
+  path of a live call. A webhook keeps VoxFlow free of Zapier auth entirely and
+  lets new downstream apps be wired without touching this codebase again.
+  Roughly 40 minutes with tests. One `WEBHOOK_URL` env var.
+- **Apps Script Sheets writer** as an alternative to the service-account path,
+  for anyone blocked by the `iam.disableServiceAccountKeyCreation` org policy
+  (which Google now applies to new organisations by default). Runs as the sheet
+  owner, so no service account and nothing for a policy to disable.
+- Supabase Auth for staff (Week 3 Day 11) — currently `localStorage`.
+- Verify RLS against a live second tenant (Week 3 Day 12). More pressing than it
+  was: the Supabase project ref is in public git history at `93f5b04`.
+- Dashboard realtime (Week 3 Day 14).
+- Caller PIN for write actions (Week 3 Day 13).
 
 ## Next Session
 

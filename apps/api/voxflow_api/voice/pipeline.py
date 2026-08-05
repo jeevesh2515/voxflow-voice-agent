@@ -62,6 +62,10 @@ class CallSession:
     follow_up_required: bool = False
     related_order: str = ""
     sheet_synced: bool = False
+    # In-flight background Google Sheets write, if any. Deliberately NOT awaited
+    # during the call — see log_call_outcome. end_session() drains it once the
+    # caller has hung up, when waiting costs nothing.
+    sheet_task: Any = None
 
     def append_pcm(self, chunk: bytes) -> None:
         # ponytail: cap at 60s of 16kHz PCM (~1.9 MB) to prevent OOM
@@ -124,6 +128,7 @@ class VoicePipeline:
         if not session.resolution_status:
             session.outcome = outcome
         await self._log_abandoned_if_needed(session)
+        await self._drain_sheet_task(session)
         await self._persist(session)
         log.info(
             "call.ended",
@@ -193,6 +198,37 @@ class VoicePipeline:
         }
 
     # ---------- Persistence ----------
+
+    async def _drain_sheet_task(self, session: CallSession, timeout: float = 8.0) -> None:
+        """Wait for the background Google Sheets write, now the call has ended.
+
+        `log_call_outcome` deliberately does not await this — Google being slow
+        must never be heard as dead air by a live caller. By the time we get
+        here the caller has hung up, so waiting is free and lets us record
+        `sheet_synced` accurately before persisting.
+
+        A timeout is not an error: Postgres still holds the outcome with
+        sheet_synced=0, which is both recoverable and visible on the dashboard.
+        """
+        task = session.sheet_task
+        if task is None:
+            return
+        session.sheet_task = None
+        try:
+            result = await asyncio.wait_for(asyncio.shield(task), timeout=timeout)
+            session.sheet_synced = bool(result.get("ok"))
+            if not session.sheet_synced:
+                log.warning(
+                    "call.sheet_not_synced",
+                    call_id=session.call_id,
+                    reason=result.get("reason"),
+                )
+        except asyncio.TimeoutError:
+            log.warning("call.sheet_timeout", call_id=session.call_id, timeout=timeout)
+            session.sheet_synced = False
+        except Exception as e:
+            log.warning("call.sheet_failed", call_id=session.call_id, error=str(e))
+            session.sheet_synced = False
 
     async def _log_abandoned_if_needed(self, session: CallSession) -> None:
         """Write a Sheets row for calls that ended without a logged outcome.
