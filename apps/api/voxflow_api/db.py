@@ -37,13 +37,41 @@ from .config import get_settings
 
 _settings = get_settings()
 
-# Sync engine — for REST routes, CLI scripts
-_engine = create_engine(
-    _settings.database_url,
-    connect_args={"check_same_thread": False} if _settings.database_url.startswith("sqlite") else {},
-    echo=False,
-    future=True,
-)
+
+def _driver_hint(url: str, exc: ModuleNotFoundError) -> str:
+    """Turn an opaque missing-driver ImportError into something actionable.
+
+    SQLAlchemy imports the DBAPI eagerly when the engine is constructed, so a
+    missing driver blows up at *import* time of this module — long before any
+    query runs. Every module imports `db`, so the whole application fails to
+    start with nothing but `No module named 'psycopg2'` to go on.
+    """
+    missing = str(exc).split("'")[-2] if "'" in str(exc) else str(exc)
+    return (
+        f"Database driver {missing!r} is not installed, so the engine for "
+        f"{url.split('://', 1)[0]!r} cannot be created.\n"
+        "This project needs BOTH drivers for Postgres:\n"
+        "  psycopg2-binary  — the SYNC engine used by the dashboard REST routes\n"
+        "  asyncpg          — the ASYNC engine used by the agent tools\n"
+        "Fix: pip install -r apps/api/requirements.txt (and rebuild the image)."
+    )
+
+
+# Sync engine — for REST routes and CLI scripts.
+#
+# NOTE: two engines, two drivers. `routes/data.py` runs synchronously (FastAPI
+# puts those handlers in a threadpool) while the agent tools are async. Both
+# must be installable or the app cannot import at all.
+try:
+    _engine = create_engine(
+        _settings.database_url,
+        connect_args={"check_same_thread": False} if _settings.database_url.startswith("sqlite") else {},
+        echo=False,
+        future=True,
+    )
+except ModuleNotFoundError as e:  # pragma: no cover - exercised by test_db_drivers
+    raise RuntimeError(_driver_hint(_settings.database_url, e)) from e
+
 SessionLocal = sessionmaker(bind=_engine, autoflush=False, autocommit=False, expire_on_commit=False)
 
 # Async engine — for agent tool functions inside async handlers
@@ -63,11 +91,15 @@ def _pooled_url(url: str) -> str:
         ".supabase.co", ".pooler.supabase.co"
     )
 
-_async_engine = create_async_engine(
-    _async_db_url(_pooled_url(_settings.database_url)),
-    echo=False,
-    future=True,
-)
+try:
+    _async_engine = create_async_engine(
+        _async_db_url(_pooled_url(_settings.database_url)),
+        echo=False,
+        future=True,
+    )
+except ModuleNotFoundError as e:  # pragma: no cover - exercised by test_db_drivers
+    raise RuntimeError(_driver_hint(_settings.database_url, e)) from e
+
 AsyncSessionLocal = async_sessionmaker(bind=_async_engine, autoflush=False, expire_on_commit=False)
 
 

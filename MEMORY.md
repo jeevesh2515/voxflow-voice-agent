@@ -93,6 +93,23 @@ primary flow.
   accurate at zero cost to the caller. Timeout also cut to 6s.
 
 ### Bugs found and fixed
+- ✅ **The app could not start against Postgres at all.** `db.py` builds a
+  SYNCHRONOUS engine at import (the dashboard REST routes are sync), and
+  SQLAlchemy imports the DBAPI eagerly at engine construction.
+  `requirements.txt` declared `asyncpg` for the async engine but **no sync
+  Postgres driver**, so importing `voxflow_api.db` against a `postgresql://`
+  URL raised `ModuleNotFoundError: No module named 'psycopg2'`. Every module
+  imports `db`, so the whole app died at startup — and because the crash was at
+  *import* time, `python -m voxflow_api.selftest` printed nothing at all, which
+  looked like a broken command rather than a broken deployment.
+  **Why 86 tests missed it:** `conftest.py` pins every test to SQLite, which
+  needs no driver. The Postgres path had zero coverage. Fixed by adding
+  `psycopg2-binary`, converting the opaque ImportError into an actionable
+  message naming both drivers, and adding `tests/test_db_drivers.py` — 10 tests
+  that construct engines for the URLs we actually deploy with and spawn a
+  subprocess to import the full app against Postgres. Verified by uninstalling
+  psycopg2: 4 of the 10 fail, and pass again once restored.
+  *Found by the Antigravity agent, not by this suite.*
 - ✅ **Calls were never persisted when the caller hung up mid-reply.**
   `_finalize_stream` cancelled the outbound-audio task and awaited it inside a
   bare `except Exception`; `asyncio.CancelledError` inherits from
