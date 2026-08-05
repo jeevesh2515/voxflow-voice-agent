@@ -95,8 +95,16 @@ def test_async_url_rewrite_targets_installed_drivers():
         create_async_engine(_async_db_url(original))
 
 
-def test_pooler_rewrite_keeps_a_valid_url():
-    """SUPABASE_USE_POOLER swaps host and port; the result must still parse."""
+def test_pooled_url_never_rewrites_the_host():
+    """`_pooled_url` must leave DATABASE_URL alone, even with the flag on.
+
+    It used to rewrite `db.<ref>.supabase.co:5432` into
+    `db.<ref>.pooler.supabase.co:6543` — a hostname that does not exist.
+    Supabase's pooler is `aws-<region>.pooler.supabase.com` and needs a
+    tenant-qualified username, neither of which a string substitution can
+    invent. Silently mangling the URL is worse than doing nothing, so the
+    correct behaviour is now to pass it through untouched.
+    """
     from voxflow_api.config import get_settings
     from voxflow_api.db import _pooled_url
 
@@ -104,12 +112,41 @@ def test_pooler_rewrite_keeps_a_valid_url():
     original = s.supabase_use_pooler
     try:
         object.__setattr__(s, "supabase_use_pooler", True)
-        pooled = _pooled_url(PG_URL)
-        assert ":6543/" in pooled
-        assert "pooler.supabase.co" in pooled
-        create_engine(pooled, future=True)  # must still be a valid URL
+        assert _pooled_url(PG_URL) == PG_URL, "the flag must not rewrite the URL"
+        # Specifically, it must NOT resurrect the bogus hostname.
+        assert "pooler.supabase.co:" not in _pooled_url(PG_URL)
+        assert ":6543" not in _pooled_url(PG_URL)
     finally:
         object.__setattr__(s, "supabase_use_pooler", original)
+
+    # With the flag off it is likewise a pass-through.
+    assert _pooled_url(PG_URL) == PG_URL
+
+
+SESSION_POOLER_URL = (
+    "postgresql://postgres.abcdefgh:pw@aws-0-eu-west-2.pooler.supabase.com:5432/postgres"
+)
+
+
+def test_session_pooler_url_builds_both_engines():
+    """The endpoint we actually deploy against must work for sync AND async.
+
+    The direct endpoint (db.<ref>.supabase.co) is IPv6-only and unreachable from
+    an IPv4 host or any Docker container, so the session pooler is the real
+    production URL — it needs the same coverage.
+    """
+    sync = create_engine(SESSION_POOLER_URL, future=True)
+    assert sync.dialect.driver == "psycopg2"
+    assert "pooler.supabase.com" in str(sync.url)
+    assert sync.url.port == 5432
+    # Tenant-qualified username must survive URL parsing intact.
+    assert sync.url.username == "postgres.abcdefgh"
+
+    from voxflow_api.db import _async_db_url
+
+    a = create_async_engine(_async_db_url(SESSION_POOLER_URL))
+    assert a.dialect.driver == "asyncpg"
+    assert a.url.username == "postgres.abcdefgh"
 
 
 # ── the whole app must import against Postgres, not just SQLite ────────────

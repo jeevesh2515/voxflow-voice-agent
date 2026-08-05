@@ -100,17 +100,67 @@ done
 # ── Targeted correctness checks on values that are easy to get wrong ─────
 DB="$(getenv DATABASE_URL)"
 case "$DB" in
-  *sqlite*)   bad "DATABASE_URL is SQLite — production must point at Supabase Postgres" ;;
-  *:6543/*)   bad "DATABASE_URL uses port 6543 (transaction pooler). Use the DIRECT
-       connection on 5432 — this is a long-running server, not a serverless fn." ;;
+  *sqlite*)
+    bad "DATABASE_URL is SQLite — production must point at Supabase Postgres" ;;
+  *:6543/*)
+    bad "DATABASE_URL uses port 6543 — Supabase's TRANSACTION pooler. It does not
+       support prepared statements and is built for serverless functions.
+       Use the SESSION pooler on port 5432 instead (same host, different port)." ;;
+  *db.*.supabase.co*)
+    # The direct endpoint is IPv6-only. Docker containers have no IPv6 by
+    # default even when the host does, so this fails with
+    # OSError: [Errno 101] Network is unreachable — after the app has already
+    # started, which makes it look like a database problem rather than a
+    # networking one.
+    bad "DATABASE_URL uses the DIRECT endpoint (db.<ref>.supabase.co), which is
+       IPv6-ONLY. This host/container is almost certainly IPv4-only, so connects
+       fail with 'Network is unreachable'.
+       Use the SESSION POOLER instead — Supabase dashboard → Connect →
+       'Session pooler'. Note the username becomes tenant-qualified:
+         postgresql://postgres.<project-ref>:<password>@aws-<region>.pooler.supabase.com:5432/postgres" ;;
+  *pooler.supabase.com:5432*)
+    case "$DB" in
+      *YOUR-PASSWORD*|*\[YOUR*) bad "DATABASE_URL still contains the placeholder password" ;;
+      postgresql://postgres.*)   ok "DATABASE_URL is the IPv4 session pooler (correct)" ;;
+      *) bad "Session pooler requires a tenant-qualified username:
+       postgres.<project-ref>  (not plain 'postgres')" ;;
+    esac ;;
   postgresql://*)
     case "$DB" in
       *YOUR-PASSWORD*|*\[YOUR*) bad "DATABASE_URL still contains the placeholder password" ;;
-      *) ok "DATABASE_URL looks like a direct Postgres URI" ;;
+      *) warn "DATABASE_URL is Postgres but not a recognised Supabase endpoint" ;;
     esac ;;
   "") : ;;
   *) warn "DATABASE_URL does not look like a postgresql:// URI" ;;
 esac
+
+# Does this host even have IPv6? Explains the direct-endpoint failure outright.
+if [ -n "$DB" ]; then
+  if ip -6 route show default 2>/dev/null | grep -q .; then
+    ok "host has an IPv6 default route"
+  else
+    warn "host has NO IPv6 route — Supabase's direct endpoint cannot work here.
+       Only the session pooler (IPv4) will connect."
+  fi
+fi
+
+# Actually try to reach the database. Everything above is string inspection;
+# this is the only check that proves connectivity.
+DB_HOST=$(printf '%s' "$DB" | sed -n 's#.*@\([^:/]*\).*#\1#p')
+DB_PORT=$(printf '%s' "$DB" | sed -n 's#.*@[^:]*:\([0-9]*\).*#\1#p')
+if [ -n "$DB_HOST" ] && [ -n "$DB_PORT" ]; then
+  if command -v nc >/dev/null 2>&1; then
+    if nc -z -w 6 "$DB_HOST" "$DB_PORT" 2>/dev/null; then
+      ok "TCP reachable: $DB_HOST:$DB_PORT"
+    else
+      bad "CANNOT REACH $DB_HOST:$DB_PORT — the app will start and then fail
+       every query. If this is db.<ref>.supabase.co, it is the IPv6 problem
+       above; switch to the session pooler."
+    fi
+  else
+    warn "nc not installed — skipping the live database reachability probe"
+  fi
+fi
 
 PBU="$(getenv PUBLIC_BASE_URL)"
 case "$PBU" in
