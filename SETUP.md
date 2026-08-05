@@ -300,7 +300,7 @@ credentials and Sheets can both come later. When it says *Ready*:
 docker compose -f deploy/docker-compose.prod.yml up -d --build
 ```
 
-First build takes 3–5 minutes. Then check:
+First build takes 3–5 minutes (longer on E2.1.Micro). Then check:
 
 ```bash
 docker compose -f deploy/docker-compose.prod.yml logs -f
@@ -315,6 +315,36 @@ curl https://voxflow-yourname.duckdns.org/api/health
 ```
 
 If you get valid JSON over HTTPS, the hard part is done.
+
+### Now prove every component works — before touching Twilio
+
+```bash
+docker compose -f deploy/docker-compose.prod.yml exec api python -m voxflow_api.selftest
+```
+
+This exercises **everything a real call uses except Twilio's transport**, in the
+same order, and times each stage:
+
+- config and provider wiring
+- database connectivity, all 11 tables, and whether migration 001 actually ran
+- demo data presence
+- a real Groq LLM completion
+- edge-tts synthesis
+- the full audio codec chain (mp3 → 8kHz → μ-law → PCM → 16kHz)
+- **speech-to-text round-trip** — it synthesises a known phrase, pushes it
+  through the same μ-law path a phone call uses, and checks Whisper hears it
+  back. If that passes, your entire audio pipeline is proven.
+- one complete conversational turn with real tool calls against your database
+- a Google Sheets test row, if enabled
+
+It ends with your **per-turn latency baseline** — the number PHASES.md Week 1
+Day 4 asks for. Copy it into `MEMORY.md`.
+
+Everything green means a failed phone call afterwards is Twilio configuration
+specifically, not your stack. That is the whole point: you get one suspect
+instead of six.
+
+Add `--skip-audio` to run it without consuming Groq STT quota.
 
 ---
 
