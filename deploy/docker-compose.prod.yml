@@ -50,7 +50,14 @@ services:
       interval: 30s
       timeout: 5s
       retries: 3
-      start_period: 20s
+      start_period: 40s
+    # Sized for a 1GB always-free instance (VM.Standard.E2.1.Micro).
+    # Steady state is ~250MB. The cap stops a runaway from taking the whole
+    # box down with it — on a 1GB host that would kill Caddy too and drop the
+    # call. `mem_limit` (not deploy.resources, which is Swarm-only) is what
+    # plain `docker compose up` actually enforces. Raise on a bigger shape.
+    mem_limit: 640m
+    memswap_limit: 1g
     logging:
       driver: json-file
       options:
