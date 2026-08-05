@@ -17,11 +17,17 @@ pydantic==2.10.4
 pydantic-settings==2.7.0
 python-dotenv==1.0.1
 
-# Database
+# Database — TWO drivers are required for Postgres, not one.
+# db.py builds a SYNC engine (dashboard REST routes, CLI scripts) AND an ASYNC
+# engine (agent tools). SQLAlchemy imports the DBAPI eagerly at engine
+# construction, so omitting either one makes the whole app fail to import
+# against Supabase. Easy to miss because SQLite needs no driver at all, so the
+# test suite stays green while production cannot start.
 sqlalchemy==2.0.36
 alembic==1.14.0
-asyncpg==0.30.0
-aiosqlite==0.20.0
+psycopg2-binary==2.9.10   # SYNC Postgres  — routes/data.py
+asyncpg==0.30.0           # ASYNC Postgres — agent tools
+aiosqlite==0.20.0         # ASYNC SQLite   — tests / local dev
 greenlet==3.5.4
 cachetools==5.5.0
 
