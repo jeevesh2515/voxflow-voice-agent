@@ -94,9 +94,15 @@ unpause it from the dashboard.
 
 ---
 
-## Step 3 — Google Sheets (the call log)
+## Step 3 — Google Sheets (the call log) — OPTIONAL
 
 This is where your ops team reads why people called and whether they left happy.
+
+> **You can skip this entirely for now.** Set `SHEETS_ENABLED=false` in `.env`
+> and deploy. Every call outcome is still captured in full and still written to
+> Postgres and the dashboard — Sheets is a human-facing mirror, not the source
+> of truth. Come back and flip it to `true` later; no rebuild needed, just
+> `docker compose -f deploy/docker-compose.prod.yml up -d` to reload the env.
 
 1. Create a new Google Sheet. Name the first tab exactly **`Call Log`**.
 2. From the URL, copy the ID:
@@ -139,22 +145,44 @@ GOOGLE_SERVICE_ACCOUNT_JSON='{"type":"service_account","project_id":"..."}'
 1. **cloud.oracle.com** → sign in → **Compute → Instances → Create instance**.
 2. **Name:** `voxflow-api`
 3. **Image:** Canonical **Ubuntu 24.04**
-4. **Shape:** click **Change shape** → **Ampere** → `VM.Standard.A1.Flex`
-   → set **1 OCPU / 6 GB RAM**. This is inside the Always Free allowance.
+4. **Shape:** click **Change shape**, then pick whichever of these you can get:
+
+   | Shape | Specs | Availability |
+   |---|---|---|
+   | **Ampere** `VM.Standard.A1.Flex` | 1 OCPU / 6 GB | Often **out of capacity** |
+   | **AMD** `VM.Standard.E2.1.Micro` | 1/8 OCPU / 1 GB | Nearly always available |
+
+   Both are Always Free. **E2.1.Micro is a perfectly good target** — the
+   container idles around 250 MB, and the audio codecs are numpy-vectorised
+   (0.09% of a core per call), so 1 GB and an eighth-core are sufficient.
+
+   Do not exceed 1 OCPU / 6 GB on A1: the Always Free ARM allowance is
+   2 OCPU / 12 GB capped at 1,500 OCPU-hours per month, and 2 OCPUs running
+   24/7 uses 1,460 of them — one restart and you are billed.
 5. **SSH keys:** choose **Generate a key pair** and **download the private
    key**. You cannot download it later.
 6. Make sure **Assign a public IPv4 address** is enabled.
 7. **Create**.
 
-> **If Oracle says "Out of capacity"** — this is common for Ampere A1 and is
-> not something you did wrong. Two options:
-> - Retry every few hours, or try a different Availability Domain in the region.
-> - Or switch the shape to **`VM.Standard.E2.1.Micro`** (AMD, 1 OCPU, 1 GB RAM),
->   which is also Always Free and almost always available. VoxFlow's container
->   idles around 250 MB, so 1 GB is genuinely enough — this is a perfectly
->   good fallback, not a downgrade you'll regret.
+> **"Out of capacity" on A1 is normal**, not your mistake. Cycle the
+> Availability Domain (London has three: AD-1, AD-2, AD-3) — that alone often
+> works. If all three are full, either retry in a few hours (capacity frees up
+> constantly, best odds very early morning) or take `VM.Standard.E2.1.Micro`
+> and move on.
 
 Note the **public IP address** once it boots.
+
+> **Build the network FIRST, separately.** If you let the instance wizard
+> create the VCN inline, it can produce a subnet with no Internet Gateway —
+> a *private* subnet. The "Assign a public IPv4 address" toggle then stays
+> permanently greyed out with only a small warning to explain why, and no
+> amount of clicking will move it.
+>
+> Before creating the instance: **Networking → Virtual Cloud Networks →
+> Start VCN Wizard → "Create VCN with Internet Connectivity"**. That builds
+> the VCN, a genuine public subnet, an Internet Gateway and the route rules
+> in one step. Then in the instance wizard just *select* that existing VCN
+> and its public subnet, and the toggle works.
 
 ### 4.2 Open the firewall — both layers
 
@@ -185,7 +213,23 @@ sudo iptables -I INPUT 6 -m state --state NEW -p tcp --dport 443 -j ACCEPT
 sudo netfilter-persistent save
 ```
 
-### 4.3 Install Docker
+### 4.3 Add swap (required on a 1 GB instance)
+
+Oracle's images ship with **zero swap**. At runtime that is fine, but the
+Docker build compiles numpy/PyAV wheels and briefly needs more than 1 GB —
+with no swap the kernel OOM-kills it and you get a bare `Killed` with no
+explanation.
+
+```bash
+sudo fallocate -l 2G /swapfile
+sudo chmod 600 /swapfile
+sudo mkswap /swapfile
+sudo swapon /swapfile
+echo '/swapfile none swap sw 0 0' | sudo tee -a /etc/fstab
+free -h        # confirm the Swap row is no longer 0B
+```
+
+### 4.4 Install Docker
 
 ```bash
 curl -fsSL https://get.docker.com | sudo sh
@@ -239,7 +283,18 @@ ACME_EMAIL=you@example.com
 API_CORS_ORIGINS=https://voxflow-voice-agent.vercel.app
 ```
 
-Save (`Ctrl+O`, `Enter`, `Ctrl+X`), then start it:
+Save (`Ctrl+O`, `Enter`, `Ctrl+X`).
+
+**Now run the pre-flight check before building.** It validates every value you
+just entered plus the host, DNS and firewall, and names the exact problem
+instead of letting you discover it three minutes into a build:
+
+```bash
+bash scripts/preflight.sh
+```
+
+Fix anything it marks ❌. Warnings (⚠️) are fine to proceed with — Twilio
+credentials and Sheets can both come later. When it says *Ready*:
 
 ```bash
 docker compose -f deploy/docker-compose.prod.yml up -d --build
@@ -265,9 +320,23 @@ If you get valid JSON over HTTPS, the hard part is done.
 
 ## Step 7 — Twilio
 
-1. **console.twilio.com** → **Phone Numbers → Buy a number**.
-   Choose a **US** number (~$1.15/mo) with **Voice** capability. Indian numbers
-   need KYC paperwork and cost considerably more — use US for now.
+1. **console.twilio.com** → **Phone Numbers → Buy a number**, with **Voice**
+   capability.
+
+   - **UK number (+44)** if you are UK-based and will be test-calling from a UK
+     phone — it is a local call from your own mobile, usually inclusive in your
+     plan. Twilio asks for a regulatory bundle (proof of address); approval can
+     take a day.
+   - **US number (+1)** if you want to start immediately — no paperwork, but
+     every test call costs you international rates.
+
+   **You cannot get an Indian (+91) number** as a non-Indian entity: TRAI
+   requires a local company with GST registration. For an Indian pilot the
+   practical route is to have the distributor **forward their existing landline**
+   to your Twilio number — which also means callers keep dialling the number
+   they already know. Production India eventually means an Indian provider
+   (Exotel / Ozonetel / Knowlarity / Plivo) and a new adapter alongside
+   `routes/twilio.py`; the pipeline and all 15 tools stay untouched.
 2. Open the number's settings. Under **Voice Configuration**:
    - **A call comes in:** `Webhook`
    - **URL:** `https://voxflow-yourname.duckdns.org/twilio/voice`
@@ -343,6 +412,11 @@ Then check all three places:
 | Agent responds slowly | Falling back to local Whisper | Confirm `STT_PROVIDER=groq` |
 | DB connection refused | Using the pooler port | Use the direct URI on port 5432 |
 | Supabase suddenly unreachable | Free project auto-paused | Unpause in the Supabase dashboard |
+| "Public IPv4" toggle greyed out | Subnet is private (no Internet Gateway) | Rebuild the VCN with the VCN Wizard — see step 4.1 |
+| A1 shape "out of host capacity" | Free ARM capacity exhausted | Cycle AD-1/2/3, or use `VM.Standard.E2.1.Micro` |
+| Docker build dies with `Killed` | OOM — 1GB box with no swap | Add 2GB swap, step 4.3 |
+| Server unreachable, no error anywhere | VM iptables not opened | Step 4.2 — Oracle firewalls in **two** places |
+| Deployment fails and you can't tell why | — | Run `bash scripts/preflight.sh` first; it names the cause |
 
 Useful commands:
 
