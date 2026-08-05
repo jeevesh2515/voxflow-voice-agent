@@ -9,6 +9,7 @@ Supports multi-tenant isolation via `tenant_id` foreign keys.
 
 from __future__ import annotations
 
+import logging
 from contextlib import asynccontextmanager, contextmanager
 from datetime import datetime, timezone
 from typing import AsyncIterator, Iterator
@@ -33,6 +34,9 @@ from sqlalchemy.orm import (
 )
 
 from .config import get_settings
+
+
+log = logging.getLogger(__name__)
 
 
 _settings = get_settings()
@@ -84,12 +88,38 @@ def _async_db_url(url: str) -> str:
 
 
 def _pooled_url(url: str) -> str:
-    switch = _settings.supabase_use_pooler
-    if not switch:
-        return url
-    return url.replace(":5432/", ":6543/").replace(
-        ".supabase.co", ".pooler.supabase.co"
-    )
+    """DEPRECATED no-op. Put the full pooler URL in DATABASE_URL instead.
+
+    This used to rewrite `db.<ref>.supabase.co:5432` into
+    `db.<ref>.pooler.supabase.co:6543`. That hostname does not exist — Supabase's
+    pooler lives at `aws-<region>.pooler.supabase.com` and the username must be
+    tenant-qualified as `postgres.<project-ref>`. The rewrite could only ever
+    produce an unresolvable URL, so it now returns the URL untouched.
+
+    Which endpoint you actually want:
+
+      Direct        db.<ref>.supabase.co:5432
+                    IPv6-ONLY. Unreachable from an IPv4-only host, and Docker
+                    containers have no IPv6 by default even when the host does.
+                    Fails with OSError [Errno 101] Network is unreachable.
+
+      Session pool  aws-<region>.pooler.supabase.com:5432   ← USE THIS
+                    IPv4. Session mode, so it behaves like a direct connection
+                    and supports prepared statements. Correct for a
+                    long-running server such as this one.
+
+      Txn pool      aws-<region>.pooler.supabase.com:6543
+                    IPv4 but TRANSACTION mode — no prepared statements. Built
+                    for serverless functions, wrong for this app.
+    """
+    if _settings.supabase_use_pooler:
+        log.warning(
+            "SUPABASE_USE_POOLER is deprecated and does nothing. Put the full "
+            "session-pooler URL in DATABASE_URL: "
+            "postgresql://postgres.<project-ref>:<password>"
+            "@aws-<region>.pooler.supabase.com:5432/postgres"
+        )
+    return url
 
 try:
     _async_engine = create_async_engine(

@@ -80,11 +80,27 @@ speech recognition.
    base tables.
 4. **New query** again. Paste all of `migrations/001_customer_support_flow.sql`
    and **Run**. That adds PO signing, call outcomes, and tenant phone mapping.
-5. Go to **Project Settings → Database → Connection string → URI**.
-   Copy it, and replace `[YOUR-PASSWORD]` with the password from step 1.
+5. Click **Connect** (top of the dashboard) and choose **Session pooler**.
+   Copy that URI and replace `[YOUR-PASSWORD]` with the password from step 1.
 
-> Use the **direct** connection on port **5432** — not the transaction pooler
-> on 6543. VoxFlow is a long-running server; the pooler is for serverless.
+> **Use the SESSION POOLER, not the direct connection.** Supabase has three
+> endpoints and only one of them works here:
+>
+> | Endpoint | Port | Verdict |
+> |---|---|---|
+> | Direct `db.<ref>.supabase.co` | 5432 | ❌ **IPv6-only.** Oracle VCNs are IPv4-only, and Docker containers have no IPv6 even when the host does. Fails with `OSError: [Errno 101] Network is unreachable`. |
+> | **Session pooler** `aws-<region>.pooler.supabase.com` | **5432** | ✅ **Use this.** IPv4, session mode, supports prepared statements, behaves like a direct connection. |
+> | Transaction pooler, same host | 6543 | ❌ IPv4 but transaction mode — no prepared statements. Built for serverless. |
+>
+> The session-pooler username is **tenant-qualified** — `postgres.<project-ref>`,
+> not plain `postgres`. Miss that and auth fails:
+>
+> ```
+> postgresql://postgres.abcdefgh:PASSWORD@aws-0-eu-west-2.pooler.supabase.com:5432/postgres
+> ```
+>
+> `scripts/preflight.sh` checks all of this, including whether the host has an
+> IPv6 route and whether the database is actually reachable over TCP.
 
 Keep this for `DATABASE_URL`.
 
@@ -442,6 +458,8 @@ Then check all three places:
 | Agent responds slowly | Falling back to local Whisper | Confirm `STT_PROVIDER=groq` |
 | DB connection refused | Using the pooler port | Use the direct URI on port 5432 |
 | Supabase suddenly unreachable | Free project auto-paused | Unpause in the Supabase dashboard |
+| `OSError: [Errno 101] Network is unreachable` on DB connect | Using the IPv6-only direct endpoint | Switch to the **session pooler** on 5432 (step 2) |
+| DB auth fails on the pooler | Username not tenant-qualified | Use `postgres.<project-ref>`, not `postgres` |
 | "Public IPv4" toggle greyed out | Subnet is private (no Internet Gateway) | Rebuild the VCN with the VCN Wizard — see step 4.1 |
 | A1 shape "out of host capacity" | Free ARM capacity exhausted | Cycle AD-1/2/3, or use `VM.Standard.E2.1.Micro` |
 | Docker build dies with `Killed` | OOM — 1GB box with no swap | Add 2GB swap, step 4.3 |
