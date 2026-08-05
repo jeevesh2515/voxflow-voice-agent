@@ -4,6 +4,7 @@ backed by the SQLite/Postgres database. Multi-tenant aware via `session.tenant_i
 
 from __future__ import annotations
 
+import asyncio
 import json
 import time
 import uuid
@@ -506,8 +507,27 @@ async def log_call_outcome(
         "related_order": session.related_order,
     }
 
-    sheet_result = await get_sheets_client().append_call_outcome(row)
-    session.sheet_synced = bool(sheet_result.get("ok"))
+    # Fire the Sheets write in the BACKGROUND. This tool runs while the caller
+    # is still on the line, and a slow Google response would otherwise be heard
+    # as dead air — the worst failure mode this product has. The task is handed
+    # to the session so end_session() can drain it after the caller hangs up,
+    # which keeps `sheet_synced` accurate without costing the caller anything.
+    #
+    # If the process dies before the task completes, the row is still safe in
+    # Postgres with sheet_synced=0, so it is recoverable and visible.
+    sheet_pending = False
+    if get_sheets_client().is_configured():
+        try:
+            session.sheet_task = asyncio.create_task(
+                get_sheets_client().append_call_outcome(row)
+            )
+            sheet_pending = True
+        except RuntimeError:
+            # No running loop (direct/synchronous invocation, e.g. a test).
+            result = await get_sheets_client().append_call_outcome(row)
+            session.sheet_synced = bool(result.get("ok"))
+    else:
+        session.sheet_synced = False
 
     # Always keep a local audit row, even when Sheets is off or failing.
     async with async_session_scope() as db:
@@ -525,15 +545,16 @@ async def log_call_outcome(
         call_id=session.call_id,
         resolution=resolution_status,
         satisfaction=satisfaction,
-        sheet_ok=session.sheet_synced,
+        sheet="pending" if sheet_pending else ("ok" if session.sheet_synced else "off"),
     )
     return {
         "ok": True,
         "logged": True,
         "resolution_status": resolution_status,
         "satisfaction": satisfaction,
-        "sheet_synced": session.sheet_synced,
-        "sheet_detail": sheet_result.get("reason", ""),
+        # "pending" tells the model the write is in flight so it doesn't claim
+        # to the caller that the record is definitely filed.
+        "sheet_synced": "pending" if sheet_pending else session.sheet_synced,
     }
 
 

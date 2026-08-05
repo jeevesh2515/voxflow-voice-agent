@@ -535,3 +535,115 @@ def test_resolution_patch_rejects_a_tenant_mismatch():
         json={"staff_resolution": "should not apply"},
     )
     assert r.status_code == 404
+
+
+# ---------------------------------------------------------- non-blocking Sheets
+
+
+def test_outcome_logging_does_not_block_the_caller_on_a_slow_sheet():
+    """The single worst failure mode this product can have is dead air.
+
+    log_call_outcome runs while the caller is still on the line. If Google is
+    slow, the caller must NOT hear the delay — the write goes to a background
+    task instead.
+    """
+    import asyncio as aio
+    import time as _time
+
+    from voxflow_api.integrations import gsheets
+
+    SLOW = 3.0  # seconds Google "takes"
+
+    class _SlowSheets:
+        @staticmethod
+        def is_configured() -> bool:
+            return True
+
+        @staticmethod
+        async def append_call_outcome(row):
+            await aio.sleep(SLOW)
+            return {"ok": True, "updated_range": "Call Log!A2"}
+
+    async def scenario():
+        s = _session(verified=True)
+        t0 = _time.perf_counter()
+        result = await tools.log_call_outcome(
+            s, reason="slow sheet", solution="x",
+            resolution_status="resolved", satisfaction="happy",
+        )
+        elapsed = _time.perf_counter() - t0
+        return s, result, elapsed
+
+    original = gsheets.get_sheets_client
+    tools_original = tools.get_sheets_client
+    gsheets.get_sheets_client = lambda: _SlowSheets()      # type: ignore[assignment]
+    tools.get_sheets_client = lambda: _SlowSheets()        # type: ignore[assignment]
+    try:
+        s, result, elapsed = asyncio.run(scenario())
+    finally:
+        gsheets.get_sheets_client = original               # type: ignore[assignment]
+        tools.get_sheets_client = tools_original           # type: ignore[assignment]
+
+    # The tool returned essentially immediately, NOT after SLOW seconds.
+    assert elapsed < 1.0, f"caller waited {elapsed:.2f}s on Google — must be ~0"
+    assert result["ok"] is True
+    assert result["sheet_synced"] == "pending"
+    # The outcome data is already safe on the session for Postgres.
+    assert s.resolution_status == "resolved"
+    assert s.satisfaction == "happy"
+
+
+def test_end_session_drains_the_background_sheet_write():
+    """After the caller hangs up, waiting is free — so sheet_synced becomes accurate."""
+    from voxflow_api.voice.pipeline import VoicePipeline
+
+    async def scenario():
+        s = _session(verified=True)
+        s.resolution_status = "resolved"  # pretend the outcome was logged
+
+        async def slow_ok():
+            await asyncio.sleep(0.05)
+            return {"ok": True, "updated_range": "Call Log!A9"}
+
+        s.sheet_task = asyncio.create_task(slow_ok())
+        pipeline = VoicePipeline.__new__(VoicePipeline)
+        await pipeline._drain_sheet_task(s)
+        return s
+
+    s = asyncio.run(scenario())
+    assert s.sheet_synced is True
+    assert s.sheet_task is None
+
+
+def test_end_session_gives_up_on_a_hung_sheet_write_without_hanging():
+    """A wedged Google request must not hold the call session open forever."""
+    from voxflow_api.voice.pipeline import VoicePipeline
+
+    async def scenario():
+        s = _session(verified=True)
+
+        async def never_returns():
+            await asyncio.sleep(60)
+            return {"ok": True}
+
+        s.sheet_task = asyncio.create_task(never_returns())
+        pipeline = VoicePipeline.__new__(VoicePipeline)
+        import time as _t
+        t0 = _t.perf_counter()
+        await pipeline._drain_sheet_task(s, timeout=0.2)
+        return s, _t.perf_counter() - t0
+
+    s, elapsed = asyncio.run(scenario())
+    assert elapsed < 2.0, f"drain took {elapsed:.2f}s — the timeout did not hold"
+    # Not synced, but recorded as such: the row is still in Postgres.
+    assert s.sheet_synced is False
+
+
+def test_drain_is_a_noop_when_sheets_is_disabled():
+    from voxflow_api.voice.pipeline import VoicePipeline
+
+    s = _session(verified=True)
+    assert s.sheet_task is None
+    pipeline = VoicePipeline.__new__(VoicePipeline)
+    asyncio.run(pipeline._drain_sheet_task(s))
+    assert s.sheet_synced is False

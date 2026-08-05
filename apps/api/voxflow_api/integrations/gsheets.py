@@ -193,7 +193,9 @@ class GoogleSheetsClient:
 
         row = ["" if v is None else v for v in values]
         try:
-            async with httpx.AsyncClient(timeout=10.0) as client:
+            # 6s, not 10: this runs on the call path's coat-tails and a
+            # long hang is worse than a missed row (Postgres still has it).
+            async with httpx.AsyncClient(timeout=6.0) as client:
                 if headers:
                     await self._ensure_header(client, token, tab, headers)
 

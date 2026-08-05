@@ -93,11 +93,13 @@ top.
 - [x] Add timing logs around: STT, each LLM iteration, each DB call, TTS
       (some of this existed already in `runner.py`'s `llm.turn` log —
       extended to cover STT, TTS, tool execution, and DB persist)
-- [ ] Run 5 test conversations through the browser simulator, record
-      per-step timings — **requires running server + browser, not a CLI
-      task; run before Week 2 Day 6**
-- [ ] Write the baseline numbers into `MEMORY.md` under a "Latency
-      Baseline" note — **do after running simulator**
+- [x] A way to measure this without a browser — `python -m voxflow_api.selftest`
+      times STT, LLM, TTS and a full agent turn (incl. tools + DB) and prints a
+      per-turn total with a verdict. Supersedes the "5 conversations through the
+      simulator" plan: no browser, no microphone, runnable on the server.
+- [ ] **Run it against the deployed instance and paste the numbers into
+      `MEMORY.md` → "Latency Baseline".** Still outstanding — the tool exists,
+      the measurement has not been taken.
 
 **Definition of Done:** You have real numbers (not guesses) for STT/LLM/DB/
 TTS latency per turn, recorded somewhere you'll reference again after
@@ -136,6 +138,12 @@ before wiring in STT/agent/TTS.
 
 **Definition of Done:** Calling the Twilio number produces audible audio
 from your server — proves the basic webhook + TwiML path works.
+
+> **STILL UNMET as of 2026-08-05.** Every layer below the telephony transport is
+> now verifiable without a phone via `python -m voxflow_api.selftest`. What
+> remains genuinely unproven is Twilio itself: the webhook, the Media Stream
+> WebSocket, and real network audio. Do not mark Days 6-9 done until a real call
+> has completed.
 
 ### Day 7 — Media Streams WebSocket
 
