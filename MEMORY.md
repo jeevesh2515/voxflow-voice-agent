@@ -125,6 +125,30 @@ primary flow.
   raised — but Starlette's TestClient never surfaces the server's close frame,
   so the whole suite hung indefinitely.
 
+- ✅ **Caller identification could match an arbitrary company** (2026-08-06).
+  Three defects at once, all live while the self-test was green.
+  (a) `lookup_supplier` stripped non-digits from the phone argument and matched
+  `LIKE '%<digits>%'`. The model passed the literal string `"caller's phone
+  number"` — because `caller_phone` was in *no* message sent to the LLM, while
+  the prompt claimed "you already have it from the call metadata" — so the
+  filter reduced to `LIKE '%'`, matching every supplier. `.first()` returned an
+  arbitrary company and `session.supplier_id` was set to it, which is the
+  record `verify_caller` checks against.
+  (b) The result returned `city`, `gstin` and `contact_person` — the exact three
+  values `verify_caller` accepts as its second factor. The model was shown the
+  answers to its own security question and can pass back what it read instead of
+  what the caller said, so two-factor verification was theatre.
+  (c) The TTL cache keyed on (tenant, phone, name) but not verification state,
+  so a verified call cached the full record and the next *unverified* caller was
+  served it from cache. Found by the new tests, not by inspection.
+  Fixed: fall back to `session.caller_phone`, never filter on <7 digits, withhold
+  all three secrets until verified, add verification state to the cache key, add
+  `session.identified_by_phone`, and inject a CALL CONTEXT system message with
+  the real number. 19 regression tests in `tests/test_caller_identification.py`.
+  **Lesson: the self-test was green through all of this.** It asserted that a
+  tool was called, not that the right thing happened. Green means "nothing threw",
+  never "the behaviour is correct".
+
 ## What's Known to Be Incomplete or Wrong
 
 - ❌ **No real phone call has been made.** Every layer is implemented and
