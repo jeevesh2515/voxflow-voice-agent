@@ -135,7 +135,17 @@ def seed(reset: bool = False) -> None:
             log.info("seed.stock")
 
     # History (Orders, Shipments, Calls, Appointments, Logs)
-    if reset:
+    #
+    # This used to be `if reset:`, which meant a plain `python -m voxflow_api.seed`
+    # produced tenants, products, suppliers and stock but NOT A SINGLE ORDER —
+    # and orders are the only thing the customer-support flow actually reads.
+    # You would seed, see "seed.done", ring in to ask whether your PO had been
+    # signed, and the agent would correctly report that no such order exists.
+    # Gate on emptiness like every block above; `--reset` still means "drop the
+    # tables first", which is a separate concern from "is there data yet".
+    with session_scope() as _probe:
+        _history_empty = _probe.query(Order).count() == 0
+    if _history_empty:
         with session_scope() as db:
             now = datetime.now(timezone.utc)
             # --- Varun: a SIGNED, dispatched PO. The happy-path demo call. ---
