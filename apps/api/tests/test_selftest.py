@@ -111,7 +111,9 @@ def test_database_check_names_missing_tables(monkeypatch):
     status, detail, hint = asyncio.run(selftest.check_database())
     assert status == FAIL
     assert "a_table_that_is_not_there" in detail
-    assert "schema.md" in hint
+    # The hint must name the file to run. It used to say "schema.md section 1",
+    # which meant copying fenced SQL out of a markdown doc in two pieces.
+    assert "000_base_schema.sql" in hint
 
 
 # ── audio path (no network — uses the MP3 fixture) ─────────────────────────

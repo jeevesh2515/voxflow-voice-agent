@@ -192,8 +192,11 @@ async def check_database() -> tuple[str, str, str]:
         return (
             FAIL,
             f"{len(tables)} tables present; missing: {', '.join(missing_tables)}",
-            "Run schema.md section 1 DDL, THEN migrations/001_customer_support_flow.sql\n"
-            "in the Supabase SQL Editor, in that order.",
+            "The database is empty. In the Supabase dashboard → SQL Editor → New query,\n"
+            "paste migrations/000_base_schema.sql and Run. That one file creates every\n"
+            "table, index and RLS policy, and is generated from the ORM models so it\n"
+            "cannot disagree with the code. Then seed: docker compose ... exec api\n"
+            "python -m voxflow_api.seed",
         )
 
     missing_cols = [
@@ -473,11 +476,33 @@ async def check_sheets() -> tuple[str, str, str]:
         "duration_sec": 0, "related_order": "-",
     })
     if not res.get("ok"):
-        return (
-            FAIL, f"append failed: {res.get('reason')} {res.get('detail','')}",
-            "Most likely cause: the spreadsheet is not shared with the service-account\n"
-            "email as Editor. That failure is silent from Google's side.",
-        )
+        # Google's status code says exactly what is wrong. The previous hint
+        # blamed sharing for every failure, which sent debugging in the wrong
+        # direction for a 400 (a malformed range — a bug on our side).
+        reason = str(res.get("reason", ""))
+        detail = str(res.get("detail", ""))
+        if reason == "http_403" or "PERMISSION_DENIED" in detail:
+            hint = (
+                "403 = the service account cannot open this spreadsheet.\n"
+                "Open the sheet → Share → paste the client_email from your service-account\n"
+                "JSON → Editor. Sharing failures are silent until you look here."
+            )
+        elif reason == "http_404":
+            hint = "404 = GOOGLE_SHEET_ID is wrong. It is the long id in the sheet's URL,\nbetween /d/ and /edit."
+        elif reason == "http_400":
+            hint = (
+                "400 = the range was rejected, which is our bug, not your configuration.\n"
+                "Tab names with spaces must be quoted in A1 notation. Check GOOGLE_SHEET_TAB\n"
+                "and confirm the image is current (compare the fingerprint above)."
+            )
+        elif reason == "auth_failed":
+            hint = (
+                "The service-account JSON did not mint a token. Check GOOGLE_CREDENTIALS_JSON\n"
+                "is valid JSON and that the Sheets API is enabled on that Google Cloud project."
+            )
+        else:
+            hint = "Check GOOGLE_SHEET_ID, GOOGLE_SHEET_TAB and that the sheet is shared as Editor."
+        return FAIL, f"append failed: {reason} {detail}", hint
     return PASS, f"test row appended to {res.get('updated_range') or s.google_sheet_tab}", ""
 
 

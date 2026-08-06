@@ -143,14 +143,68 @@ class GoogleSheetsClient:
 
     # ---------- sheet operations ----------
 
+    @staticmethod
+    def _a1(tab: str, ref: str) -> str:
+        """Quote a tab name for A1 notation.
+
+        Google requires single quotes around any sheet name that is not a bare
+        alphanumeric token, and internal quotes are escaped by doubling. The
+        default tab here is "Call Log" — the space alone makes `Call Log!A1`
+        unparseable, which Google reports as
+
+            400 Unable to parse range: Call Log!A1
+
+        an error that reads like a permissions or missing-sheet problem and is
+        neither.
+        """
+        if not tab.replace("_", "").isalnum():
+            tab = "'" + tab.replace("'", "''") + "'"
+        return f"{tab}!{ref}"
+
+    async def _ensure_tab(self, client: httpx.AsyncClient, token: str, tab: str) -> bool:
+        """Create the tab if the spreadsheet does not have it yet.
+
+        A new spreadsheet has one sheet called "Sheet1", so the configured tab
+        never exists on first run. Creating it means the operator shares a blank
+        spreadsheet and everything else is automatic — and it removes the other
+        cause of "Unable to parse range", so that error can only ever mean the
+        syntax problem `_a1` now prevents.
+        """
+        s = get_settings()
+        auth = {"Authorization": f"Bearer {token}"}
+        r = await client.get(
+            f"{SHEETS_API}/{s.google_sheet_id}",
+            headers=auth,
+            params={"fields": "sheets.properties.title"},
+        )
+        if r.status_code != 200:
+            log.warning("gsheets.metadata_read_failed", status=r.status_code, body=r.text[:200])
+            return False
+        titles = [sh["properties"]["title"] for sh in r.json().get("sheets", [])]
+        if tab in titles:
+            return True
+
+        r = await client.post(
+            f"{SHEETS_API}/{s.google_sheet_id}:batchUpdate",
+            headers=auth,
+            json={"requests": [{"addSheet": {"properties": {"title": tab}}}]},
+        )
+        if r.status_code >= 300:
+            log.warning("gsheets.tab_create_failed", tab=tab, status=r.status_code, body=r.text[:200])
+            return False
+        log.info("gsheets.tab_created", tab=tab, existing=titles)
+        return True
+
     async def _ensure_header(self, client: httpx.AsyncClient, token: str, tab: str, headers: list[str]) -> None:
-        """Write the header row once per process if row 1 is empty."""
+        """Create the tab and write the header row, once per process."""
         s = get_settings()
         if tab in self._header_checked:
             return
         self._header_checked.add(tab)
 
-        rng = f"{tab}!A1:Z1"
+        await self._ensure_tab(client, token, tab)
+
+        rng = self._a1(tab, "A1:Z1")
         try:
             r = await client.get(
                 f"{SHEETS_API}/{s.google_sheet_id}/values/{rng}",
@@ -198,9 +252,12 @@ class GoogleSheetsClient:
             async with httpx.AsyncClient(timeout=6.0) as client:
                 if headers:
                     await self._ensure_header(client, token, tab, headers)
+                elif tab not in self._header_checked:
+                    self._header_checked.add(tab)
+                    await self._ensure_tab(client, token, tab)
 
                 r = await client.post(
-                    f"{SHEETS_API}/{s.google_sheet_id}/values/{tab}!A1:append",
+                    f"{SHEETS_API}/{s.google_sheet_id}/values/{self._a1(tab, 'A1')}:append",
                     headers={"Authorization": f"Bearer {token}"},
                     params={
                         "valueInputOption": "USER_ENTERED",
