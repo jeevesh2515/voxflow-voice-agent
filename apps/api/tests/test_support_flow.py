@@ -15,6 +15,7 @@ from datetime import datetime, timedelta, timezone
 
 import pytest
 
+from voxflow_api.integrations.gsheets import GoogleSheetsClient
 from voxflow_api.agent import tools
 from voxflow_api.db import (
     Order,
@@ -647,3 +648,34 @@ def test_drain_is_a_noop_when_sheets_is_disabled():
     pipeline = VoicePipeline.__new__(VoicePipeline)
     asyncio.run(pipeline._drain_sheet_task(s))
     assert s.sheet_synced is False
+
+
+# ── Google Sheets A1 notation ──────────────────────────────────────────────
+# The default tab is "Call Log". The space makes `Call Log!A1` unparseable, and
+# Google reports it as `400 Unable to parse range`, which reads like a missing
+# sheet or a permissions problem and is neither. It silently broke every call
+# outcome write.
+
+@pytest.mark.parametrize(
+    "tab,expected",
+    [
+        ("Call Log", "'Call Log'!A1"),      # the default — the one that broke
+        ("Calls 2026", "'Calls 2026'!A1"),
+        ("Log-A", "'Log-A'!A1"),            # hyphen is not alphanumeric
+        ("O'Brien", "'O''Brien'!A1"),       # internal quote doubles
+        ("Sheet1", "Sheet1!A1"),            # bare token needs no quoting
+        ("Call_Log", "Call_Log!A1"),        # underscore is safe in A1
+    ],
+)
+def test_a1_quoting(tab: str, expected: str) -> None:
+    assert GoogleSheetsClient._a1(tab, "A1") == expected
+
+
+def test_a1_used_for_both_read_and_append() -> None:
+    """Quoting one call site and not the other is the obvious way to half-fix this."""
+    import inspect
+
+    src = inspect.getsource(GoogleSheetsClient)
+    assert 'f"{tab}!A1:Z1"' not in src, "header range bypasses _a1()"
+    assert "{tab}!A1:append" not in src, "append range bypasses _a1()"
+    assert src.count("self._a1(") >= 2

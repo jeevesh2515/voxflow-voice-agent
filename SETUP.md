@@ -76,10 +76,23 @@ speech recognition.
    save it.
 2. Wait ~2 minutes for provisioning.
 3. Go to **SQL Editor** → **New query**. Paste the entire contents of
-   `schema.md`'s DDL block (section 1) and click **Run**. That creates the
-   base tables.
-4. **New query** again. Paste all of `migrations/001_customer_support_flow.sql`
-   and **Run**. That adds PO signing, call outcomes, and tenant phone mapping.
+   **`migrations/000_base_schema.sql`** and click **Run**.
+
+   That one file creates all 11 tables, every index, and the row-level
+   security policies. It is generated from the SQLAlchemy models by
+   `python -m voxflow_api.gen_schema`, so it cannot drift from the code that
+   queries it — a test in CI fails if it ever does.
+
+   > Previously this step said "paste schema.md's DDL block (section 1), then
+   > paste migrations/001". Copying SQL out of a prose document in two pieces
+   > in the right order is a step that gets half-done, and a half-created
+   > schema fails at runtime rather than at paste time.
+
+4. RLS is now on for every table. This matters: the Supabase project ref is
+   public, and so is the anon key by design, so without RLS anyone could read
+   your orders through `https://<ref>.supabase.co/rest/v1/orders`. It does not
+   affect VoxFlow, which connects as the table owner and bypasses RLS —
+   tenant isolation for the app is enforced in the query layer.
 5. Click **Connect** (top of the dashboard) and choose **Session pooler**.
    Copy that URI and replace `[YOUR-PASSWORD]` with the password from step 1.
 
