@@ -22,8 +22,19 @@ bad()  { echo "  ❌ $1"; FAIL=$((FAIL+1)); }
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$ROOT"
 
+FP="$(cd apps/api && python3 -m voxflow_api._fingerprint 2>/dev/null \
+      || python3 -c "
+import hashlib,pathlib
+r=pathlib.Path('voxflow_api')
+h=hashlib.sha256()
+for f in sorted(r.rglob('*.py'), key=lambda p:p.relative_to(r).as_posix()):
+    if '__pycache__' in f.parts: continue
+    h.update(f.relative_to(r).as_posix().encode()); h.update(f.read_bytes())
+print(h.hexdigest()[:12])" 2>/dev/null || echo unknown)"
+
 echo
 echo "VoxFlow pre-flight  —  $(date -u '+%Y-%m-%d %H:%M UTC')"
+echo "code fingerprint ${FP}  ← the self-test must print this exact value"
 echo "════════════════════════════════════════════════════════"
 
 # ── 1. Host ──────────────────────────────────────────────────────────────
@@ -155,6 +166,18 @@ case "$DB" in
   "") : ;;
   *) warn "DATABASE_URL does not look like a postgresql:// URI" ;;
 esac
+
+# The deprecated pooler switch. In images built before 52a9e9f this rewrote the
+# host with .replace(".supabase.co", ".pooler.supabase.co") — and ".supabase.co"
+# is a substring of ".supabase.com", so a correct session-pooler URL became
+# "aws-0-eu-west-1.pooler.pooler.supabase.com:6543". That name does not resolve,
+# which surfaces as a bare gaierror with no clue as to the cause.
+if [ "$(getenv SUPABASE_USE_POOLER | tr 'A-Z' 'a-z')" = "true" ]; then
+  warn "SUPABASE_USE_POOLER=true. It is deprecated and ignored by current code,
+       but any image built before the fix rewrites your host to
+       'aws-<region>.pooler.pooler.supabase.com:6543', which does not exist.
+       Set it to false and confirm the fingerprints below match."
+fi
 
 # Does this host even have IPv6? Explains the direct-endpoint failure outright.
 if [ -n "$DB" ]; then

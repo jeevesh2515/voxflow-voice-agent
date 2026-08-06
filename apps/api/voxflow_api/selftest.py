@@ -47,6 +47,9 @@ _COLOUR = {
     WARN: "\033[33m",
 }
 _RESET = "\033[0m"
+# --debug prints full tracebacks. "gaierror: Name or service not known" with no
+# stack tells you nothing about WHICH resolution call failed or why.
+_DEBUG = False
 _USE_COLOUR = sys.stdout.isatty() and os.environ.get("NO_COLOR") is None
 
 
@@ -97,6 +100,10 @@ async def _timed(
         status, detail, hint = await fn()
     except Exception as e:  # noqa: BLE001 — a self-test must report, not crash
         status, detail, hint = FAIL, f"{type(e).__name__}: {e}", ""
+        if _DEBUG:
+            import traceback
+
+            detail += "\n" + "".join(traceback.format_exc()).rstrip()
     ms = int((time.perf_counter() - t0) * 1000)
     c = report.add(Check(name, status, ms, detail, hint))
     if status == PASS:
@@ -203,6 +210,65 @@ async def check_database() -> tuple[str, str, str]:
         )
 
     return PASS, f"all {len(_EXPECTED_TABLES)} tables + migration 001 columns present", ""
+
+
+async def probe_database_layers() -> None:
+    """Isolate a database failure to a specific layer.
+
+    `gaierror` from SQLAlchemy could originate in the dialect, in asyncpg, or in
+    asyncio's resolver — and they fail for different reasons. Testing each
+    separately turns one ambiguous error into a definite answer.
+    """
+    import socket
+    import traceback
+
+    from .db import _async_engine
+
+    u = _async_engine.url
+    print()
+    print("  Database probe (--debug)")
+    print("  " + "─" * 68)
+    print(f"    host={u.host!r}  port={u.port!r}  user={u.username!r}  db={u.database!r}")
+    print(f"    driver={u.drivername!r}")
+
+    # Layer 1 — blocking IPv4-only lookup (what the earlier manual test did).
+    try:
+        print(f"    [1] socket.gethostbyname   -> {socket.gethostbyname(u.host)}")
+    except Exception as e:  # noqa: BLE001
+        print(f"    [1] socket.gethostbyname   -> FAILED {type(e).__name__}: {e}")
+
+    # Layer 2 — getaddrinfo, which is what asyncio and asyncpg actually use.
+    # Unlike gethostbyname this requests A *and* AAAA, so it can fail on hosts
+    # with broken IPv6 even when the IPv4-only lookup succeeds.
+    for family, label in ((socket.AF_UNSPEC, "AF_UNSPEC (A+AAAA)"), (socket.AF_INET, "AF_INET (A only)")):
+        try:
+            res = socket.getaddrinfo(u.host, u.port, family, socket.SOCK_STREAM)
+            print(f"    [2] getaddrinfo {label:<20} -> {[r[4] for r in res]}")
+        except Exception as e:  # noqa: BLE001
+            print(f"    [2] getaddrinfo {label:<20} -> FAILED {type(e).__name__}: {e}")
+
+    # Layer 3 — asyncio's resolver on the running loop.
+    try:
+        loop = asyncio.get_running_loop()
+        res = await loop.getaddrinfo(u.host, u.port, type=socket.SOCK_STREAM)
+        print(f"    [3] loop.getaddrinfo       -> {[r[4] for r in res]}")
+    except Exception as e:  # noqa: BLE001
+        print(f"    [3] loop.getaddrinfo       -> FAILED {type(e).__name__}: {e}")
+
+    # Layer 4 — raw asyncpg, bypassing SQLAlchemy entirely.
+    try:
+        import asyncpg
+
+        conn = await asyncpg.connect(
+            host=u.host, port=u.port, user=u.username,
+            password=u.password, database=u.database, timeout=15,
+        )
+        print(f"    [4] raw asyncpg.connect    -> OK, SELECT 1 = {await conn.fetchval('SELECT 1')}")
+        await conn.close()
+    except Exception as e:  # noqa: BLE001
+        print(f"    [4] raw asyncpg.connect    -> FAILED {type(e).__name__}: {e}")
+        traceback.print_exc()
+    print("  " + "─" * 68)
 
 
 async def check_seed_data() -> tuple[str, str, str]:
@@ -427,7 +493,13 @@ async def run(skip_audio: bool = False) -> int:
     print("Exercises every part of a real call except Twilio's transport.")
     print()
 
+    from ._fingerprint import code_fingerprint
+
     report = Report()
+    # If this does not match what preflight.sh printed, the image is stale and
+    # every result below describes code you are no longer looking at.
+    print(f"  code fingerprint {code_fingerprint()}  "
+          "(must match scripts/preflight.sh — if not, rebuild with --build)")
     state: dict[str, Any] = {}
 
     print("Configuration")
@@ -437,6 +509,8 @@ async def run(skip_audio: bool = False) -> int:
     print("Data layer")
     print(f"  (connecting to {_db_target()})")
     db_ok = await _timed(report, "database connect + schema + migration 001", check_database)
+    if db_ok.status == FAIL and _DEBUG:
+        await probe_database_layers()
     if db_ok.status == FAIL and "gaierror" in db_ok.detail:
         print("                       → DNS lookup failed INSIDE the container.")
         print("                         The host resolving it is not enough — check the")
@@ -529,7 +603,14 @@ def main() -> None:
         "--skip-audio", action="store_true",
         help="skip TTS/STT/codec checks (faster; avoids Groq STT quota)",
     )
+    ap.add_argument(
+        "--debug", action="store_true",
+        help="print full tracebacks and probe the database connection layer by layer",
+    )
     args = ap.parse_args()
+
+    global _DEBUG
+    _DEBUG = args.debug
 
     from .logging import setup_logging
 
