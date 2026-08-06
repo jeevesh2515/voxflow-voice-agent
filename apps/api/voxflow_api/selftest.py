@@ -149,6 +149,22 @@ _MIGRATION_COLUMNS = {
 }
 
 
+def _db_target() -> str:
+    """Host:port the engine will actually dial, with the password masked.
+
+    Without this a DNS or routing failure just says "Name or service not known"
+    and you cannot tell whether the container even has the URL you think it has.
+    That ambiguity cost real debugging time.
+    """
+    try:
+        from .db import _async_engine
+
+        u = _async_engine.url
+        return f"{u.username}@{u.host}:{u.port}/{u.database}"
+    except Exception:  # noqa: BLE001
+        return "<could not read engine URL>"
+
+
 async def check_database() -> tuple[str, str, str]:
     from sqlalchemy import inspect, text
 
@@ -419,7 +435,16 @@ async def run(skip_audio: bool = False) -> int:
 
     print()
     print("Data layer")
+    print(f"  (connecting to {_db_target()})")
     db_ok = await _timed(report, "database connect + schema + migration 001", check_database)
+    if db_ok.status == FAIL and "gaierror" in db_ok.detail:
+        print("                       → DNS lookup failed INSIDE the container.")
+        print("                         The host resolving it is not enough — check the")
+        print("                         container's own view:")
+        print("                           docker compose ... exec -T api python -c \\")
+        print("                             \"import os;print(os.environ.get('DATABASE_URL'))\"")
+        print("                         If it differs from .env, the container was restarted")
+        print("                         but not RECREATED. Fix: add --force-recreate")
     if db_ok.status == PASS:
         await _timed(report, "demo data present", check_seed_data)
 
