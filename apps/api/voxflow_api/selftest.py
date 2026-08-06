@@ -426,23 +426,44 @@ async def check_agent_turn() -> tuple[str, str, str]:
             )
         phone, company, city = sup.phone, sup.name, sup.city
 
-    session = CallSession(call_id=f"selftest-{int(time.time())}", tenant_id=tenant)
-    session.caller_phone = phone
+    # The caller states their company AND their city AND asks a concrete
+    # question — everything `verify_caller` and `check_po_status` need. A
+    # correct agent cannot answer this from its own knowledge, so a turn with
+    # no tool call means it is improvising.
+    utterance = f"Hello, this is {company} calling from {city}. Has our PO been signed?"
 
-    result = await AgentRunner().handle_turn(
-        session=session,
-        user_text=f"Hello, this is {company} calling from {city}. Has our PO been signed?",
-    )
+    attempts: list[tuple[str, list[str]]] = []
+    for _ in range(2):  # LLMs are stochastic; one miss is not a verdict
+        session = CallSession(call_id=f"selftest-{int(time.time())}", tenant_id=tenant)
+        session.caller_phone = phone
+        result = await AgentRunner().handle_turn(session=session, user_text=utterance)
+        tools_used = [a.get("name") for a in result.actions]
+        attempts.append(((result.reply or "").strip(), tools_used))
+        if tools_used:
+            break
 
-    tools_used = [a.get("name") for a in result.actions]
-    if not result.reply:
-        return FAIL, f"agent produced no reply (tools: {tools_used})", ""
-    detail = f"reply: {result.reply.strip()[:80]!r}\ntools: {tools_used or 'none'}"
+    reply, tools_used = attempts[-1]
+    if not reply and not tools_used:
+        return FAIL, f"agent produced no reply over {len(attempts)} attempts", ""
+
+    detail = f"reply: {reply[:80]!r}\ntools: {tools_used or 'none'}"
+    if len(attempts) > 1:
+        detail += f"  (tool call on attempt {len(attempts)} of 2)"
+
     if not tools_used:
+        # This is a failure, not a warning. An agent that answers questions
+        # about orders without reading the database will state invented
+        # quantities and dispatch dates to a paying customer, in a confident
+        # voice, with no error anywhere. It is the worst outcome this system
+        # can produce — worse than the call failing outright.
         return (
-            WARN, detail,
-            "The agent answered without calling a tool. It may be improvising rather\n"
-            "than reading the database — check the system prompt and tool schemas.",
+            FAIL,
+            detail + "\n  (both attempts answered without touching the database)"
+            + "".join(f"\n   attempt {i + 1}: {r[:60]!r}" for i, (r, _) in enumerate(attempts)),
+            "The agent replied to a direct order question without calling a tool.\n"
+            "On a real call it would invent the answer. Check agent/prompts.py — the\n"
+            "'Tools are not optional' section — and confirm TOOL_DEFINITIONS reaches\n"
+            "the provider (runner.py passes tools=TOOL_DEFINITIONS to llm.chat).",
         )
     return PASS, detail, ""
 
