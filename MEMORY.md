@@ -9,13 +9,17 @@ unreliable.
 
 ## Current Position
 
-**Last updated:** 2026-08-05
-**Currently on:** Code complete and deploy-ready. Oracle VM provisioned
-(`193.123.187.97`, `VM.Standard.E2.1.Micro`, 1 GB / 1-8th OCPU, uk-london-1),
-Docker installed, both firewall layers open, repo cloned.
-**Next action:** add swap → populate `.env` → `bash scripts/preflight.sh` →
-`docker compose ... up -d --build` → `python -m voxflow_api.selftest` → **make
-one real phone call**. Nothing in Weeks 3-4 should start before that call.
+**Last updated:** 2026-08-06
+**Currently on:** **Deployed and self-test green.** Every component of a real
+call is verified working on the Oracle VM (`193.123.187.97`,
+`VM.Standard.E2.1.Micro`, 1 GB / 1-8th OCPU, uk-london-1) behind Caddy TLS at
+`https://voxflow-jeevesh.duckdns.org`. Supabase schema created from
+`migrations/000_base_schema.sql`, RLS on all 11 tables, demo data seeded.
+Groq LLM + Groq STT + edge-tts + the full codec chain all pass.
+**Next action:** point the Twilio number's voice webhook at
+`https://voxflow-jeevesh.duckdns.org/twilio/voice`, insert the number into
+`tenant_phone_numbers`, and **make one real phone call**. Nothing in
+Weeks 3-4 should start before that call.
 
 ## Scope change (2026-08-02)
 
@@ -128,8 +132,25 @@ primary flow.
   This is the single most important outstanding item.
 - ❌ **VAD not tuned on real calls** — `_SILENCE_RMS = 800`, `_SILENCE_MS = 450`
   remain guesses until real callers are heard.
-- ❌ **Latency baseline not measured end-to-end.** Timing logs exist; no real
-  numbers yet. Expect roughly 1.0-1.5s per turn with Groq STT.
+- ✅ **Latency baseline measured** (2026-08-06, on the 1/8-OCPU box, callers in
+  the UK, Supabase eu-west-1). *PHASES.md Week 1 Day 4 — previously outstanding.*
+
+  | Stage | Cold (self-test) | Warm (in-call) |
+  |---|---|---|
+  | Speech-to-text (Groq whisper-large-v3-turbo) | 288ms | 288ms |
+  | LLM single turn (Groq llama-3.3-70b) | 1975ms | **367ms** |
+  | Text-to-speech (edge-tts, full sentence) | 1703ms | streams |
+  | Database connect | 2815ms | pooled |
+
+  The cold column is alarming and misleading. It includes client construction,
+  TLS handshakes and connection-pool warm-up, all of which happen once per
+  process, not once per turn. The number that matters is the warm agent turn
+  logged during the conversational check: **367ms for the LLM**, giving roughly
+  **1.0-1.2s per conversational turn** once TTS streaming is accounted for.
+  That is inside the 1.0-1.5s the plan assumed, on the smallest instance Oracle
+  offers.
+
+  Re-measure against a real call — this is still a lab number.
 - ❌ **Staff auth is still `localStorage`-based**, not Supabase Auth (Week 3
   Day 11). Every `/api` endpoint therefore trusts a client-supplied
   `tenant_id` — acceptable for a single operator, not for a customer's staff.
