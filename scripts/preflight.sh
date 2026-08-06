@@ -30,6 +30,24 @@ echo "════════════════════════�
 echo
 echo "1. Host"
 
+# The single most misleading way to run this is on a laptop. Checks like
+# docker-daemon, memory, ports and iptables describe THIS machine, so results
+# from the wrong machine look like real blockers and are not.
+if [ "$(uname -s)" != "Linux" ]; then
+  echo
+  echo "  ┌──────────────────────────────────────────────────────────────┐"
+  echo "  │  ⚠  NOT RUNNING ON A LINUX HOST — this looks like a laptop.  │"
+  echo "  │                                                              │"
+  echo "  │  Docker, memory, ports and iptables results below describe   │"
+  echo "  │  THIS machine, not your server. Run it on the deploy host:   │"
+  echo "  │                                                              │"
+  echo "  │    ssh ubuntu@YOUR_SERVER                                    │"
+  echo "  │    cd ~/voxflow-voice-agent && bash scripts/preflight.sh     │"
+  echo "  └──────────────────────────────────────────────────────────────┘"
+  echo
+  warn "results below are for $(uname -s), not your Linux server"
+fi
+
 if command -v docker >/dev/null 2>&1; then
   ok "docker $(docker version --format '{{.Client.Version}}' 2>/dev/null || echo present)"
   docker compose version >/dev/null 2>&1 && ok "docker compose plugin" \
@@ -50,6 +68,10 @@ if [ -n "${TOTAL_MB:-}" ]; then
   else
     ok "memory ${TOTAL_MB}MB + ${SWAP_MB:-0}MB swap"
   fi
+fi
+
+if [ -z "${TOTAL_MB:-}" ]; then
+  warn "cannot read memory (no 'free' command) — swap headroom unverified"
 fi
 
 DISK_AVAIL=$(df -Pm . 2>/dev/null | awk 'NR==2{print $4}')
@@ -87,7 +109,7 @@ require() { # name, human hint
 }
 
 require GROQ_API_KEY       "get one free at console.groq.com"
-require DATABASE_URL       "Supabase → Settings → Database → URI (direct, port 5432)"
+require DATABASE_URL       "Supabase → Connect → Session pooler (port 5432, IPv4)"
 require PUBLIC_BASE_URL    "your https URL, e.g. https://voxflow.duckdns.org"
 require DOMAIN             "hostname without https://, e.g. voxflow.duckdns.org"
 require ACME_EMAIL         "Let's Encrypt expiry notices go here"
@@ -204,7 +226,23 @@ echo
 echo "4. Network"
 
 if [ -n "$DOM" ]; then
-  RESOLVED=$(getent hosts "$DOM" 2>/dev/null | awk '{print $1}' | head -1)
+  # Portable resolution: getent is glibc-only and absent on macOS, where it
+  # silently returned nothing and reported a perfectly good domain as broken.
+  RESOLVED=""
+  if command -v getent >/dev/null 2>&1; then
+    RESOLVED=$(getent hosts "$DOM" 2>/dev/null | awk '{print $1}' | head -1)
+  fi
+  if [ -z "$RESOLVED" ] && command -v dig >/dev/null 2>&1; then
+    RESOLVED=$(dig +short +time=3 "$DOM" A 2>/dev/null | grep -E '^[0-9.]+$' | head -1)
+  fi
+  if [ -z "$RESOLVED" ] && command -v host >/dev/null 2>&1; then
+    RESOLVED=$(host -W 3 "$DOM" 2>/dev/null | awk '/has address/{print $NF; exit}')
+  fi
+  if [ -z "$RESOLVED" ] && command -v python3 >/dev/null 2>&1; then
+    RESOLVED=$(python3 -c "import socket,sys
+try: print(socket.gethostbyname(sys.argv[1]))
+except Exception: pass" "$DOM" 2>/dev/null)
+  fi
   MYIP=$(curl -s --max-time 6 https://api.ipify.org 2>/dev/null)
   if [ -z "$RESOLVED" ]; then
     bad "$DOM does not resolve — set it up at duckdns.org and point it at this server"
@@ -223,9 +261,17 @@ for p in 80 443; do
   fi
 done
 
-sudo iptables -C INPUT -m state --state NEW -p tcp --dport 443 -j ACCEPT 2>/dev/null \
-  && ok "iptables allows 443" \
-  || warn "could not confirm iptables rule for 443 (Oracle blocks this separately from the cloud security list)"
+# -n so sudo NEVER prompts. A diagnostic script that stops to ask for a
+# password is worse than one that skips a check.
+if [ "$(uname -s)" != "Linux" ]; then
+  : # not the deploy host; the host-banner below already says so
+elif sudo -n iptables -C INPUT -m state --state NEW -p tcp --dport 443 -j ACCEPT 2>/dev/null; then
+  ok "iptables allows 443"
+else
+  warn "could not confirm the iptables rule for 443 (needs passwordless sudo).
+       Oracle firewalls in TWO places — the VCN security list AND the VM's own
+       iptables. Check manually: sudo iptables -L INPUT -n | grep 443"
+fi
 
 curl -s --max-time 8 -o /dev/null -w '' https://api.groq.com 2>/dev/null \
   && ok "outbound HTTPS to Groq works" || warn "could not reach api.groq.com"
