@@ -53,6 +53,12 @@ class CallSession:
     verified: bool = False
     verify_attempts: int = 0
     company_name: str = ""
+    # True only when the INBOUND number matched a contact record. This is
+    # factor 1 of two-factor verification, and it is the only form of
+    # identification the caller cannot simply assert. Matching by company name
+    # does not count: the caller supplied that name, so treating it as a factor
+    # would let anyone verify as anyone by naming them.
+    identified_by_phone: bool = False
 
     # ---- Structured outcome, filled by the log_call_outcome tool ----
     reason: str = ""

@@ -44,9 +44,34 @@ class AgentRunner:
         self.system_prompt = build_system_prompt(business_name=s.business_name)
         self.max_iterations = 5  # safety: prevent infinite tool loops
 
+    @staticmethod
+    def _call_context(session: CallSession) -> str:
+        """Facts about THIS call, as a system message.
+
+        The prompt used to tell the model "call lookup_supplier with the
+        caller's phone number (you already have it from the call metadata)" —
+        and the model did not have it. Nothing in the history carried it. So it
+        passed the literal string "caller's phone number", which matched every
+        supplier and identified the caller as an arbitrary company.
+
+        A model cannot use context it was never given. State the facts plainly.
+        """
+        return (
+            "CALL CONTEXT (facts about this call — not spoken by the caller):\n"
+            f"- Caller's number: {session.caller_phone or 'withheld / not available'}\n"
+            f"- Verified so far: {'YES' if session.verified else 'NO — disclose no order details yet'}\n"
+            f"- Verification attempts used: {session.verify_attempts} of 3\n"
+            "Pass the caller's number to lookup_supplier exactly as written above. "
+            "If it says withheld, do not invent one — ask the caller for their company name "
+            "and call lookup_supplier with the name instead."
+        )
+
     def _history(self, session: CallSession) -> list[ChatTurn]:
         """Convert transcript -> ChatTurns for the LLM. Skip non-text turns."""
-        turns: list[ChatTurn] = [ChatTurn(role="system", content=self.system_prompt)]
+        turns: list[ChatTurn] = [
+            ChatTurn(role="system", content=self.system_prompt),
+            ChatTurn(role="system", content=self._call_context(session)),
+        ]
         for t in session.transcript:
             role = "user" if t.role == "caller" else "assistant"
             turns.append(ChatTurn(role=role, content=t.text))
