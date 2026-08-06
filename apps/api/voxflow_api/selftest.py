@@ -450,6 +450,20 @@ async def check_agent_turn() -> tuple[str, str, str]:
     if len(attempts) > 1:
         detail += f"  (tool call on attempt {len(attempts)} of 2)"
 
+    # "Called a tool" is not the bar. The probe states company, city and a
+    # concrete question, so a correct agent reaches verification and answers.
+    # An agent that calls lookup_supplier and then asks "how may I help you?"
+    # has told a caller who just explained themselves to start over.
+    progressed = {"verify_caller", "check_po_status", "get_order_details"} & set(tools_used)
+    if tools_used and not progressed:
+        return (
+            WARN,
+            detail + "\n  (identified the caller but never verified or answered)",
+            "The caller stated their company, their city and their question in one\n"
+            "sentence. The agent looked them up and then asked what they wanted.\n"
+            "See prompts.py 'Step 1b — Use what they have already told you'.",
+        )
+
     if not tools_used:
         # This is a failure, not a warning. An agent that answers questions
         # about orders without reading the database will state invented

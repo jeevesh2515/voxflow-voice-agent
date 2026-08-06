@@ -40,7 +40,14 @@ log = get_logger(__name__)
 
 async def lookup_supplier(session: CallSession, phone: str | None = None, name: str | None = None) -> dict[str, Any]:
     """Find a supplier by phone number or partial name within the active tenant."""
-    cache_key_parts = [session.tenant_id, phone or "", name or ""]
+    # `session.verified` MUST be part of the key. The result is redacted before
+    # verification and complete after it, so a key that ignores verification
+    # state serves one call's data to another: a verified call caches the full
+    # record including gstin, and the next unverified caller on the same number
+    # is handed it straight out of the cache. Found by
+    # tests/test_caller_identification.py, not by inspection.
+    cache_key_parts = [session.tenant_id, phone or "", name or "",
+                       "v" if session.verified else "u"]
     cached = supplier_cache.get(*cache_key_parts)
     if cached is not None:
         if cached.get("found"):
@@ -48,12 +55,27 @@ async def lookup_supplier(session: CallSession, phone: str | None = None, name: 
             session.caller_name = cached.get("contact_person", "") or cached["name"]
         return cached
 
+    # The model is not reliably given the caller's number, and when it is not it
+    # invents a placeholder — we observed it pass the literal string
+    # "caller's phone number". Stripping non-digits from that yields "", and
+    # `LIKE '%'` matches EVERY supplier, so `.first()` returned an arbitrary
+    # company. The agent then greeted the caller by that company's name and,
+    # worse, `session.supplier_id` was set to it — which is the record
+    # `verify_caller` checks against. Fall back to the real number from the call
+    # metadata, and never filter on a fragment too short to identify anyone.
+    phone = phone or session.caller_phone
+    digits = "".join(c for c in (phone or "") if c.isdigit())[-10:]
+    matched_by_phone = False
+
     async with async_session_scope() as db:
-        q = select(Supplier).where(Supplier.tenant_id == session.tenant_id)
-        if phone:
-            digits = "".join(c for c in phone if c.isdigit())[-10:]
-            q = q.where(Supplier.phone.like(f"%{digits}"))
-        sup = (await db.execute(q)).scalars().first()
+        sup = None
+        if len(digits) >= 7:
+            q = select(Supplier).where(
+                Supplier.tenant_id == session.tenant_id,
+                Supplier.phone.like(f"%{digits}"),
+            )
+            sup = (await db.execute(q)).scalars().first()
+            matched_by_phone = sup is not None
         if not sup and name:
             q_name = select(Supplier).where(
                 Supplier.tenant_id == session.tenant_id,
@@ -66,19 +88,31 @@ async def lookup_supplier(session: CallSession, phone: str | None = None, name: 
 
         session.supplier_id = sup.id
         session.caller_name = sup.contact_person or sup.name
+        session.identified_by_phone = matched_by_phone
         if not session.caller_phone:
             session.caller_phone = sup.phone
 
+        # Deliberately withhold `city` and `gstin` until verified. Those are
+        # precisely the two values `verify_caller` accepts as its second factor.
+        # Returning them here put the answers to the security question into the
+        # model's context, and a model trying to be helpful will pass back what
+        # it just read instead of what the caller actually said — verifying a
+        # stranger against a record they never proved any knowledge of.
+        # `verify_caller` compares internally; the model never needs to see them.
+        # `contact_person` is withheld for the same reason as city and gstin:
+        # `verify_caller` accepts the contact name as a corroborating factor, so
+        # showing it here is showing the answer. The agent greets generically
+        # until the caller has proved who they are — a small loss of warmth for
+        # the difference between real verification and theatre.
         result = {
             "found": True,
             "id": sup.id,
             "name": sup.name,
-            "phone": sup.phone,
-            "city": sup.city,
-            "state": sup.state,
-            "contact_person": sup.contact_person,
-            "gstin": sup.gstin,
+            "matched_by": "phone" if matched_by_phone else "name",
         }
+        if session.verified:
+            result.update({"phone": sup.phone, "city": sup.city,
+                           "state": sup.state, "gstin": sup.gstin})
         supplier_cache.set(*cache_key_parts, value=result)
         return result
 
@@ -170,6 +204,11 @@ async def verify_caller(
                 call_id=session.call_id,
                 supplier_id=sup.id,
                 matched_on=matched_on,
+                # False means the inbound number did NOT match this record, so
+                # verification rested entirely on what the caller stated. Still
+                # legitimate — they proved knowledge of a detail we never told
+                # them — but worth being able to audit after the fact.
+                identified_by_phone=session.identified_by_phone,
             )
             return {
                 "verified": True,
