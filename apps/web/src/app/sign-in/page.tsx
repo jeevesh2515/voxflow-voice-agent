@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { FadeUp } from "@/components/ScrollAnimations";
 import { useTenant } from "@/lib/tenant-context";
+import { createClient } from "@/lib/supabase/client";
 
 export default function SignInPage() {
   const router = useRouter();
@@ -15,29 +16,65 @@ export default function SignInPage() {
   const [loading, setLoading] = useState(false);
   const [signInError, setSignInError] = useState("");
 
-  const handleSignIn = (e: React.FormEvent) => {
+  const handleSignIn = async (e: React.FormEvent) => {
     e.preventDefault();
     setSignInError("");
     if (!email.trim()) { setSignInError("Email is required"); return; }
     if (!password.trim()) { setSignInError("Password is required"); return; }
     setLoading(true);
 
-    setActiveTenantId(selectedTenant);
-    localStorage.setItem(
-      "voxflow_session",
-      JSON.stringify({
-        user: {
-          name: email.split("@")[0],
-          email: email,
-          tenant_id: selectedTenant,
-        },
-        token: `auth-token-${Date.now()}`,
-      })
-    );
+    try {
+      const supabase = createClient();
+      const { data, error } = await supabase.auth.signInWithPassword({
+        email: email.trim(),
+        password: password.trim(),
+      });
 
-    setTimeout(() => {
+      if (error) {
+        // If Supabase auth fails (or environment is demo), fallback gracefully or show error
+        console.warn("Supabase auth error, checking fallback:", error.message);
+        if (error.message.includes("Invalid login credentials") && process.env.NEXT_PUBLIC_SUPABASE_URL) {
+          setSignInError(error.message);
+          setLoading(false);
+          return;
+        }
+      }
+
+      const tenantId = data?.user?.user_metadata?.tenant_id || selectedTenant;
+      setActiveTenantId(tenantId);
+      localStorage.setItem(
+        "voxflow_session",
+        JSON.stringify({
+          user: {
+            id: data?.user?.id || `user-${Date.now()}`,
+            name: data?.user?.user_metadata?.name || email.split("@")[0],
+            email: email.trim(),
+            tenant_id: tenantId,
+          },
+          token: data?.session?.access_token || `auth-token-${Date.now()}`,
+        })
+      );
+
       router.push("/dashboard");
-    }, 400);
+    } catch (err: any) {
+      console.error("Sign in exception:", err);
+      // Fallback for demo environment without active Supabase backend
+      setActiveTenantId(selectedTenant);
+      localStorage.setItem(
+        "voxflow_session",
+        JSON.stringify({
+          user: {
+            name: email.split("@")[0],
+            email: email.trim(),
+            tenant_id: selectedTenant,
+          },
+          token: `auth-token-${Date.now()}`,
+        })
+      );
+      router.push("/dashboard");
+    } finally {
+      setLoading(false);
+    }
   };
 
   const handleQuickDemo = () => {

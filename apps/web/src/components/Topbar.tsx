@@ -18,6 +18,7 @@ import {
 } from "lucide-react";
 import { useTenant } from "@/lib/tenant-context";
 import { useTheme } from "@/lib/theme-context";
+import { createClient } from "@/lib/supabase/client";
 
 export default function Topbar({ title, subtitle, onToggleSidebar }: { title?: string; subtitle?: string; onToggleSidebar?: () => void }) {
   const router = useRouter();
@@ -37,7 +38,13 @@ export default function Topbar({ title, subtitle, onToggleSidebar }: { title?: s
     setActiveTenantId(created.id);
   };
 
-  const handleLogout = () => {
+  const handleLogout = async () => {
+    try {
+      const supabase = createClient();
+      await supabase.auth.signOut();
+    } catch (e) {
+      console.warn("Sign out exception:", e);
+    }
     localStorage.removeItem("voxflow_session");
     router.push("/sign-in");
   };

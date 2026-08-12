@@ -1,6 +1,7 @@
 "use client";
 
 import { createContext, useContext, useEffect, useState, ReactNode } from "react";
+import { createClient } from "@/lib/supabase/client";
 
 export type Tenant = {
   id: string;
@@ -50,6 +51,30 @@ export function TenantProvider({ children }: { children: ReactNode }) {
 
     const savedActive = localStorage.getItem("voxflow_active_tenant");
     if (savedActive) setActiveTenantIdState(savedActive);
+
+    // Subscribe to Supabase Auth session changes
+    try {
+      const supabase = createClient();
+      supabase.auth.getSession().then(({ data: { session } }) => {
+        const tenantId = session?.user?.user_metadata?.tenant_id;
+        if (tenantId) {
+          setActiveTenantIdState(tenantId);
+        }
+      });
+
+      const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+        const tenantId = session?.user?.user_metadata?.tenant_id;
+        if (tenantId) {
+          setActiveTenantIdState(tenantId);
+        }
+      });
+
+      return () => {
+        subscription?.unsubscribe();
+      };
+    } catch (e) {
+      console.warn("Supabase auth context init:", e);
+    }
   }, []);
 
   const setActiveTenantId = (id: string) => {
