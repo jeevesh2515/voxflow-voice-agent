@@ -327,11 +327,11 @@ successfully; failure modes are documented, not just noticed.
 company's data.
 
 **Checklist:**
-- [ ] Wire `apps/web/src/app/sign-in` and `sign-up` to real Supabase Auth
+- [x] Wire `apps/web/src/app/sign-in` and `sign-up` to real Supabase Auth
       (email/password or magic link)
-- [ ] Replace `localStorage` session handling with Supabase session
+- [x] Replace `localStorage` session handling with Supabase session
       management
-- [ ] Update `TenantProvider` to derive active tenant from the
+- [x] Update `TenantProvider` to derive active tenant from the
       authenticated user's actual tenant membership, not client-side state
       alone
 

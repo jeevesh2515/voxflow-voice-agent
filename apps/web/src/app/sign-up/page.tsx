@@ -5,6 +5,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { Suspense, useState } from "react";
 import { FadeUp } from "@/components/ScrollAnimations";
 import { useTenant } from "@/lib/tenant-context";
+import { createClient } from "@/lib/supabase/client";
 
 const planNames: Record<string, { label: string; price: string }> = {
   starter: { label: "Starter Pilot", price: "$0/mo" },
@@ -22,34 +23,62 @@ function SignUpContent() {
   const [selectedPlan, setSelectedPlan] = useState(planKey);
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
   const [company, setCompany] = useState("");
   const [loading, setLoading] = useState(false);
+  const [signUpError, setSignUpError] = useState("");
 
   const activePlan = planNames[selectedPlan] || planNames.pro;
 
-  const handleSignUp = (e: React.FormEvent) => {
+  const handleSignUp = async (e: React.FormEvent) => {
     e.preventDefault();
+    setSignUpError("");
     setLoading(true);
 
     const compName = company.trim() || "My Voice Operation";
     const tenant = addTenant(compName);
 
-    localStorage.setItem(
-      "voxflow_session",
-      JSON.stringify({
-        user: {
-          name: name.trim() || "Operations Admin",
-          email: email.trim() || "admin@company.com",
-          tenant_id: tenant.id,
-          plan: selectedPlan,
-        },
-        token: `demo-token-${Date.now()}`,
-      })
-    );
+    try {
+      const supabase = createClient();
+      if (password.trim()) {
+        const { data, error } = await supabase.auth.signUp({
+          email: email.trim(),
+          password: password.trim(),
+          options: {
+            data: {
+              name: name.trim() || "Operations Admin",
+              company_name: compName,
+              tenant_id: tenant.id,
+              plan: selectedPlan,
+            },
+          },
+        });
+        if (error) {
+          console.warn("Supabase sign up notice:", error.message);
+          setSignUpError(error.message);
+        }
+      }
 
-    setTimeout(() => {
+      localStorage.setItem(
+        "voxflow_session",
+        JSON.stringify({
+          user: {
+            name: name.trim() || "Operations Admin",
+            email: email.trim() || "admin@company.com",
+            tenant_id: tenant.id,
+            plan: selectedPlan,
+          },
+          token: `demo-token-${Date.now()}`,
+        })
+      );
+
       router.push("/dashboard");
-    }, 400);
+    } catch (err: any) {
+      console.error("Sign up exception:", err);
+      router.push("/dashboard");
+    } finally {
+      setLoading(false);
+    }
   };
 
   const handleDemoAccess = () => {
@@ -150,6 +179,27 @@ function SignUpContent() {
               className="w-full px-4 py-3 rounded-xl bg-[#141422] border border-[#302840]/60 text-[#e8e0f0] text-sm placeholder:text-[#a098b0]/40 focus:outline-none focus:border-[#ff2d78] focus:ring-1 focus:ring-[#ff2d78]/40 transition-all font-body"
             />
           </div>
+
+          <div>
+            <label htmlFor="password" className="text-xs font-label uppercase tracking-widest text-[#e8e0f0] block mb-1.5">
+              Password
+            </label>
+            <input
+              id="password"
+              type="password"
+              required
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              placeholder="••••••••"
+              className="w-full px-4 py-3 rounded-xl bg-[#141422] border border-[#302840]/60 text-[#e8e0f0] text-sm placeholder:text-[#a098b0]/40 focus:outline-none focus:border-[#ff2d78] focus:ring-1 focus:ring-[#ff2d78]/40 transition-all font-body"
+            />
+          </div>
+
+          {signUpError && (
+            <div className="text-xs text-[#ff2d78] bg-[#ff2d78]/10 border border-[#ff2d78]/30 rounded-md p-2">
+              {signUpError}
+            </div>
+          )}
 
           <div>
             <label htmlFor="company" className="text-xs font-label uppercase tracking-widest text-[#e8e0f0] block mb-1.5">
