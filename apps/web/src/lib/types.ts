@@ -95,4 +95,5 @@ export interface Call {
   staff_resolved_at: string | null;
   sheet_synced: boolean;
   verified: boolean;
+  recording_url?: string | null;
 }

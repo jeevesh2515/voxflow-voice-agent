@@ -127,6 +127,7 @@ class CallOut(BaseModel):
     staff_resolved_at: datetime | None
     sheet_synced: bool
     verified: bool
+    recording_url: str | None = None
 
 
 class ResolutionIn(BaseModel):

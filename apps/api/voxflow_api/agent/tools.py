@@ -693,23 +693,71 @@ async def send_email(session: CallSession, to_address: str, subject: str, body: 
     return {"ok": True, "comm_id": comm_id, "channel": "email", "recipient": to_address}
 
 
+def _get_twilio_client():
+    """Return a Twilio Client instance using API key or Account SID credentials."""
+    s = get_settings()
+    if not s.twilio_account_sid:
+        return None
+    try:
+        from twilio.rest import Client
+        if s.twilio_api_key and s.twilio_api_secret:
+            return Client(s.twilio_api_key, s.twilio_api_secret, s.twilio_account_sid)
+        if s.twilio_auth_token:
+            return Client(s.twilio_account_sid, s.twilio_auth_token)
+    except Exception as e:
+        log.warning("twilio.client_init_failed", error=str(e))
+    return None
+
+
 async def send_whatsapp_message(session: CallSession, to_phone: str, message: str) -> dict[str, Any]:
-    """Send a WhatsApp message notification."""
+    """Send a WhatsApp message notification via Twilio."""
     comm_id = f"comm-wa-{uuid.uuid4().hex[:6]}"
+    settings = get_settings()
+    
+    # Format recipient phone for WhatsApp (must start with whatsapp:+...)
+    target = to_phone.strip()
+    if not target.startswith("whatsapp:"):
+        if not target.startswith("+"):
+            target = f"+{target}"
+        target = f"whatsapp:{target}"
+
+    from_number = settings.twilio_whatsapp_number or "whatsapp:+14155238886"
+    status = "sent"
+    error_detail = None
+
+    # Attempt real Twilio WhatsApp dispatch
+    client = _get_twilio_client()
+    if client:
+        try:
+            msg_res = client.messages.create(
+                from_=from_number,
+                to=target,
+                body=message,
+            )
+            log.info("whatsapp.dispatched", sid=msg_res.sid, to=target)
+        except Exception as e:
+            status = "failed"
+            error_detail = str(e)
+            log.warning("whatsapp.dispatch_failed", to=target, error=str(e))
+    else:
+        log.info("whatsapp.logged_only", to=target, reason="no_twilio_credentials")
+
     async with async_session_scope() as db:
         comm = CommunicationLog(
             id=comm_id,
             tenant_id=session.tenant_id,
             channel="whatsapp",
-            recipient=to_phone,
+            recipient=target,
             subject=None,
             body=message,
-            status="sent",
+            status=status,
         )
         db.add(comm)
 
-    log.info("whatsapp.sent", to=to_phone, message=message)
-    return {"ok": True, "comm_id": comm_id, "channel": "whatsapp", "recipient": to_phone}
+    res = {"ok": status == "sent", "comm_id": comm_id, "channel": "whatsapp", "recipient": target}
+    if error_detail:
+        res["error"] = error_detail
+    return res
 
 
 async def update_worksheet(session: CallSession, worksheet_name: str, action: str, row_data: dict[str, Any]) -> dict[str, Any]:

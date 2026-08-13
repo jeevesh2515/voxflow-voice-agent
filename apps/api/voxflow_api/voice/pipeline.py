@@ -58,6 +58,11 @@ class CallSession:
     pin_verified: bool = False
     pin_attempts: int = 0
     # True only when the INBOUND number matched a contact record. This is
+    # distinct from `verified` — a caller on a known line might still be a
+    # new contact or an unverified representative.
+    known_caller: bool = False
+    recording_url: str | None = None
+    # True only when the INBOUND number matched a contact record. This is
     # factor 1 of two-factor verification, and it is the only form of
     # identification the caller cannot simply assert. Matching by company name
     # does not count: the caller supplied that name, so treating it as a factor
@@ -315,6 +320,7 @@ class VoicePipeline:
                     follow_up_required=1 if session.follow_up_required else 0,
                     sheet_synced=1 if session.sheet_synced else 0,
                     verified=1 if session.verified else 0,
+                    recording_url=session.recording_url,
                     transcript_json=_json.dumps(
                         [
                             {"role": t.role, "text": t.text, "at": t.at}

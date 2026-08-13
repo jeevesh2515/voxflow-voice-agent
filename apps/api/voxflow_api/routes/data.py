@@ -468,4 +468,5 @@ def _call_out(c: Call) -> dict[str, Any]:
         "staff_resolved_at": c.staff_resolved_at,
         "sheet_synced": bool(c.sheet_synced),
         "verified": bool(c.verified),
+        "recording_url": c.recording_url,
     }

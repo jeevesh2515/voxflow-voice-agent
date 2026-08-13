@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import useSWR from "swr";
-import { PhoneCall, ShieldCheck, ShieldOff, AlertCircle, Radio } from "lucide-react";
+import { PhoneCall, ShieldCheck, ShieldOff, AlertCircle, Radio, Volume2 } from "lucide-react";
 import { api } from "@/lib/api";
 import { fmtRelative, fmtDuration, statusBg, statusColor } from "@/lib/format";
 import { useTenant } from "@/lib/tenant-context";
@@ -211,6 +211,16 @@ export default function CallsPage() {
                     <div className="text-xs text-[#e8e0f0] leading-relaxed">{c.solution}</div>
                   </div>
                 )}
+              </div>
+            )}
+
+            {/* ── Call Recording Player ── */}
+            {c.recording_url && (
+              <div className="mb-3 rounded-md bg-[#00ffcc]/5 border border-[#00ffcc]/20 p-2.5 flex items-center gap-3">
+                <div className="flex items-center gap-1.5 text-xs font-mono text-[#00ffcc] shrink-0">
+                  <Volume2 size={14} /> Call Recording
+                </div>
+                <audio controls src={c.recording_url} className="h-8 w-full max-w-md accent-[#00ffcc]" preload="none" />
               </div>
             )}
 

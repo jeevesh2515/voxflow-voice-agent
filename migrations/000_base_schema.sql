@@ -126,6 +126,7 @@ CREATE TABLE IF NOT EXISTS calls (
 	staff_resolution TEXT NOT NULL, 
 	staff_resolved_at TIMESTAMP WITH TIME ZONE, 
 	sheet_synced INTEGER NOT NULL, 
+	recording_url VARCHAR(512), 
 	verified INTEGER NOT NULL, 
 	PRIMARY KEY (id), 
 	FOREIGN KEY(tenant_id) REFERENCES tenants (id), 
