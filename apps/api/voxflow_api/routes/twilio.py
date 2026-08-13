@@ -50,6 +50,11 @@ _RATE_LIMIT_MAX = 30       # requests...
 _RATE_LIMIT_WINDOW = 60.0  # ...per this many seconds
 _rate_buckets: dict[str, list[float]] = {}
 
+# Separate rate limit for WebSocket /twilio/media connections.
+# Twilio opens one WS per call, so 10/min per IP is generous for normal use.
+_WS_RATE_LIMIT_MAX = 10
+_ws_rate_buckets: dict[str, list[float]] = {}
+
 
 def _rate_limited(client_ip: str) -> bool:
     """True if this IP has exceeded the webhook rate limit.
@@ -68,6 +73,26 @@ def _rate_limited(client_ip: str) -> bool:
     if len(_rate_buckets) > 5000:  # crude cap so the dict can't grow unbounded
         for ip in [k for k, v in _rate_buckets.items() if not v]:
             _rate_buckets.pop(ip, None)
+    return False
+
+
+def _ws_rate_limited(client_ip: str) -> bool:
+    """True if this IP has exceeded the WebSocket connection rate limit.
+
+    /twilio/media is a WebSocket endpoint. Twilio opens exactly one connection
+    per call, so 10 connections per minute per IP is generous for legitimate use
+    and still blocks runaway loops if the public URL is discovered.
+    """
+    now = time.monotonic()
+    hits = _ws_rate_buckets.setdefault(client_ip, [])
+    cutoff = now - _RATE_LIMIT_WINDOW
+    hits[:] = [t for t in hits if t > cutoff]
+    if len(hits) >= _WS_RATE_LIMIT_MAX:
+        return True
+    hits.append(now)
+    if len(_ws_rate_buckets) > 5000:
+        for ip in [k for k, v in _ws_rate_buckets.items() if not v]:
+            _ws_rate_buckets.pop(ip, None)
     return False
 
 
@@ -343,7 +368,17 @@ async def voice_webhook(request: Request) -> Response:
     base = (get_settings().public_base_url or "").rstrip("/")
     ws_host = base.split("://", 1)[-1] if base else host
     xml = _TWIML_TEMPLATE.replace("{host}", ws_host)
-    return Response(content=xml, media_type="application/xml")
+    return Response(
+        content=xml,
+        media_type="application/xml",
+        headers={
+            # Security hardening — Day 18 security pass.
+            # TwiML is XML so browsers should never render or frame it.
+            "X-Content-Type-Options": "nosniff",
+            "X-Frame-Options": "DENY",
+            "Cache-Control": "no-store, no-cache",
+        },
+    )
 
 
 # ---------- Media Streams WebSocket ----------
@@ -503,6 +538,14 @@ async def twilio_media_stream(ws: WebSocket) -> None:
     the utterance into the STT -> agent -> TTS pipeline. Transcripts are logged
     and agent TTS audio is encoded and streamed back over the WebSocket.
     """
+    # Rate-limit before accepting — close with 1008 (policy violation) if exceeded.
+    client_ip = ws.client.host if ws.client else "unknown"
+    if _ws_rate_limited(client_ip):
+        log.warning("twilio.media.ws_rate_limited", ip=client_ip)
+        await ws.accept()
+        await ws.close(code=1008, reason="rate_limited")
+        return
+
     await ws.accept()
     st: _StreamState | None = None
 

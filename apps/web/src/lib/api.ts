@@ -80,6 +80,8 @@ export const api = {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ staff_resolution }),
     }),
+  activeCalls: (tenant_id?: string) =>
+    http<any[]>(`/api/active-calls${tenant_id ? `?tenant_id=${tenant_id}` : ""}`),
   appointments: (tenant_id?: string) =>
     http<any[]>(`/api/appointments${tenant_id ? `?tenant_id=${tenant_id}` : ""}`),
   communications: (tenant_id?: string) =>

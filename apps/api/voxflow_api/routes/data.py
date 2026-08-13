@@ -238,6 +238,52 @@ def list_shipments(
         ]
 
 
+# ---------- Active (in-progress) Calls — Day 16 ----------
+
+
+@router.get("/active-calls")
+def list_active_calls(
+    request: Request,
+    tenant_id: str | None = Query(default=None),
+) -> list[dict[str, Any]]:
+    """Return all calls currently in progress (in-memory, not yet persisted).
+
+    Reads the pipeline's live session map — these are calls still connected
+    to Twilio or the browser simulator. Calls disappear from this list as
+    soon as they end and are persisted to the database.
+    """
+    import time
+    tenant = _tenant_id(request, tenant_id)
+
+    # Import lazily to avoid circular import at module load time.
+    from .ws import get_pipeline
+    pipeline = get_pipeline()
+
+    now = time.time()
+    result = []
+    for session in list(pipeline._sessions.values()):
+        if session.tenant_id != tenant:
+            continue
+        result.append({
+            "call_id": session.call_id,
+            "tenant_id": session.tenant_id,
+            "caller_phone": session.caller_phone or "",
+            "caller_name": session.caller_name or "",
+            "company_name": session.company_name or "",
+            "intent": session.intent or "",
+            "verified": session.verified,
+            "pin_verified": session.pin_verified,
+            "outcome": session.outcome,
+            "turn_count": len([t for t in session.transcript if t.role == "agent"]),
+            "elapsed_sec": round(now - session.started_at),
+            "started_at": session.started_at,
+        })
+
+    # Sort by start time, oldest first
+    result.sort(key=lambda x: x["started_at"])
+    return result
+
+
 # ---------- Calls ----------
 
 

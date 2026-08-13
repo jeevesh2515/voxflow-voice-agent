@@ -1,7 +1,8 @@
 "use client";
 
+import { useState, useEffect } from "react";
 import useSWR from "swr";
-import { PhoneCall, ShieldCheck, ShieldOff, AlertCircle } from "lucide-react";
+import { PhoneCall, ShieldCheck, ShieldOff, AlertCircle, Radio } from "lucide-react";
 import { api } from "@/lib/api";
 import { fmtRelative, fmtDuration, statusBg, statusColor } from "@/lib/format";
 import { useTenant } from "@/lib/tenant-context";
@@ -55,9 +56,68 @@ function resolutionBadge(r: ResolutionStatus) {
 
 // ── Page ──────────────────────────────────────────────────────────────────────
 
+// Elapsed timer that updates every second client-side
+function useElapsed(startedAt: number) {
+  const [elapsed, setElapsed] = useState(Math.round(Date.now() / 1000 - startedAt));
+  useEffect(() => {
+    const id = setInterval(() => setElapsed(Math.round(Date.now() / 1000 - startedAt)), 1000);
+    return () => clearInterval(id);
+  }, [startedAt]);
+  return elapsed;
+}
+
+function ActiveCallCard({ c }: { c: any }) {
+  const elapsed = useElapsed(c.started_at);
+  const mins = Math.floor(elapsed / 60);
+  const secs = elapsed % 60;
+  return (
+    <div className="rounded-lg border border-[#00ffcc]/30 bg-[#00ffcc]/5 p-4 flex items-center gap-3 flex-wrap">
+      <span className="relative flex h-3 w-3 shrink-0">
+        <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-[#00ffcc] opacity-60" />
+        <span className="relative inline-flex rounded-full h-3 w-3 bg-[#00ffcc]" />
+      </span>
+      <div className="flex-1 min-w-0">
+        <div className="flex items-center gap-2 flex-wrap">
+          <span className="text-sm font-semibold text-[#e8e0f0]">
+            {c.caller_name || c.company_name || c.caller_phone || "Unknown Caller"}
+          </span>
+          {c.caller_name && c.caller_phone && (
+            <span className="text-[11px] font-mono text-[#a098b0]">{c.caller_phone}</span>
+          )}
+          {c.verified ? (
+            <span className="flex items-center gap-1 text-[10px] font-mono text-[#a098b0] border border-[#302840]/60 bg-[#1e1e30]/40 px-1.5 py-0.5 rounded">
+              <ShieldCheck size={10} /> verified
+            </span>
+          ) : (
+            <span className="flex items-center gap-1 text-[10px] font-mono text-warn-500 border border-warn-500/30 bg-warn-500/10 px-1.5 py-0.5 rounded">
+              <ShieldOff size={10} /> unverified
+            </span>
+          )}
+        </div>
+        {c.intent && (
+          <div className="text-[11px] font-mono text-[#a098b0] mt-0.5 truncate">
+            Intent: {c.intent}
+          </div>
+        )}
+      </div>
+      <div className="text-right shrink-0">
+        <div className="text-sm font-mono text-[#00ffcc]">
+          {String(mins).padStart(2, "0")}:{String(secs).padStart(2, "0")}
+        </div>
+        <div className="text-[10px] font-mono text-[#5a5068]">{c.turn_count} turns</div>
+      </div>
+    </div>
+  );
+}
+
 export default function CallsPage() {
   const { activeTenantId, activeTenant } = useTenant();
   const { data: calls, error, isLoading } = useSWR(["calls", activeTenantId], () => api.calls(100, activeTenantId));
+  const { data: activeCalls } = useSWR(
+    ["active-calls", activeTenantId],
+    () => api.activeCalls(activeTenantId),
+    { refreshInterval: 5000 },
+  );
 
   return (
     <>
@@ -65,6 +125,24 @@ export default function CallsPage() {
         <h1 className="text-xl font-bold text-[#e8e0f0]">Call Logs & Transcripts</h1>
         <span className="text-xs text-[#a098b0]">{activeTenant.name} · {calls?.length ?? 0} calls</span>
       </div>
+
+      {/* ── Live Active Calls ── */}
+      {activeCalls && activeCalls.length > 0 && (
+        <div className="px-6 pb-2">
+          <div className="flex items-center gap-2 mb-2">
+            <Radio size={13} className="text-[#00ffcc]" />
+            <span className="text-xs font-mono uppercase tracking-wider text-[#00ffcc]">
+              {activeCalls.length} call{activeCalls.length !== 1 ? "s" : ""} in progress
+            </span>
+          </div>
+          <div className="space-y-2">
+            {activeCalls.map((c: any) => (
+              <ActiveCallCard key={c.call_id} c={c} />
+            ))}
+          </div>
+        </div>
+      )}
+
       <div className="p-6 space-y-3">
         {isLoading && <div className="text-center text-[#a098b0] py-12 text-sm">Loading calls...</div>}
         {error && <div className="rounded border border-danger-500/30 bg-danger-500/10 p-3 text-sm text-danger-500">Failed to load calls. Is the API running?</div>}

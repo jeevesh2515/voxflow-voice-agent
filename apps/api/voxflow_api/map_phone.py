@@ -17,16 +17,29 @@ from voxflow_api.logging import get_logger
 log = get_logger("map_phone")
 
 
+def _twilio_client():
+    """Return a Twilio REST client, preferring API Key auth over Account SID/Auth Token."""
+    from twilio.rest import Client
+    settings = get_settings()
+    # Prefer API Key credentials (safer for rotation; never use the master Auth Token
+    # in tooling if you can avoid it).  Fall back to Account SID + Auth Token.
+    if settings.twilio_api_key and settings.twilio_api_secret and settings.twilio_account_sid:
+        return Client(settings.twilio_api_key, settings.twilio_api_secret, settings.twilio_account_sid)
+    return Client(settings.twilio_account_sid, settings.twilio_auth_token)
+
+
 def configure_twilio_webhook(phone_number: str, webhook_url: str) -> bool:
     """Configures the voice webhook URL for the specified phone number in Twilio."""
     settings = get_settings()
-    if not settings.twilio_account_sid or not settings.twilio_auth_token:
-        print("❌ Twilio Account SID or Auth Token missing in environment!")
+    if not settings.twilio_account_sid:
+        print("❌ TWILIO_ACCOUNT_SID missing in environment!")
+        return False
+    if not settings.twilio_auth_token and not (settings.twilio_api_key and settings.twilio_api_secret):
+        print("❌ Twilio credentials missing: set TWILIO_AUTH_TOKEN, or TWILIO_API_KEY + TWILIO_API_SECRET")
         return False
 
     try:
-        from twilio.rest import Client
-        client = Client(settings.twilio_account_sid, settings.twilio_auth_token)
+        client = _twilio_client()
         numbers = client.incoming_phone_numbers.list()
         
         target = None
@@ -92,10 +105,9 @@ def main():
     phone = args.phone
 
     if args.auto or not phone:
-        if settings.twilio_account_sid and settings.twilio_auth_token:
+        if settings.twilio_account_sid and (settings.twilio_auth_token or (settings.twilio_api_key and settings.twilio_api_secret)):
             try:
-                from twilio.rest import Client
-                client = Client(settings.twilio_account_sid, settings.twilio_auth_token)
+                client = _twilio_client()
                 numbers = client.incoming_phone_numbers.list()
                 if numbers:
                     phone = numbers[0].phone_number
