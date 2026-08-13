@@ -76,6 +76,8 @@ class Settings(BaseSettings):
     public_base_url: str = ""
     # Reject unsigned/forged webhook requests. Keep true in production.
     twilio_validate_signature: bool = True
+    # Default Twilio WhatsApp Sandbox number (format: whatsapp:+14155238886)
+    twilio_whatsapp_number: str = "whatsapp:+14155238886"
     # Tenant used when an inbound number isn't mapped in tenant_phone_numbers.
     default_tenant_id: str = "varun"
 

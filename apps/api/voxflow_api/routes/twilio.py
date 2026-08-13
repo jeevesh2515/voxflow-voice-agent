@@ -26,6 +26,7 @@ from fastapi import APIRouter, HTTPException, Request, WebSocket, WebSocketDisco
 from fastapi.responses import Response
 
 from ..config import get_settings
+from ..db import Call, async_session_scope
 from ..logging import get_logger
 from ..voice.pipeline import CallSession
 from .ws import get_pipeline
@@ -363,6 +364,28 @@ async def voice_webhook(request: Request) -> Response:
 
     log.info("twilio.voice_webhook", call_sid=call_sid, from_=caller_phone, to=to_number, tenant_id=tenant_id)
 
+    # Request call recording via Twilio REST API (non-blocking, skip during pytest)
+    import os
+    if call_sid and not os.environ.get("PYTEST_CURRENT_TEST"):
+        async def _request_rec(url_base: str):
+            try:
+                from ..agent.tools import _get_twilio_client
+                client = _get_twilio_client()
+                if client:
+                    callback_url = f"{url_base}/twilio/recording-callback"
+                    await asyncio.to_thread(
+                        client.calls(call_sid).recordings.create,
+                        recording_status_callback=callback_url,
+                        recording_status_callback_event=["completed"],
+                    )
+                    log.info("twilio.recording_requested", call_sid=call_sid)
+            except Exception as e:
+                log.warning("twilio.recording_request_failed", call_sid=call_sid, error=str(e))
+        
+        base_url = (get_settings().public_base_url or "").rstrip("/")
+        if base_url:
+            asyncio.create_task(_request_rec(base_url))
+
     # Prefer the configured public URL: behind a reverse proxy the Host header
     # is not necessarily the address Twilio can dial back on.
     base = (get_settings().public_base_url or "").rstrip("/")
@@ -379,6 +402,35 @@ async def voice_webhook(request: Request) -> Response:
             "Cache-Control": "no-store, no-cache",
         },
     )
+
+
+@router.post("/recording-callback")
+async def recording_callback(request: Request) -> Response:
+    """Webhook callback from Twilio when a call recording completes."""
+    try:
+        form = await request.form()
+        call_sid = str(form.get("CallSid", ""))
+        recording_url = str(form.get("RecordingUrl", ""))
+        if recording_url and not recording_url.endswith(".mp3"):
+            recording_url = f"{recording_url}.mp3"
+        log.info("twilio.recording_received", call_sid=call_sid, url=recording_url)
+
+        if call_sid and recording_url:
+            # Update active in-memory session
+            session = get_pipeline()._sessions.get(call_sid)
+            if session:
+                session.recording_url = recording_url
+
+            # Update DB call record
+            async with async_session_scope() as db:
+                c = await db.get(Call, call_sid)
+                if c:
+                    c.recording_url = recording_url
+                    await db.commit()
+    except Exception as e:
+        log.warning("twilio.recording_callback_error", error=str(e))
+
+    return Response(content="<Response/>", media_type="application/xml")
 
 
 # ---------- Media Streams WebSocket ----------

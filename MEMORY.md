@@ -10,15 +10,14 @@ unreliable.
 ## Current Position
 
 **Last updated:** 2026-08-13
-**Currently on:** **Week 4 / Day 18 Complete (Security Pass Done).**
+**Currently on:** **Week 4 / WhatsApp Dispatch & Call Recording Complete.**
+- **WhatsApp Dispatch (Twilio Sandbox):** Upgraded `send_whatsapp_message` tool in `agent/tools.py` to send real WhatsApp messages via Twilio Python SDK (`client.messages.create`) when credentials exist. `TWILIO_WHATSAPP_NUMBER` added to `config.py` and `.env.example`.
+- **Automated Call Recording:** `recording_url` column added to `Call` table in `db.py` and schema. `/twilio/recording-callback` webhook captures Twilio audio recordings and persists `recording_url`. Next.js dashboard `/dashboard/calls` includes an html5 audio player with a `Volume2` badge for recorded calls.
 - **Week 4 Days 16–18 Complete:**
-  - **Day 16 (Live Call Status):** `GET /api/active-calls` endpoint reads live in-memory pipeline sessions. `ActiveCallCard` component on `/dashboard/calls` shows pulsing green dot + elapsed mm:ss timer, caller identity, intent, and verification status. Polls every 5s via SWR. Zero noise when idle.
-  - **Day 17 (Escalation Queue):** Already implemented — `/dashboard/escalations` page with `EscalationCard`, `PATCH /api/calls/{id}/resolution` endpoint, pending count, resolved-state dimming. Fully wired.
-  - **Day 18 (Security Pass):** `security_audit.md` created reflecting actual state. WS `/twilio/media` rate-limited (10 conn/60s per IP). Security headers on TwiML response. `TWILIO_API_KEY` / `TWILIO_API_SECRET` optional fields added to `config.py` + `.env.example`. `map_phone.py` uses API Key auth when set.
-- **Twilio API Keys:** The project now supports both credential modes:
-  - **Account SID + Auth Token** (required for webhook signature validation — always needed)
-  - **API Key + API Secret** (optional; for CLI tools / REST calls; safer for rotation). Set `TWILIO_API_KEY` + `TWILIO_API_SECRET` in `.env`.
-- **Test Suite:** 136/136 backend tests passing. Next.js 16-route build compiles clean.
+  - **Day 16 (Live Call Status):** `GET /api/active-calls` endpoint reads live in-memory pipeline sessions. `ActiveCallCard` component on `/dashboard/calls` shows pulsing green dot + elapsed mm:ss timer.
+  - **Day 17 (Escalation Queue):** `/dashboard/escalations` page with `EscalationCard` and resolution patch.
+  - **Day 18 (Security Pass):** `security_audit.md` created. WS `/twilio/media` rate-limited. Security headers added.
+- **Test Suite:** 136/136 backend tests passing. Next.js 18-route build compiles clean.
 **Next action:** Day 19 — Demo call with Varun Beverages contact, update PRD.md with real workflow findings.
 
 
