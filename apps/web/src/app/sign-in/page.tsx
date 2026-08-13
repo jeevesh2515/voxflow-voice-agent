@@ -4,7 +4,15 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { FadeUp } from "@/components/ScrollAnimations";
+import { createClient } from "@/lib/supabase/client";
 import { useTenant } from "@/lib/tenant-context";
+
+function supabaseConfigured() {
+  return Boolean(
+    process.env.NEXT_PUBLIC_SUPABASE_URL &&
+      process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY,
+  );
+}
 
 export default function SignInPage() {
   const router = useRouter();
@@ -15,45 +23,87 @@ export default function SignInPage() {
   const [loading, setLoading] = useState(false);
   const [signInError, setSignInError] = useState("");
 
-  const handleSignIn = (e: React.FormEvent) => {
-    e.preventDefault();
-    setSignInError("");
-    if (!email.trim()) { setSignInError("Email is required"); return; }
-    if (!password.trim()) { setSignInError("Password is required"); return; }
-    setLoading(true);
-
-    setActiveTenantId(selectedTenant);
+  const writeDemoSession = (userEmail: string, tenantId: string, name?: string) => {
+    setActiveTenantId(tenantId);
     localStorage.setItem(
       "voxflow_session",
       JSON.stringify({
         user: {
-          name: email.split("@")[0],
-          email: email,
-          tenant_id: selectedTenant,
+          name: name || userEmail.split("@")[0],
+          email: userEmail,
+          tenant_id: tenantId,
         },
         token: `auth-token-${Date.now()}`,
-      })
+        mode: "demo",
+      }),
     );
+  };
 
-    setTimeout(() => {
+  const handleSignIn = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setSignInError("");
+    if (!email.trim()) {
+      setSignInError("Email is required");
+      return;
+    }
+    if (!password.trim()) {
+      setSignInError("Password is required");
+      return;
+    }
+    setLoading(true);
+
+    try {
+      if (supabaseConfigured()) {
+        const supabase = createClient();
+        const { data, error } = await supabase.auth.signInWithPassword({
+          email: email.trim(),
+          password,
+        });
+
+        if (error) {
+          setSignInError(error.message);
+          setLoading(false);
+          return;
+        }
+
+        // Prefer tenant from user metadata when present; fall back to UI selection.
+        const metaTenant =
+          (data.user?.user_metadata?.tenant_id as string | undefined) ||
+          selectedTenant;
+        setActiveTenantId(metaTenant);
+
+        localStorage.setItem(
+          "voxflow_session",
+          JSON.stringify({
+            user: {
+              name:
+                (data.user?.user_metadata?.full_name as string | undefined) ||
+                data.user?.email?.split("@")[0] ||
+                "Operator",
+              email: data.user?.email || email.trim(),
+              tenant_id: metaTenant,
+            },
+            token: data.session?.access_token || "",
+            mode: "supabase",
+          }),
+        );
+
+        router.push("/dashboard");
+        return;
+      }
+
+      // Fallback: local demo mode when Supabase env is not configured
+      writeDemoSession(email.trim(), selectedTenant);
       router.push("/dashboard");
-    }, 400);
+    } catch (err) {
+      setSignInError(err instanceof Error ? err.message : "Sign-in failed");
+      setLoading(false);
+    }
   };
 
   const handleQuickDemo = () => {
     setLoading(true);
-    setActiveTenantId("varun");
-    localStorage.setItem(
-      "voxflow_session",
-      JSON.stringify({
-        user: {
-          name: "Demo Admin",
-          email: "demo@voxflow.ai",
-          tenant_id: "varun",
-        },
-        token: "demo-token-12345",
-      })
-    );
+    writeDemoSession("demo@voxflow.ai", "varun", "Demo Admin");
     router.push("/dashboard");
   };
 
@@ -68,6 +118,13 @@ export default function SignInPage() {
             </div>
             <h1 className="font-headline font-bold text-2xl sm:text-3xl text-[#e8e0f0]">Welcome Back</h1>
             <p className="text-sm text-[#a098b0] mt-2 font-body">Sign in to manage your voice operations</p>
+            {!supabaseConfigured() && (
+              <p className="mt-3 text-[11px] font-label text-amber-400/90 bg-amber-400/10 border border-amber-400/30 rounded-lg px-3 py-2">
+                Supabase Auth not configured — using local demo mode. Set{" "}
+                <code className="text-[#00ffcc]">NEXT_PUBLIC_SUPABASE_URL</code> and{" "}
+                <code className="text-[#00ffcc]">NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY</code> for real auth.
+              </p>
+            )}
           </div>
 
           <form className="space-y-4" onSubmit={handleSignIn}>
