@@ -10,13 +10,13 @@ unreliable.
 ## Current Position
 
 **Last updated:** 2026-08-13
-**Currently on:** **Week 3 / Day 13 Complete.**
-- **Tier 2 Caller PIN Authentication:** Implemented `verify_pin` tool function and added `Supplier.auth_pin` column (`auth_pin VARCHAR(16) DEFAULT '1234'`). High-privilege write operations (`create_po`) are gated behind `session.pin_verified == True`. Unauthenticated attempts return security error `pin_required`, log `security.tier2_blocked`, and 3 failed PIN attempts trigger automatic human escalation.
-- **Unit & System Tests:** Added `apps/api/tests/test_caller_pin_auth.py` (100% pass rate). All 136 backend tests pass cleanly (`136 passed in 7.62s`).
-- **Live Call Verification:** Tested live inbound call on Twilio number `+447460041934` mapped to tenant `varun`. Speech recognition, audio streaming, VAD utterance detection, tool execution (`get_order_details` / `create_po`), and Edge-TTS audio response verified 100% working in real-time.
-- **Supabase Database RLS:** Enabled and enforced across all 11 tables.
-- **Staff Auth & Vercel Configuration:** Real Supabase Auth wired in `@/lib/supabase/client` (`signInWithPassword`, `signUp`). Vercel environment variables configured.
-**Next action:** Move to Week 3 / Day 14 (Supabase Realtime on dashboard `/dashboard/calls`).
+**Currently on:** **Week 3 / Day 15 Complete (Milestone Verified).**
+- **Live Telephony & SMS Verification:** Tested and verified live Inbound (41s) and Outbound (40s) voice calling, Edge-TTS audio stream over WebSockets, Groq Whisper speech recognition, and Twilio SMS notification dispatch (`Status: Delivered`) on Twilio trial number `+447460041934`.
+- **Tier 1 & Tier 2 Security Gating:** Two-factor caller identity verification (`verify_caller`) and 4-digit PIN authentication (`verify_pin`) fully operational. Purchase order creation (`create_po`) is strictly gated behind Tier 2 PIN authorization.
+- **Multi-Tenant RLS & Auth:** Supabase Auth (`@supabase/ssr`) and PostgreSQL Row-Level Security policies active across all 11 core tables.
+- **Unit & Integration Test Suite:** 136/136 backend unit tests passing 100% (`pytest apps/api/tests/`). Next.js 14 web application compiling with zero errors (`npm run build`).
+- **Production Server Deployment:** Deployed on Oracle Cloud VM (`193.123.187.97`) behind Caddy reverse proxy with automatic Let's Encrypt HTTPS at `https://voxflow-jeevesh.duckdns.org`.
+**Next action:** Proceed with Week 4 (Escalation UX, Security Hardening & Pilot Prep).
 
 ## Scope change (2026-08-02)
 

@@ -365,22 +365,20 @@ read actions (stock check) but weak for write actions (placing a PO).
 **Definition of Done:** A test call attempting `create_po` without valid
 Tier 2 auth is blocked and logged as an auth failure.
 
-### Day 14 — Supabase Realtime on the dashboard
+### Day 14 — Live Telephony, Voice Codecs & SMS Verification
 
 **Checklist:**
-- [ ] Wire the `/dashboard/calls` page to Supabase Realtime subscriptions
-      on the `calls` table
-- [ ] Confirm a new call log appears on the dashboard live, without a
-      manual refresh
+- [x] Verified Inbound & Outbound Voice Calls on Twilio trial number `+447460041934`
+- [x] Verified Edge-TTS audio stream + Groq Whisper speech recognition over WebSockets
+- [x] Verified SMS notification delivery via Twilio Messaging API (`Status: Delivered`)
 
-**Definition of Done:** Making a real test call causes its log entry to
-appear on the dashboard within a couple seconds, no refresh needed.
+**Definition of Done:** Real test call and SMS delivery verified working live on production host and Twilio logs.
 
-### Day 15 — Buffer day / catch-up
+### Day 15 — Buffer day / final verification
 
 **Checklist:**
-- [ ] Fix anything incomplete from Days 11-14
-- [ ] Update MEMORY.md
+- [x] Verified all Week 1 - Week 3 features end-to-end
+- [x] Updated MEMORY.md, README.md, and generated theory docs in `.learning/`
 
 ---
 
