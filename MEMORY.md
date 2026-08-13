@@ -10,13 +10,13 @@ unreliable.
 ## Current Position
 
 **Last updated:** 2026-08-13
-**Currently on:** **Week 3 / Day 12 Complete & Live Call Verified.**
-- **Live Call Test Result:** Tested live inbound call on Twilio number `+447460041934` mapped to tenant `varun` ("Varun Beverages UK Support Line"). Speech recognition, audio streaming, VAD utterance detection, tool execution (`get_order_details` / `create_po`), and Edge-TTS audio response verified 100% working in real-time.
-- **Supabase Database RLS:** Enabled and enforced across all 11 tables (`tenants`, `suppliers`, `products`, `stock`, `orders`, `shipments`, `calls`, `appointments`, `worksheet_logs`, `communication_logs`, `tenant_phone_numbers`).
-- **Staff Auth & Vercel Configuration:** Real Supabase Auth wired in `@/lib/supabase/client` (`signInWithPassword`, `signUp`). Vercel environment variables configured:
-  - `NEXT_PUBLIC_SUPABASE_URL`: `https://gujjyytfpqpkzbrtsink.supabase.co`
-  - `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`: `sb_publishable_5lTf-c4V8Ie_zRHj_qKjCA_ivJyMV8L`
-**Next action:** Move to Week 3 / Day 13 (Caller PIN auth for Tier 2 write actions).
+**Currently on:** **Week 3 / Day 13 Complete.**
+- **Tier 2 Caller PIN Authentication:** Implemented `verify_pin` tool function and added `Supplier.auth_pin` column (`auth_pin VARCHAR(16) DEFAULT '1234'`). High-privilege write operations (`create_po`) are gated behind `session.pin_verified == True`. Unauthenticated attempts return security error `pin_required`, log `security.tier2_blocked`, and 3 failed PIN attempts trigger automatic human escalation.
+- **Unit & System Tests:** Added `apps/api/tests/test_caller_pin_auth.py` (100% pass rate). All 136 backend tests pass cleanly (`136 passed in 7.62s`).
+- **Live Call Verification:** Tested live inbound call on Twilio number `+447460041934` mapped to tenant `varun`. Speech recognition, audio streaming, VAD utterance detection, tool execution (`get_order_details` / `create_po`), and Edge-TTS audio response verified 100% working in real-time.
+- **Supabase Database RLS:** Enabled and enforced across all 11 tables.
+- **Staff Auth & Vercel Configuration:** Real Supabase Auth wired in `@/lib/supabase/client` (`signInWithPassword`, `signUp`). Vercel environment variables configured.
+**Next action:** Move to Week 3 / Day 14 (Supabase Realtime on dashboard `/dashboard/calls`).
 
 ## Scope change (2026-08-02)
 

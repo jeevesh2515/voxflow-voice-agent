@@ -36,7 +36,7 @@
 
 Operating seamlessly in **Hindi & English** with ultra-low latency, VoxFlow automates transactional call workflows end-to-end:
 
-- 🔒 **Identity Verification**: Multi-factor caller authentication via registered phone numbers, city match, or GSTIN challenges before data disclosure.
+- 🔒 **Tier 1 & Tier 2 Security Gating**: Multi-factor caller authentication via registered phone numbers, city match, or GSTIN challenges before data disclosure, plus Tier 2 4-digit PIN verification (`verify_pin`) for high-privilege order creation (`create_po`).
 - 📦 **Inventory & Stock Management**: Real-time multi-warehouse inventory lookups and stock availability confirmation.
 - ⚡ **Autonomous Purchase Orders**: Conversational natural language slot-filling to generate, validate, and record Purchase Orders directly into the core database.
 - 🚚 **Logistics & Shipment Tracking**: Real-time dispatch status, ETA lookup, and carrier tracking queries.

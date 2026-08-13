@@ -53,6 +53,10 @@ class CallSession:
     verified: bool = False
     verify_attempts: int = 0
     company_name: str = ""
+    # ---- Tier 2 PIN Verification state ----
+    # True only after a successful verify_pin challenge. Required before create_po.
+    pin_verified: bool = False
+    pin_attempts: int = 0
     # True only when the INBOUND number matched a contact record. This is
     # factor 1 of two-factor verification, and it is the only form of
     # identification the caller cannot simply assert. Matching by company name

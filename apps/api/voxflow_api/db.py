@@ -166,6 +166,8 @@ class Supplier(Base):
     pincode: Mapped[str] = mapped_column(String(16))
     contact_person: Mapped[str] = mapped_column(String(255), default="")
     gstin: Mapped[str] = mapped_column(String(32), default="")
+    # Tier 2 PIN authentication for order creation and sensitive updates
+    auth_pin: Mapped[str] = mapped_column(String(16), default="1234")
     # Which side of the trade this contact sits on.
     # customer = they buy from us | supplier = they sell to us | both
     contact_type: Mapped[str] = mapped_column(String(16), default="customer", index=True)

@@ -357,11 +357,10 @@ RLS layer even if application code were buggy — tested, not assumed.
 read actions (stock check) but weak for write actions (placing a PO).
 
 **Checklist:**
-- [ ] Add a PIN field to the `suppliers` table (or use last-PO reference
-      as an alternative — pick one, document in RULES.md)
-- [ ] Gate `create_po` behind successful Tier 2 verification
-- [ ] Test: a caller who fails Tier 2 auth cannot place an order, and the
-      attempt is logged, not silently dropped
+- [x] Add a PIN field (`auth_pin`) to the `suppliers` table (`Supplier.auth_pin VARCHAR(16) DEFAULT '1234'`)
+- [x] Gate `create_po` behind successful Tier 2 verification (`verify_pin`)
+- [x] Test: a caller who fails Tier 2 auth cannot place an order, and the
+      attempt is logged, not silently dropped (`test_caller_pin_auth.py`)
 
 **Definition of Done:** A test call attempting `create_po` without valid
 Tier 2 auth is blocked and logged as an auth failure.

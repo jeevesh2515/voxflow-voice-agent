@@ -1,33 +1,3 @@
--- =====================================================================
--- VoxFlow 000 — complete base schema
--- =====================================================================
---
--- Run this ONCE in the Supabase dashboard: SQL Editor -> New query ->
--- paste -> Run. Then run migrations/001_customer_support_flow.sql, which
--- is a no-op on a database created by this file (every statement is
--- IF NOT EXISTS) but is needed for databases created before it existed.
---
--- Safe to re-run. Every statement is idempotent.
---
--- WHY THIS FILE EXISTS
--- --------------------
--- The DDL used to live only in schema.md, as prose-wrapped code fences that
--- had to be copied out by hand, in the right order, in two pieces. Hand-copied
--- DDL drifts from the ORM the moment either side changes, and the drift is
--- silent until a query fails at runtime.
---
--- This file is GENERATED FROM THE SQLAlchemy MODELS in voxflow_api/db.py, so
--- it cannot disagree with the code that queries it. Regenerate with:
---
---     python -m voxflow_api.gen_schema > migrations/000_base_schema.sql
---
--- =====================================================================
-
-
--- ---------------------------------------------------------------------
--- 1. Tables and indexes
--- ---------------------------------------------------------------------
-
 CREATE TABLE IF NOT EXISTS tenants (
 	id VARCHAR(64) NOT NULL, 
 	name VARCHAR(255) NOT NULL, 
@@ -77,6 +47,7 @@ CREATE TABLE IF NOT EXISTS suppliers (
 	pincode VARCHAR(16) NOT NULL, 
 	contact_person VARCHAR(255) NOT NULL, 
 	gstin VARCHAR(32) NOT NULL, 
+	auth_pin VARCHAR(16) NOT NULL, 
 	contact_type VARCHAR(16) NOT NULL, 
 	active INTEGER NOT NULL, 
 	created_at TIMESTAMP WITH TIME ZONE NOT NULL, 
@@ -84,11 +55,11 @@ CREATE TABLE IF NOT EXISTS suppliers (
 	FOREIGN KEY(tenant_id) REFERENCES tenants (id)
 );
 
-CREATE INDEX IF NOT EXISTS ix_suppliers_phone ON suppliers (phone);
+CREATE INDEX IF NOT EXISTS ix_suppliers_contact_type ON suppliers (contact_type);
 
 CREATE INDEX IF NOT EXISTS ix_suppliers_name ON suppliers (name);
 
-CREATE INDEX IF NOT EXISTS ix_suppliers_contact_type ON suppliers (contact_type);
+CREATE INDEX IF NOT EXISTS ix_suppliers_phone ON suppliers (phone);
 
 CREATE INDEX IF NOT EXISTS ix_suppliers_tenant_id ON suppliers (tenant_id);
 
@@ -161,11 +132,11 @@ CREATE TABLE IF NOT EXISTS calls (
 	FOREIGN KEY(supplier_id) REFERENCES suppliers (id)
 );
 
+CREATE INDEX IF NOT EXISTS ix_calls_resolution_status ON calls (resolution_status);
+
 CREATE INDEX IF NOT EXISTS ix_calls_satisfaction ON calls (satisfaction);
 
 CREATE INDEX IF NOT EXISTS ix_calls_tenant_id ON calls (tenant_id);
-
-CREATE INDEX IF NOT EXISTS ix_calls_resolution_status ON calls (resolution_status);
 
 CREATE TABLE IF NOT EXISTS orders (
 	id VARCHAR(64) NOT NULL, 
@@ -189,9 +160,9 @@ CREATE TABLE IF NOT EXISTS orders (
 
 CREATE INDEX IF NOT EXISTS ix_orders_customer_po_ref ON orders (customer_po_ref);
 
-CREATE INDEX IF NOT EXISTS ix_orders_tenant_id ON orders (tenant_id);
-
 CREATE INDEX IF NOT EXISTS ix_orders_supplier_id ON orders (supplier_id);
+
+CREATE INDEX IF NOT EXISTS ix_orders_tenant_id ON orders (tenant_id);
 
 CREATE TABLE IF NOT EXISTS stock (
 	id SERIAL NOT NULL, 
@@ -224,30 +195,13 @@ CREATE TABLE IF NOT EXISTS shipments (
 	FOREIGN KEY(order_id) REFERENCES orders (id)
 );
 
-CREATE INDEX IF NOT EXISTS ix_shipments_tenant_id ON shipments (tenant_id);
-
 CREATE INDEX IF NOT EXISTS ix_shipments_order_id ON shipments (order_id);
 
+CREATE INDEX IF NOT EXISTS ix_shipments_tenant_id ON shipments (tenant_id);
 
 -- ---------------------------------------------------------------------
 -- 2. Row-Level Security
 -- ---------------------------------------------------------------------
---
--- This matters more than it looks. The Supabase project ref is effectively
--- public (it appears in this repository's git history), and the anon key is
--- public by design. Without RLS, anyone who knows the ref can read every row
--- in this database through the auto-generated PostgREST API at
---     https://<ref>.supabase.co/rest/v1/orders
---
--- With RLS on and no policy granting access to `anon`, that request returns
--- an empty array.
---
--- This does NOT affect the application. VoxFlow connects as the `postgres`
--- role, which owns these tables, and in Postgres a table owner bypasses RLS
--- unless FORCE ROW LEVEL SECURITY is set. Tenant isolation for the app is
--- enforced in the query layer (every statement filters on tenant_id), which
--- is where it has always been enforced.
-
 ALTER TABLE tenants ENABLE ROW LEVEL SECURITY;
 ALTER TABLE suppliers ENABLE ROW LEVEL SECURITY;
 ALTER TABLE products ENABLE ROW LEVEL SECURITY;
@@ -291,23 +245,3 @@ DROP POLICY IF EXISTS tenant_isolation_policy ON tenant_phone_numbers;
 CREATE POLICY tenant_isolation_policy ON tenant_phone_numbers
     FOR ALL USING (tenant_id = current_setting('app.current_tenant', true));
 
--- ---------------------------------------------------------------------
--- 3. Composite indexes for the queries a live call actually runs
--- ---------------------------------------------------------------------
--- The model-level indexes above are single-column. These match the real
--- access patterns, which are always tenant-scoped.
-
-CREATE INDEX IF NOT EXISTS idx_orders_customer_po_ref ON orders (tenant_id, customer_po_ref);
-CREATE INDEX IF NOT EXISTS idx_calls_resolution       ON calls  (tenant_id, resolution_status);
-CREATE INDEX IF NOT EXISTS idx_calls_followup         ON calls  (tenant_id, follow_up_required)
-    WHERE follow_up_required = 1;
-CREATE INDEX IF NOT EXISTS idx_suppliers_contact_type ON suppliers (tenant_id, contact_type);
-
-
--- ---------------------------------------------------------------------
--- 4. Verify
--- ---------------------------------------------------------------------
--- Expect 11 rows.
---
---   SELECT table_name FROM information_schema.tables
---    WHERE table_schema = 'public' ORDER BY table_name;

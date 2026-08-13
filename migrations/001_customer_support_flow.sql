@@ -65,9 +65,12 @@ CREATE INDEX IF NOT EXISTS idx_calls_followup
 -- 3. suppliers — the same table holds both sides of the trade
 -- ---------------------------------------------------------------------
 ALTER TABLE suppliers ADD COLUMN IF NOT EXISTS contact_type VARCHAR(16) DEFAULT 'customer';
+ALTER TABLE suppliers ADD COLUMN IF NOT EXISTS auth_pin     VARCHAR(16) DEFAULT '1234';
 
 COMMENT ON COLUMN suppliers.contact_type IS
     'customer = they buy from us | supplier = they sell to us | both';
+COMMENT ON COLUMN suppliers.auth_pin IS
+    'Tier 2 4-digit PIN for order creation and write actions';
 
 CREATE INDEX IF NOT EXISTS idx_suppliers_contact_type
     ON suppliers (tenant_id, contact_type);
