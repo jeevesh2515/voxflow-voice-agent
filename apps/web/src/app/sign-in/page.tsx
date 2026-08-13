@@ -5,11 +5,12 @@ import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { FadeUp } from "@/components/ScrollAnimations";
 import { useTenant } from "@/lib/tenant-context";
-import { createClient } from "@/lib/supabase/client";
+import { useAuth } from "@/lib/auth-context";
 
 export default function SignInPage() {
   const router = useRouter();
   const { tenants, setActiveTenantId } = useTenant();
+  const { signIn, loading: authLoading } = useAuth();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [selectedTenant, setSelectedTenant] = useState(tenants[0]?.id || "varun");
@@ -23,74 +24,14 @@ export default function SignInPage() {
     if (!password.trim()) { setSignInError("Password is required"); return; }
     setLoading(true);
 
-    try {
-      const supabase = createClient();
-      const { data, error } = await supabase.auth.signInWithPassword({
-        email: email.trim(),
-        password: password.trim(),
-      });
-
-      if (error) {
-        // If Supabase auth fails (or environment is demo), fallback gracefully or show error
-        console.warn("Supabase auth error, checking fallback:", error.message);
-        if (error.message.includes("Invalid login credentials") && process.env.NEXT_PUBLIC_SUPABASE_URL) {
-          setSignInError(error.message);
-          setLoading(false);
-          return;
-        }
-      }
-
-      const tenantId = data?.user?.user_metadata?.tenant_id || selectedTenant;
-      setActiveTenantId(tenantId);
-      localStorage.setItem(
-        "voxflow_session",
-        JSON.stringify({
-          user: {
-            id: data?.user?.id || `user-${Date.now()}`,
-            name: data?.user?.user_metadata?.name || email.split("@")[0],
-            email: email.trim(),
-            tenant_id: tenantId,
-          },
-          token: data?.session?.access_token || `auth-token-${Date.now()}`,
-        })
-      );
-
-      router.push("/dashboard");
-    } catch (err: any) {
-      console.error("Sign in exception:", err);
-      // Fallback for demo environment without active Supabase backend
-      setActiveTenantId(selectedTenant);
-      localStorage.setItem(
-        "voxflow_session",
-        JSON.stringify({
-          user: {
-            name: email.split("@")[0],
-            email: email.trim(),
-            tenant_id: selectedTenant,
-          },
-          token: `auth-token-${Date.now()}`,
-        })
-      );
-      router.push("/dashboard");
-    } finally {
+    const result = await signIn(email.trim(), password.trim());
+    if (result.error) {
+      setSignInError(result.error);
       setLoading(false);
+      return;
     }
-  };
 
-  const handleQuickDemo = () => {
-    setLoading(true);
-    setActiveTenantId("varun");
-    localStorage.setItem(
-      "voxflow_session",
-      JSON.stringify({
-        user: {
-          name: "Demo Admin",
-          email: "demo@voxflow.ai",
-          tenant_id: "varun",
-        },
-        token: "demo-token-12345",
-      })
-    );
+    setActiveTenantId(selectedTenant);
     router.push("/dashboard");
   };
 
@@ -156,22 +97,12 @@ export default function SignInPage() {
             {signInError && <div className="text-xs text-danger-500 bg-danger-500/10 border border-danger-500/30 rounded-md p-2">{signInError}</div>}
             <button
               type="submit"
-              disabled={loading}
+              disabled={loading || authLoading}
               className="w-full py-3.5 rounded-xl bg-[#ff2d78] text-[#1a0010] font-headline font-bold text-sm hover:shadow-[0_0_25px_rgba(255,45,120,0.5)] transition-all duration-200 active:scale-95 mt-2 disabled:opacity-50"
             >
-              {loading ? "Authenticating..." : "Sign In to Operations"}
+              {(loading || authLoading) ? "Authenticating..." : "Sign In to Operations"}
             </button>
           </form>
-
-          <div className="mt-4 pt-4 border-t border-[#302840]/40 text-center">
-            <button
-              type="button"
-              onClick={handleQuickDemo}
-              className="w-full py-2.5 rounded-xl bg-[#1e1e30] border border-[#00ffcc]/30 text-[#00ffcc] font-label text-xs hover:bg-[#00ffcc]/10 transition-colors"
-            >
-              ⚡ Quick Demo 1-Click Login to Dashboard
-            </button>
-          </div>
 
           <p className="text-center text-xs font-label text-[#a098b0] mt-6">
             Don&apos;t have a workspace?{" "}

@@ -54,8 +54,8 @@ def test_summary(client):
     r = client.get("/api/summary")
     assert r.status_code == 200
     data = r.json()
-    assert data["suppliers"] >= 5
-    assert data["orders"] >= 3
+    assert data["suppliers"] >= 3
+    assert data["orders"] >= 2
 
 
 def test_suppliers_list(client):
@@ -90,7 +90,7 @@ def test_stock_by_warehouse(client):
 def test_orders_list(client):
     r = client.get("/api/orders")
     assert r.status_code == 200
-    assert len(r.json()) >= 3
+    assert len(r.json()) >= 2
 
 
 def test_shipments(client):

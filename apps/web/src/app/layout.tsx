@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Nav from "@/components/Nav";
 import Footer from "@/components/Footer";
 import { ThemeProvider } from "@/lib/theme-context";
+import { AuthProvider } from "@/lib/auth-context";
 import "./globals.css";
 
 export const metadata: Metadata = {
@@ -25,9 +26,11 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       </head>
       <body className="min-h-screen bg-[#0a0a12] text-[#e8e0f0] font-sans antialiased flex flex-col selection:bg-[#ff2d78] selection:text-[#1a0010] transition-colors duration-300">
         <ThemeProvider>
-          <Nav />
-          <main className="flex-1">{children}</main>
-          <Footer />
+          <AuthProvider>
+            <Nav />
+            <main className="flex-1">{children}</main>
+            <Footer />
+          </AuthProvider>
         </ThemeProvider>
       </body>
     </html>
