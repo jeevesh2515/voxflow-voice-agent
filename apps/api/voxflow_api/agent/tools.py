@@ -239,6 +239,52 @@ async def verify_caller(
         }
 
 
+MAX_PIN_ATTEMPTS = 3
+
+
+async def verify_pin(session: CallSession, pin: str | None = None) -> dict[str, Any]:
+    """Tier 2 Security Authentication: verifies caller's 4-digit security PIN before write actions."""
+    if not session.supplier_id:
+        return {"verified": False, "reason": "caller_not_identified", "message": "Caller record not identified yet."}
+
+    if session.pin_attempts >= MAX_PIN_ATTEMPTS:
+        session.escalated = True
+        log.warning("verify_pin.locked_out", call_id=session.call_id, attempts=session.pin_attempts)
+        return {
+            "verified": False,
+            "reason": "too_many_attempts",
+            "locked": True,
+            "message": "Maximum PIN verification attempts exceeded. Transferring to human agent.",
+        }
+
+    session.pin_attempts += 1
+    clean_pin = _norm(pin)
+
+    async with async_session_scope() as db:
+        sup = await db.get(Supplier, session.supplier_id)
+        if not sup or sup.tenant_id != session.tenant_id:
+            return {"verified": False, "reason": "contact_not_found"}
+
+        expected_pin = _norm(sup.auth_pin or "1234")
+        if clean_pin and clean_pin == expected_pin:
+            session.pin_verified = True
+            log.info("verify_pin.success", call_id=session.call_id, supplier_id=sup.id)
+            return {
+                "verified": True,
+                "message": "PIN verified successfully. Tier 2 authorization granted.",
+                "attempts_used": session.pin_attempts,
+            }
+
+        log.warning("verify_pin.failed", call_id=session.call_id, attempt=session.pin_attempts)
+        return {
+            "verified": False,
+            "reason": "invalid_pin",
+            "attempts_used": session.pin_attempts,
+            "attempts_remaining": MAX_PIN_ATTEMPTS - session.pin_attempts,
+            "message": "Incorrect PIN provided. Please ask the caller to double check their 4-digit PIN.",
+        }
+
+
 async def check_stock(session: CallSession, sku: str | None = None, warehouse: str | None = None) -> dict[str, Any]:
     """Look up stock for a SKU within the active tenant."""
     cache_key_parts = [session.tenant_id, sku or "*", warehouse or "*"]
@@ -298,6 +344,15 @@ async def create_po(
     notes: str = "",
 ) -> dict[str, Any]:
     """Create a new purchase order within the active tenant."""
+    if not session.pin_verified:
+        log.warning("security.tier2_blocked", call_id=session.call_id, tenant_id=session.tenant_id, supplier_id=session.supplier_id)
+        return {
+            "ok": False,
+            "error": "pin_required",
+            "verified_pin": False,
+            "message": "Tier 2 PIN verification is required before placing a purchase order. Please ask the caller for their 4-digit security PIN and call verify_pin.",
+        }
+
     if not supplier_id:
         supplier_id = session.supplier_id
     if not supplier_id:
@@ -715,6 +770,8 @@ async def execute_tool(name: str, args: dict[str, Any], session: CallSession) ->
             return await lookup_supplier(session, **(args or {}))
         if name == "verify_caller":
             return await verify_caller(session, **(args or {}))
+        if name == "verify_pin":
+            return await verify_pin(session, **(args or {}))
         if name == "check_stock":
             return await check_stock(session, **(args or {}))
         if name == "get_shipment_status":
@@ -792,6 +849,23 @@ TOOL_DEFINITIONS: list[dict[str, Any]] = [
                     },
                 },
                 "required": ["company"],
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "verify_pin",
+            "description": "Verify the caller's 4-digit security PIN before creating purchase orders or performing write actions.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "pin": {
+                        "type": "string",
+                        "description": "The 4-digit security PIN provided by the caller.",
+                    },
+                },
+                "required": ["pin"],
             },
         },
     },

@@ -100,6 +100,10 @@ Call `escalate_to_human` when:
   - They are angry or the situation is unusual
   - You simply do not know
 
+# Tier 2 Write Authorization
+Creating a new Purchase Order (`create_po`) requires Tier 2 PIN authorization.
+Before calling `create_po`, ask the caller for their 4-digit security PIN and call `verify_pin(pin=...)`. Only proceed with `create_po` after `verify_pin` returns `verified: true`.
+
 Escalating is a correct outcome, not a failure. Still call `log_call_outcome` afterwards.
 
 # Never

@@ -162,6 +162,7 @@ async def test_create_po_tool():
 
     s = CallSession(call_id="test")
     s.supplier_id = "sup-varun-001"
+    s.pin_verified = True
     res = await execute_tool(
         "create_po",
         {"items": [{"sku": "PEP-250ML-12", "quantity": 25}, {"sku": "7UP-500ML-24", "quantity": 10}]},

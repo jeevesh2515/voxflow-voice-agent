@@ -27,6 +27,7 @@ CREATE TABLE IF NOT EXISTS suppliers (
     pincode VARCHAR(16) NOT NULL,
     contact_person VARCHAR(255) DEFAULT '',
     gstin VARCHAR(32) DEFAULT '',
+    auth_pin VARCHAR(16) DEFAULT '1234',
     active INT DEFAULT 1,
     created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
 );

@@ -29,6 +29,56 @@ TABLES = [
 ]
 
 
+RLS_SUFFIX = """
+
+-- ---------------------------------------------------------------------
+-- 2. Row-Level Security
+-- ---------------------------------------------------------------------
+ALTER TABLE tenants ENABLE ROW LEVEL SECURITY;
+ALTER TABLE suppliers ENABLE ROW LEVEL SECURITY;
+ALTER TABLE products ENABLE ROW LEVEL SECURITY;
+ALTER TABLE stock ENABLE ROW LEVEL SECURITY;
+ALTER TABLE orders ENABLE ROW LEVEL SECURITY;
+ALTER TABLE shipments ENABLE ROW LEVEL SECURITY;
+ALTER TABLE calls ENABLE ROW LEVEL SECURITY;
+ALTER TABLE appointments ENABLE ROW LEVEL SECURITY;
+ALTER TABLE worksheet_logs ENABLE ROW LEVEL SECURITY;
+ALTER TABLE communication_logs ENABLE ROW LEVEL SECURITY;
+ALTER TABLE tenant_phone_numbers ENABLE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS tenant_isolation_policy ON suppliers;
+CREATE POLICY tenant_isolation_policy ON suppliers
+    FOR ALL USING (tenant_id = current_setting('app.current_tenant', true));
+DROP POLICY IF EXISTS tenant_isolation_policy ON products;
+CREATE POLICY tenant_isolation_policy ON products
+    FOR ALL USING (tenant_id = current_setting('app.current_tenant', true));
+DROP POLICY IF EXISTS tenant_isolation_policy ON stock;
+CREATE POLICY tenant_isolation_policy ON stock
+    FOR ALL USING (tenant_id = current_setting('app.current_tenant', true));
+DROP POLICY IF EXISTS tenant_isolation_policy ON orders;
+CREATE POLICY tenant_isolation_policy ON orders
+    FOR ALL USING (tenant_id = current_setting('app.current_tenant', true));
+DROP POLICY IF EXISTS tenant_isolation_policy ON shipments;
+CREATE POLICY tenant_isolation_policy ON shipments
+    FOR ALL USING (tenant_id = current_setting('app.current_tenant', true));
+DROP POLICY IF EXISTS tenant_isolation_policy ON calls;
+CREATE POLICY tenant_isolation_policy ON calls
+    FOR ALL USING (tenant_id = current_setting('app.current_tenant', true));
+DROP POLICY IF EXISTS tenant_isolation_policy ON appointments;
+CREATE POLICY tenant_isolation_policy ON appointments
+    FOR ALL USING (tenant_id = current_setting('app.current_tenant', true));
+DROP POLICY IF EXISTS tenant_isolation_policy ON worksheet_logs;
+CREATE POLICY tenant_isolation_policy ON worksheet_logs
+    FOR ALL USING (tenant_id = current_setting('app.current_tenant', true));
+DROP POLICY IF EXISTS tenant_isolation_policy ON communication_logs;
+CREATE POLICY tenant_isolation_policy ON communication_logs
+    FOR ALL USING (tenant_id = current_setting('app.current_tenant', true));
+DROP POLICY IF EXISTS tenant_isolation_policy ON tenant_phone_numbers;
+CREATE POLICY tenant_isolation_policy ON tenant_phone_numbers
+    FOR ALL USING (tenant_id = current_setting('app.current_tenant', true));
+"""
+
+
 def table_ddl() -> str:
     """CREATE TABLE + CREATE INDEX for every model, in dependency order."""
     from .db import Base
@@ -39,7 +89,7 @@ def table_ddl() -> str:
         out.append(str(CreateTable(t, if_not_exists=True).compile(dialect=pg)).strip() + ";")
         for ix in sorted(t.indexes, key=lambda i: i.name or ""):
             out.append(str(CreateIndex(ix, if_not_exists=True).compile(dialect=pg)).strip() + ";")
-    return "\n\n".join(out)
+    return "\n\n".join(out) + RLS_SUFFIX
 
 
 def main() -> None:
