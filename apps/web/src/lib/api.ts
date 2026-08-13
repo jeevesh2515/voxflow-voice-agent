@@ -1,10 +1,30 @@
-// Lightweight API client with multi-tenant filtering.
+// Lightweight API client with multi-tenant filtering and auth.
 
 const API = process.env.NEXT_PUBLIC_API_URL || "";
 
+function getAuthHeader(): Record<string, string> {
+  if (typeof window === "undefined") return {};
+  try {
+    const raw = localStorage.getItem("voxflow_session");
+    if (!raw) return {};
+    const session = JSON.parse(raw);
+    if (session?.token) {
+      return { Authorization: `Bearer ${session.token}` };
+    }
+  } catch {
+    // ignore parse errors
+  }
+  return {};
+}
+
 async function http<T>(path: string, init?: RequestInit): Promise<T> {
   const url = path.startsWith("http") ? path : `${API}${path}`;
-  const r = await fetch(url, { cache: "no-store", ...init });
+  const headers = {
+    "Content-Type": "application/json",
+    ...getAuthHeader(),
+    ...(init?.headers || {}),
+  };
+  const r = await fetch(url, { cache: "no-store", ...init, headers });
   if (!r.ok) {
     const body = await r.text();
     throw new Error(`${r.status} ${r.statusText}: ${body}`);
@@ -49,12 +69,6 @@ export const api = {
     return http<any[]>(`/api/calls?${qs}`);
   },
   escalations: (tenant_id?: string) => {
-    // Fetches calls where escalated=true OR follow_up_required=true.
-    // The backend filter only supports escalated; we fetch escalated calls
-    // and rely on the page to also fetch all calls to surface follow_up_required.
-    // For simplicity we fetch a large batch with no server-side escalated filter
-    // and let the client filter — this avoids two requests and an OR query the
-    // backend doesn't support natively.
     const qs = new URLSearchParams({ limit: "200" });
     if (tenant_id) qs.set("tenant_id", tenant_id);
     return http<any[]>(`/api/calls?${qs}`);

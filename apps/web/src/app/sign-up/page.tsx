@@ -5,7 +5,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { Suspense, useState } from "react";
 import { FadeUp } from "@/components/ScrollAnimations";
 import { useTenant } from "@/lib/tenant-context";
-import { createClient } from "@/lib/supabase/client";
+import { useAuth } from "@/lib/auth-context";
 
 const planNames: Record<string, { label: string; price: string }> = {
   starter: { label: "Starter Pilot", price: "$0/mo" },
@@ -18,13 +18,14 @@ function SignUpContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { addTenant } = useTenant();
+  const { signUp, loading: authLoading } = useAuth();
 
   const planKey = searchParams.get("plan") || "pro";
   const [selectedPlan, setSelectedPlan] = useState(planKey);
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
   const [company, setCompany] = useState("");
+  const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const [signUpError, setSignUpError] = useState("");
 
@@ -38,64 +39,19 @@ function SignUpContent() {
     const compName = company.trim() || "My Voice Operation";
     const tenant = addTenant(compName);
 
-    try {
-      const supabase = createClient();
-      if (password.trim()) {
-        const { data, error } = await supabase.auth.signUp({
-          email: email.trim(),
-          password: password.trim(),
-          options: {
-            data: {
-              name: name.trim() || "Operations Admin",
-              company_name: compName,
-              tenant_id: tenant.id,
-              plan: selectedPlan,
-            },
-          },
-        });
-        if (error) {
-          console.warn("Supabase sign up notice:", error.message);
-          setSignUpError(error.message);
-        }
-      }
+    const result = await signUp(email.trim(), password.trim(), {
+      name: name.trim() || "Operations Admin",
+      company_name: compName,
+      tenant_id: tenant.id,
+      plan: selectedPlan,
+    });
 
-      localStorage.setItem(
-        "voxflow_session",
-        JSON.stringify({
-          user: {
-            name: name.trim() || "Operations Admin",
-            email: email.trim() || "admin@company.com",
-            tenant_id: tenant.id,
-            plan: selectedPlan,
-          },
-          token: `demo-token-${Date.now()}`,
-        })
-      );
-
-      router.push("/dashboard");
-    } catch (err: any) {
-      console.error("Sign up exception:", err);
-      router.push("/dashboard");
-    } finally {
+    if (result.error) {
+      setSignUpError(result.error);
       setLoading(false);
+      return;
     }
-  };
 
-  const handleDemoAccess = () => {
-    setLoading(true);
-    const tenant = addTenant("Varun Beverages (PepsiCo)");
-    localStorage.setItem(
-      "voxflow_session",
-      JSON.stringify({
-        user: {
-          name: "Demo Admin",
-          email: "demo@voxflow.ai",
-          tenant_id: tenant.id,
-          plan: "pro",
-        },
-        token: "demo-token-12345",
-      })
-    );
     router.push("/dashboard");
   };
 
@@ -195,12 +151,6 @@ function SignUpContent() {
             />
           </div>
 
-          {signUpError && (
-            <div className="text-xs text-[#ff2d78] bg-[#ff2d78]/10 border border-[#ff2d78]/30 rounded-md p-2">
-              {signUpError}
-            </div>
-          )}
-
           <div>
             <label htmlFor="company" className="text-xs font-label uppercase tracking-widest text-[#e8e0f0] block mb-1.5">
               Company / Operation Name
@@ -216,24 +166,20 @@ function SignUpContent() {
             />
           </div>
 
+          {signUpError && (
+            <div className="text-xs text-[#ff2d78] bg-[#ff2d78]/10 border border-[#ff2d78]/30 rounded-md p-2">
+              {signUpError}
+            </div>
+          )}
+
           <button
             type="submit"
-            disabled={loading}
+            disabled={loading || authLoading}
             className="w-full py-3.5 rounded-xl bg-[#ff2d78] text-[#1a0010] font-headline font-bold text-sm hover:shadow-[0_0_25px_rgba(255,45,120,0.5)] transition-all duration-200 active:scale-95 mt-2 disabled:opacity-50"
           >
-            {loading ? "Activating Workspace..." : `Deploy ${activePlan.label} (${activePlan.price})`}
+            {(loading || authLoading) ? "Activating Workspace..." : `Deploy ${activePlan.label} (${activePlan.price})`}
           </button>
         </form>
-
-        <div className="mt-4 pt-4 border-t border-[#302840]/40 text-center">
-          <button
-            type="button"
-            onClick={handleDemoAccess}
-            className="w-full py-2.5 rounded-xl bg-[#1e1e30] border border-[#00ffcc]/30 text-[#00ffcc] font-label text-xs hover:bg-[#00ffcc]/10 transition-colors"
-          >
-            ⚡ Quick Demo Instant Login to Dashboard
-          </button>
-        </div>
 
         <p className="text-center text-xs font-label text-[#a098b0] mt-6">
           Already have a workspace?{" "}

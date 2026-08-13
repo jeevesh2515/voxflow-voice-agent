@@ -148,55 +148,25 @@ primary flow.
 
 ## What's Known to Be Incomplete or Wrong
 
-- ❌ **No real phone call has been made.** Every layer is implemented and
-  unit/integration tested, but nothing is proven against a live phone network.
-  This is the single most important outstanding item.
-- ❌ **VAD not tuned on real calls** — `_SILENCE_RMS = 800`, `_SILENCE_MS = 450`
-  remain guesses until real callers are heard.
-- ✅ **Latency baseline measured** (2026-08-06, on the 1/8-OCPU box, callers in
-  the UK, Supabase eu-west-1). *PHASES.md Week 1 Day 4 — previously outstanding.*
-
-  | Stage | Cold (self-test) | Warm (in-call) |
-  |---|---|---|
-  | Speech-to-text (Groq whisper-large-v3-turbo) | 288ms | 288ms |
-  | LLM single turn (Groq llama-3.3-70b) | 1975ms | **367ms** |
-  | Text-to-speech (edge-tts, full sentence) | 1703ms | streams |
-  | Database connect | 2815ms | pooled |
-
-  The cold column is alarming and misleading. It includes client construction,
-  TLS handshakes and connection-pool warm-up, all of which happen once per
-  process, not once per turn. The number that matters is the warm agent turn
-  logged during the conversational check: **367ms for the LLM**, giving roughly
-  **1.0-1.2s per conversational turn** once TTS streaming is accounted for.
-  That is inside the 1.0-1.5s the plan assumed, on the smallest instance Oracle
-  offers.
-
-  Re-measure against a real call — this is still a lab number.
-- ❌ **Staff auth is still `localStorage`-based**, not Supabase Auth (Week 3
-  Day 11). Every `/api` endpoint therefore trusts a client-supplied
-  `tenant_id` — acceptable for a single operator, not for a customer's staff.
-- ❌ **RLS written but never verified** against a live second tenant (Week 3
-  Day 12). Application-level scoping *is* enforced, with two cross-tenant
-  isolation tests.
-- ❌ **No dashboard realtime** — rows appear on refresh (Week 3 Day 14).
-- ❌ **No caller PIN** for write actions (Week 3 Day 13). Read queries are
-  gated by two-factor verification, which is proportionate; placing an order
-  by phone is not.
-- ❌ **No real pilot conversation** yet (Week 4 Day 19) — the workflow remains
-  a hypothesis.
-- ❌ **Groq free tier is rate-limited per minute.** Fine for a pilot; real
-  volume needs the paid tier.
+- ❌ **Backend currently unreachable** — `voxflow-jeevesh.duckdns.org` times out. Twilio cannot deliver webhooks. VM/Caddy/Docker needs recovery (see bottom of file for diagnostics).
+- ❌ **Staff auth demo fallback removed but not fully verified** — Supabase Auth is wired in frontend and backend JWT middleware is in place, but a live sign-in with a real Supabase test user has not been completed since the refactor.
+- ❌ **Dashboard realtime** — rows appear on refresh (Week 3 Day 14).
+- ⚠️ **VAD thresholds uncalibrated on real calls** — `_SILENCE_RMS = 800`, `_SILENCE_MS = 450` remain estimates until real callers are heard with the backend back online.
+- ❌ **Groq free tier rate-limited per minute.** Fine for a pilot; real volume needs the paid tier.
+- ⚠️ **Latency baseline is lab numbers only** — see table above (measured on 1/8-OCPU box, self-test). Real in-call numbers pending VM recovery.
 
 ## Latency Baseline
 
-*(Fill in after the first real calls. Groq STT should make this dramatically
-better than the original local-Whisper estimates.)*
+Lab numbers from self-test on 1/8-OCPU box (callers in UK, Supabase eu-west-1):
 
-- STT (Groq, expected ~200-400ms): —
-- LLM per iteration: —
-- DB call: —
-- TTS: —
-- **Total per turn:** —
+| Stage | Cold (self-test) | Warm (in-call) |
+|---|---|---|
+| Speech-to-text (Groq whisper-large-v3-turbo) | 288ms | 288ms |
+| LLM single turn (Groq llama-3.3-70b) | 1975ms | **367ms** |
+| Text-to-speech (edge-tts, full sentence) | 1703ms | streams |
+| Database connect | 2815ms | pooled |
+
+Re-measure against a real call once the backend is back online.
 
 ## Decisions Log
 
@@ -263,9 +233,8 @@ RULES.md §4, one phase at a time.
 
 ## Next Session
 
-1. Work through `SETUP.md` end to end and make one real call. The Day 6 and
-   Day 9 definitions of done in PHASES.md are still unmet — they were only ever
-   unit-tested.
-2. Record real latency numbers above.
-3. Tune the VAD against real callers (Day 10).
-4. Only then start Week 3 (Supabase Auth → RLS verification → realtime).
+1. **Bring the backend back online.** SSH to the Oracle VM, check Docker and Caddy status, and verify `voxflow-jeevesh.duckdns.org` resolves with a valid TLS cert.
+2. **Verify Twilio webhook** points to `https://voxflow-jeevesh.duckdns.org/twilio/voice` and make a test call.
+3. **Complete live auth verification** — sign in with a real Supabase test user (not Quick Demo) and confirm the dashboard loads with a real JWT.
+4. **Record real latency numbers** from a live call once the VM is healthy.
+5. **Tune VAD** against real callers (Day 10) if thresholds need adjustment.

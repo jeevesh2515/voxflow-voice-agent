@@ -11,6 +11,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 
+from .auth import AuthMiddleware
 from .config import get_settings
 from .db import init_db
 from .llm import get_llm
@@ -44,6 +45,8 @@ def create_app() -> FastAPI:
         description="Voice operations, automated. Hindi + English supplier call agent.",
         lifespan=lifespan,
     )
+
+    app.add_middleware(AuthMiddleware)
 
     app.add_middleware(
         CORSMiddleware,

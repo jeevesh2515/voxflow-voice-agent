@@ -506,7 +506,7 @@ def test_staff_can_record_a_resolution():
 
     client = TestClient(create_app())
     r = client.patch(
-        "/api/calls/call-esc-1/resolution",
+        "/api/calls/call-esc-1/resolution?tenant_id=acme-support",
         json={"staff_resolution": "Called back; 200 missing cases dispatched on 3 Aug."},
     )
     assert r.status_code == 200
