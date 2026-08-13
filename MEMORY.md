@@ -10,13 +10,13 @@ unreliable.
 ## Current Position
 
 **Last updated:** 2026-08-13
-**Currently on:** **Week 3 / Day 12 Complete.** Live telephony verified on real phone call with Twilio trial number `+447460041934` mapped to tenant `varun` ("Varun Beverages UK Support Line"). Supabase RLS database policies active across all 11 tables. Real Supabase auth integrated in web dashboard (`/sign-in`, `/sign-up`). Next up: Week 3 / Day 13 (Caller PIN auth for Tier 2 write operations).
-**Deployed and self-test green.** Every component of a real call is verified working on the Oracle VM (`193.123.187.97`, `VM.Standard.E2.1.Micro`, 1 GB / 1-8th OCPU, uk-london-1) behind Caddy TLS at `https://voxflow-jeevesh.duckdns.org`. Supabase schema created from `migrations/000_base_schema.sql`, RLS on all 11 tables, demo data seeded.
-Groq LLM + Groq STT + edge-tts + the full codec chain all pass.
-**Next action:** point the Twilio number's voice webhook at
-`https://voxflow-jeevesh.duckdns.org/twilio/voice`, insert the number into
-`tenant_phone_numbers`, and **make one real phone call**. Nothing in
-Weeks 3-4 should start before that call.
+**Currently on:** **Week 3 / Day 12 Complete & Live Call Verified.**
+- **Live Call Test Result:** Tested live inbound call on Twilio number `+447460041934` mapped to tenant `varun` ("Varun Beverages UK Support Line"). Speech recognition, audio streaming, VAD utterance detection, tool execution (`get_order_details` / `create_po`), and Edge-TTS audio response verified 100% working in real-time.
+- **Supabase Database RLS:** Enabled and enforced across all 11 tables (`tenants`, `suppliers`, `products`, `stock`, `orders`, `shipments`, `calls`, `appointments`, `worksheet_logs`, `communication_logs`, `tenant_phone_numbers`).
+- **Staff Auth & Vercel Configuration:** Real Supabase Auth wired in `@/lib/supabase/client` (`signInWithPassword`, `signUp`). Vercel environment variables configured:
+  - `NEXT_PUBLIC_SUPABASE_URL`: `https://gujjyytfpqpkzbrtsink.supabase.co`
+  - `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`: `sb_publishable_5lTf-c4V8Ie_zRHj_qKjCA_ivJyMV8L`
+**Next action:** Move to Week 3 / Day 13 (Caller PIN auth for Tier 2 write actions).
 
 ## Scope change (2026-08-02)
 
