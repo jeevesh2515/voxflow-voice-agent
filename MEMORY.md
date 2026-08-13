@@ -9,8 +9,8 @@ unreliable.
 
 ## Current Position
 
-**Last updated:** 2026-08-12
-**Currently on:** **Week 3 / Day 11 Complete.** Real Supabase Auth integrated for staff dashboard (`/sign-in`, `/sign-up`), `TenantProvider` derives tenant from authenticated JWT metadata (`user_metadata.tenant_id`), `supabase.auth.signOut()` implemented. Next up: Week 3 / Day 12 (RLS enforcement verification across multi-tenant database queries).
+**Last updated:** 2026-08-13
+**Currently on:** **Week 3 / Day 12 Complete.** Live telephony verified on real phone call with Twilio trial number `+447460041934` mapped to tenant `varun` ("Varun Beverages UK Support Line"). Supabase RLS database policies active across all 11 tables. Real Supabase auth integrated in web dashboard (`/sign-in`, `/sign-up`). Next up: Week 3 / Day 13 (Caller PIN auth for Tier 2 write operations).
 **Deployed and self-test green.** Every component of a real call is verified working on the Oracle VM (`193.123.187.97`, `VM.Standard.E2.1.Micro`, 1 GB / 1-8th OCPU, uk-london-1) behind Caddy TLS at `https://voxflow-jeevesh.duckdns.org`. Supabase schema created from `migrations/000_base_schema.sql`, RLS on all 11 tables, demo data seeded.
 Groq LLM + Groq STT + edge-tts + the full codec chain all pass.
 **Next action:** point the Twilio number's voice webhook at
