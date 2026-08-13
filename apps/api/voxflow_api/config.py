@@ -65,6 +65,12 @@ class Settings(BaseSettings):
     # ----- Twilio -----
     twilio_account_sid: str = ""
     twilio_auth_token: str = ""
+    # Optional Twilio API Key credentials (safer than Account SID/Auth Token for
+    # CLI tools, SDKs, and REST client calls that do NOT need webhook validation).
+    # Leave blank to use Account SID + Auth Token (default; required for webhooks).
+    # To generate: Twilio Console → Account → API keys & tokens → Create API key.
+    twilio_api_key: str = ""
+    twilio_api_secret: str = ""
     # Public https base URL of THIS backend, e.g. https://voxflow-api.up.railway.app
     # Used to build the <Stream> URL in TwiML and to validate webhook signatures.
     public_base_url: str = ""

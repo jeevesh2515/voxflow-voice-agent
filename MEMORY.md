@@ -10,13 +10,17 @@ unreliable.
 ## Current Position
 
 **Last updated:** 2026-08-13
-**Currently on:** **Week 3 / Day 15 Complete (Milestone Verified).**
-- **Live Telephony & SMS Verification:** Tested and verified live Inbound (41s) and Outbound (40s) voice calling, Edge-TTS audio stream over WebSockets, Groq Whisper speech recognition, and Twilio SMS notification dispatch (`Status: Delivered`) on Twilio trial number `+447460041934`.
-- **Tier 1 & Tier 2 Security Gating:** Two-factor caller identity verification (`verify_caller`) and 4-digit PIN authentication (`verify_pin`) fully operational. Purchase order creation (`create_po`) is strictly gated behind Tier 2 PIN authorization.
-- **Multi-Tenant RLS & Auth:** Supabase Auth (`@supabase/ssr`) and PostgreSQL Row-Level Security policies active across all 11 core tables.
-- **Unit & Integration Test Suite:** 136/136 backend unit tests passing 100% (`pytest apps/api/tests/`). Next.js 14 web application compiling with zero errors (`npm run build`).
-- **Production Server Deployment:** Deployed on Oracle Cloud VM (`193.123.187.97`) behind Caddy reverse proxy with automatic Let's Encrypt HTTPS at `https://voxflow-jeevesh.duckdns.org`.
-**Next action:** Proceed with Week 4 (Escalation UX, Security Hardening & Pilot Prep).
+**Currently on:** **Week 4 / Day 18 Complete (Security Pass Done).**
+- **Week 4 Days 16–18 Complete:**
+  - **Day 16 (Live Call Status):** `GET /api/active-calls` endpoint reads live in-memory pipeline sessions. `ActiveCallCard` component on `/dashboard/calls` shows pulsing green dot + elapsed mm:ss timer, caller identity, intent, and verification status. Polls every 5s via SWR. Zero noise when idle.
+  - **Day 17 (Escalation Queue):** Already implemented — `/dashboard/escalations` page with `EscalationCard`, `PATCH /api/calls/{id}/resolution` endpoint, pending count, resolved-state dimming. Fully wired.
+  - **Day 18 (Security Pass):** `security_audit.md` created reflecting actual state. WS `/twilio/media` rate-limited (10 conn/60s per IP). Security headers on TwiML response. `TWILIO_API_KEY` / `TWILIO_API_SECRET` optional fields added to `config.py` + `.env.example`. `map_phone.py` uses API Key auth when set.
+- **Twilio API Keys:** The project now supports both credential modes:
+  - **Account SID + Auth Token** (required for webhook signature validation — always needed)
+  - **API Key + API Secret** (optional; for CLI tools / REST calls; safer for rotation). Set `TWILIO_API_KEY` + `TWILIO_API_SECRET` in `.env`.
+- **Test Suite:** 136/136 backend tests passing. Next.js 16-route build compiles clean.
+**Next action:** Day 19 — Demo call with Varun Beverages contact, update PRD.md with real workflow findings.
+
 
 ## Scope change (2026-08-02)
 
