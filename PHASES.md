@@ -342,10 +342,10 @@ authenticated identity, not just local storage.
 ### Day 12 — RLS enforcement, verified
 
 **Checklist:**
-- [ ] Enable RLS on all tables per `schema.md` in the actual Supabase
+- [x] Enable RLS on all tables per `schema.md` in the actual Supabase
       project (if not already applied)
-- [ ] Create a second real test tenant with its own seed data
-- [ ] Deliberately attempt a cross-tenant query and confirm it's blocked
+- [x] Create a second real test tenant with its own seed data
+- [x] Deliberately attempt a cross-tenant query and confirm it's blocked
       at the database level, not just the application level
 
 **Definition of Done:** A cross-tenant data access attempt fails at the

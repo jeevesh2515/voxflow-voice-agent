@@ -51,7 +51,9 @@ Operating seamlessly in **Hindi & English** with ultra-low latency, VoxFlow auto
 | Capability | Description | Tech Stack |
 |---|---|---|
 | **🏢 Multi-Tenant Workspace Engine** | Dynamic enterprise tenant switching with complete database & state isolation | React Context + FastAPI Middleware + Supabase RLS |
-| **🎙️ Bilingual Voice AI Engine** | Natural, human-like voice synthesis and transcription in Hindi (`hi-IN`) & English (`en-IN`) | Local Whisper STT + Groq LLM (Llama 3.1) + Edge-TTS |
+| **📞 Live Twilio Telephony Stream** | Real-time inbound phone call streaming via WebSocket Media Streams with G.711 μ-law | Twilio Voice + WebSockets (`/twilio/media`) + PyAV |
+| **🔐 Supabase Auth & RLS Security** | Authenticated staff session management with row-level database tenant isolation | Supabase Auth + `@supabase/ssr` + PostgreSQL RLS |
+| **🎙️ Bilingual Voice AI Engine** | Natural, human-like voice synthesis and transcription in Hindi (`hi-IN`) & English (`en-IN`) | Groq Whisper STT + Groq LLM (Llama 3.3) + Edge-TTS |
 | **🔒 Identity Security Gate** | Caller authorization challenge (City / GSTIN) before disclosing business data | Automated Tool Execution Guard |
 | **📱 Real-Time Phone Simulator** | In-browser WebSocket phone simulator for live voice and text testing | WebSockets (`ws/call`) + Audio Streaming |
 | **⚡ Automated Order Processing** | Natural language slot-filling and confirmation engine for PO creation | LLM Tool Calling Engine |
@@ -144,6 +146,14 @@ Access local services:
 - **Web Dashboard:** [http://localhost:3000/dashboard](http://localhost:3000/dashboard)
 - **Phone Simulator:** [http://localhost:3000/dashboard/simulator](http://localhost:3000/dashboard/simulator)
 - **API Documentation:** [http://localhost:8000/docs](http://localhost:8000/docs)
+
+### 4. Connect Real Twilio Phone Numbers
+Map your live Twilio phone number to an isolated tenant workspace and auto-configure the voice webhook URL:
+
+```bash
+# Map a phone number to tenant 'varun' and set Twilio voice webhook
+python -m voxflow_api.map_phone --phone +447460041934 --tenant varun --label "Varun Beverages UK Support"
+```
 
 ---
 
