@@ -760,6 +760,55 @@ async def send_whatsapp_message(session: CallSession, to_phone: str, message: st
     return res
 
 
+async def send_sms(session: CallSession, to_phone: str, message: str) -> dict[str, Any]:
+    """Send an SMS text message notification via Twilio Programmable SMS."""
+    comm_id = f"comm-sms-{uuid.uuid4().hex[:6]}"
+    settings = get_settings()
+
+    # Format recipient phone (E.164 standard)
+    target = to_phone.strip()
+    if not target.startswith("+"):
+        target = f"+{target}"
+
+    from_number = settings.twilio_phone_number or ""
+    status = "sent"
+    error_detail = None
+
+    # Attempt real Twilio SMS dispatch
+    client = _get_twilio_client()
+    if client and from_number:
+        try:
+            msg_res = client.messages.create(
+                from_=from_number,
+                to=target,
+                body=message,
+            )
+            log.info("sms.dispatched", sid=msg_res.sid, to=target)
+        except Exception as e:
+            status = "failed"
+            error_detail = str(e)
+            log.warning("sms.dispatch_failed", to=target, error=str(e))
+    else:
+        log.info("sms.logged_only", to=target, reason="no_twilio_credentials_or_from_number")
+
+    async with async_session_scope() as db:
+        comm = CommunicationLog(
+            id=comm_id,
+            tenant_id=session.tenant_id,
+            channel="sms",
+            recipient=target,
+            subject=None,
+            body=message,
+            status=status,
+        )
+        db.add(comm)
+
+    res = {"ok": status == "sent", "comm_id": comm_id, "channel": "sms", "recipient": target}
+    if error_detail:
+        res["error"] = error_detail
+    return res
+
+
 async def update_worksheet(session: CallSession, worksheet_name: str, action: str, row_data: dict[str, Any]) -> dict[str, Any]:
     """Append an ad-hoc row to a Google Sheets tab, plus a local audit entry.
 
@@ -840,6 +889,8 @@ async def execute_tool(name: str, args: dict[str, Any], session: CallSession) ->
             return await send_email(session, **(args or {}))
         if name == "send_whatsapp_message":
             return await send_whatsapp_message(session, **(args or {}))
+        if name == "send_sms":
+            return await send_sms(session, **(args or {}))
         if name == "update_worksheet":
             return await update_worksheet(session, **(args or {}))
         if name == "type_notes":
@@ -1108,6 +1159,21 @@ TOOL_DEFINITIONS: list[dict[str, Any]] = [
                 "properties": {
                     "to_phone": {"type": "string"},
                     "message": {"type": "string"},
+                },
+                "required": ["to_phone", "message"],
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "send_sms",
+            "description": "Send an SMS text message to the caller/supplier.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "to_phone": {"type": "string", "description": "Recipient phone number in E.164 format"},
+                    "message": {"type": "string", "description": "Text message content to send via SMS"},
                 },
                 "required": ["to_phone", "message"],
             },

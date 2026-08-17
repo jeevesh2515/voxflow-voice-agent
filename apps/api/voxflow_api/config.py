@@ -29,7 +29,7 @@ class Settings(BaseSettings):
     ollama_model: str = "llama3.1:8b"
 
     groq_api_key: str = ""
-    groq_model: str = "llama-3.1-8b-instant"
+    groq_model: str = "openai/gpt-oss-120b"
 
     openrouter_api_key: str = ""
     openrouter_model: str = "meta-llama/llama-3.1-8b-instruct:free"
@@ -76,6 +76,8 @@ class Settings(BaseSettings):
     public_base_url: str = ""
     # Reject unsigned/forged webhook requests. Keep true in production.
     twilio_validate_signature: bool = True
+    # Default Twilio trial phone number for Voice & SMS dispatch
+    twilio_phone_number: str = "+447460041934"
     # Default Twilio WhatsApp Sandbox number (format: whatsapp:+14155238886)
     twilio_whatsapp_number: str = "whatsapp:+14155238886"
     # Tenant used when an inbound number isn't mapped in tenant_phone_numbers.

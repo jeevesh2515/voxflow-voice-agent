@@ -9,16 +9,26 @@ unreliable.
 
 ## Current Position
 
-**Last updated:** 2026-08-13
-**Currently on:** **Week 4 / WhatsApp Dispatch & Call Recording Complete.**
-- **WhatsApp Dispatch (Twilio Sandbox):** Upgraded `send_whatsapp_message` tool in `agent/tools.py` to send real WhatsApp messages via Twilio Python SDK (`client.messages.create`) when credentials exist. `TWILIO_WHATSAPP_NUMBER` added to `config.py` and `.env.example`.
-- **Automated Call Recording:** `recording_url` column added to `Call` table in `db.py` and schema. `/twilio/recording-callback` webhook captures Twilio audio recordings and persists `recording_url`. Next.js dashboard `/dashboard/calls` includes an html5 audio player with a `Volume2` badge for recorded calls.
-- **Week 4 Days 16–18 Complete:**
-  - **Day 16 (Live Call Status):** `GET /api/active-calls` endpoint reads live in-memory pipeline sessions. `ActiveCallCard` component on `/dashboard/calls` shows pulsing green dot + elapsed mm:ss timer.
-  - **Day 17 (Escalation Queue):** `/dashboard/escalations` page with `EscalationCard` and resolution patch.
-  - **Day 18 (Security Pass):** `security_audit.md` created. WS `/twilio/media` rate-limited. Security headers added.
-- **Test Suite:** 136/136 backend tests passing. Next.js 18-route build compiles clean.
-**Next action:** Day 19 — Demo call with Varun Beverages contact, update PRD.md with real workflow findings.
+**Last updated:** 2026-08-17
+**Currently on:** **Week 4 — Days 15-18 Complete. Ready for Day 19 Pilot Conversation.**
+
+### Days 15-16 Completion Summary:
+- **139/139 Backend Tests Passing** — active-calls endpoint, tenant isolation, SMS dispatch, PIN auth, DB drivers, caller identification, Twilio codecs, and all regression tests.
+- **Frontend Production Build:** All 18 static routes compiled with zero TypeScript or build errors in Next.js 14.
+- **SMS Tool (`send_sms`):** Wired to Twilio Programmable SMS API in `agent/tools.py`; persists to `communication_logs` table with `channel="sms"`.
+- **Groq Rate-Limit Resilience:** Exponential backoff retry on HTTP 429 in `GroqProvider.chat`, honoring `retry-after` headers. Prevents call failure on free-tier burst.
+- **Supabase Auth Token Discovery:** `getAuthHeader` in `apps/web/src/lib/api.ts` auto-extracts `sb-*-auth-token` from localStorage for seamless JWT auth on all API calls.
+- **Day 16 — Live In-Progress Call Status:** `GET /api/active-calls` reads in-memory pipeline sessions; `ActiveCallCard` in calls dashboard with pulsing live dot, 1s elapsed timer, verification badge, turn count. SWR polls every 5s. Zero visual noise when idle.
+- **Day 17 — Escalation Queue:** Pre-existing and verified — `/dashboard/escalations`, `PATCH /api/calls/{id}/resolution`, pending count in header.
+- **Day 18 — Security Pass:** `security_audit.md` written; WS rate limit added; security headers on TwiML response; Twilio API Key support in `config.py` and `map_phone.py`.
+
+### Security Audit Results (pre-push):
+- ✅ No `.env` file ever committed to git history.
+- ✅ No hardcoded secrets found in `apps/` source files.
+- ✅ Test-only mock key `gsk_test` in `test_selftest.py` — confirmed safe.
+- ✅ `.gitignore` correctly excludes `.env`, `.env.local`, `*.env`.
+
+- **Next action:** Day 19 — Have the real conversation with the Varun Beverages contact. Show a live demo call. Update `PRD.md` §5 based on actual workflow findings.
 
 
 ## Scope change (2026-08-02)
