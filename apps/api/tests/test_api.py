@@ -208,3 +208,63 @@ def test_agent_runner_uses_fake_llm(monkeypatch):
     assert "राजेश" in result.reply or "मदद" in result.reply
     assert any(a["name"] == "lookup_supplier" for a in result.actions)
     assert s.supplier_id == "sup-varun-001"
+
+
+def test_active_calls_endpoint(client):
+    from voxflow_api.routes.ws import get_pipeline
+
+    pipeline = get_pipeline()
+    pipeline._sessions.clear()
+
+    # When no calls are active
+    r = client.get("/api/active-calls?tenant_id=varun")
+    assert r.status_code == 200
+    assert r.json() == []
+
+    # When a session is in-flight
+    s = pipeline.start_session(
+        caller_phone="+919876543210",
+        caller_name="Rajesh Sharma",
+        language="hi",
+        tenant_id="varun",
+        call_id="call_test_active_123",
+    )
+    s.company_name = "Sharma Beverages Wholesale"
+    s.intent = "Order Status"
+    s.verified = True
+
+    try:
+        r = client.get("/api/active-calls?tenant_id=varun")
+        assert r.status_code == 200
+        data = r.json()
+        assert len(data) == 1
+        assert data[0]["call_id"] == "call_test_active_123"
+        assert data[0]["caller_name"] == "Rajesh Sharma"
+        assert data[0]["company_name"] == "Sharma Beverages Wholesale"
+        assert data[0]["verified"] is True
+        assert data[0]["intent"] == "Order Status"
+
+        # Tenant isolation check: query for another tenant should be empty
+        r_other = client.get("/api/active-calls?tenant_id=amul")
+        assert r_other.status_code == 200
+        assert r_other.json() == []
+    finally:
+        pipeline._sessions.clear()
+
+
+def test_patch_call_resolution(client):
+    # Fetch a seeded call ID
+    r = client.get("/api/calls?tenant_id=varun")
+    assert r.status_code == 200
+    calls = r.json()
+    assert len(calls) > 0
+    call_id = calls[0]["id"]
+
+    # Patch staff resolution
+    patch_payload = {"staff_resolution": "Followed up with distributor. Replacement dispatched."}
+    r_patch = client.patch(f"/api/calls/{call_id}/resolution?tenant_id=varun", json=patch_payload)
+    assert r_patch.status_code == 200
+    data = r_patch.json()
+    assert data["staff_resolution"] == "Followed up with distributor. Replacement dispatched."
+    assert data["staff_resolved_at"] is not None
+

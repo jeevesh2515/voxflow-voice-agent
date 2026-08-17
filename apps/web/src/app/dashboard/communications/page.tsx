@@ -1,7 +1,7 @@
 "use client";
 
 import useSWR from "swr";
-import { MessageSquare, Mail } from "lucide-react";
+import { MessageSquare, Mail, Smartphone } from "lucide-react";
 import { api } from "@/lib/api";
 import { useTenant } from "@/lib/tenant-context";
 
@@ -23,7 +23,7 @@ export default function CommunicationsPage() {
           <div className="px-5 py-4 border-b border-ink-700/60 flex items-center justify-between">
             <div className="flex items-center gap-2">
               <MessageSquare className="text-vox-400" size={18} />
-              <h2 className="text-sm font-semibold text-ink-50">Email & WhatsApp Logs</h2>
+              <h2 className="text-sm font-semibold text-ink-50">SMS, WhatsApp & Email Logs</h2>
             </div>
             <span className="text-xs font-mono text-ink-400">{comms?.length ?? 0} dispatched</span>
           </div>
@@ -39,10 +39,18 @@ export default function CommunicationsPage() {
                       className={`h-7 w-7 rounded grid place-items-center text-xs ${
                         c.channel === "whatsapp"
                           ? "bg-emerald-500/10 text-emerald-400 border border-emerald-500/30"
+                          : c.channel === "sms"
+                          ? "bg-amber-500/10 text-amber-400 border border-amber-500/30"
                           : "bg-blue-500/10 text-blue-400 border border-blue-500/30"
                       }`}
                     >
-                      {c.channel === "whatsapp" ? <MessageSquare size={14} /> : <Mail size={14} />}
+                      {c.channel === "whatsapp" ? (
+                        <MessageSquare size={14} />
+                      ) : c.channel === "sms" ? (
+                        <Smartphone size={14} />
+                      ) : (
+                        <Mail size={14} />
+                      )}
                     </span>
                     <div>
                       <div className="text-sm font-semibold text-ink-50">{c.recipient}</div>

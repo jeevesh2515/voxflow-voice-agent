@@ -42,10 +42,28 @@ class GroqProvider(LLMProvider):
             payload["tools"] = tools
             payload["tool_choice"] = "auto"
 
-        async with httpx.AsyncClient(timeout=60.0) as client:
-            r = await client.post(f"{self._base}/chat/completions", json=payload, headers=headers)
-            r.raise_for_status()
-            data = r.json()
+        import asyncio
+
+        retries = 3
+        backoff = 1.0
+        data = None
+        for attempt in range(retries):
+            async with httpx.AsyncClient(timeout=60.0) as client:
+                r = await client.post(f"{self._base}/chat/completions", json=payload, headers=headers)
+                if r.status_code == 429 and attempt < retries - 1:
+                    retry_after = r.headers.get("retry-after")
+                    wait_time = float(retry_after) if retry_after else backoff * (2 ** attempt)
+                    log.warning("groq.rate_limited", attempt=attempt, wait_s=round(wait_time, 2), model=self.model)
+                    await asyncio.sleep(wait_time)
+                    continue
+                if r.status_code != 200:
+                    log.error("groq.error_response", status=r.status_code, body=r.text, payload_messages=payload.get("messages"))
+                r.raise_for_status()
+                data = r.json()
+                break
+
+        if data is None:
+            raise RuntimeError("groq_completion_failed")
 
         choice = data["choices"][0]
         msg = choice.get("message", {})
