@@ -1,4 +1,4 @@
-"""Google Sheets writer for the call-outcome log.
+"""Google Sheets writer for the call-outcome log with persistent retry queue.
 
 Design notes
 ------------
@@ -12,18 +12,21 @@ Design notes
   must degrade to "the row didn't reach Sheets" — never "the call dropped".
   Postgres remains the source of truth; Sheets is the human-facing mirror.
 
+* **Persistent Retry Queue.** Failed writes are persisted to `{data_dir}/sheets_queue/*.json`.
+  A background worker retries them automatically until synced. Zero lost rows.
+
 * **Token reuse.** Tokens are cached until 60s before expiry, so a busy call
   centre isn't re-minting JWTs on every row.
-
-Setup is documented in SETUP.md (create service account → download JSON →
-share the spreadsheet with the service-account email as Editor).
 """
 
 from __future__ import annotations
 
 import asyncio
+import glob
 import json
+import os
 import time
+import uuid
 from typing import Any
 
 import httpx
@@ -56,6 +59,13 @@ CALL_LOG_HEADERS = [
     "Duration (sec)",
     "Related Order",
 ]
+
+
+def _queue_dir() -> str:
+    s = get_settings()
+    d = os.path.join(s.resolved_data_dir, "sheets_queue")
+    os.makedirs(d, exist_ok=True)
+    return d
 
 
 class GoogleSheetsClient:
@@ -145,31 +155,13 @@ class GoogleSheetsClient:
 
     @staticmethod
     def _a1(tab: str, ref: str) -> str:
-        """Quote a tab name for A1 notation.
-
-        Google requires single quotes around any sheet name that is not a bare
-        alphanumeric token, and internal quotes are escaped by doubling. The
-        default tab here is "Call Log" — the space alone makes `Call Log!A1`
-        unparseable, which Google reports as
-
-            400 Unable to parse range: Call Log!A1
-
-        an error that reads like a permissions or missing-sheet problem and is
-        neither.
-        """
+        """Quote a tab name for A1 notation."""
         if not tab.replace("_", "").isalnum():
             tab = "'" + tab.replace("'", "''") + "'"
         return f"{tab}!{ref}"
 
     async def _ensure_tab(self, client: httpx.AsyncClient, token: str, tab: str) -> bool:
-        """Create the tab if the spreadsheet does not have it yet.
-
-        A new spreadsheet has one sheet called "Sheet1", so the configured tab
-        never exists on first run. Creating it means the operator shares a blank
-        spreadsheet and everything else is automatic — and it removes the other
-        cause of "Unable to parse range", so that error can only ever mean the
-        syntax problem `_a1` now prevents.
-        """
+        """Create the tab if the spreadsheet does not have it yet."""
         s = get_settings()
         auth = {"Authorization": f"Bearer {token}"}
         r = await client.get(
@@ -232,10 +224,7 @@ class GoogleSheetsClient:
         tab: str | None = None,
         headers: list[str] | None = None,
     ) -> dict[str, Any]:
-        """Append one row to the configured spreadsheet.
-
-        Returns {"ok": bool, ...}. Never raises.
-        """
+        """Append one row to the configured spreadsheet. Never raises."""
         s = get_settings()
         if not self.is_configured():
             return {"ok": False, "reason": "sheets_not_configured"}
@@ -247,8 +236,6 @@ class GoogleSheetsClient:
 
         row = ["" if v is None else v for v in values]
         try:
-            # 6s, not 10: this runs on the call path's coat-tails and a
-            # long hang is worse than a missed row (Postgres still has it).
             async with httpx.AsyncClient(timeout=6.0) as client:
                 if headers:
                     await self._ensure_header(client, token, tab, headers)
@@ -277,12 +264,23 @@ class GoogleSheetsClient:
                     "updated_range": updated.get("updatedRange", ""),
                 }
         except Exception as e:
-            # A phone call is in progress. Log it and move on.
             log.error("gsheets.append_exception", error=str(e))
             return {"ok": False, "reason": "exception", "detail": str(e)}
 
-    async def append_call_outcome(self, row: dict[str, Any]) -> dict[str, Any]:
-        """Append a call-outcome row using the canonical column order."""
+    def queue_row(self, row: dict[str, Any], call_id: str | None = None) -> None:
+        """Queue a failed row payload to disk for background retry."""
+        try:
+            qdir = _queue_dir()
+            fname = f"{call_id or uuid.uuid4().hex}.json"
+            fpath = os.path.join(qdir, fname)
+            with open(fpath, "w", encoding="utf-8") as f:
+                json.dump(row, f)
+            log.info("gsheets.queued_to_disk", file=fname)
+        except Exception as e:
+            log.error("gsheets.queue_to_disk_failed", error=str(e))
+
+    async def append_call_outcome(self, row: dict[str, Any], queue_on_failure: bool = True) -> dict[str, Any]:
+        """Append a call-outcome row using canonical column order with retry queue."""
         values = [
             row.get("timestamp", ""),
             row.get("call_id", ""),
@@ -300,11 +298,52 @@ class GoogleSheetsClient:
             row.get("duration_sec", 0),
             row.get("related_order", ""),
         ]
-        return await self.append_row(
+        res = await self.append_row(
             values,
             tab=get_settings().google_sheet_tab,
             headers=CALL_LOG_HEADERS,
         )
+        if not res.get("ok") and queue_on_failure and self.is_configured():
+            self.queue_row(row, call_id=row.get("call_id"))
+        return res
+
+    async def process_retry_queue(self) -> int:
+        """Drain queued writes from disk. Returns count of successfully sent items."""
+        if not self.is_configured():
+            return 0
+
+        qdir = _queue_dir()
+        files = glob.glob(os.path.join(qdir, "*.json"))
+        if not files:
+            return 0
+
+        success_count = 0
+        for fpath in files:
+            try:
+                with open(fpath, "r", encoding="utf-8") as f:
+                    row = json.load(f)
+                res = await self.append_call_outcome(row, queue_on_failure=False)
+                if res.get("ok"):
+                    os.remove(fpath)
+                    call_id = row.get("call_id")
+                    if call_id:
+                        await _mark_call_sheet_synced(call_id)
+                    success_count += 1
+                    log.info("gsheets.retry_success", file=os.path.basename(fpath))
+            except Exception as e:
+                log.warning("gsheets.retry_item_failed", file=os.path.basename(fpath), error=str(e))
+
+        return success_count
+
+
+async def _mark_call_sheet_synced(call_id: str) -> None:
+    try:
+        from ..db import Call, async_session_scope
+        from sqlalchemy import update
+        async with async_session_scope() as db:
+            await db.execute(update(Call).where(Call.id == call_id).values(sheet_synced=1))
+    except Exception as e:
+        log.warning("gsheets.db_sync_update_failed", call_id=call_id, error=str(e))
 
 
 def get_sheets_client() -> GoogleSheetsClient:

@@ -34,6 +34,7 @@ cachetools==5.5.0
 # LLM + STT clients — both are OpenAI-compatible HTTP APIs
 openai==1.59.8
 httpx==0.28.1
+langsmith>=0.1.0
 
 # Voice: TTS is edge-tts (a network call to Microsoft — no local model).
 # PyAV decodes that MP3 into PCM for the Twilio mulaw encoder.

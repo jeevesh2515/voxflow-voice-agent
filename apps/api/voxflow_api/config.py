@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import os
 from functools import lru_cache
 from typing import Literal
 
@@ -95,6 +96,18 @@ class Settings(BaseSettings):
     google_sheet_tab: str = "Call Log"
     sheets_enabled: bool = False
 
+    # ----- Persistence & Storage -----
+    data_dir: str = "./data"
+    sheets_retry_interval: int = 60
+    log_retention_days: int = 30
+    db_backup_keep_days: int = 7
+
+    # ----- LangSmith (LLM Observability & Evals) -----
+    langsmith_tracing: bool = False
+    langsmith_api_key: str = ""
+    langsmith_project: str = "voxflow-production"
+    langsmith_endpoint: str = "https://api.smith.langchain.com"
+
     # ----- Logging -----
     log_level: str = "INFO"
 
@@ -105,6 +118,17 @@ class Settings(BaseSettings):
     @property
     def cors_origins_list(self) -> list[str]:
         return [o.strip() for o in self.api_cors_origins.split(",") if o.strip()]
+
+    @property
+    def resolved_data_dir(self) -> str:
+        d = self.data_dir
+        try:
+            os.makedirs(d, exist_ok=True)
+            return d
+        except (OSError, PermissionError):
+            fallback = os.path.abspath("./data")
+            os.makedirs(fallback, exist_ok=True)
+            return fallback
 
 
 @lru_cache(maxsize=1)

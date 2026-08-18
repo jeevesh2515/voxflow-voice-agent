@@ -7,5 +7,8 @@ __pycache__
 .pytest_cache
 .mypy_cache
 .ruff_cache
-tests
+.DS_Store
+*.log
+data/
+tests/
 README.md

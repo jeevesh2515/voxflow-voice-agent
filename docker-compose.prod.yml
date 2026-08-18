@@ -1,12 +1,18 @@
-# VoxFlow production stack — Full containerized deployment with Caddy reverse proxy
+# VoxFlow Production Stack — Full containerized deployment
 #
-#   docker compose -f deploy/docker-compose.prod.yml up -d --build
+# Usage:
+#   docker compose -f docker-compose.prod.yml up -d --build
 #
 # Services:
-#   caddy — terminates TLS with an automatic Let's Encrypt certificate and
-#           reverse-proxies to Web (/dashboard, /_next) and API (everything else).
-#   api   — the FastAPI backend (telephony, agent, database, Sheets queue, session recovery)
-#   web   — the Next.js production dashboard
+#   caddy — Automatic Let's Encrypt TLS termination & reverse proxy
+#           Routes /dashboard* and /_next* to web:3000, all else to api:8000
+#   api   — FastAPI backend (telephony, agent, database, Sheets queue, session recovery)
+#   web   — Next.js production dashboard (multi-stage standalone build)
+#
+# Storage:
+#   voxflow_data — Persistent volume for crash snapshots, logs, backups, and Sheets retry queue
+#   caddy_data   — Persistent certificates across restarts
+#   caddy_config — Caddy configuration cache
 
 services:
   caddy:
@@ -14,11 +20,11 @@ services:
     container_name: voxflow-caddy
     restart: unless-stopped
     ports:
-      - "80:80"     # required for ACME HTTP challenge
+      - "80:80"     # Required for ACME HTTP challenge
       - "443:443"
     volumes:
-      - ./Caddyfile:/etc/caddy/Caddyfile:ro
-      - caddy_data:/data      # persists certificates across restarts
+      - ./deploy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
       - caddy_config:/config
     environment:
       - DOMAIN=${DOMAIN}
@@ -29,12 +35,12 @@ services:
 
   api:
     build:
-      context: ../apps/api
+      context: ./apps/api
       dockerfile: Dockerfile
     container_name: voxflow-api
     restart: unless-stopped
     env_file:
-      - ../.env
+      - .env
     environment:
       - DATA_DIR=/app/data
     expose:
@@ -57,7 +63,7 @@ services:
 
   web:
     build:
-      context: ../apps/web
+      context: ./apps/web
       dockerfile: Dockerfile
     container_name: voxflow-web
     restart: unless-stopped

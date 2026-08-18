@@ -3,37 +3,43 @@
 from __future__ import annotations
 
 import pytest
+import pytest_asyncio
 
 from voxflow_api.agent.tools import create_po, lookup_supplier, verify_pin
-from voxflow_api.db import Supplier, Tenant, session_scope
+from voxflow_api.cache import supplier_cache
+from voxflow_api.db import Supplier, Tenant, async_session_scope
 from voxflow_api.voice.pipeline import CallSession
 
 
-@pytest.fixture
-def pin_supplier():
+@pytest_asyncio.fixture
+async def pin_supplier():
     """Create a test tenant and supplier with a known 4-digit PIN."""
-    with session_scope() as db:
-        if not db.get(Tenant, "t-pin"):
+    supplier_cache.clear()
+    async with async_session_scope() as db:
+        t = await db.get(Tenant, "t-pin")
+        if not t:
             db.add(Tenant(id="t-pin", name="PIN Security Test Co"))
-    with session_scope() as db:
-        db.query(Supplier).filter(Supplier.tenant_id == "t-pin").delete()
-        db.add(
-            Supplier(
-                id="s-pin-01",
-                tenant_id="t-pin",
-                name="Varun Beverages UK",
-                phone="+447460041934",
-                city="London",
-                state="Greater London",
-                pincode="EC1A 1BB",
-                contact_person="Rohan Sharma",
-                gstin="27AAACV1234A1Z5",
-                auth_pin="4321",
+            await db.flush()
+
+        sup = await db.get(Supplier, "s-pin-01")
+        if not sup:
+            db.add(
+                Supplier(
+                    id="s-pin-01",
+                    tenant_id="t-pin",
+                    name="Varun Beverages UK",
+                    phone="+447460041934",
+                    city="London",
+                    state="Greater London",
+                    pincode="EC1A 1BB",
+                    contact_person="Rohan Sharma",
+                    gstin="27AAACV1234A1Z5",
+                    auth_pin="4321",
+                )
             )
-        )
+            await db.flush()
     yield
-    with session_scope() as db:
-        db.query(Supplier).filter(Supplier.tenant_id == "t-pin").delete()
+    supplier_cache.clear()
 
 
 @pytest.mark.asyncio

@@ -60,8 +60,9 @@ else
   echo "FAIL (no response or error)"
 fi
 
-echo -n "  Public HTTPS: "
-if curl -sS -m 5 https://voxflow-jeevesh.duckdns.org/ | head -c 200; then
+TARGET_DOMAIN="${DOMAIN:-voxflow.duckdns.org}"
+echo -n "  Public HTTPS ($TARGET_DOMAIN): "
+if curl -sS -m 5 "https://$TARGET_DOMAIN/" | head -c 200; then
   echo ""
 else
   echo "FAIL (timeout or error)"
@@ -70,7 +71,7 @@ echo ""
 
 # 8. DuckDNS IP
 echo "[8] DuckDNS resolution"
-dig +short voxflow-jeevesh.duckdns.org || nslookup voxflow-jeevesh.duckdns.org 1.1.1.1 | tail -5
+dig +short "$TARGET_DOMAIN" || nslookup "$TARGET_DOMAIN" 1.1.1.1 | tail -5
 echo ""
 
 # 9. Common fixes

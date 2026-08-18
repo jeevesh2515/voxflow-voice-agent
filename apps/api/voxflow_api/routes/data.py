@@ -334,6 +334,58 @@ def patch_call_resolution(
         return _call_out(c)
 
 
+@router.get("/calls/{call_id}/recording")
+def get_call_recording_link(request: Request, call_id: str) -> dict[str, Any]:
+    """Get the direct recording URL for a call."""
+    tenant = _tenant_id(request)
+    with session_scope() as db:
+        c = db.get(Call, call_id)
+        if not c or c.tenant_id != tenant:
+            raise HTTPException(status_code=404, detail="call_not_found")
+        if not c.recording_url:
+            raise HTTPException(status_code=404, detail="no_recording_available")
+        return {"call_id": call_id, "recording_url": c.recording_url}
+
+
+@router.get("/calls/{call_id}/recording/download")
+async def download_call_recording(request: Request, call_id: str):
+    """Proxy and download the call recording locally on-demand."""
+    import httpx
+    from fastapi.responses import StreamingResponse
+
+    tenant = _tenant_id(request)
+    recording_url = None
+    with session_scope() as db:
+        c = db.get(Call, call_id)
+        if not c or c.tenant_id != tenant:
+            raise HTTPException(status_code=404, detail="call_not_found")
+        recording_url = c.recording_url
+
+    if not recording_url:
+        raise HTTPException(status_code=404, detail="no_recording_available")
+
+    settings = get_settings()
+    auth = None
+    if settings.twilio_account_sid and settings.twilio_auth_token:
+        auth = (settings.twilio_account_sid, settings.twilio_auth_token)
+
+    fetch_url = recording_url
+    if not fetch_url.endswith(".wav") and not fetch_url.endswith(".mp3"):
+        fetch_url = f"{fetch_url}.wav"
+
+    async with httpx.AsyncClient(timeout=30.0) as client:
+        r = await client.get(fetch_url, auth=auth, follow_redirects=True)
+        if r.status_code != 200:
+            raise HTTPException(status_code=r.status_code, detail="failed_to_fetch_recording")
+
+        media_type = r.headers.get("content-type", "audio/wav")
+        return StreamingResponse(
+            iter([r.content]),
+            media_type=media_type,
+            headers={"Content-Disposition": f'attachment; filename="{call_id}.wav"'},
+        )
+
+
 # ---------- Appointments ----------
 
 

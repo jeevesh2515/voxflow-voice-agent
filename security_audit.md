@@ -64,7 +64,7 @@
 
 | Control | Status | Notes |
 |---|---|---|
-| TLS on public endpoint | ✅ Let's Encrypt | Caddy handles HTTPS at `voxflow-jeevesh.duckdns.org`. Auto-renews. |
+| TLS on public endpoint | ✅ Let's Encrypt | Caddy handles HTTPS at `voxflow.duckdns.org`. Auto-renews. |
 | HTTP→HTTPS redirect | ✅ Caddy default | Port 80 redirects to 443. |
 | CORS | ✅ Restricted | `API_CORS_ORIGINS` env var. Default: `http://localhost:3000`. Production: Vercel domain only. |
 | WebSocket over TLS | ✅ `wss://` | Twilio Media Streams connect over `wss://`. |

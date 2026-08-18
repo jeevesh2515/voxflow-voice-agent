@@ -1,0 +1,41 @@
+# Render.com Blueprint for VoxFlow Backend API
+# 
+# 1-Click Zero-Downtime Deployment with Persistent Volume for Crash Snapshots & Logs.
+#
+# To deploy: Connect your repository to Render -> Blueprints -> New Blueprint Instance.
+
+services:
+  - type: web
+    name: voxflow-api
+    runtime: docker
+    dockerfilePath: apps/api/Dockerfile
+    dockerContext: apps/api
+    plan: starter
+    healthCheckPath: /api/health
+    disk:
+      name: voxflow-data
+      mountPath: /app/data
+      sizeGB: 1
+    envVars:
+      - key: DATABASE_URL
+        sync: false # Set to your Supabase Session Pooler URI (port 5432)
+      - key: GROQ_API_KEY
+        sync: false
+      - key: TWILIO_ACCOUNT_SID
+        sync: false
+      - key: TWILIO_AUTH_TOKEN
+        sync: false
+      - key: TWILIO_PHONE_NUMBER
+        sync: false
+      - key: LANGSMITH_TRACING
+        value: "true"
+      - key: LANGSMITH_API_KEY
+        sync: false # Paste your LangSmith lsv2_pt_... API key
+      - key: LANGSMITH_PROJECT
+        value: "voxflow-production"
+      - key: DATA_DIR
+        value: "/app/data"
+      - key: SHEETS_ENABLED
+        value: "false"
+      - key: LOG_LEVEL
+        value: "INFO"
