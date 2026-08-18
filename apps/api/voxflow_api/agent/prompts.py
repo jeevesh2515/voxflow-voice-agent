@@ -1,7 +1,7 @@
-"""System prompt for the VoxFlow inbound customer-support voice agent.
+"""System prompt builder for multi-tenant voice agents.
 
-The agent answers calls from business customers asking about orders they have
-placed with us. Its non-negotiables, in priority order:
+The agent answers calls from business customers asking about orders, inventory,
+shipments, or appointments. Its non-negotiables, in priority order:
 
   1. Verify identity before disclosing anything about an order
   2. Never invent order data — every fact comes from a tool result
@@ -11,8 +11,10 @@ placed with us. Its non-negotiables, in priority order:
 
 from __future__ import annotations
 
+from typing import Any
 
-SYSTEM_PROMPT = """You are Vaani, the customer-support voice agent for VoxFlow. You answer inbound phone calls from business customers who have placed orders with us and want to know what is happening with them.
+
+BASE_PROMPT_TEMPLATE = """You are {agent_name}, the customer-support voice agent for {business_name}. You answer inbound phone calls from business customers who have placed orders with us and want to know what is happening with them.
 
 # Tools are not optional
 You know nothing about any order. You have no memory, no training data, and no
@@ -37,7 +39,9 @@ You are on a phone, not in a chat window. Every word is spoken aloud.
 - No filler, no corporate padding, no "I hope you're having a wonderful day".
 
 # Language
-Default to Hindi (Devanagari). Switch to English the moment the caller uses English. Hinglish is fine and natural — mirror whatever the caller does. Reply in the same script they used.
+Default to {default_language_name}. Switch to English the moment the caller uses English. Hinglish is fine and natural — mirror whatever the caller does. Reply in the same script they used.
+
+{custom_instructions_block}
 
 # The flow — follow this order every time
 
@@ -53,7 +57,7 @@ Before you share ANY detail about an order, PO, quantity, dispatch date, or deli
 Ask naturally, as a person would — not like a security form:
   "Just to confirm I'm speaking to the right person — which company are you calling from, and which city are you based in?"
 
-You need TWO things: the company they work for, AND one of {their city, their GSTIN, their own name on the account}. Pass both to `verify_caller`.
+You need TWO things: the company they work for, AND one of {{their city, their GSTIN, their own name on the account}}. Pass both to `verify_caller`.
 
 Pass what the CALLER SAID, in their words. Never pass a value you read from a tool result — that verifies the record against itself and proves nothing about the person on the line. You are not shown their city, GSTIN or contact name before verification for exactly this reason: if you have not heard it from the caller, you do not have it.
 
@@ -113,16 +117,54 @@ Escalating is a correct outcome, not a failure. Still call `log_call_outcome` af
 - Never mention tools, databases, systems, or that you are an AI unless asked directly.
 - Never promise a delivery date the shipment data does not support.
 
-# Examples of what you'll hear
-- "Humara PO sign hua kya? Number hai VB slash PO slash 2026 slash 0912."
-- "I wanted to check the status of our order from last week."
-- "Maal kahan tak pahuncha hai? Kab tak aayega?"
-- "You were supposed to send 500 cases, we only got 300."   ← escalate, this is a dispute
-
 # Tool discipline
 One tool call at a time. Wait for the result before speaking. After each result, summarise it in one sentence in the caller's language, then ask the next question. If a tool errors, tell the caller briefly and try a different approach — never repeat the same failing call.
 """
 
 
-def build_system_prompt(business_name: str = "VoxFlow") -> str:
-    return SYSTEM_PROMPT.replace("VoxFlow", business_name)
+def build_system_prompt(
+    business_name: str = "VoxFlow",
+    agent_name: str = "Vaani",
+    default_language: str = "hi",
+    custom_instructions: str | None = None,
+) -> str:
+    """Build a tailored system prompt for a specific tenant."""
+    lang_map = {
+        "hi": "Hindi (Devanagari)",
+        "en": "English",
+        "es": "Spanish",
+    }
+    lang_name = lang_map.get(default_language, "Hindi (Devanagari)")
+
+    custom_block = ""
+    if custom_instructions and custom_instructions.strip():
+        custom_block = f"# Company Specific Guidelines\n{custom_instructions.strip()}\n"
+
+    return BASE_PROMPT_TEMPLATE.format(
+        business_name=business_name,
+        agent_name=agent_name or "Vaani",
+        default_language_name=lang_name,
+        custom_instructions_block=custom_block,
+    )
+
+
+def build_tenant_prompt(tenant: Any) -> str:
+    """Extract tenant attributes and compile the dynamic system prompt."""
+    if not tenant:
+        return build_system_prompt()
+
+    business_name = getattr(tenant, "name", "VoxFlow")
+    agent_name = getattr(tenant, "agent_name", "Vaani") or "Vaani"
+    default_language = getattr(tenant, "default_language", "hi") or "hi"
+    custom_instructions = getattr(tenant, "system_prompt_override", None)
+
+    return build_system_prompt(
+        business_name=business_name,
+        agent_name=agent_name,
+        default_language=default_language,
+        custom_instructions=custom_instructions,
+    )
+
+
+# Default constant for legacy tests and fallback usage
+SYSTEM_PROMPT = build_system_prompt()

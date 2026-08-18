@@ -3,6 +3,14 @@ CREATE TABLE IF NOT EXISTS tenants (
 	name VARCHAR(255) NOT NULL, 
 	logo_url VARCHAR(512), 
 	active INTEGER NOT NULL, 
+	agent_name VARCHAR(64) NOT NULL, 
+	system_prompt_override TEXT, 
+	welcome_message TEXT, 
+	default_language VARCHAR(8) NOT NULL, 
+	webhook_url VARCHAR(512), 
+	webhook_secret VARCHAR(128), 
+	plan VARCHAR(32) NOT NULL, 
+	total_minutes_used FLOAT NOT NULL, 
 	created_at TIMESTAMP WITH TIME ZONE NOT NULL, 
 	PRIMARY KEY (id)
 );

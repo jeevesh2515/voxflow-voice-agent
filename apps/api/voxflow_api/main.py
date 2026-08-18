@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import asyncio
+import os
 from contextlib import asynccontextmanager
 from datetime import datetime, timezone
 from typing import Any
@@ -14,15 +16,16 @@ from pydantic import BaseModel
 from .auth import AuthMiddleware
 from .config import get_settings
 from .db import init_db
+from .integrations.gsheets import get_sheets_client
 from .llm import get_llm
 from .llm.base import ChatTurn
 from .logging import get_logger, setup_logging
+from .routes import admin as admin_routes
 from .routes import data as data_routes
 from .routes import twilio as twilio_routes
 from .routes import ws as ws_routes
 from .routes.ws import get_pipeline
 from .schemas import ChatRequest, ChatResponse
-
 
 
 setup_logging()
@@ -32,9 +35,53 @@ log = get_logger(__name__)
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     settings = get_settings()
+
+    # 1. Ensure persistent data directories exist
+    data_dir = settings.resolved_data_dir
+    for sub in ("sessions", "sheets_queue", "logs", "backups"):
+        os.makedirs(os.path.join(data_dir, sub), exist_ok=True)
+
+    # 2. Initialize database schema
     init_db()
-    log.info("api.startup", provider=settings.llm_provider, model=getattr(settings, f"{settings.llm_provider}_model", ""))
+
+    # 3. Recover orphaned sessions from disk (crash recovery)
+    pipeline = get_pipeline()
+    recovered = await pipeline.recover_orphaned_sessions()
+    if recovered > 0:
+        log.info("api.sessions_recovered", count=recovered)
+
+    # 4. Start background worker for Google Sheets retry queue
+    async def _sheets_retry_worker():
+        sheets = get_sheets_client()
+        while True:
+            try:
+                synced = await sheets.process_retry_queue()
+                if synced > 0:
+                    log.info("api.sheets_queue_processed", synced_count=synced)
+            except asyncio.CancelledError:
+                break
+            except Exception as e:
+                log.warning("api.sheets_queue_worker_error", error=str(e))
+            await asyncio.sleep(settings.sheets_retry_interval)
+
+    retry_task = asyncio.create_task(_sheets_retry_worker())
+
+    log.info(
+        "api.startup",
+        provider=settings.llm_provider,
+        model=getattr(settings, f"{settings.llm_provider}_model", ""),
+        data_dir=settings.data_dir,
+    )
+
     yield
+
+    # Shutdown
+    retry_task.cancel()
+    try:
+        await retry_task
+    except asyncio.CancelledError:
+        pass
+    log.info("api.shutdown")
 
 
 def create_app() -> FastAPI:
@@ -67,6 +114,7 @@ def create_app() -> FastAPI:
 
     # Mount routers
     app.include_router(data_routes.router, prefix="/api", tags=["data"])
+    app.include_router(admin_routes.router, prefix="/api/admin", tags=["admin"])
     app.include_router(ws_routes.router, tags=["ws"])
     app.include_router(twilio_routes.router)
 

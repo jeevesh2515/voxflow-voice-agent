@@ -23,6 +23,11 @@ RUN pip install --no-cache-dir -U pip \
 # ---------- runtime stage ----------
 FROM python:3.12-slim
 
+# postgresql-client enables pg_dump for automated database backups
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    postgresql-client \
+    && rm -rf /var/lib/apt/lists/*
+
 # Copy only the built venv — none of the build tooling comes with it.
 COPY --from=builder /opt/venv /opt/venv
 
@@ -30,13 +35,17 @@ WORKDIR /app
 
 # Run as a non-root user. This process is reachable from the public internet
 # via the Twilio webhook, so it should not be root.
-RUN useradd --create-home --shell /bin/bash --uid 1000 voxflow
+RUN useradd --create-home --shell /bin/bash --uid 1000 voxflow \
+    && mkdir -p /app/data \
+    && chown -R voxflow:voxflow /app/data
+
 COPY --chown=voxflow:voxflow . .
 USER voxflow
 
 ENV PATH="/opt/venv/bin:$PATH" \
     PYTHONUNBUFFERED=1 \
-    PYTHONDONTWRITEBYTECODE=1
+    PYTHONDONTWRITEBYTECODE=1 \
+    DATA_DIR="/app/data"
 
 EXPOSE 8000
 

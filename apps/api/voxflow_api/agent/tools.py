@@ -29,6 +29,7 @@ from ..db import (
     async_session_scope,
 )
 from ..integrations.gsheets import get_sheets_client
+from ..integrations.webhooks import dispatch_webhook_background
 from ..logging import get_logger
 
 
@@ -395,6 +396,18 @@ async def create_po(
         db.add(order)
         await db.flush()
 
+    dispatch_webhook_background(
+        session.tenant_id,
+        "order_created",
+        {
+            "order_id": order_id,
+            "supplier_id": supplier_id,
+            "items": validated,
+            "total_qty": total_qty,
+            "call_id": session.call_id,
+        },
+    )
+
     return {
         "ok": True,
         "order_id": order_id,
@@ -641,6 +654,23 @@ async def log_call_outcome(
         satisfaction=satisfaction,
         sheet="pending" if sheet_pending else ("ok" if session.sheet_synced else "off"),
     )
+
+    dispatch_webhook_background(
+        session.tenant_id,
+        "call_outcome",
+        {
+            "call_id": session.call_id,
+            "caller_phone": session.caller_phone,
+            "caller_name": session.caller_name,
+            "company": session.company_name,
+            "reason": reason,
+            "solution": solution,
+            "resolution_status": resolution_status,
+            "satisfaction": satisfaction,
+            "related_order": related_order,
+        },
+    )
+
     return {
         "ok": True,
         "logged": True,
@@ -670,6 +700,18 @@ async def schedule_appointment(session: CallSession, datetime_str: str, purpose:
             status="confirmed",
         )
         db.add(app)
+
+    dispatch_webhook_background(
+        session.tenant_id,
+        "appointment_booked",
+        {
+            "appointment_id": app_id,
+            "supplier_id": session.supplier_id,
+            "datetime": dt.isoformat(),
+            "purpose": purpose,
+            "call_id": session.call_id,
+        },
+    )
 
     return {"ok": True, "appointment_id": app_id, "datetime": dt.isoformat(), "purpose": purpose}
 
@@ -855,6 +897,20 @@ async def escalate_to_human(session: CallSession, reason: str = "", summary: str
     session.escalated = True
     session.intent = session.intent or "escalation"
     log.info("agent.escalate", call_id=session.call_id, reason=reason, summary=summary)
+
+    dispatch_webhook_background(
+        session.tenant_id,
+        "call_escalated",
+        {
+            "call_id": session.call_id,
+            "caller_phone": session.caller_phone,
+            "caller_name": session.caller_name,
+            "company": session.company_name,
+            "reason": reason,
+            "summary": summary,
+        },
+    )
+
     return {"ok": True, "call_id": session.call_id, "reason": reason, "summary": summary}
 
 

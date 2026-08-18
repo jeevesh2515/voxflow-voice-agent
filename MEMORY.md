@@ -161,7 +161,7 @@ primary flow.
 
 ## What's Known to Be Incomplete or Wrong
 
-- ❌ **Backend currently unreachable** — `voxflow-jeevesh.duckdns.org` times out. Twilio cannot deliver webhooks. VM/Caddy/Docker needs recovery (see bottom of file for diagnostics).
+- ❌ **Backend currently unreachable** — `voxflow.duckdns.org` times out. Twilio cannot deliver webhooks. VM/Caddy/Docker needs recovery (see bottom of file for diagnostics).
 - ❌ **Staff auth demo fallback removed but not fully verified** — Supabase Auth is wired in frontend and backend JWT middleware is in place, but a live sign-in with a real Supabase test user has not been completed since the refactor.
 - ❌ **Dashboard realtime** — rows appear on refresh (Week 3 Day 14).
 - ⚠️ **VAD thresholds uncalibrated on real calls** — `_SILENCE_RMS = 800`, `_SILENCE_MS = 450` remain estimates until real callers are heard with the backend back online.
@@ -246,8 +246,8 @@ RULES.md §4, one phase at a time.
 
 ## Next Session
 
-1. **Bring the backend back online.** SSH to the Oracle VM, check Docker and Caddy status, and verify `voxflow-jeevesh.duckdns.org` resolves with a valid TLS cert.
-2. **Verify Twilio webhook** points to `https://voxflow-jeevesh.duckdns.org/twilio/voice` and make a test call.
+1. **Bring the backend back online.** SSH to the VM host, check Docker and Caddy status, and verify `voxflow.duckdns.org` resolves with a valid TLS cert.
+2. **Verify Twilio webhook** points to `https://voxflow.duckdns.org/twilio/voice` and make a test call.
 3. **Complete live auth verification** — sign in with a real Supabase test user (not Quick Demo) and confirm the dashboard loads with a real JWT.
 4. **Record real latency numbers** from a live call once the VM is healthy.
 5. **Tune VAD** against real callers (Day 10) if thresholds need adjustment.

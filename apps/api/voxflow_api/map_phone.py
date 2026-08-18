@@ -100,7 +100,7 @@ def main():
 
     args = parser.parse_args()
     settings = get_settings()
-    webhook_url = args.url or f"{(settings.public_base_url or 'https://voxflow-jeevesh.duckdns.org').rstrip('/')}/twilio/voice"
+    webhook_url = args.url or f"{(settings.public_base_url or 'https://your-domain.com').rstrip('/')}/twilio/voice"
 
     phone = args.phone
 

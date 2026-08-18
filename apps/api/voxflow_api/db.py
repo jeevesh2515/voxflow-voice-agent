@@ -151,6 +151,14 @@ class Tenant(Base):
     name: Mapped[str] = mapped_column(String(255), index=True)
     logo_url: Mapped[str | None] = mapped_column(String(512), nullable=True)
     active: Mapped[int] = mapped_column(Integer, default=1)
+    agent_name: Mapped[str] = mapped_column(String(64), default="Vaani")
+    system_prompt_override: Mapped[str | None] = mapped_column(Text, nullable=True)
+    welcome_message: Mapped[str | None] = mapped_column(Text, nullable=True)
+    default_language: Mapped[str] = mapped_column(String(8), default="hi")
+    webhook_url: Mapped[str | None] = mapped_column(String(512), nullable=True)
+    webhook_secret: Mapped[str | None] = mapped_column(String(128), nullable=True)
+    plan: Mapped[str] = mapped_column(String(32), default="pro")
+    total_minutes_used: Mapped[float] = mapped_column(Float, default=0.0)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_utcnow)
 
 
