@@ -56,7 +56,7 @@ class Settings(BaseSettings):
     api_cors_origins: str = "http://localhost:3000"
 
     # ----- Database & Supabase -----
-    database_url: str = "sqlite:///./voxflow.db"
+    database_url: str = "sqlite:////tmp/voxflow-data/voxflow.db"
     supabase_url: str = ""
     supabase_anon_key: str = ""
     supabase_publishable_key: str = ""
@@ -68,11 +68,11 @@ class Settings(BaseSettings):
     @classmethod
     def sanitize_database_url(cls, v: str | None) -> str:
         if not v or not isinstance(v, str) or v.strip() == "":
-            return "sqlite:///./voxflow.db"
+            return "sqlite:////tmp/voxflow-data/voxflow.db"
         val = v.strip()
         # If user mistakenly set DATABASE_URL to an http/https URL (e.g. Supabase project URL)
         if val.startswith("http://") or val.startswith("https://"):
-            return "sqlite:///./voxflow.db"
+            return "sqlite:////tmp/voxflow-data/voxflow.db"
         # SQLAlchemy 2.0 requires postgresql:// instead of legacy postgres://
         if val.startswith("postgres://"):
             return val.replace("postgres://", "postgresql://", 1)
