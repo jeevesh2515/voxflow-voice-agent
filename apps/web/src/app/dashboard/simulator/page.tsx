@@ -6,7 +6,15 @@ import { useTenant } from "@/lib/tenant-context";
 
 type Turn = { role: "caller" | "agent"; text: string; at: number };
 
-const WS_URL = (typeof window !== "undefined" && process.env.NEXT_PUBLIC_WS_URL) || "ws://localhost:8000";
+function getWsUrl(): string {
+  if (process.env.NEXT_PUBLIC_WS_URL) return process.env.NEXT_PUBLIC_WS_URL;
+  if (typeof window !== "undefined") {
+    if (window.location.hostname !== "localhost" && window.location.hostname !== "127.0.0.1") {
+      return "wss://voxflow-voice-agent.onrender.com";
+    }
+  }
+  return "ws://localhost:8000";
+}
 
 export default function PhoneSimulator() {
   const { activeTenantId, activeTenant } = useTenant();
@@ -39,7 +47,7 @@ export default function PhoneSimulator() {
   const connect = useCallback(() => {
     if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) return;
     setError(null);
-    const ws = new WebSocket(`${WS_URL}/ws/call`);
+    const ws = new WebSocket(`${getWsUrl()}/ws/call`);
     wsRef.current = ws;
 
     ws.onopen = () => {

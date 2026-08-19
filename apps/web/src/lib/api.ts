@@ -1,6 +1,15 @@
 // Lightweight API client with multi-tenant filtering and auth.
 
-const API = process.env.NEXT_PUBLIC_API_URL || "";
+function getApiUrl(): string {
+  if (typeof window !== "undefined") {
+    if (window.location.hostname !== "localhost" && window.location.hostname !== "127.0.0.1") {
+      return process.env.NEXT_PUBLIC_API_URL || "https://voxflow-voice-agent.onrender.com";
+    }
+  }
+  return process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+}
+
+const API = getApiUrl();
 
 function getAuthHeader(): Record<string, string> {
   if (typeof window === "undefined") return {};
@@ -35,18 +44,27 @@ function getAuthHeader(): Record<string, string> {
 }
 
 async function http<T>(path: string, init?: RequestInit): Promise<T> {
-  const url = path.startsWith("http") ? path : `${API}${path}`;
+  const base = getApiUrl();
+  const url = path.startsWith("http") ? path : `${base}${path}`;
   const headers = {
     "Content-Type": "application/json",
     ...getAuthHeader(),
     ...(init?.headers || {}),
   };
-  const r = await fetch(url, { cache: "no-store", ...init, headers });
-  if (!r.ok) {
-    const body = await r.text();
-    throw new Error(`${r.status} ${r.statusText}: ${body}`);
+  try {
+    const r = await fetch(url, { cache: "no-store", ...init, headers });
+    if (!r.ok) {
+      const body = await r.text();
+      throw new Error(`${r.status} ${r.statusText}: ${body}`);
+    }
+    return r.json();
+  } catch (err) {
+    // Graceful fallback for empty/cold-start state
+    if (path.includes("/api/calls") || path.includes("/api/active-calls")) {
+      return [] as unknown as T;
+    }
+    throw err;
   }
-  return r.json();
 }
 
 export const api = {
