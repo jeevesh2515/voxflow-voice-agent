@@ -332,8 +332,17 @@ class CommunicationLog(Base):
     recipient: Mapped[str] = mapped_column(String(255))
     subject: Mapped[str | None] = mapped_column(String(255), nullable=True)
     body: Mapped[str] = mapped_column(Text)
-    status: Mapped[str] = mapped_column(String(32), default="sent")  # sent | failed
+    status: Mapped[str] = mapped_column(String(32), default="sent")  # sent | failed | received | summarized
     timestamp: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_utcnow)
+
+
+class AgentState(Base):
+    __tablename__ = "agent_states"
+
+    key: Mapped[str] = mapped_column(String(128), primary_key=True)
+    tenant_id: Mapped[str] = mapped_column(String(64), ForeignKey("tenants.id"), index=True, default="varun")
+    value_json: Mapped[str] = mapped_column(Text, default="{}")
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_utcnow, onupdate=_utcnow)
 
 
 # ---------- Helpers ----------
