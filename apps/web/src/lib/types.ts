@@ -88,6 +88,7 @@ export interface Call {
   // Structured call-outcome fields (may be empty string/null for old rows)
   reason: string;
   solution: string;
+  summary?: string;
   resolution_status: ResolutionStatus;
   satisfaction: Satisfaction;
   follow_up_required: boolean;

@@ -69,20 +69,23 @@ html.light .sidebar-item-active {
   color: #e11d48;
 }
 
-/* ── Scan-line overlay (Dark mode only) ── */
-html.dark body::after {
+/* ── Scan-line utility (Optional subtle component-level only, not whole-page) ── */
+.scanline-subtle {
+  position: relative;
+}
+.scanline-subtle::after {
   content: '';
-  position: fixed;
+  position: absolute;
   inset: 0;
   pointer-events: none;
-  z-index: 9999;
   background: repeating-linear-gradient(
     0deg,
     transparent,
-    transparent 2px,
-    rgba(0, 0, 0, 0.15) 2px,
-    rgba(0, 0, 0, 0.15) 4px
+    transparent 3px,
+    rgba(0, 0, 0, 0.08) 3px,
+    rgba(0, 0, 0, 0.08) 6px
   );
+  opacity: 0.4;
 }
 
 /* ── Grid background ── */

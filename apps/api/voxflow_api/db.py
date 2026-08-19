@@ -349,6 +349,11 @@ class AgentState(Base):
 
 
 def init_db() -> None:
+    from pathlib import Path
+    if _db_url.startswith("sqlite"):
+        path_str = _db_url.replace("sqlite:////", "/").replace("sqlite:///", "")
+        if path_str and not path_str.startswith(":memory:"):
+            Path(path_str).parent.mkdir(parents=True, exist_ok=True)
     Base.metadata.create_all(_engine)
 
 
