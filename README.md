@@ -207,31 +207,6 @@ pytest tests/ -v
 
 ---
 
-## 🗺️ Roadmap — Next Implementation Phases
-
-### ✅ Day 22 (Completed — 2026-08-19)
-- Full production verification: 20/20 routes on Vercel + Render
-- Fixed 4 critical bugs (demo cookie, WebSocket URL, API resilience, TwiML security)
-- Confirmed all 12 operational dashboard modules live
-
-### 📋 Day 23 — Inbound Call Intelligence + Google Sheets Logger (Upcoming)
-- **Post-Call Google Sheets Logger**: Auto-write structured call summary to Google Sheets after every call ends
-  - Columns: Caller, Phone, Company, Auth Status, Intent, Actions, Outcome, Satisfaction, Agent Notes
-- **Satisfaction Check Loop**: Agent asks *"Kya aur kuch chahiye?"* before hanging up; loops back to intent resolution if Yes
-- **Email Summarizer Agent** (APScheduler 3×/day at 8am, 1pm, 6pm IST):
-  - Gmail API → keyword filter → LLM 3-sentence summary → DB persist → Sheets `Email Log` tab
-  - Fully idempotent (never double-processes same email)
-  - Persistent memory via new `agent_state` table in Supabase
-- **New environment vars**: `GOOGLE_SHEETS_SPREADSHEET_ID`, `GOOGLE_SERVICE_ACCOUNT_JSON`, `GMAIL_USER_EMAIL`
-
-### 🔭 Day 24+ — SIP Trunking & Indian Telco Scale
-- Direct SIP interconnects with Airtel IQ / Jio Enterprise (bypass Twilio per-minute cost)
-- Edge WebRTC ingestion nodes in Mumbai & Delhi (sub-30ms regional latency)
-- TRAI 140-series DLT compliance for outbound commercial SMS
-- LangSmith continuous online evals: grounding score, sentiment trajectory, tool accuracy
-
----
-
 ## 📄 License
 
 Distributed under the **MIT License**. See [`LICENSE`](LICENSE) for details.
