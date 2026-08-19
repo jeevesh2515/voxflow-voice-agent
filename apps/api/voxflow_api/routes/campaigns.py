@@ -11,6 +11,7 @@ from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 
 from ..db import CampaignQueue, OutboundCampaign, get_session
+from ..jobs.enqueue import enqueue_campaign_target
 from ..logging import get_logger
 from ..tasks.campaign_worker import process_campaign_batch
 
@@ -94,6 +95,12 @@ async def create_campaign(
             attempts_made=0,
         )
         db.add(queue_item)
+        enqueue_campaign_target(
+            db,
+            tenant_id=tenant_id,
+            campaign_id=campaign_id,
+            campaign_queue_id=queue_item.id,
+        )
 
     db.commit()
 

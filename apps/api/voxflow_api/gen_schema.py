@@ -25,7 +25,8 @@ from sqlalchemy.schema import CreateIndex, CreateTable
 TABLES = [
     "tenants", "suppliers", "products", "stock", "orders", "shipments",
     "calls", "appointments", "worksheet_logs", "communication_logs",
-    "tenant_phone_numbers",
+    "tenant_phone_numbers", "agent_states", "outbound_campaigns", "campaign_queue",
+    "job_runs", "job_outbox", "job_attempts", "provider_operations",
 ]
 
 
@@ -45,6 +46,13 @@ ALTER TABLE appointments ENABLE ROW LEVEL SECURITY;
 ALTER TABLE worksheet_logs ENABLE ROW LEVEL SECURITY;
 ALTER TABLE communication_logs ENABLE ROW LEVEL SECURITY;
 ALTER TABLE tenant_phone_numbers ENABLE ROW LEVEL SECURITY;
+ALTER TABLE agent_states ENABLE ROW LEVEL SECURITY;
+ALTER TABLE outbound_campaigns ENABLE ROW LEVEL SECURITY;
+ALTER TABLE campaign_queue ENABLE ROW LEVEL SECURITY;
+ALTER TABLE job_runs ENABLE ROW LEVEL SECURITY;
+ALTER TABLE job_outbox ENABLE ROW LEVEL SECURITY;
+ALTER TABLE job_attempts ENABLE ROW LEVEL SECURITY;
+ALTER TABLE provider_operations ENABLE ROW LEVEL SECURITY;
 
 DROP POLICY IF EXISTS tenant_isolation_policy ON suppliers;
 CREATE POLICY tenant_isolation_policy ON suppliers
@@ -76,6 +84,27 @@ CREATE POLICY tenant_isolation_policy ON communication_logs
 DROP POLICY IF EXISTS tenant_isolation_policy ON tenant_phone_numbers;
 CREATE POLICY tenant_isolation_policy ON tenant_phone_numbers
     FOR ALL USING (tenant_id = current_setting('app.current_tenant', true));
+DROP POLICY IF EXISTS tenant_isolation_policy ON agent_states;
+CREATE POLICY tenant_isolation_policy ON agent_states
+    FOR ALL USING (tenant_id = current_setting('app.current_tenant', true));
+DROP POLICY IF EXISTS tenant_isolation_policy ON outbound_campaigns;
+CREATE POLICY tenant_isolation_policy ON outbound_campaigns
+    FOR ALL USING (tenant_id = current_setting('app.current_tenant', true));
+DROP POLICY IF EXISTS tenant_isolation_policy ON campaign_queue;
+CREATE POLICY tenant_isolation_policy ON campaign_queue
+    FOR ALL USING (tenant_id = current_setting('app.current_tenant', true));
+DROP POLICY IF EXISTS tenant_isolation_policy ON job_runs;
+CREATE POLICY tenant_isolation_policy ON job_runs
+    FOR ALL USING (tenant_id = current_setting('app.current_tenant', true));
+DROP POLICY IF EXISTS tenant_isolation_policy ON job_outbox;
+CREATE POLICY tenant_isolation_policy ON job_outbox
+    FOR ALL USING (tenant_id = current_setting('app.current_tenant', true));
+DROP POLICY IF EXISTS tenant_isolation_policy ON job_attempts;
+CREATE POLICY tenant_isolation_policy ON job_attempts
+    FOR ALL USING (tenant_id = current_setting('app.current_tenant', true));
+DROP POLICY IF EXISTS tenant_isolation_policy ON provider_operations;
+CREATE POLICY tenant_isolation_policy ON provider_operations
+    FOR ALL USING (tenant_id = current_setting('app.current_tenant', true));
 """
 
 
@@ -86,9 +115,11 @@ def table_ddl() -> str:
     pg = postgresql.dialect()
     out: list[str] = []
     for t in Base.metadata.sorted_tables:
-        out.append(str(CreateTable(t, if_not_exists=True).compile(dialect=pg)).strip() + ";")
+        table_sql = str(CreateTable(t, if_not_exists=True).compile(dialect=pg)).strip()
+        out.append("\n".join(line.rstrip() for line in table_sql.splitlines()) + ";")
         for ix in sorted(t.indexes, key=lambda i: i.name or ""):
-            out.append(str(CreateIndex(ix, if_not_exists=True).compile(dialect=pg)).strip() + ";")
+            index_sql = str(CreateIndex(ix, if_not_exists=True).compile(dialect=pg)).strip()
+            out.append("\n".join(line.rstrip() for line in index_sql.splitlines()) + ";")
     return "\n\n".join(out) + RLS_SUFFIX
 
 
