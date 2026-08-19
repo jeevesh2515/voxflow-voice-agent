@@ -51,6 +51,19 @@ async function http<T>(path: string, init?: RequestInit): Promise<T> {
 
 export const api = {
   tenants: () => http<any[]>("/api/tenants"),
+  getTenant: (tenant_id: string) => http<any>(`/api/admin/tenants/${tenant_id}`),
+  updateTenant: (tenant_id: string, payload: any) =>
+    http<any>(`/api/admin/tenants/${tenant_id}`, {
+      method: "PATCH",
+      body: JSON.stringify(payload),
+    }),
+  getUsage: (tenant_id: string) => http<any>(`/api/admin/tenants/${tenant_id}/usage`),
+  mapPhone: (tenant_id: string, phone_number: string, label?: string) =>
+    http<any>(`/api/admin/tenants/${tenant_id}/phone-numbers`, {
+      method: "POST",
+      body: JSON.stringify({ phone_number, label }),
+    }),
+
   summary: (tenant_id?: string) => http<any>(`/api/summary${tenant_id ? `?tenant_id=${tenant_id}` : ""}`),
   suppliers: (q?: string, tenant_id?: string) => {
     const qs = new URLSearchParams();
@@ -58,6 +71,12 @@ export const api = {
     if (tenant_id) qs.set("tenant_id", tenant_id);
     return http<any[]>(`/api/suppliers${qs.size ? `?${qs}` : ""}`);
   },
+  createSupplier: (payload: { name: string; phone: string; city?: string; state?: string; pincode?: string; contact_person?: string; gstin?: string; auth_pin?: string }, tenant_id?: string) =>
+    http<any>(`/api/suppliers${tenant_id ? `?tenant_id=${tenant_id}` : ""}`, {
+      method: "POST",
+      body: JSON.stringify(payload),
+    }),
+
   stock: (params?: { sku?: string; warehouse?: string; tenant_id?: string }) => {
     const qs = new URLSearchParams();
     if (params?.sku) qs.set("sku", params.sku);
@@ -65,6 +84,7 @@ export const api = {
     if (params?.tenant_id) qs.set("tenant_id", params.tenant_id);
     return http<any[]>(`/api/stock${qs.size ? `?${qs}` : ""}`);
   },
+
   orders: (params?: { supplier_id?: string; status?: string; tenant_id?: string }) => {
     const qs = new URLSearchParams();
     if (params?.supplier_id) qs.set("supplier_id", params.supplier_id);
@@ -72,12 +92,19 @@ export const api = {
     if (params?.tenant_id) qs.set("tenant_id", params.tenant_id);
     return http<any[]>(`/api/orders${qs.size ? `?${qs}` : ""}`);
   },
+  createOrder: (payload: { supplier_id: string; items: { sku: string; quantity: number }[]; notes?: string }, tenant_id?: string) =>
+    http<any>(`/api/orders${tenant_id ? `?tenant_id=${tenant_id}` : ""}`, {
+      method: "POST",
+      body: JSON.stringify(payload),
+    }),
+
   shipments: (order_id?: string, tenant_id?: string) => {
     const qs = new URLSearchParams();
     if (order_id) qs.set("order_id", order_id);
     if (tenant_id) qs.set("tenant_id", tenant_id);
     return http<any[]>(`/api/shipments${qs.size ? `?${qs}` : ""}`);
   },
+
   calls: (limit = 50, tenant_id?: string, escalated?: boolean, resolution_status?: string) => {
     const qs = new URLSearchParams({ limit: String(limit) });
     if (tenant_id) qs.set("tenant_id", tenant_id);
@@ -99,9 +126,22 @@ export const api = {
     }),
   activeCalls: (tenant_id?: string) =>
     http<any[]>(`/api/active-calls${tenant_id ? `?tenant_id=${tenant_id}` : ""}`),
+
   appointments: (tenant_id?: string) =>
     http<any[]>(`/api/appointments${tenant_id ? `?tenant_id=${tenant_id}` : ""}`),
+  createAppointment: (payload: { supplier_id?: string; datetime: string; purpose?: string }, tenant_id?: string) =>
+    http<any>(`/api/appointments${tenant_id ? `?tenant_id=${tenant_id}` : ""}`, {
+      method: "POST",
+      body: JSON.stringify(payload),
+    }),
+
   communications: (tenant_id?: string) =>
     http<any[]>(`/api/communications${tenant_id ? `?tenant_id=${tenant_id}` : ""}`),
+  createCommunication: (payload: { channel: string; recipient: string; subject?: string; body: string }, tenant_id?: string) =>
+    http<any>(`/api/communications${tenant_id ? `?tenant_id=${tenant_id}` : ""}`, {
+      method: "POST",
+      body: JSON.stringify(payload),
+    }),
+
   health: () => http<any>("/api/health"),
 };

@@ -20,8 +20,33 @@ class SupplierOut(BaseModel):
     pincode: str
     contact_person: str
     gstin: str
+    auth_pin: str = "1234"
 
     model_config = ConfigDict(from_attributes=True)
+
+
+class SupplierCreate(BaseModel):
+    name: str
+    phone: str
+    city: str = "Gurgaon"
+    state: str = "Haryana"
+    pincode: str = "122001"
+    contact_person: str = ""
+    gstin: str = ""
+    auth_pin: str = "1234"
+
+
+class AppointmentCreate(BaseModel):
+    supplier_id: str | None = None
+    datetime: str
+    purpose: str = "Supplier Operations & Delivery Audit"
+
+
+class CommunicationCreate(BaseModel):
+    channel: Literal["sms", "whatsapp", "email"] = "sms"
+    recipient: str
+    subject: str = ""
+    body: str
 
 
 # ---------- Products & Stock ----------

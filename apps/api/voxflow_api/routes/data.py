@@ -25,15 +25,18 @@ from ..db import (
 )
 from ..llm import get_llm
 from ..schemas import (
+    AppointmentCreate,
     CallAction,
     CallOut,
     CallTurn,
+    CommunicationCreate,
     OrderCreate,
     OrderItemIn,
     OrderOut,
     ResolutionIn,
     ShipmentOut,
     StockItem,
+    SupplierCreate,
     SupplierOut,
 )
 
@@ -118,6 +121,45 @@ def get_supplier(request: Request, supplier_id: str) -> Supplier:
         if not s or s.tenant_id != tenant:
             raise HTTPException(status_code=404, detail="supplier_not_found")
         return s
+
+
+@router.post("/suppliers", response_model=SupplierOut)
+def create_supplier(
+    request: Request,
+    payload: SupplierCreate,
+    tenant_id: str | None = Query(default=None),
+) -> dict[str, Any]:
+    tenant = _tenant_id(request, tenant_id)
+    clean_phone = payload.phone.strip().replace(" ", "")
+    sup_id = f"sup-{tenant}-{int(datetime.now(timezone.utc).timestamp()) % 100000}"
+    with session_scope() as db:
+        s = Supplier(
+            id=sup_id,
+            tenant_id=tenant,
+            name=payload.name.strip(),
+            phone=clean_phone,
+            city=payload.city.strip(),
+            state=payload.state.strip(),
+            pincode=payload.pincode.strip(),
+            contact_person=payload.contact_person.strip(),
+            gstin=payload.gstin.strip().upper(),
+            auth_pin=payload.auth_pin.strip() or "1234",
+            contact_type="supplier",
+            active=1,
+        )
+        db.add(s)
+        db.flush()
+        return {
+            "id": s.id,
+            "name": s.name,
+            "phone": s.phone,
+            "city": s.city,
+            "state": s.state,
+            "pincode": s.pincode,
+            "contact_person": s.contact_person,
+            "gstin": s.gstin,
+            "auth_pin": s.auth_pin,
+        }
 
 
 # ---------- Products / Stock ----------
@@ -409,6 +451,41 @@ def list_appointments(request: Request, tenant_id: str | None = Query(default=No
         ]
 
 
+@router.post("/appointments")
+def create_appointment(
+    request: Request,
+    payload: AppointmentCreate,
+    tenant_id: str | None = Query(default=None),
+) -> dict[str, Any]:
+    tenant = _tenant_id(request, tenant_id)
+    app_id = f"app-{tenant}-{int(datetime.now(timezone.utc).timestamp()) % 100000}"
+    try:
+        dt = datetime.fromisoformat(payload.datetime.replace("Z", "+00:00"))
+    except Exception:
+        dt = datetime.now(timezone.utc)
+
+    with session_scope() as db:
+        app = Appointment(
+            id=app_id,
+            tenant_id=tenant,
+            supplier_id=payload.supplier_id or "",
+            datetime=dt,
+            purpose=payload.purpose or "Supplier Operations & Delivery Audit",
+            status="confirmed",
+        )
+        db.add(app)
+        db.flush()
+        return {
+            "id": app.id,
+            "tenant_id": app.tenant_id,
+            "supplier_id": app.supplier_id,
+            "datetime": app.datetime.isoformat(),
+            "purpose": app.purpose,
+            "status": app.status,
+            "created_at": app.created_at.isoformat(),
+        }
+
+
 # ---------- Communications Log ----------
 
 
@@ -431,6 +508,38 @@ def list_communications(request: Request, tenant_id: str | None = Query(default=
             }
             for c in rows
         ]
+
+
+@router.post("/communications")
+def create_communication(
+    request: Request,
+    payload: CommunicationCreate,
+    tenant_id: str | None = Query(default=None),
+) -> dict[str, Any]:
+    tenant = _tenant_id(request, tenant_id)
+    comm_id = f"msg-{int(datetime.now(timezone.utc).timestamp()) % 1000000}"
+    with session_scope() as db:
+        comm = CommunicationLog(
+            id=comm_id,
+            tenant_id=tenant,
+            channel=payload.channel,
+            recipient=payload.recipient.strip(),
+            subject=payload.subject or "",
+            body=payload.body.strip(),
+            status="delivered",
+        )
+        db.add(comm)
+        db.flush()
+        return {
+            "id": comm.id,
+            "tenant_id": comm.tenant_id,
+            "channel": comm.channel,
+            "recipient": comm.recipient,
+            "subject": comm.subject,
+            "body": comm.body,
+            "status": comm.status,
+            "timestamp": comm.timestamp.isoformat(),
+        }
 
 
 # ---------- Health ----------
