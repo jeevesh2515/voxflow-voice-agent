@@ -159,6 +159,14 @@ class ResolutionIn(BaseModel):
     staff_resolution: str
 
 
+class OutboundCallIn(BaseModel):
+    to_phone: str
+    instruction: str
+    voice_gender: str = "female"
+    language: str | None = None
+    max_duration_seconds: int | None = None
+
+
 # ---------- LLM / Agent ----------
 
 

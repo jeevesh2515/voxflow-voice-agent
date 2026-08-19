@@ -33,6 +33,7 @@ from ..schemas import (
     OrderCreate,
     OrderItemIn,
     OrderOut,
+    OutboundCallIn,
     ResolutionIn,
     ShipmentOut,
     StockItem,
@@ -422,10 +423,45 @@ async def download_call_recording(request: Request, call_id: str):
 
         media_type = r.headers.get("content-type", "audio/wav")
         return StreamingResponse(
-            iter([r.content]),
-            media_type=media_type,
-            headers={"Content-Disposition": f'attachment; filename="{call_id}.wav"'},
+        r.aiter_bytes(),
+        media_type=r.headers.get("content-type", "audio/wav"),
+        headers={"Content-Disposition": f'attachment; filename="call-{call_id}.wav"'},
+    )
+
+
+@router.post("/calls/outbound")
+async def trigger_outbound_call(
+    request: Request,
+    payload: OutboundCallIn,
+    tenant_id: str | None = Query(default=None),
+) -> dict[str, Any]:
+    """Place a proactive outbound AI voice call using Dial."""
+    from ..integrations.dial import get_dial_client
+    tenant = _tenant_id(request, tenant_id)
+    dial = get_dial_client()
+    if not dial.is_configured():
+        raise HTTPException(
+            status_code=503,
+            detail="Dial API is not configured. Please verify your DIAL_API_KEY.",
         )
+
+    res = await dial.place_outbound_call(
+        to_number=payload.to_phone,
+        instruction=payload.instruction,
+        voice_gender=payload.voice_gender,
+        language=payload.language,
+        max_duration_seconds=payload.max_duration_seconds,
+    )
+    if not res.get("ok"):
+        raise HTTPException(
+            status_code=400,
+            detail=f"Outbound call placement failed: {res.get('detail') or res.get('error')}",
+        )
+    return {
+        "ok": True,
+        "tenant_id": tenant,
+        "call": res.get("call", {}),
+    }
 
 
 # ---------- Appointments ----------
