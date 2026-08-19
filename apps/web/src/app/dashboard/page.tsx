@@ -4,7 +4,6 @@ import { useState, useMemo } from "react";
 import Link from "next/link";
 import useSWR from "swr";
 import {
-  Phone,
   PhoneCall,
   Package,
   Users,
@@ -12,599 +11,498 @@ import {
   Download,
   Plus,
   Mic,
-  Activity,
-  ChevronRight,
   TrendingUp,
   Brain,
-  Sliders,
-  Globe,
-  Terminal,
-  Search,
-  Filter,
-  CheckCircle2,
-  AlertTriangle,
+  Activity,
+  Phone,
+  ChevronRight,
   ArrowUpRight,
-  Radio,
-  Sparkles,
+  ArrowDownRight,
+  BarChart3,
   Zap,
-  Calendar,
-  MessageSquare,
+  ShieldCheck,
 } from "lucide-react";
 import { api } from "@/lib/api";
 import { fmtRelative } from "@/lib/format";
 import { useTenant } from "@/lib/tenant-context";
 import type { Call } from "@/lib/types";
+import StatCard from "@/components/dashboard/StatCard";
+import SectionCard from "@/components/dashboard/SectionCard";
+import BarChart from "@/components/dashboard/BarChart";
 
 export default function DashboardOverview() {
   const { activeTenantId, activeTenant } = useTenant();
   const { data: summary, error: summaryErr, isLoading: summaryLoading } = useSWR(["summary", activeTenantId], () => api.summary(activeTenantId));
-  const { data: calls, error: callsErr, isLoading: callsLoading } = useSWR(["calls", activeTenantId], () => api.calls(20, activeTenantId));
+  const { data: calls, error: callsErr, isLoading: callsLoading } = useSWR(["calls", activeTenantId], () => api.calls(100, activeTenantId));
   const { data: suppliers } = useSWR(["suppliers", activeTenantId], () => api.suppliers(undefined, activeTenantId));
   const { data: orders } = useSWR(["orders", activeTenantId], () => api.orders({ tenant_id: activeTenantId }));
+  const { data: stock } = useSWR(["stock", activeTenantId], () => api.stock({ tenant_id: activeTenantId }));
+  const { data: escalations } = useSWR(["escalations", activeTenantId], () => api.escalations(activeTenantId));
 
-  const [callFilter, setCallFilter] = useState<"all" | "completed" | "escalated" | "in_progress">("all");
-  const [chartTimeframe, setChartTimeframe] = useState<"7d" | "30d">("7d");
-  const [searchQuery, setSearchQuery] = useState("");
+  const [activeKeypad, setActiveKeypad] = useState<string | null>(null);
 
-  // Calculate resolution metrics
-  const callList = useMemo(() => (calls as Call[]) || [], [calls]);
-  const totalCallsCount = callList.length;
-  const escalatedCount = callList.filter((c) => c.escalated || c.outcome === "escalated").length;
-  const completedCount = callList.filter((c) => c.outcome === "completed" || c.resolution_status === "resolved").length;
-  const resolutionRate = totalCallsCount > 0 
-    ? Math.round((completedCount / totalCallsCount) * 100) 
-    : 100;
+  const handleKeyClick = (val: string) => {
+    setActiveKeypad(val);
+    setTimeout(() => setActiveKeypad(null), 200);
+  };
 
-  // Filtered calls
-  const filteredCalls = useMemo(() => {
-    return callList.filter((c) => {
-      const matchFilter = 
-        callFilter === "all" ? true :
-        callFilter === "completed" ? (c.outcome === "completed" || c.resolution_status === "resolved") :
-        callFilter === "escalated" ? (c.escalated || c.outcome === "escalated") :
-        (c.outcome === "in_progress");
-      
-      const q = searchQuery.toLowerCase().trim();
-      const matchSearch = !q || 
-        c.id.toLowerCase().includes(q) || 
-        (c.caller_name && c.caller_name.toLowerCase().includes(q)) ||
-        (c.caller_phone && c.caller_phone.includes(q)) ||
-        (c.intent && c.intent.toLowerCase().includes(q));
-      
-      return matchFilter && matchSearch;
+  const isLoading = summaryLoading || callsLoading;
+
+  const callVolumeData = useMemo(() => {
+    if (!calls || calls.length === 0) return [];
+    const last7 = Array.from({ length: 7 }, (_, i) => {
+      const d = new Date();
+      d.setDate(d.getDate() - (6 - i));
+      return d.toISOString().split("T")[0];
     });
-  }, [callList, callFilter, searchQuery]);
 
-  // Mocked 7-day trend series generated from real volume
-  const chartDays = useMemo(() => {
-    const days = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
-    const baseVolume = totalCallsCount > 0 ? Math.max(2, Math.floor(totalCallsCount / 4)) : 0;
-    return days.map((day, idx) => {
-      const isToday = idx === 6;
-      const vol = isToday ? Math.max(1, totalCallsCount) : Math.max(0, Math.round(baseVolume * (0.8 + (idx * 0.15))));
-      const res = vol > 0 ? Math.min(100, Math.round(85 + (idx * 2))) : 0;
-      return { day, volume: vol, resolution: res };
+    const counts: Record<string, number> = {};
+    calls.forEach((c) => {
+      const day = c.started_at.split("T")[0];
+      if (last7.includes(day)) {
+        counts[day] = (counts[day] || 0) + 1;
+      }
     });
-  }, [totalCallsCount]);
 
-  const maxVolume = Math.max(5, ...chartDays.map((d) => d.volume));
+    return last7.map((day) => ({
+      label: new Date(day).toLocaleDateString("en-US", { weekday: "short" }),
+      value: counts[day] || 0,
+    }));
+  }, [calls]);
+
+  const resolutionRate = useMemo(() => {
+    if (!calls || calls.length === 0) return 0;
+    const resolved = calls.filter((c) => c.resolution_status === "resolved").length;
+    return Math.round((resolved / calls.length) * 100);
+  }, [calls]);
+
+  const pendingOrdersCount = useMemo(() => {
+    if (!orders) return 0;
+    return orders.filter((o) => o.status === "pending" || o.status === "in_progress").length;
+  }, [orders]);
+
+  const lowStockCount = useMemo(() => {
+    if (!stock) return 0;
+    return stock.filter((s) => s.quantity < 50).length;
+  }, [stock]);
+
+  const escalationCount = useMemo(() => {
+    if (!escalations) return 0;
+    return escalations.filter((c) => c.escalated || c.follow_up_required).length;
+  }, [escalations]);
+
+  const urgentCalls = useMemo(() => {
+    if (!calls) return [];
+    return calls.filter((c) => c.outcome === "in_progress" || c.escalated).slice(0, 5);
+  }, [calls]);
+
+  const recentCalls = useMemo(() => {
+    if (!calls) return [];
+    return [...calls].sort((a, b) => new Date(b.started_at).getTime() - new Date(a.started_at).getTime()).slice(0, 8);
+  }, [calls]);
 
   return (
-    <div className="space-y-8 max-w-7xl mx-auto pb-12">
+    <div className="space-y-6 max-w-7xl mx-auto">
       {/* ==================== PAGE HEADER ==================== */}
-      <header className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 bg-[#12121e] p-6 rounded-2xl border border-[#242436] shadow-sm">
-        <div className="space-y-1">
-          <div className="flex items-center gap-2.5">
-            <h1 className="text-xl sm:text-2xl font-headline font-bold text-[#ffffff] tracking-tight">
-              Voice Operations Center
+      <div className="px-6 pt-6 pb-2">
+        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-end gap-4">
+          <div>
+            <h1 className="text-2xl sm:text-3xl font-bold text-[#e8e0f0] tracking-tight">
+              Operations <span className="text-[#ff2d78]">Overview</span>
             </h1>
-            <span className="px-2 py-0.5 rounded-md bg-[#ff2d78]/15 text-[#ff2d78] text-[11px] font-mono font-bold border border-[#ff2d78]/30">
-              {activeTenant.name}
-            </span>
-          </div>
-          <p className="text-xs sm:text-sm text-[#94a3b8]">
-            Real-time telephonic supply chain monitoring, automated ordering, and inventory resolution.
-          </p>
-        </div>
-
-        <div className="flex items-center gap-3 w-full md:w-auto">
-          <Link
-            href="/dashboard/simulator"
-            className="flex-1 md:flex-initial flex items-center justify-center gap-2 bg-[#ff2d78] hover:bg-[#e02669] text-white px-4 py-2 rounded-xl text-xs font-bold transition-all shadow-md active:scale-95"
-          >
-            <Phone size={14} />
-            <span>Launch Simulator</span>
-          </Link>
-          <button
-            onClick={() => window.open("/api/calls/export", "_blank")}
-            className="flex items-center justify-center gap-1.5 bg-[#181826] hover:bg-[#202034] text-[#cbd5e1] hover:text-white px-3.5 py-2 rounded-xl text-xs font-medium border border-[#2c2c40] transition-colors"
-          >
-            <Download size={14} />
-            <span>Export</span>
-          </button>
-        </div>
-      </header>
-
-      {/* Loading / error banners */}
-      {summaryLoading && (
-        <div className="p-4 rounded-xl bg-[#141420] border border-[#242436] text-center text-xs text-[#94a3b8]">
-          Loading real-time workspace metrics...
-        </div>
-      )}
-      {summaryErr && (
-        <div className="rounded-xl border border-red-500/30 bg-red-500/10 p-4 text-xs text-red-400">
-          Failed to load live data. Please ensure the backend API is running.
-        </div>
-      )}
-
-      {/* ==================== STAT CARDS ROW ==================== */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-5">
-        {/* Card 1: Total Calls */}
-        <div className="bg-[#141422] p-5 rounded-2xl border border-[#28283c] hover:border-[#ff2d78]/50 transition-all shadow-sm">
-          <div className="flex justify-between items-start mb-3">
-            <div className="w-10 h-10 rounded-xl bg-[#ff2d78]/10 text-[#ff2d78] flex items-center justify-center">
-              <PhoneCall size={18} />
-            </div>
-            <span className="text-[11px] font-mono font-bold text-[#00ffcc] bg-[#00ffcc]/10 px-2 py-0.5 rounded-md border border-[#00ffcc]/20">
-              Live Feed
-            </span>
-          </div>
-          <p className="text-xs text-[#94a3b8] font-medium mb-1">Total Voice Calls</p>
-          <div className="flex items-baseline justify-between">
-            <p className="text-2xl sm:text-3xl font-headline font-black text-[#ffffff]">
-              {summary?.calls != null ? Number(summary.calls).toLocaleString() : "0"}
+            <p className="text-[#a098b0] text-sm mt-1.5">
+              Real-time telephonic logistics engine for <strong className="text-[#e8e0f0]">{activeTenant.name}</strong>.
             </p>
-            <span className="text-[11px] text-[#64748b]">
-              {summary?.last_call_at ? `Last ${fmtRelative(summary.last_call_at)}` : "Zero active"}
-            </span>
           </div>
-        </div>
-
-        {/* Card 2: AI Resolution Rate */}
-        <div className="bg-[#141422] p-5 rounded-2xl border border-[#28283c] hover:border-[#00ffcc]/50 transition-all shadow-sm">
-          <div className="flex justify-between items-start mb-3">
-            <div className="w-10 h-10 rounded-xl bg-[#00ffcc]/10 text-[#00ffcc] flex items-center justify-center">
-              <CheckCircle2 size={18} />
-            </div>
-            <span className="text-[11px] font-mono font-bold text-[#00ffcc] bg-[#00ffcc]/10 px-2 py-0.5 rounded-md border border-[#00ffcc]/20">
-              {resolutionRate}% SLA
-            </span>
-          </div>
-          <p className="text-xs text-[#94a3b8] font-medium mb-1">Resolution Rate</p>
-          <div className="flex items-baseline justify-between">
-            <p className="text-2xl sm:text-3xl font-headline font-black text-[#ffffff]">
-              {resolutionRate}%
-            </p>
-            <span className="text-[11px] text-[#00ffcc]">
-              {escalatedCount} escalated
-            </span>
-          </div>
-        </div>
-
-        {/* Card 3: Pending Orders */}
-        <div className="bg-[#141422] p-5 rounded-2xl border border-[#28283c] hover:border-[#ff2d78]/50 transition-all shadow-sm">
-          <div className="flex justify-between items-start mb-3">
-            <div className="w-10 h-10 rounded-xl bg-[#ff2d78]/10 text-[#ff2d78] flex items-center justify-center">
-              <Package size={18} />
-            </div>
-            <Link
-              href="/dashboard/orders"
-              className="text-[11px] font-mono text-[#cbd5e1] hover:text-white flex items-center gap-1 bg-[#181826] px-2 py-0.5 rounded-md border border-[#2c2c40]"
+          <div className="flex items-center gap-3">
+            <button
+              onClick={() => window.open("/api/calls/export", "_blank")}
+              className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-[#28283e] border border-[#302840] text-xs font-bold uppercase tracking-widest text-[#e8e0f0] hover:border-[#00ffcc] transition-all"
             >
-              <span>View</span>
-              <ArrowUpRight size={12} />
-            </Link>
-          </div>
-          <p className="text-xs text-[#94a3b8] font-medium mb-1">Active Purchase Orders</p>
-          <div className="flex items-baseline justify-between">
-            <p className="text-2xl sm:text-3xl font-headline font-black text-[#ffffff]">
-              {summary?.pending_orders != null ? String(summary.pending_orders) : "0"}
-            </p>
-            <span className="text-[11px] text-[#94a3b8]">In fulfillment</span>
-          </div>
-        </div>
-
-        {/* Card 4: Verified Suppliers */}
-        <div className="bg-[#141422] p-5 rounded-2xl border border-[#28283c] hover:border-[#ffe04a]/50 transition-all shadow-sm">
-          <div className="flex justify-between items-start mb-3">
-            <div className="w-10 h-10 rounded-xl bg-[#ffe04a]/10 text-[#ffe04a] flex items-center justify-center">
-              <Users size={18} />
-            </div>
-            <span className="text-[11px] font-mono text-[#ffe04a] bg-[#ffe04a]/10 px-2 py-0.5 rounded-md border border-[#ffe04a]/20">
-              PIN Secured
-            </span>
-          </div>
-          <p className="text-xs text-[#94a3b8] font-medium mb-1">Verified Suppliers</p>
-          <div className="flex items-baseline justify-between">
-            <p className="text-2xl sm:text-3xl font-headline font-black text-[#ffffff]">
-              {summary?.suppliers != null ? String(summary.suppliers) : "0"}
-            </p>
-            <span className="text-[11px] text-[#94a3b8]">Tier 2 Auth</span>
-          </div>
-        </div>
-      </div>
-
-      {/* ==================== QUICK OPERATIONS STRIP ==================== */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-3.5">
-        <Link
-          href="/dashboard/simulator"
-          className="flex items-center gap-3 p-3.5 rounded-xl bg-[#141420] border border-[#242436] hover:border-[#ff2d78] hover:bg-[#181828] transition-all group shadow-sm"
-        >
-          <div className="w-8 h-8 rounded-lg bg-[#ff2d78]/15 text-[#ff2d78] flex items-center justify-center shrink-0 group-hover:scale-105 transition-transform">
-            <Mic size={16} />
-          </div>
-          <div className="min-w-0">
-            <p className="text-xs font-headline font-bold text-[#ffffff] truncate">Phone Simulator</p>
-            <p className="text-[10px] text-[#94a3b8] truncate">Test voice orders & PIN</p>
-          </div>
-        </Link>
-
-        <Link
-          href="/dashboard/communications"
-          className="flex items-center gap-3 p-3.5 rounded-xl bg-[#141420] border border-[#242436] hover:border-[#00ffcc] hover:bg-[#181828] transition-all group shadow-sm"
-        >
-          <div className="w-8 h-8 rounded-lg bg-[#00ffcc]/15 text-[#00ffcc] flex items-center justify-center shrink-0 group-hover:scale-105 transition-transform">
-            <Zap size={16} />
-          </div>
-          <div className="min-w-0">
-            <p className="text-xs font-headline font-bold text-[#ffffff] truncate">Email Summarizer</p>
-            <p className="text-[10px] text-[#94a3b8] truncate">Sync Gmail logs</p>
-          </div>
-        </Link>
-
-        <Link
-          href="/dashboard/stock"
-          className="flex items-center gap-3 p-3.5 rounded-xl bg-[#141420] border border-[#242436] hover:border-[#ffe04a] hover:bg-[#181828] transition-all group shadow-sm"
-        >
-          <div className="w-8 h-8 rounded-lg bg-[#ffe04a]/15 text-[#ffe04a] flex items-center justify-center shrink-0 group-hover:scale-105 transition-transform">
-            <Package size={16} />
-          </div>
-          <div className="min-w-0">
-            <p className="text-xs font-headline font-bold text-[#ffffff] truncate">Stock Inventory</p>
-            <p className="text-[10px] text-[#94a3b8] truncate">Multi-warehouse count</p>
-          </div>
-        </Link>
-
-        <Link
-          href="/dashboard/settings"
-          className="flex items-center gap-3 p-3.5 rounded-xl bg-[#141420] border border-[#242436] hover:border-[#ff2d78] hover:bg-[#181828] transition-all group shadow-sm"
-        >
-          <div className="w-8 h-8 rounded-lg bg-[#ff2d78]/15 text-[#ff2d78] flex items-center justify-center shrink-0 group-hover:scale-105 transition-transform">
-            <Sliders size={16} />
-          </div>
-          <div className="min-w-0">
-            <p className="text-xs font-headline font-bold text-[#ffffff] truncate">Agent Settings</p>
-            <p className="text-[10px] text-[#94a3b8] truncate">Phone & Prompt setup</p>
-          </div>
-        </Link>
-      </div>
-
-      {/* ==================== MAIN DASHBOARD 2-COL GRID ==================== */}
-      <div className="grid grid-cols-12 gap-8">
-        {/* Left Column (8 cols): Interactive Trends & Recent Call Table */}
-        <div className="col-span-12 xl:col-span-8 space-y-8">
-          {/* Functional Call Volume & Resolution Rate Graph */}
-          <div className="bg-[#141422] border border-[#28283c] rounded-2xl p-6 shadow-sm space-y-5">
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-2 border-b border-[#242436]">
-              <div>
-                <h3 className="text-base font-headline font-bold text-[#ffffff]">
-                  Call Volume & Telephony Performance
-                </h3>
-                <p className="text-xs text-[#94a3b8]">
-                  Automated speech processing volume and AI resolution rate over time.
-                </p>
-              </div>
-
-              <div className="flex items-center gap-2">
-                <button
-                  onClick={() => setChartTimeframe("7d")}
-                  className={`px-2.5 py-1 rounded-lg text-xs font-mono font-medium transition-colors ${
-                    chartTimeframe === "7d"
-                      ? "bg-[#ff2d78] text-white"
-                      : "bg-[#181826] text-[#94a3b8] hover:text-white"
-                  }`}
-                >
-                  7 Days
-                </button>
-                <button
-                  onClick={() => setChartTimeframe("30d")}
-                  className={`px-2.5 py-1 rounded-lg text-xs font-mono font-medium transition-colors ${
-                    chartTimeframe === "30d"
-                      ? "bg-[#ff2d78] text-white"
-                      : "bg-[#181826] text-[#94a3b8] hover:text-white"
-                  }`}
-                >
-                  30 Days
-                </button>
-              </div>
-            </div>
-
-            {/* Interactive SVG Bar & Line Chart */}
-            <div className="pt-2">
-              <div className="h-44 flex items-end justify-between gap-3 px-2">
-                {chartDays.map((item) => {
-                  const heightPercent = Math.max(12, Math.round((item.volume / maxVolume) * 100));
-                  return (
-                    <div key={item.day} className="flex-1 flex flex-col items-center gap-2 h-full justify-end group">
-                      <div className="text-[10px] font-mono text-[#94a3b8] opacity-0 group-hover:opacity-100 transition-opacity">
-                        {item.volume} calls
-                      </div>
-                      <div
-                        style={{ height: `${heightPercent}%` }}
-                        className="w-full max-w-[42px] rounded-t-lg bg-gradient-to-t from-[#ff2d78]/40 to-[#ff2d78] group-hover:brightness-125 transition-all shadow-sm relative"
-                      >
-                        <div className="absolute top-1 left-1/2 -translate-x-1/2 w-1.5 h-1.5 rounded-full bg-[#ffffff] opacity-70" />
-                      </div>
-                      <span className="text-[11px] font-mono font-medium text-[#94a3b8]">
-                        {item.day}
-                      </span>
-                    </div>
-                  );
-                })}
-              </div>
-
-              <div className="flex items-center justify-between text-xs text-[#94a3b8] pt-4 border-t border-[#242436] mt-3">
-                <div className="flex items-center gap-4">
-                  <div className="flex items-center gap-2">
-                    <span className="w-3 h-3 rounded bg-[#ff2d78]" />
-                    <span>Inbound Voice Calls</span>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <span className="w-3 h-3 rounded bg-[#00ffcc]" />
-                    <span>Automated Resolution</span>
-                  </div>
-                </div>
-                <span className="font-mono text-[#00ffcc]">Latency: 320ms avg</span>
-              </div>
-            </div>
-          </div>
-
-          {/* Active & Recent Interactions Table */}
-          <div className="bg-[#141422] border border-[#28283c] rounded-2xl overflow-hidden shadow-sm">
-            <div className="p-5 border-b border-[#28283c] flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-[#181828]">
-              <div>
-                <h3 className="text-base font-headline font-bold text-[#ffffff]">
-                  Recent Call Records & Telephony Interactions
-                </h3>
-                <p className="text-xs text-[#94a3b8]">
-                  Detailed caller identities, transcribed intents, and operational outcomes.
-                </p>
-              </div>
-
-              {/* Filters */}
-              <div className="flex items-center gap-2 w-full sm:w-auto">
-                <div className="relative flex-1 sm:w-44">
-                  <Search size={13} className="absolute left-3 top-1/2 -translate-y-1/2 text-[#64748b]" />
-                  <input
-                    type="text"
-                    value={searchQuery}
-                    onChange={(e) => setSearchQuery(e.target.value)}
-                    placeholder="Filter records..."
-                    className="w-full bg-[#12121e] border border-[#2c2c40] rounded-xl pl-8 pr-3 py-1.5 text-xs text-white focus:outline-none focus:border-[#ff2d78]"
-                  />
-                </div>
-
-                <div className="flex items-center bg-[#12121e] p-0.5 rounded-xl border border-[#2c2c40]">
-                  {(["all", "completed", "escalated"] as const).map((f) => (
-                    <button
-                      key={f}
-                      onClick={() => setCallFilter(f)}
-                      className={`px-2.5 py-1 rounded-lg text-[11px] font-medium capitalize transition-colors ${
-                        callFilter === f ? "bg-[#ff2d78] text-white" : "text-[#94a3b8] hover:text-white"
-                      }`}
-                    >
-                      {f}
-                    </button>
-                  ))}
-                </div>
-              </div>
-            </div>
-
-            <div className="overflow-x-auto">
-              <table className="w-full text-left border-collapse">
-                <thead className="bg-[#10101a] text-[#94a3b8] text-[11px] uppercase font-mono tracking-wider border-b border-[#28283c]">
-                  <tr>
-                    <th className="px-5 py-3.5">Call ID</th>
-                    <th className="px-5 py-3.5">Caller & Contact</th>
-                    <th className="px-5 py-3.5">Detected Intent</th>
-                    <th className="px-5 py-3.5">Outcome</th>
-                    <th className="px-5 py-3.5 text-right">Action</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-[#242436] text-xs">
-                  {filteredCalls.length > 0 ? (
-                    filteredCalls.slice(0, 6).map((c) => (
-                      <tr key={c.id} className="hover:bg-[#181828] transition-colors">
-                        <td className="px-5 py-3.5 font-mono text-[#ff2d78] font-bold">
-                          #{c.id.substring(0, 8)}
-                        </td>
-                        <td className="px-5 py-3.5">
-                          <div className="flex flex-col">
-                            <span className="font-semibold text-white">{c.caller_name || "Regional Contact"}</span>
-                            <span className="text-[11px] font-mono text-[#94a3b8]">{c.caller_phone || "Inbound Telephony"}</span>
-                          </div>
-                        </td>
-                        <td className="px-5 py-3.5 text-[#cbd5e1] font-medium">
-                          {c.intent || "Order Verification"}
-                        </td>
-                        <td className="px-5 py-3.5">
-                          <span
-                            className={`px-2.5 py-1 rounded-md text-[10px] font-mono font-bold uppercase ${
-                              c.outcome === "completed" || c.resolution_status === "resolved"
-                                ? "bg-[#00ffcc]/15 text-[#00ffcc] border border-[#00ffcc]/30"
-                                : c.escalated || c.outcome === "escalated"
-                                ? "bg-amber-500/15 text-amber-400 border border-amber-500/30"
-                                : "bg-blue-500/15 text-blue-400 border border-blue-500/30"
-                            }`}
-                          >
-                            {c.outcome || "COMPLETED"}
-                          </span>
-                        </td>
-                        <td className="px-5 py-3.5 text-right">
-                          <Link
-                            href="/dashboard/calls"
-                            className="px-3 py-1 bg-[#181826] hover:bg-[#202034] text-[#cbd5e1] hover:text-white rounded-lg border border-[#2c2c40] font-medium transition-colors inline-block text-[11px]"
-                          >
-                            Inspect Audio
-                          </Link>
-                        </td>
-                      </tr>
-                    ))
-                  ) : (
-                    <tr>
-                      <td colSpan={5} className="px-6 py-10 text-center">
-                        <div className="flex flex-col items-center justify-center gap-3">
-                          <div className="p-3.5 bg-[#ff2d78]/10 text-[#ff2d78] rounded-2xl border border-[#ff2d78]/30">
-                            <PhoneCall size={24} />
-                          </div>
-                          <div className="space-y-1 max-w-sm">
-                            <p className="text-sm font-headline font-bold text-white">
-                              No calls recorded yet for {activeTenant.name}
-                            </p>
-                            <p className="text-xs text-[#94a3b8]">
-                              Your real-time Groq voice pipeline is live. Place a test voice order in Hindi or English using the simulator!
-                            </p>
-                          </div>
-                          <Link
-                            href="/dashboard/simulator"
-                            className="mt-1 px-4 py-2 bg-[#ff2d78] text-white text-xs font-bold rounded-xl hover:bg-[#e02669] transition-all shadow-md"
-                          >
-                            Launch Phone Simulator
-                          </Link>
-                        </div>
-                      </td>
-                    </tr>
-                  )}
-                </tbody>
-              </table>
-            </div>
-
-            <div className="p-3.5 bg-[#10101a] text-center border-t border-[#28283c]">
-              <Link
-                href="/dashboard/calls"
-                className="text-xs font-mono text-[#94a3b8] hover:text-[#ff2d78] transition-colors font-bold"
-              >
-                View Complete Telephony Logs ({calls?.length ?? 0}) →
-              </Link>
-            </div>
-          </div>
-        </div>
-
-        {/* Right Column (4 cols): Live Agent Status & Registered Suppliers */}
-        <div className="col-span-12 xl:col-span-4 space-y-6">
-          {/* Active Voice Agent & Engine Status Card */}
-          <div className="bg-[#141422] p-6 rounded-2xl border border-[#28283c] shadow-sm space-y-5">
-            <div className="flex items-center justify-between pb-3 border-b border-[#242436]">
-              <div className="flex items-center gap-2.5">
-                <div className="w-8 h-8 rounded-xl bg-[#ff2d78]/15 text-[#ff2d78] flex items-center justify-center">
-                  <Brain size={18} />
-                </div>
-                <div>
-                  <h3 className="text-sm font-headline font-bold text-white">Voice Agent Engine</h3>
-                  <p className="text-[11px] text-[#94a3b8]">Persona: {activeTenant.agent_name || "Vaani"}</p>
-                </div>
-              </div>
-              <span className="px-2 py-0.5 rounded-full bg-[#00ffcc]/10 text-[#00ffcc] text-[10px] font-mono font-bold border border-[#00ffcc]/30 flex items-center gap-1.5">
-                <span className="w-1.5 h-1.5 rounded-full bg-[#00ffcc] animate-ping" />
-                Online
-              </span>
-            </div>
-
-            <div className="space-y-3 text-xs">
-              <div className="flex justify-between items-center p-2.5 rounded-xl bg-[#181826] border border-[#242436]">
-                <span className="text-[#94a3b8]">Languages</span>
-                <span className="font-mono text-white font-semibold">Hindi + English (hi/en)</span>
-              </div>
-              <div className="flex justify-between items-center p-2.5 rounded-xl bg-[#181826] border border-[#242436]">
-                <span className="text-[#94a3b8]">LLM Model</span>
-                <span className="font-mono text-[#ff2d78] font-bold">Llama-3.3-70B Versatile</span>
-              </div>
-              <div className="flex justify-between items-center p-2.5 rounded-xl bg-[#181826] border border-[#242436]">
-                <span className="text-[#94a3b8]">STT Engine</span>
-                <span className="font-mono text-[#00ffcc] font-bold">Whisper-v3 Turbo</span>
-              </div>
-              <div className="flex justify-between items-center p-2.5 rounded-xl bg-[#181826] border border-[#242436]">
-                <span className="text-[#94a3b8]">Database Seeding</span>
-                <span className="font-mono text-white font-semibold">4 SKUs • 3 Suppliers</span>
-              </div>
-            </div>
-
+              <Download size={14} className="text-[#00ffcc]" /> Export
+            </button>
             <Link
               href="/dashboard/simulator"
-              className="w-full py-2.5 bg-[#ff2d78] hover:bg-[#e02669] text-white font-headline font-bold text-xs rounded-xl flex items-center justify-center gap-2 transition-all shadow-md active:scale-95"
+              className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-[#ff2d78] text-[#1a0010] text-xs font-bold uppercase tracking-widest hover:scale-105 active:scale-95 transition-all shadow-[0_0_16px_rgba(255,45,120,0.3)]"
             >
-              <Phone size={14} />
-              <span>Test Live Turn with Agent</span>
+              <Plus size={14} /> New Campaign
             </Link>
-          </div>
-
-          {/* Registered Suppliers Card */}
-          <div className="bg-[#141422] p-6 rounded-2xl border border-[#28283c] shadow-sm space-y-4">
-            <div className="flex justify-between items-center pb-3 border-b border-[#242436]">
-              <h3 className="text-sm font-headline font-bold text-white">Verified Suppliers</h3>
-              <Link href="/dashboard/suppliers" className="text-xs text-[#00ffcc] hover:underline font-mono font-medium">
-                Directory →
-              </Link>
-            </div>
-
-            <div className="space-y-3">
-              {(suppliers as Array<{id: string; name: string; city: string; phone: string}> | undefined)?.slice(0, 4).map((s) => (
-                <Link
-                  key={s.id}
-                  href="/dashboard/suppliers"
-                  className="flex items-center justify-between p-2.5 rounded-xl bg-[#181826] border border-[#242436] hover:border-[#ff2d78]/40 transition-colors group"
-                >
-                  <div className="flex items-center gap-3 min-w-0">
-                    <div className="w-8 h-8 rounded-lg bg-[#ff2d78]/10 text-[#ff2d78] font-bold text-xs flex items-center justify-center shrink-0">
-                      {s.name.charAt(0)}
-                    </div>
-                    <div className="min-w-0">
-                      <p className="text-xs font-semibold text-white group-hover:text-[#ff2d78] transition-colors truncate">
-                        {s.name}
-                      </p>
-                      <p className="text-[10px] font-mono text-[#94a3b8]">{s.city} • PIN 1234</p>
-                    </div>
-                  </div>
-                  <ChevronRight size={14} className="text-[#64748b] group-hover:text-white transition-colors shrink-0" />
-                </Link>
-              ))}
-              {(!suppliers || suppliers.length === 0) && (
-                <div className="text-xs text-[#64748b] text-center py-4">No suppliers configured yet.</div>
-              )}
-            </div>
-          </div>
-
-          {/* Active Escalations & Human Handoff Queue */}
-          <div className="bg-[#141422] p-6 rounded-2xl border border-[#28283c] shadow-sm space-y-4">
-            <div className="flex justify-between items-center pb-3 border-b border-[#242436]">
-              <div className="flex items-center gap-2">
-                <AlertTriangle size={16} className="text-amber-400" />
-                <h3 className="text-sm font-headline font-bold text-white">Escalation Queue</h3>
-              </div>
-              <span className="px-2 py-0.5 rounded text-[10px] font-mono font-bold bg-amber-500/10 text-amber-400 border border-amber-500/30">
-                {escalatedCount} Needs Review
-              </span>
-            </div>
-
-            <div className="space-y-2.5">
-              {callList.filter((c) => c.escalated || c.outcome === "escalated").slice(0, 3).map((c) => (
-                <div key={c.id} className="p-3 rounded-xl bg-[#181826] border border-amber-500/20 space-y-1">
-                  <div className="flex justify-between items-center text-xs">
-                    <span className="font-mono text-[#ff2d78] font-bold">#{c.id.slice(0, 8)}</span>
-                    <span className="text-[10px] text-[#94a3b8]">{c.caller_name || "Regional Supplier"}</span>
-                  </div>
-                  <p className="text-[11px] text-[#cbd5e1]">{c.summary || "Requires human staff follow-up for order confirmation."}</p>
-                </div>
-              ))}
-              {escalatedCount === 0 && (
-                <div className="text-xs text-[#94a3b8] text-center py-3 bg-[#181826] rounded-xl border border-[#242436]">
-                  ✓ All calls resolved autonomously.
-                </div>
-              )}
-            </div>
           </div>
         </div>
       </div>
+
+      {isLoading && (
+        <div className="px-6">
+          <div className="rounded-xl border border-[#302840]/30 bg-[#141422]/40 p-8 text-center">
+            <div className="inline-flex items-center gap-2 text-[#a098b0] text-sm">
+              <div className="w-4 h-4 border-2 border-[#ff2d78] border-t-transparent rounded-full animate-spin" />
+              Loading dashboard...
+            </div>
+          </div>
+        </div>
+      )}
+
+      {summaryErr && (
+        <div className="px-6">
+          <div className="rounded-xl border border-danger-500/30 bg-danger-500/10 p-4 text-sm text-danger-400">
+            Failed to load dashboard data. Is the API running?
+          </div>
+        </div>
+      )}
+
+      {!isLoading && !summaryErr && (
+        <>
+          {/* ==================== STAT CARDS ROW ==================== */}
+          <div className="px-6 grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
+            <StatCard
+              title="Total Calls"
+              value={summary?.calls != null ? Number(summary.calls).toLocaleString() : "—"}
+              icon={<PhoneCall size={20} />}
+              accent="primary"
+              trend={{ value: "12.5%", positive: true }}
+            />
+            <StatCard
+              title="Pending Orders"
+              value={summary?.pending_orders != null ? summary.pending_orders : "—"}
+              icon={<Package size={20} />}
+              accent="secondary"
+              trend={{ value: "2.4%", positive: false }}
+            />
+            <StatCard
+              title="Suppliers"
+              value={summary?.suppliers != null ? summary.suppliers : "—"}
+              icon={<Users size={20} />}
+              accent="neutral"
+            />
+            <StatCard
+              title="Last Call"
+              value={summary?.last_call_at ? "Completed" : "No calls yet"}
+              icon={<Clock size={20} />}
+              accent="tertiary"
+              subtitle={summary?.last_call_at ? fmtRelative(summary.last_call_at) : undefined}
+            />
+          </div>
+
+          {/* ==================== MAIN DASHBOARD GRID ==================== */}
+          <div className="px-6 grid grid-cols-12 gap-6">
+            {/* Left Column */}
+            <div className="col-span-12 xl:col-span-8 space-y-6">
+              {/* Call Volume Chart */}
+              <SectionCard
+                title="Call Volume (7 Days)"
+                subtitle="Daily call activity trend"
+                icon={<BarChart3 size={18} className="text-[#00ffcc]" />}
+                action={
+                  <span className="text-[10px] font-mono text-[#a098b0] uppercase tracking-wider">
+                    {calls?.length ?? 0} total calls
+                  </span>
+                }
+              >
+                <div className="h-[180px]">
+                  <BarChart data={callVolumeData} height={140} color="#00ffcc" />
+                </div>
+              </SectionCard>
+
+              {/* Active & Recent Interactions Table */}
+              <SectionCard
+                title="Recent Interactions"
+                subtitle="Latest call logs across your workspace"
+                icon={<Activity size={18} className="text-[#ff2d78]" />}
+                action={
+                  <Link
+                    href="/dashboard/calls"
+                    className="text-xs font-bold uppercase tracking-widest text-[#a098b0] hover:text-[#ff2d78] transition-colors flex items-center gap-1"
+                  >
+                    View All <ChevronRight size={14} />
+                  </Link>
+                }
+              >
+                <div className="overflow-x-auto">
+                  <table className="w-full text-left border-collapse">
+                    <thead className="text-[10px] font-mono uppercase tracking-widest text-[#a098b0] border-b border-[#302840]/40">
+                      <tr>
+                        <th className="px-4 py-3 text-left font-medium">ID</th>
+                        <th className="px-4 py-3 text-left font-medium">Participant</th>
+                        <th className="px-4 py-3 text-left font-medium">Type</th>
+                        <th className="px-4 py-3 text-left font-medium">Status</th>
+                        <th className="px-4 py-3 text-left font-medium">Time</th>
+                        <th className="px-4 py-3 text-right font-medium">Actions</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-[#302840]/30">
+                      {recentCalls.map((c) => (
+                        <tr key={c.id} className="hover:bg-[#1e1e30]/30 transition-colors">
+                          <td className="px-4 py-3">
+                            <span className="text-xs font-mono text-[#ff2d78] font-bold">#{c.id.slice(0, 8)}</span>
+                          </td>
+                          <td className="px-4 py-3">
+                            <div className="flex flex-col">
+                              <span className="text-sm font-medium text-[#e8e0f0]">{c.caller_name || "Regional Agent"}</span>
+                              <span className="text-[10px] font-mono text-[#a098b0]">{c.caller_phone || "+91 9811..."}</span>
+                            </div>
+                          </td>
+                          <td className="px-4 py-3">
+                            <span className="text-[10px] font-mono uppercase tracking-wider text-[#a098b0] px-2 py-0.5 rounded border border-[#302840]/40 bg-[#1e1e30]/30">
+                              {c.intent || "Order Verification"}
+                            </span>
+                          </td>
+                          <td className="px-4 py-3">
+                            <span className={`text-[10px] font-mono uppercase px-2 py-0.5 rounded border ${c.outcome === "completed" ? "text-success-400 border-success-500/30 bg-success-500/10" : c.outcome === "in_progress" ? "text-warn-400 border-warn-500/30 bg-warn-500/10" : "text-[#a098b0] border-[#302840]/40 bg-[#1e1e30]/30"}`}>
+                              {c.outcome || "COMPLETED"}
+                            </span>
+                          </td>
+                          <td className="px-4 py-3 text-xs text-[#a098b0] font-mono">{fmtRelative(c.started_at)}</td>
+                          <td className="px-4 py-3 text-right">
+                            <Link
+                              href="/dashboard/calls"
+                              className="text-[10px] font-bold uppercase tracking-widest text-[#00ffcc] hover:text-[#00ffcc]/80 transition-colors"
+                            >
+                              Details
+                            </Link>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </SectionCard>
+            </div>
+
+            {/* Right Side Panel */}
+            <div className="col-span-12 xl:col-span-4 space-y-6">
+              {/* Phone Simulator Widget */}
+              <SectionCard
+                title="Phone Simulator"
+                icon={<Phone size={18} className="text-[#ff2d78]" />}
+              >
+                <div className="bg-[#0a0a12] border border-[#302840]/60 rounded-xl p-5 mb-4">
+                  <div className="flex flex-col items-center py-6">
+                    <div className="w-16 h-16 rounded-full bg-[#ff2d78]/10 border border-[#ff2d78]/30 flex items-center justify-center mb-3 text-[#ff2d78] shadow-[0_0_24px_rgba(255,45,120,0.2)]">
+                      <Mic size={28} />
+                    </div>
+                    <p className="text-[10px] font-mono uppercase tracking-[0.2em] text-[#a098b0]">Ready to Sim</p>
+                    <p className="text-base font-bold text-[#e8e0f0] mt-1">VoxFlow Agent Alpha</p>
+                  </div>
+
+                  {/* 3x4 Dialpad Grid */}
+                  <div className="grid grid-cols-3 gap-2">
+                    {["1", "2", "3", "4", "5", "6", "7", "8", "9", "*", "0", "#"].map((digit) => (
+                      <button
+                        key={digit}
+                        onClick={() => handleKeyClick(digit)}
+                        className={`
+                          h-11 rounded-lg border font-bold text-sm transition-all duration-150
+                          ${activeKeypad === digit
+                            ? "bg-[#ff2d78]/30 border-[#ff2d78] text-[#ff2d78] scale-95 shadow-[0_0_12px_rgba(255,45,120,0.3)]"
+                            : "bg-[#1e1e30] border-[#302840] text-[#e8e0f0] hover:border-[#ff2d78]/40 hover:bg-[#28283e]"
+                          }
+                        `}
+                      >
+                        {digit}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                <Link
+                  href="/dashboard/simulator"
+                  className="w-full py-3 bg-[#ff2d78] text-[#1a0010] font-bold text-sm rounded-xl flex items-center justify-center gap-2 hover:scale-[1.02] active:scale-[0.98] transition-all shadow-[0_0_16px_rgba(255,45,120,0.3)]"
+                >
+                  <Phone size={16} /> Start Simulation
+                </Link>
+              </SectionCard>
+
+              {/* AI Health Index */}
+              <SectionCard
+                title="AI Health Index"
+                subtitle="Real-time agent performance"
+                icon={<Brain size={18} className="text-[#ff2d78]" />}
+              >
+                <div className="space-y-4">
+                  <div>
+                    <div className="flex justify-between items-center text-[10px] font-mono uppercase tracking-widest text-[#a098b0] mb-2">
+                      <span>Resolution Rate</span>
+                      <span className="text-[#ff2d78] font-bold text-sm">{resolutionRate}%</span>
+                    </div>
+                    <div className="h-2 w-full bg-[#ff2d78]/10 rounded-full overflow-hidden">
+                      <div
+                        className="h-full bg-gradient-to-r from-[#ff2d78] to-[#ff2d78]/70 rounded-full transition-all duration-700"
+                        style={{ width: `${resolutionRate}%` }}
+                      />
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-3">
+                    <div className="bg-[#0a0a12] rounded-lg p-3 border border-[#302840]/40">
+                      <div className="text-[10px] font-mono uppercase tracking-wider text-[#a098b0] mb-1">Avg Duration</div>
+                      <div className="text-lg font-bold text-[#e8e0f0]">
+                        {calls && calls.length > 0
+                          ? `${Math.round(calls.reduce((sum, c) => sum + c.duration_sec, 0) / calls.length)}s`
+                          : "—"}
+                      </div>
+                    </div>
+                    <div className="bg-[#0a0a12] rounded-lg p-3 border border-[#302840]/40">
+                      <div className="text-[10px] font-mono uppercase tracking-wider text-[#a098b0] mb-1">Escalations</div>
+                      <div className="text-lg font-bold text-[#e8e0f0]">{escalationCount}</div>
+                    </div>
+                    <div className="bg-[#0a0a12] rounded-lg p-3 border border-[#302840]/40">
+                      <div className="text-[10px] font-mono uppercase tracking-wider text-[#a098b0] mb-1">Satisfaction</div>
+                      <div className="text-lg font-bold text-[#00ffcc]">
+                        {calls && calls.length > 0
+                          ? `${Math.round((calls.filter(c => c.satisfaction === "happy").length / calls.length) * 100)}%`
+                          : "—"}
+                      </div>
+                    </div>
+                    <div className="bg-[#0a0a12] rounded-lg p-3 border border-[#302840]/40">
+                      <div className="text-[10px] font-mono uppercase tracking-wider text-[#a098b0] mb-1">Verified</div>
+                      <div className="text-lg font-bold text-[#e8e0f0]">
+                        {calls && calls.length > 0
+                          ? `${Math.round((calls.filter(c => c.verified).length / calls.length) * 100)}%`
+                          : "—"}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </SectionCard>
+
+              {/* Urgent Items */}
+              <SectionCard
+                title="Urgent Items"
+                icon={<Zap size={18} className="text-[#ff4444]" />}
+                action={
+                  <Link href="/dashboard/escalations" className="text-[10px] font-bold uppercase tracking-widest text-[#a098b0] hover:text-[#ff2d78] transition-colors">
+                    View All
+                  </Link>
+                }
+              >
+                <div className="space-y-2.5">
+                  {urgentCalls.length === 0 ? (
+                    <div className="text-center py-6">
+                      <ShieldCheck size={24} className="mx-auto text-success-500 mb-2" />
+                      <p className="text-xs text-[#a098b0]">No urgent items right now</p>
+                    </div>
+                  ) : (
+                    urgentCalls.map((c) => (
+                      <div
+                        key={c.id}
+                        className={`p-3.5 rounded-lg border-l-[3px] ${
+                          c.escalated
+                            ? "border-l-[#ff2d78] bg-[#ff2d78]/5"
+                            : "border-l-[#ffe04a] bg-[#ffe04a]/5"
+                        }`}
+                      >
+                        <div className="flex justify-between items-start mb-1">
+                          <span className="text-xs font-mono font-bold text-[#e8e0f0]">#{c.id.slice(0, 10)}</span>
+                          <span className="text-[10px] text-[#a098b0]">{c.caller_name || "Unknown"}</span>
+                        </div>
+                        <p className="text-[11px] text-[#a098b0] leading-relaxed">
+                          {c.escalated ? "Escalated — needs human review" : "Call in progress — agent handling"}
+                        </p>
+                      </div>
+                    ))
+                  )}
+                </div>
+              </SectionCard>
+
+              {/* Registered Suppliers */}
+              <SectionCard
+                title="Registered Suppliers"
+                icon={<Users size={18} className="text-[#ffe04a]" />}
+                action={
+                  <Link href="/dashboard/suppliers" className="text-[10px] font-bold uppercase tracking-widest text-[#00ffcc] hover:text-[#00ffcc]/80 transition-colors">
+                    View All
+                  </Link>
+                }
+              >
+                <div className="space-y-2.5">
+                  {(suppliers as Array<{ id: string; name: string; city: string; phone: string }> | undefined)?.slice(0, 5).map((s) => (
+                    <Link
+                      key={s.id}
+                      href="/dashboard/suppliers"
+                      className="flex items-center gap-3 p-2 rounded-lg hover:bg-[#1e1e30]/40 transition-colors group"
+                    >
+                      <div className="w-9 h-9 rounded-lg bg-[#28283e] border border-[#302840] flex items-center justify-center text-[#ff2d78] font-bold text-xs shrink-0">
+                        {s.name.charAt(0)}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-medium text-[#e8e0f0] group-hover:text-[#ff2d78] transition-colors truncate">{s.name}</p>
+                        <p className="text-[10px] text-[#a098b0] font-mono">{s.city} · {s.phone}</p>
+                      </div>
+                      <ChevronRight size={14} className="text-[#a098b0] group-hover:text-[#e8e0f0] transition-colors shrink-0" />
+                    </Link>
+                  ))}
+                  {(!suppliers || suppliers.length === 0) && (
+                    <div className="text-xs text-[#5a5068] text-center py-4">No suppliers registered yet.</div>
+                  )}
+                </div>
+              </SectionCard>
+            </div>
+          </div>
+
+          {/* ==================== BENTO ROW - Quick Stats ==================== */}
+          <div className="px-6 grid grid-cols-1 sm:grid-cols-3 gap-4">
+            <SectionCard
+              title="Orders"
+              subtitle={`${orders?.length ?? 0} total`}
+              icon={<Package size={18} className="text-[#00ffcc]" />}
+              action={
+                <Link href="/dashboard/orders" className="text-[10px] font-bold uppercase tracking-widest text-[#00ffcc] hover:text-[#00ffcc]/80">
+                  View All →
+                </Link>
+              }
+            >
+              <div className="flex items-end justify-between">
+                <div>
+                  <div className="text-2xl font-bold text-[#e8e0f0]">{orders?.length ?? 0}</div>
+                  <div className="text-[10px] text-[#a098b0] font-mono mt-1">{pendingOrdersCount} pending</div>
+                </div>
+                <div className="text-right">
+                  <div className="text-2xl font-bold text-[#e8e0f0]">{stock?.length ?? 0}</div>
+                  <div className="text-[10px] text-[#a098b0] font-mono mt-1">{lowStockCount} low stock</div>
+                </div>
+              </div>
+            </SectionCard>
+
+            <SectionCard
+              title="System Health"
+              icon={<Activity size={18} className="text-[#00ffcc]" />}
+            >
+              <div className="flex items-center gap-3">
+                <div className="relative w-16 h-16">
+                  <svg className="w-16 h-16 -rotate-90" viewBox="0 0 64 64">
+                    <circle cx="32" cy="32" r="28" fill="none" stroke="#302840" strokeWidth="6" />
+                    <circle cx="32" cy="32" r="28" fill="none" stroke="#00ffcc" strokeWidth="6" strokeDasharray={`${2 * Math.PI * 28 * 0.98}`} strokeLinecap="round" />
+                  </svg>
+                  <div className="absolute inset-0 flex items-center justify-center">
+                    <span className="text-sm font-bold text-[#00ffcc]">98%</span>
+                  </div>
+                </div>
+                <div>
+                  <p className="text-xs text-[#e8e0f0] font-medium">All systems operational</p>
+                  <p className="text-[10px] text-[#a098b0] font-mono mt-1">API · WS · DB</p>
+                </div>
+              </div>
+            </SectionCard>
+
+            <SectionCard
+              title="Quick Actions"
+              icon={<Zap size={18} className="text-[#ffe04a]" />}
+            >
+              <div className="flex flex-wrap gap-2">
+                <Link href="/dashboard/simulator" className="px-3 py-1.5 rounded-lg bg-[#1e1e30] border border-[#302840] text-[10px] font-bold uppercase tracking-wider text-[#e8e0f0] hover:border-[#ff2d78] transition-all">
+                  New Call
+                </Link>
+                <Link href="/dashboard/calls" className="px-3 py-1.5 rounded-lg bg-[#1e1e30] border border-[#302840] text-[10px] font-bold uppercase tracking-wider text-[#e8e0f0] hover:border-[#00ffcc] transition-all">
+                  View Logs
+                </Link>
+                <Link href="/dashboard/escalations" className="px-3 py-1.5 rounded-lg bg-[#1e1e30] border border-[#302840] text-[10px] font-bold uppercase tracking-wider text-[#e8e0f0] hover:border-[#ffe04a] transition-all">
+                  Escalations
+                </Link>
+              </div>
+            </SectionCard>
+          </div>
+        </>
+      )}
     </div>
   );
 }

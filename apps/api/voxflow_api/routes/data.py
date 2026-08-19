@@ -673,7 +673,6 @@ async def download_call_recording(request: Request, call_id: str):
         if r.status_code != 200:
             raise HTTPException(status_code=r.status_code, detail="failed_to_fetch_recording")
 
-        media_type = r.headers.get("content-type", "audio/wav")
         return StreamingResponse(
         r.aiter_bytes(),
         media_type=r.headers.get("content-type", "audio/wav"),

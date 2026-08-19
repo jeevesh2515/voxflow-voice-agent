@@ -9,7 +9,9 @@ Supports multi-tenant isolation via `tenant_id` foreign keys.
 
 from __future__ import annotations
 
+import asyncio
 import logging
+import os
 from contextlib import asynccontextmanager, contextmanager
 from datetime import datetime, timezone
 from typing import AsyncIterator, Iterator
@@ -24,6 +26,7 @@ from sqlalchemy import (
     create_engine,
 )
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
+from sqlalchemy.pool import NullPool
 from sqlalchemy.orm import (
     DeclarativeBase,
     Mapped,
@@ -116,11 +119,15 @@ def _pooled_url(url: str) -> str:
     """DEPRECATED no-op. Put the full pooler URL in DATABASE_URL instead."""
     return _clean_db_url(url)
 
+_async_url = _async_db_url(_settings.database_url)
+_async_engine_options = {"poolclass": NullPool} if _async_url.startswith("sqlite") else {}
+
 try:
     _async_engine = create_async_engine(
-        _async_db_url(_settings.database_url),
+        _async_url,
         echo=False,
         future=True,
+        **_async_engine_options,
     )
 except ModuleNotFoundError as e:  # pragma: no cover - exercised by test_db_drivers
     raise RuntimeError(_driver_hint(_settings.database_url, e)) from e
@@ -130,9 +137,18 @@ except Exception as e:
         "sqlite+aiosqlite:////tmp/voxflow-data/voxflow.db",
         echo=False,
         future=True,
+        poolclass=NullPool,
     )
 
 AsyncSessionLocal = async_sessionmaker(bind=_async_engine, autoflush=False, expire_on_commit=False)
+
+
+async def close_db_engines() -> None:
+    """Release database pools during application shutdown."""
+    await _async_engine.dispose()
+    _engine.dispose()
+    # Let aiosqlite's worker report its final close callback before the loop ends.
+    await asyncio.sleep(0.05)
 
 
 class Base(DeclarativeBase):

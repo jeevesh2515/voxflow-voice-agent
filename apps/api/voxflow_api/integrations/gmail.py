@@ -5,12 +5,10 @@ from __future__ import annotations
 import asyncio
 import email
 import imaplib
-import os
 import re
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from email.header import decode_header
-from typing import Any
 
 from ..config import get_settings
 from ..logging import get_logger

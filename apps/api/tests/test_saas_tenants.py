@@ -2,9 +2,9 @@
 
 import pytest
 from fastapi.testclient import TestClient
-from voxflow_api.agent.prompts import build_system_prompt, build_tenant_prompt
-from voxflow_api.db import Tenant, TenantPhoneNumber, reset_db, session_scope
-from voxflow_api.integrations.webhooks import _compute_signature, dispatch_webhook
+from voxflow_api.agent.prompts import build_tenant_prompt
+from voxflow_api.db import TenantPhoneNumber, reset_db, session_scope
+from voxflow_api.integrations.webhooks import _compute_signature
 from voxflow_api.main import create_app
 from voxflow_api.seed import seed
 

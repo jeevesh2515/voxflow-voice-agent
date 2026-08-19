@@ -15,7 +15,7 @@ from pydantic import BaseModel
 
 from .auth import AuthMiddleware
 from .config import get_settings
-from .db import init_db
+from .db import close_db_engines, init_db
 from .integrations.gsheets import get_sheets_client
 from .llm import get_llm
 from .llm.base import ChatTurn
@@ -108,6 +108,7 @@ async def lifespan(app: FastAPI):
         await email_task
     except asyncio.CancelledError:
         pass
+    await close_db_engines()
     log.info("api.shutdown")
 
 

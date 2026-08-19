@@ -2,11 +2,10 @@
 
 import json
 import os
-import time
 import pytest
 from voxflow_api.config import get_settings
 from voxflow_api.integrations.gsheets import GoogleSheetsClient, _queue_dir
-from voxflow_api.voice.pipeline import CallSession, VoicePipeline, _sessions_dir
+from voxflow_api.voice.pipeline import VoicePipeline, _sessions_dir
 
 
 @pytest.mark.asyncio

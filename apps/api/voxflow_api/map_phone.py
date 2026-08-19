@@ -8,7 +8,6 @@ Usage:
 
 import argparse
 import sys
-import os
 
 from voxflow_api.config import get_settings
 from voxflow_api.db import TenantPhoneNumber, session_scope, init_db
@@ -64,7 +63,7 @@ def configure_twilio_webhook(phone_number: str, webhook_url: str) -> bool:
             voice_url=webhook_url,
             voice_method="POST"
         )
-        print(f"✅ Twilio Webhook Updated Successfully!")
+        print("✅ Twilio Webhook Updated Successfully!")
         print(f"   Phone:       {updated.phone_number}")
         print(f"   Voice URL:   {updated.voice_url}")
         print(f"   HTTP Method: {updated.voice_method}")
@@ -122,7 +121,7 @@ def main():
         sys.exit(1)
 
     print("==========================================================================")
-    print(f" VoxFlow Twilio & Tenant Mapper")
+    print(" VoxFlow Twilio & Tenant Mapper")
     print(f"   Target Phone:  {phone}")
     print(f"   Target Tenant: {args.tenant}")
     print(f"   Webhook URL:   {webhook_url}")

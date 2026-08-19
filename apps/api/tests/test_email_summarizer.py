@@ -1,10 +1,8 @@
 """Unit tests for the Email Summarizer Agent and persistent memory."""
 
 import pytest
-from voxflow_api.integrations.gmail import EmailMessage, get_gmail_client
 from voxflow_api.tasks.email_summarizer import EmailSummarizerAgent
-from voxflow_api.db import init_db, AgentState, CommunicationLog, async_session_scope
-from sqlalchemy import select
+from voxflow_api.db import init_db
 
 
 @pytest.mark.asyncio

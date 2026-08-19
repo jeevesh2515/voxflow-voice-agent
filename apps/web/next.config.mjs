@@ -1,5 +1,13 @@
 /** @type {import('next').NextConfig} */
+import path from "node:path";
+import { fileURLToPath } from "node:url";
+
+const monorepoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../..");
+
 const nextConfig = {
+  turbopack: {
+    root: monorepoRoot,
+  },
   output: 'standalone',
   reactStrictMode: true,
   env: {
