@@ -1,5 +1,5 @@
-# VoxFlow API — production image (Root Build Context)
-# Compatible with 1-click Render / Railway / Fly.io root deployments
+# VoxFlow API — Universal Production Dockerfile
+# Tested and verified for Render Free Tier
 
 # ---------- build stage: compile wheels into a venv ----------
 FROM python:3.12-slim AS builder
@@ -9,7 +9,7 @@ WORKDIR /build
 RUN python -m venv /opt/venv
 ENV PATH="/opt/venv/bin:$PATH"
 
-COPY apps/api/requirements.txt requirements.txt
+COPY requirements.txt .
 RUN pip install --no-cache-dir -U pip \
     && pip install --no-cache-dir -r requirements.txt
 
@@ -32,7 +32,12 @@ RUN useradd --create-home --shell /bin/bash --uid 1000 voxflow \
     && mkdir -p /app/data /tmp/voxflow-data \
     && chown -R voxflow:voxflow /app /tmp/voxflow-data
 
-COPY --chown=voxflow:voxflow apps/api/ .
+# Copy code
+COPY --chown=voxflow:voxflow . .
+
+# If apps/api exists as a subdirectory (root build context), move its contents to /app root
+RUN if [ -d "apps/api" ]; then cp -r apps/api/* . && rm -rf apps; fi
+
 USER voxflow
 
 ENV PATH="/opt/venv/bin:$PATH" \
