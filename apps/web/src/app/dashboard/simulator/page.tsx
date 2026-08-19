@@ -344,8 +344,8 @@ export default function PhoneSimulator() {
             </div>
           )}
 
-          <div className="mt-auto pt-4 text-[10px] font-mono text-ink-500 leading-relaxed">
-            <div>WS: {WS_URL}/ws/call</div>
+          <div className="mt-auto pt-4 text-[10px] font-mono text-[#5a5068] leading-relaxed">
+            <div>WS: {getWsUrl()}/ws/call</div>
             <div>Tip: speak a 1-second phrase, then pause. Auto-commits on silence.</div>
           </div>
         </div>
