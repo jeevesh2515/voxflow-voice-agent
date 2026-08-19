@@ -10,7 +10,7 @@
 [![Supabase](https://img.shields.io/badge/Supabase-Postgres-3ECF8E?style=for-the-badge&logo=supabase)](https://supabase.com)
 [![Render Backend](https://img.shields.io/badge/Render-Live-46E3B7?style=for-the-badge&logo=render)](https://voxflow-voice-agent.onrender.com/api/health)
 [![Vercel Ready](https://img.shields.io/badge/Vercel-Deployed-000000?style=for-the-badge&logo=vercel)](https://vercel.com)
-[![Pytest 144/144](https://img.shields.io/badge/Tests-144%20Passing-brightgreen?style=for-the-badge&logo=pytest)](apps/api/tests/)
+[![Pytest 152/152](https://img.shields.io/badge/Tests-152%20Passing-brightgreen?style=for-the-badge&logo=pytest)](apps/api/tests/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg?style=for-the-badge)](LICENSE)
 
 <br />
@@ -20,7 +20,7 @@
 <p align="center">
   <a href="#-overview">Overview</a> •
   <a href="#-cloud-deployments">Deployments</a> •
-  <a href="#-12-core-operational-modules">12 Modules</a> •
+  <a href="#-13-core-operational-modules">13 Modules</a> •
   <a href="#-system-architecture">Architecture</a> •
   <a href="#-quickstart">Quickstart</a> •
   <a href="#-enterprise-security">Security</a> •
@@ -33,11 +33,12 @@
 
 ## ⚡ Overview
 
-**VoxFlow** is a multi-tenant, enterprise voice AI SaaS platform engineered to automate inbound supplier, distributor, customer, and partner phone calls for FMCG brands (e.g. Varun Beverages / PepsiCo, Amul, Britannia) and supply chain logistics operators.
+**VoxFlow** is a multi-tenant, enterprise voice AI SaaS platform engineered to automate inbound and outbound supplier, distributor, customer, and partner phone calls for FMCG brands (e.g. Varun Beverages / PepsiCo, Amul, Britannia) and supply chain logistics operators.
 
 Operating seamlessly in **Hindi (`hi-IN`) & English (`en-IN`)** with ultra-low latency, VoxFlow executes complex, multi-step transactional voice workflows:
 
 - 🔒 **Tier 1 & Tier 2 Security Gating**: Multi-factor caller authentication via registered phone numbers, city match, or GSTIN challenges before data disclosure, plus Tier 2 4-digit PIN verification (`verify_pin`) for high-privilege order creation (`create_po`).
+- 📢 **Autonomous Outbound Campaigns (Day 24)**: Proactive multi-target AI voice dialer with time-window enforcement (9 AM - 8 PM), rate limiting, and automated dispatch for delayed shipments, unconfirmed POs, and dock reminders.
 - 📦 **Inventory & Stock Management**: Real-time multi-warehouse inventory lookups and stock availability confirmation.
 - ⚡ **Autonomous Purchase Orders**: Conversational natural language slot-filling to generate, validate, and record Purchase Orders directly into the core database.
 - 🚚 **Logistics & Shipment Tracking**: Real-time dispatch status, ETA lookup, carrier milestones, and GPS tracking.
@@ -58,14 +59,15 @@ Operating seamlessly in **Hindi (`hi-IN`) & English (`en-IN`)** with ultra-low l
 
 ---
 
-## 🧩 12 Core Operational Modules
+## 🧩 13 Core Operational Modules
 
-VoxFlow features 12 modules accessible via the web console:
+VoxFlow features 13 modules accessible via the web console:
 
 | Module | Route | Key Features |
 |---|---|---|
 | 🎙️ **Live Simulator** | `/dashboard/simulator` | Real-time audio waveform visualizer, mic capture, Twilio phone emulator, and streaming transcript feed. |
 | 📊 **Overview Control Center** | `/dashboard` | High-density KPI cards (Total POs, Active SKUs, Shipments, Total Minutes), active call cards, and quick actions. |
+| 📢 **Outbound Voice Campaigns** | `/dashboard/campaigns` | **Day 24 Autonomous Voice Dispatcher**: Batch calling engine with target list management, live dial status, and campaign progress telemetry. |
 | 📞 **Calls & Audio Transcripts** | `/dashboard/calls` | Audio player, caller identification badges, sentiment classification, transcript viewer, and PO linkage. |
 | 🚨 **Escalation Desk** | `/dashboard/escalations` | Real-time human handoff queue, priority badges (HIGH/URGENT), dispute reason classification, and 1-click staff resolution. |
 | 📋 **Purchase Orders Ledger** | `/dashboard/orders` | Live order ledger, Signed/Unsigned filter, search by reference, CSV data export, and manual PO creation modal. |

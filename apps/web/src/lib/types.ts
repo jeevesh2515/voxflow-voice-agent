@@ -98,3 +98,27 @@ export interface Call {
   verified: boolean;
   recording_url?: string | null;
 }
+
+export interface OutboundCampaign {
+  id: string;
+  tenant_id: string;
+  name: string;
+  campaign_type: string;
+  status: "draft" | "active" | "running" | "paused" | "completed";
+  total_targets: number;
+  successful_calls: number;
+  failed_calls: number;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface CampaignQueueItem {
+  id: string;
+  recipient_phone: string;
+  recipient_name: string;
+  status: "queued" | "dialing" | "answered" | "no_answer" | "completed" | "failed";
+  attempts_made: number;
+  call_id?: string | null;
+  transcript_summary?: string | null;
+  updated_at: string;
+}

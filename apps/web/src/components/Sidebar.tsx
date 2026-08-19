@@ -19,6 +19,7 @@ import {
   X,
   AlertTriangle,
   Radio,
+  Megaphone,
 } from "lucide-react";
 import clsx from "clsx";
 
@@ -41,6 +42,7 @@ const NAV_SECTIONS: NavSection[] = [
     items: [
       { href: "/dashboard", label: "Overview", icon: LayoutDashboard },
       { href: "/dashboard/simulator", label: "Voice Simulator", icon: Phone, badge: "Live" },
+      { href: "/dashboard/campaigns", label: "Voice Campaigns", icon: Megaphone, badge: "New" },
       { href: "/dashboard/calls", label: "Call Records & Audio", icon: PhoneCall },
       { href: "/dashboard/escalations", label: "Escalations Queue", icon: AlertTriangle },
     ],

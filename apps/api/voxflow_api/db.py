@@ -345,6 +345,39 @@ class AgentState(Base):
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_utcnow, onupdate=_utcnow)
 
 
+class OutboundCampaign(Base):
+    __tablename__ = "outbound_campaigns"
+
+    id: Mapped[str] = mapped_column(String(64), primary_key=True)
+    tenant_id: Mapped[str] = mapped_column(String(64), ForeignKey("tenants.id"), index=True, default="varun")
+    name: Mapped[str] = mapped_column(String(255))
+    campaign_type: Mapped[str] = mapped_column(String(64), default="delayed_shipment")  # delayed_shipment | po_confirmation | dock_reminder | generic
+    status: Mapped[str] = mapped_column(String(32), default="draft")  # draft | active | running | paused | completed
+    total_targets: Mapped[int] = mapped_column(Integer, default=0)
+    successful_calls: Mapped[int] = mapped_column(Integer, default=0)
+    failed_calls: Mapped[int] = mapped_column(Integer, default=0)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_utcnow)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_utcnow, onupdate=_utcnow)
+
+
+class CampaignQueue(Base):
+    __tablename__ = "campaign_queue"
+
+    id: Mapped[str] = mapped_column(String(64), primary_key=True)
+    campaign_id: Mapped[str] = mapped_column(String(64), ForeignKey("outbound_campaigns.id"), index=True)
+    tenant_id: Mapped[str] = mapped_column(String(64), ForeignKey("tenants.id"), index=True, default="varun")
+    recipient_phone: Mapped[str] = mapped_column(String(32))
+    recipient_name: Mapped[str] = mapped_column(String(255), default="")
+    context_data_json: Mapped[str] = mapped_column(Text, default="{}")
+    status: Mapped[str] = mapped_column(String(32), default="queued")  # queued | dialing | answered | no_answer | completed | failed
+    attempts_made: Mapped[int] = mapped_column(Integer, default=0)
+    max_attempts: Mapped[int] = mapped_column(Integer, default=3)
+    next_retry_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    call_id: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    transcript_summary: Mapped[str | None] = mapped_column(Text, nullable=True)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_utcnow, onupdate=_utcnow)
+
+
 # ---------- Helpers ----------
 
 
