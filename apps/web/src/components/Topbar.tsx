@@ -15,6 +15,8 @@ import {
   Moon,
   Sparkles,
   Crown,
+  Phone,
+  Radio,
 } from "lucide-react";
 import { useTenant } from "@/lib/tenant-context";
 import { useTheme } from "@/lib/theme-context";
@@ -46,81 +48,84 @@ export default function Topbar({ title, subtitle, onToggleSidebar }: { title?: s
       console.warn("Sign out exception:", e);
     }
     localStorage.removeItem("voxflow_session");
+    localStorage.removeItem("voxflow_demo_user");
     router.push("/sign-in");
   };
 
   return (
-    <nav className="w-full z-50 bg-[#0a0a12]/90 dark:bg-[#0a0a12]/95 light:bg-white/95 backdrop-blur-md border-b border-[#ff2d78]/20 dark:border-[#ff2d78]/20 light:border-slate-200 shadow-sm px-6 py-3 flex justify-between items-center shrink-0 transition-colors duration-300">
+    <nav className="w-full z-50 bg-[#0d0d16]/95 backdrop-blur-md border-b border-[#242436] px-5 py-3 flex justify-between items-center shrink-0 transition-colors">
       <div className="flex items-center gap-3 lg:gap-6">
         {/* Mobile menu toggle */}
         <button
           onClick={onToggleSidebar}
-          className="p-2 lg:hidden text-[#a098b0] hover:text-[#e8e0f0] hover:bg-[#1e1e30] rounded-lg transition-colors"
+          className="p-2 lg:hidden text-[#94a3b8] hover:text-[#f1f5f9] hover:bg-[#1e1e30] rounded-xl transition-colors"
           aria-label="Toggle sidebar"
         >
           <Menu size={20} />
         </button>
 
         {/* Brand Logo */}
-        <Link href="/" className="flex items-center gap-2.5">
-          <div className="w-8 h-8 rounded-lg bg-[#ff2d78]/20 border border-[#ff2d78]/40 flex items-center justify-center text-[#ff2d78] font-black font-headline text-lg shadow-[0_0_12px_rgba(255,45,120,0.4)]">
+        <Link href="/dashboard" className="flex items-center gap-2.5">
+          <div className="w-8 h-8 rounded-xl bg-gradient-to-tr from-[#ff2d78] to-[#ff5996] flex items-center justify-center text-white font-black font-headline text-base shadow-md">
             V
           </div>
-          <span className="text-xl lg:text-2xl font-headline font-black tracking-tighter text-[#e8e0f0] dark:text-[#e8e0f0] light:text-slate-900">
-            VoxFlow
-          </span>
+          <div className="flex flex-col">
+            <span className="text-lg lg:text-xl font-headline font-black tracking-tight text-[#ffffff]">
+              VoxFlow
+            </span>
+          </div>
         </Link>
 
         {/* Company Selector Dropdown & Add Action */}
         <div className="hidden sm:flex items-center gap-3">
           {isAddingTenant ? (
-            <form onSubmit={handleAddCompanySubmit} className="flex items-center gap-1.5 bg-[#1e1e30] dark:bg-[#1e1e30] light:bg-slate-100 border border-[#ff2d78] rounded-xl px-3 py-1.5">
+            <form onSubmit={handleAddCompanySubmit} className="flex items-center gap-2 bg-[#181826] border border-[#ff2d78] rounded-xl px-3 py-1.5 shadow-sm">
               <input
                 type="text"
                 autoFocus
                 value={newCompanyName}
                 onChange={(e) => setNewCompanyName(e.target.value)}
                 placeholder="Company Name..."
-                className="bg-transparent text-xs text-[#e8e0f0] dark:text-[#e8e0f0] light:text-slate-900 placeholder:text-[#a098b0]/50 focus:outline-none w-36 font-body"
+                className="bg-transparent text-xs text-[#f1f5f9] placeholder:text-[#64748b] focus:outline-none w-40 font-body"
               />
               <button
                 type="submit"
-                className="bg-[#ff2d78] text-[#1a0010] font-headline font-bold text-[10px] uppercase px-2 py-1 rounded-md"
+                className="bg-[#ff2d78] text-white font-headline font-bold text-[10px] uppercase px-2.5 py-1 rounded-lg hover:bg-[#ff2d78]/90 transition-colors"
               >
                 Add
               </button>
               <button
                 type="button"
                 onClick={() => setIsAddingTenant(false)}
-                className="text-[#a098b0] hover:text-[#e8e0f0] text-xs px-1"
+                className="text-[#94a3b8] hover:text-white text-xs px-1"
               >
                 ✕
               </button>
             </form>
           ) : (
-            <div className="flex items-center gap-3 bg-[#1e1e30]/60 dark:bg-[#1e1e30]/60 light:bg-slate-100/80 backdrop-blur-sm px-3.5 py-1.5 rounded-xl border border-[#302840]/60 dark:border-[#302840]/60 light:border-slate-300 hover:border-[#ff2d78]/50 transition-all group">
-              <div className="w-8 h-8 rounded-lg bg-[#ff2d78]/20 flex items-center justify-center text-[#ff2d78] font-bold text-xs border border-[#ff2d78]/30 shadow-[0_0_10px_rgba(255,45,120,0.2)] shrink-0">
-                {activeTenant.name.charAt(0).toUpperCase()}
+            <div className="flex items-center gap-3 bg-[#141422] px-3.5 py-1.5 rounded-xl border border-[#28283c] hover:border-[#ff2d78]/50 transition-all shadow-sm">
+              <div className="w-7 h-7 rounded-lg bg-[#ff2d78]/20 flex items-center justify-center text-[#ff2d78] font-bold text-xs border border-[#ff2d78]/30 shrink-0">
+                {activeTenant?.name ? activeTenant.name.charAt(0).toUpperCase() : "W"}
               </div>
               <div className="flex flex-col">
                 <div className="flex items-center gap-1.5">
                   <select
                     value={activeTenantId}
                     onChange={(e) => setActiveTenantId(e.target.value)}
-                    className="bg-transparent text-xs font-headline font-bold text-[#e8e0f0] dark:text-[#e8e0f0] light:text-slate-900 focus:outline-none cursor-pointer pr-1 max-w-[170px] truncate"
+                    className="bg-transparent text-xs font-headline font-bold text-[#f1f5f9] focus:outline-none cursor-pointer pr-1 max-w-[180px] truncate"
                   >
                     {tenants.map((t) => (
-                      <option key={t.id} value={t.id} className="bg-[#141422] dark:bg-[#141422] light:bg-white text-[#e8e0f0] dark:text-[#e8e0f0] light:text-slate-900">
+                      <option key={t.id} value={t.id} className="bg-[#141422] text-[#f1f5f9]">
                         {t.name}
                       </option>
                     ))}
                   </select>
-                  <CheckCircle2 size={13} className="text-[#00ffcc] dark:text-[#00ffcc] light:text-teal-600 shrink-0" />
+                  <CheckCircle2 size={13} className="text-[#00ffcc] shrink-0" />
                 </div>
-                <div className="flex items-center gap-2 text-[9px] font-label text-[#a098b0] dark:text-[#a098b0] light:text-slate-500 uppercase tracking-wider">
-                  <span className="flex items-center gap-1 text-[#00ffcc] dark:text-[#00ffcc] light:text-teal-600 font-bold">
-                    <span className="w-1 h-1 rounded-full bg-[#00ffcc] dark:bg-[#00ffcc] light:bg-teal-600 animate-ping" />
-                    Live
+                <div className="flex items-center gap-1.5 text-[9px] font-label text-[#94a3b8] uppercase tracking-wider font-semibold">
+                  <span className="flex items-center gap-1 text-[#00ffcc] font-bold">
+                    <span className="w-1.5 h-1.5 rounded-full bg-[#00ffcc] animate-pulse" />
+                    Live Workspace
                   </span>
                 </div>
               </div>
@@ -128,7 +133,7 @@ export default function Topbar({ title, subtitle, onToggleSidebar }: { title?: s
                 type="button"
                 onClick={() => setIsAddingTenant(true)}
                 title="Add New Workspace"
-                className="text-[#ff2d78] hover:text-[#ff2d78]/80 p-1 rounded hover:bg-[#ff2d78]/10 ml-1 transition-colors"
+                className="text-[#94a3b8] hover:text-[#ff2d78] p-1 rounded-lg hover:bg-[#1e1e30] ml-1 transition-colors"
               >
                 <Plus size={14} />
               </button>
@@ -138,56 +143,38 @@ export default function Topbar({ title, subtitle, onToggleSidebar }: { title?: s
       </div>
 
       {/* Right Controls */}
-      <div className="flex items-center gap-3 lg:gap-5">
-        {/* Subscription Plan Quota Badge */}
-        <div className="hidden xl:flex items-center gap-2 px-3 py-1.5 rounded-xl bg-[#141422] dark:bg-[#141422] light:bg-slate-100 border border-[#00ffcc]/30 dark:border-[#00ffcc]/30 light:border-teal-300 text-xs font-label">
-          <Crown size={14} className="text-[#ffe04a] shrink-0" />
-          <span className="text-[#e8e0f0] dark:text-[#e8e0f0] light:text-slate-900 font-semibold">Pilot</span>
-          <Link href="/pricing" className="text-[10px] uppercase font-bold text-[#00ffcc] dark:text-[#00ffcc] light:text-teal-600 hover:underline ml-1">
-            Upgrade
-          </Link>
-        </div>
-
-        {/* Light / Dark Mode Toggle */}
-        <button
-          type="button"
-          onClick={toggleTheme}
-          title={`Switch to ${theme === "dark" ? "Light" : "Dark"} Mode`}
-          className="p-2 rounded-xl bg-[#1e1e30] dark:bg-[#1e1e30] light:bg-slate-100 border border-[#302840] dark:border-[#302840] light:border-slate-300 text-[#e8e0f0] dark:text-[#ffe04a] light:text-slate-700 hover:scale-105 active:scale-95 transition-all shadow-sm"
-        >
-          {theme === "dark" ? <Sun size={17} className="text-[#ffe04a]" /> : <Moon size={17} className="text-slate-700" />}
-        </button>
-
+      <div className="flex items-center gap-3 lg:gap-4">
         {/* Search Bar */}
-        <div className="relative hidden lg:block group">
-          <Search size={15} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-[#a098b0] group-focus-within:text-[#ff2d78] transition-colors" />
+        <div className="relative hidden md:block group">
+          <Search size={14} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-[#64748b] group-focus-within:text-[#ff2d78] transition-colors" />
           <input
             type="text"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             onKeyDown={(e) => { if (e.key === "Enter" && searchQuery.trim()) router.push(`/dashboard/calls?q=${encodeURIComponent(searchQuery.trim())}`); }}
-            placeholder="Search agents, calls..."
-            className="bg-[#0a0a12] dark:bg-[#0a0a12] light:bg-slate-50 border border-[#302840] dark:border-[#302840] light:border-slate-300 rounded-xl pl-9 pr-12 py-2 text-xs text-[#e8e0f0] dark:text-[#e8e0f0] light:text-slate-900 focus:ring-1 focus:ring-[#ff2d78] outline-none w-56 lg:w-64 transition-all placeholder:text-[#a098b0]/50 font-body"
+            placeholder="Search orders, calls, SKUs..."
+            className="bg-[#141420] border border-[#28283c] rounded-xl pl-9 pr-4 py-1.5 text-xs text-[#f1f5f9] focus:border-[#ff2d78] outline-none w-48 lg:w-56 transition-all placeholder:text-[#64748b] font-body"
           />
         </div>
 
-        {/* Pilot CTA Button */}
+        {/* Quick Simulator CTA Button */}
         <Link
-          href="/sign-up"
-          className="bg-[#b3004e] text-[#ffe0ec] px-4 py-2 rounded-full font-label text-xs font-bold uppercase tracking-widest hover:scale-105 active:scale-95 transition-all shadow-[0_0_15px_rgba(255,45,120,0.3)] hidden sm:inline-block"
+          href="/dashboard/simulator"
+          className="flex items-center gap-2 bg-[#ff2d78] hover:bg-[#e02669] text-white px-3.5 py-1.5 rounded-xl font-label text-xs font-bold transition-all shadow-md active:scale-95"
         >
-          Request Pilot
+          <Phone size={13} />
+          <span>Voice Simulator</span>
         </Link>
 
         {/* User Profile & Logout */}
-        <div className="flex items-center gap-2 border-l border-[#302840] dark:border-[#302840] light:border-slate-300 pl-3 sm:pl-4">
-          <div className="w-8 h-8 rounded-full bg-[#1e1e30] dark:bg-[#1e1e30] light:bg-slate-200 border border-[#302840] dark:border-[#302840] light:border-slate-300 flex items-center justify-center text-[#00ffcc] dark:text-[#00ffcc] light:text-teal-600">
+        <div className="flex items-center gap-2 border-l border-[#242436] pl-3">
+          <div className="w-8 h-8 rounded-xl bg-[#181826] border border-[#28283c] flex items-center justify-center text-[#00ffcc]">
             <User size={15} />
           </div>
           <button
             onClick={handleLogout}
             title="Sign Out"
-            className="p-1.5 text-[#a098b0] hover:text-[#ff2d78] hover:bg-[#1e1e30] rounded-lg transition-colors"
+            className="p-2 text-[#94a3b8] hover:text-[#ff2d78] hover:bg-[#181826] rounded-xl transition-colors"
           >
             <LogOut size={15} />
           </button>
