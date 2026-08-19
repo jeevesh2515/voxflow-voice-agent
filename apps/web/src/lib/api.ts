@@ -161,5 +161,12 @@ export const api = {
       body: JSON.stringify(payload),
     }),
 
+  runEmailSummarizer: (tenant_id?: string, limit: number = 15) =>
+    http<any>(`/api/admin/email-summarizer/run?tenant_id=${tenant_id || "varun"}&limit=${limit}`, {
+      method: "POST",
+    }),
+  getEmailSummarizerStatus: (tenant_id?: string) =>
+    http<any>(`/api/admin/email-summarizer/status?tenant_id=${tenant_id || "varun"}`),
+
   health: () => http<any>("/api/health"),
 };
