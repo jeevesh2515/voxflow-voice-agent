@@ -69,7 +69,15 @@ class DialClient:
             "voiceGender": voice_gender,
         }
         if language:
-            payload["language"] = language
+            lang_map = {
+                "hi": "hi-IN",
+                "en": "en-IN",
+                "hi-in": "hi-IN",
+                "en-in": "en-IN",
+                "en-us": "en-US",
+                "en-gb": "en-GB",
+            }
+            payload["language"] = lang_map.get(language.lower(), language)
         if max_duration_seconds:
             payload["maxCallDurationSeconds"] = max_duration_seconds
 

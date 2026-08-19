@@ -181,5 +181,28 @@ export const api = {
   getEmailSummarizerStatus: (tenant_id?: string) =>
     http<any>(`/api/admin/email-summarizer/status?tenant_id=${tenant_id || "varun"}`),
 
+  // Day 24: Outbound Voice Campaigns
+  campaigns: (tenant_id?: string) =>
+    http<any[]>(`/api/campaigns${tenant_id ? `?tenant_id=${tenant_id}` : ""}`),
+  getCampaign: (id: string) => http<any>(`/api/campaigns/${id}`),
+  createCampaign: (
+    payload: {
+      name: string;
+      campaign_type: string;
+      targets: Array<{ phone: string; name?: string; context?: Record<string, any> }>;
+      auto_start?: boolean;
+    },
+    tenant_id?: string,
+  ) =>
+    http<any>(`/api/campaigns${tenant_id ? `?tenant_id=${tenant_id}` : ""}`, {
+      method: "POST",
+      body: JSON.stringify(payload),
+    }),
+  runCampaign: (id: string, max_concurrent: number = 5) =>
+    http<any>(`/api/campaigns/${id}/run?max_concurrent=${max_concurrent}`, {
+      method: "POST",
+    }),
+  getCampaignQueue: (id: string) => http<any[]>(`/api/campaigns/${id}/queue`),
+
   health: () => http<any>("/api/health"),
 };
