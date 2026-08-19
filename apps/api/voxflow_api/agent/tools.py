@@ -914,6 +914,23 @@ async def escalate_to_human(session: CallSession, reason: str = "", summary: str
     return {"ok": True, "call_id": session.call_id, "reason": reason, "summary": summary}
 
 
+async def place_outbound_call(session: CallSession, to_phone: str, instruction: str) -> dict[str, Any]:
+    """Place a proactive outbound AI voice call to a supplier, distributor, or customer."""
+    from ..integrations.dial import get_dial_client
+    dial = get_dial_client()
+    if not dial.is_configured():
+        return {"ok": False, "error": "dial_not_configured", "message": "Dial outbound voice API is not configured."}
+
+    full_instruction = (
+        f"You are Vaani, the AI Operations Assistant for VoxFlow. "
+        f"You are placing an outbound call to the client regarding: {instruction}. "
+        f"Speak naturally in Hindi and English, explain the update clearly, answer any questions, "
+        f"and politely close the call."
+    )
+    res = await dial.place_outbound_call(to_number=to_phone, instruction=full_instruction)
+    return res
+
+
 # ---------- Dispatcher ----------
 
 
@@ -947,6 +964,8 @@ async def execute_tool(name: str, args: dict[str, Any], session: CallSession) ->
             return await send_whatsapp_message(session, **(args or {}))
         if name == "send_sms":
             return await send_sms(session, **(args or {}))
+        if name == "place_outbound_call":
+            return await place_outbound_call(session, **(args or {}))
         if name == "update_worksheet":
             return await update_worksheet(session, **(args or {}))
         if name == "type_notes":
@@ -1232,6 +1251,21 @@ TOOL_DEFINITIONS: list[dict[str, Any]] = [
                     "message": {"type": "string", "description": "Text message content to send via SMS"},
                 },
                 "required": ["to_phone", "message"],
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "place_outbound_call",
+            "description": "Place an autonomous outbound AI voice call to a supplier, distributor, or customer for urgent updates, delayed deliveries, or order notifications.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "to_phone": {"type": "string", "description": "Recipient phone number in E.164 format, e.g. +919876543210"},
+                    "instruction": {"type": "string", "description": "Specific instruction/context for what the voice agent must explain to the person on the call"},
+                },
+                "required": ["to_phone", "instruction"],
             },
         },
     },

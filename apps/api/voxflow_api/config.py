@@ -99,6 +99,10 @@ class Settings(BaseSettings):
     # Tenant used when an inbound number isn't mapped in tenant_phone_numbers.
     default_tenant_id: str = "varun"
 
+    # ----- Dial (AI Telephony & Outbound Voice Agent) -----
+    dial_api_key: str = ""
+    dial_phone_number: str = "+14845499931"
+
     # ----- Google Sheets (call-outcome log) -----
     # Paste the full service-account JSON as a single-line env var, OR set
     # google_service_account_file to a path on disk. JSON wins if both are set.
