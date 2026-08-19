@@ -63,15 +63,17 @@ def _driver_hint(url: str, exc: ModuleNotFoundError) -> str:
 
 def _clean_db_url(raw_url: str) -> str:
     if not raw_url or not isinstance(raw_url, str) or raw_url.strip() == "":
-        return "sqlite:///./voxflow.db"
+        return "sqlite:////tmp/voxflow-data/voxflow.db"
     val = raw_url.strip()
     if val.startswith("http://") or val.startswith("https://"):
+        data_dir = os.getenv("DATA_DIR", "/tmp/voxflow-data")
+        os.makedirs(data_dir, exist_ok=True)
         log.warning(
             "DATABASE_URL was set to an HTTP/HTTPS URL (%s) instead of postgresql://. "
             "Falling back to local SQLite to avoid dialect errors.",
             val,
         )
-        return "sqlite:///./voxflow.db"
+        return f"sqlite:///{data_dir}/voxflow.db"
     if val.startswith("postgres://"):
         return val.replace("postgres://", "postgresql://", 1)
     return val
@@ -90,7 +92,7 @@ except ModuleNotFoundError as e:  # pragma: no cover - exercised by test_db_driv
     raise RuntimeError(_driver_hint(_db_url, e)) from e
 except Exception as e:
     log.error("Failed to create engine for %s: %s. Using SQLite fallback.", _db_url, e)
-    _db_url = "sqlite:///./voxflow.db"
+    _db_url = "sqlite:////tmp/voxflow-data/voxflow.db"
     _engine = create_engine(
         _db_url,
         connect_args={"check_same_thread": False},
@@ -111,22 +113,7 @@ def _async_db_url(url: str) -> str:
 
 
 def _pooled_url(url: str) -> str:
-    """DEPRECATED no-op. Put the full pooler URL in DATABASE_URL instead.
-
-    Which endpoint you actually want:
-
-      Session pool  aws-<region>.pooler.supabase.com:5432   ← USE THIS
-                    IPv4. Session mode, so it behaves like a direct connection
-                    and supports prepared statements. Correct for a
-                    long-running server such as this one.
-    """
-    if _settings.supabase_use_pooler:
-        log.warning(
-            "SUPABASE_USE_POOLER is deprecated and does nothing. Put the full "
-            "session-pooler URL in DATABASE_URL: "
-            "postgresql://postgres.<project-ref>:<password>"
-            "@aws-<region>.pooler.supabase.com:5432/postgres"
-        )
+    """DEPRECATED no-op. Put the full pooler URL in DATABASE_URL instead."""
     return _clean_db_url(url)
 
 try:
@@ -140,7 +127,7 @@ except ModuleNotFoundError as e:  # pragma: no cover - exercised by test_db_driv
 except Exception as e:
     log.error("Failed to create async engine: %s. Using async SQLite fallback.", e)
     _async_engine = create_async_engine(
-        "sqlite+aiosqlite:///./voxflow.db",
+        "sqlite+aiosqlite:////tmp/voxflow-data/voxflow.db",
         echo=False,
         future=True,
     )

@@ -93,10 +93,10 @@ class GroqSTT:
     def __init__(self) -> None:
         s = get_settings()
         if not s.groq_api_key:
-            raise RuntimeError(
-                "STT_PROVIDER=groq requires GROQ_API_KEY. Get a free key at console.groq.com."
-            )
-        self._api_key = s.groq_api_key
+            log.warning("stt.groq_key_missing", msg="GROQ_API_KEY not set yet. STT calls will check settings dynamically.")
+            self._api_key = ""
+        else:
+            self._api_key = s.groq_api_key
         self._model = s.groq_stt_model
         log.info("stt.ready", provider="groq", model=self._model)
 

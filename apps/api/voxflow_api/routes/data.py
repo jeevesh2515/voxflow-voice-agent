@@ -545,7 +545,7 @@ def create_communication(
 # ---------- Health ----------
 
 
-@router.get("/health")
+@router.api_route("/health", methods=["GET", "HEAD"])
 def health() -> dict[str, Any]:
     from ..config import get_settings
 

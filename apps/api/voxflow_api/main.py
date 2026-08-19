@@ -103,7 +103,7 @@ def create_app() -> FastAPI:
         allow_headers=["*"],
     )
 
-    @app.get("/")
+    @app.api_route("/", methods=["GET", "HEAD"])
     def root() -> dict[str, Any]:
         return {
             "service": "VoxFlow Voice Agent",
