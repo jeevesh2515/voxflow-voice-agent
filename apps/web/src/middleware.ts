@@ -12,6 +12,7 @@ export async function middleware(request: NextRequest) {
   );
 
   const isApiRequest = request.nextUrl.pathname.startsWith("/api/") || request.headers.get("accept") === "application/json";
+  const demoCookie = request.cookies.get("voxflow_demo_user");
 
   try {
     const supabase = await createClient();
@@ -19,7 +20,7 @@ export async function middleware(request: NextRequest) {
       data: { session },
     } = await supabase.auth.getSession();
 
-    const isAuthenticated = !!session;
+    const isAuthenticated = !!session || !!demoCookie;
 
     if (!isAuthenticated && !isPublicRoute) {
       if (isApiRequest) {
@@ -36,7 +37,11 @@ export async function middleware(request: NextRequest) {
       return NextResponse.redirect(url);
     }
   } catch (error) {
-    console.warn("Middleware auth error, allowing request through:", error);
+    if (!demoCookie && !isPublicRoute) {
+      const url = request.nextUrl.clone();
+      url.pathname = "/sign-in";
+      return NextResponse.redirect(url);
+    }
   }
 
   return response;

@@ -161,6 +161,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setUser(demoUser);
     try {
       localStorage.setItem("voxflow_demo_user", JSON.stringify(demoUser));
+      document.cookie = `voxflow_demo_user=${encodeURIComponent(JSON.stringify(demoUser))}; path=/; max-age=86400; SameSite=Lax`;
     } catch {}
   };
 
@@ -168,6 +169,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const supabase = createClient();
     try {
       localStorage.removeItem("voxflow_demo_user");
+      document.cookie = "voxflow_demo_user=; path=/; max-age=0";
     } catch {}
     await supabase.auth.signOut();
     setUser(null);
