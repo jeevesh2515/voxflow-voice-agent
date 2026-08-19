@@ -16,6 +16,7 @@ type AuthContextType = {
   loading: boolean;
   signIn: (email: string, password: string) => Promise<{ error?: string }>;
   signUp: (email: string, password: string, metadata?: Record<string, any>) => Promise<{ error?: string }>;
+  demoSignIn: (tenantId?: string) => void;
   signOut: () => Promise<void>;
 };
 
@@ -24,6 +25,7 @@ const AuthContext = createContext<AuthContextType>({
   loading: true,
   signIn: async () => ({}),
   signUp: async () => ({}),
+  demoSignIn: () => {},
   signOut: async () => {},
 });
 
@@ -49,6 +51,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             name: metadata.name || metadata.full_name || session.user.email?.split("@")[0],
             tenant_id: metadata.tenant_id || "varun",
           });
+        } else if (mounted) {
+          try {
+            const saved = localStorage.getItem("voxflow_demo_user");
+            if (saved) {
+              setUser(JSON.parse(saved));
+            }
+          } catch {}
         }
       } catch (e) {
         console.error("Auth init error:", e);
@@ -71,7 +80,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           tenant_id: metadata.tenant_id || "varun",
         });
       } else {
-        setUser(null);
+        try {
+          const saved = localStorage.getItem("voxflow_demo_user");
+          if (!saved) setUser(null);
+        } catch {
+          setUser(null);
+        }
       }
       setLoading(false);
     });
@@ -122,7 +136,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       return { error: error.message };
     }
 
-    if (data.session && data.user) {
+    if (data.user) {
       const userMetadata = data.user.user_metadata || metadata || {};
       const authUser: User = {
         id: data.user.id,
@@ -134,18 +148,34 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       return {};
     }
 
-    return { error: "Signup succeeded but no session returned. Check your email to confirm." };
+    return { error: "Failed to create user." };
+  };
+
+  const demoSignIn = (tenantId = "varun") => {
+    const demoUser: User = {
+      id: "demo-user-" + Date.now(),
+      email: "ops.admin@varunbeverages.com",
+      name: "Operations Admin",
+      tenant_id: tenantId,
+    };
+    setUser(demoUser);
+    try {
+      localStorage.setItem("voxflow_demo_user", JSON.stringify(demoUser));
+    } catch {}
   };
 
   const signOut = async () => {
     const supabase = createClient();
+    try {
+      localStorage.removeItem("voxflow_demo_user");
+    } catch {}
     await supabase.auth.signOut();
     setUser(null);
     router.push("/sign-in");
   };
 
   return (
-    <AuthContext.Provider value={{ user, loading, signIn, signUp, signOut }}>
+    <AuthContext.Provider value={{ user, loading, signIn, signUp, demoSignIn, signOut }}>
       {children}
     </AuthContext.Provider>
   );

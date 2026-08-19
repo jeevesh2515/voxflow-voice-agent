@@ -10,7 +10,7 @@ import { useAuth } from "@/lib/auth-context";
 export default function SignInPage() {
   const router = useRouter();
   const { tenants, setActiveTenantId } = useTenant();
-  const { signIn, loading: authLoading } = useAuth();
+  const { signIn, demoSignIn, loading: authLoading } = useAuth();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [selectedTenant, setSelectedTenant] = useState(tenants[0]?.id || "varun");
@@ -101,6 +101,24 @@ export default function SignInPage() {
               className="w-full py-3.5 rounded-xl bg-[#ff2d78] text-[#1a0010] font-headline font-bold text-sm hover:shadow-[0_0_25px_rgba(255,45,120,0.5)] transition-all duration-200 active:scale-95 mt-2 disabled:opacity-50"
             >
               {(loading || authLoading) ? "Authenticating..." : "Sign In to Operations"}
+            </button>
+
+            <div className="relative flex items-center justify-center my-3">
+              <div className="border-t border-[#302840]/60 w-full" />
+              <span className="bg-[#141422] px-3 text-[10px] font-label text-[#a098b0] uppercase tracking-wider">Or</span>
+              <div className="border-t border-[#302840]/60 w-full" />
+            </div>
+
+            <button
+              type="button"
+              onClick={() => {
+                setActiveTenantId(selectedTenant);
+                demoSignIn(selectedTenant);
+                router.push("/dashboard");
+              }}
+              className="w-full py-2.5 rounded-xl bg-[#1a1829] hover:bg-[#252038] border border-[#ff2d78]/40 text-[#e8e0f0] font-headline font-semibold text-xs flex items-center justify-center gap-2 hover:shadow-[0_0_20px_rgba(255,45,120,0.2)] transition-all duration-200"
+            >
+              <span>⚡</span> Quick Demo Sign In ({selectedTenant.toUpperCase()})
             </button>
           </form>
 
