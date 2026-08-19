@@ -6,6 +6,7 @@ import os
 from functools import lru_cache
 from typing import Literal
 
+from pydantic import field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -62,6 +63,20 @@ class Settings(BaseSettings):
     supabase_service_role_key: str = ""
     supabase_jwks_url: str = ""
     supabase_use_pooler: bool = False
+
+    @field_validator("database_url", mode="before")
+    @classmethod
+    def sanitize_database_url(cls, v: str | None) -> str:
+        if not v or not isinstance(v, str) or v.strip() == "":
+            return "sqlite:///./voxflow.db"
+        val = v.strip()
+        # If user mistakenly set DATABASE_URL to an http/https URL (e.g. Supabase project URL)
+        if val.startswith("http://") or val.startswith("https://"):
+            return "sqlite:///./voxflow.db"
+        # SQLAlchemy 2.0 requires postgresql:// instead of legacy postgres://
+        if val.startswith("postgres://"):
+            return val.replace("postgres://", "postgresql://", 1)
+        return val
 
     # ----- Twilio -----
     twilio_account_sid: str = ""

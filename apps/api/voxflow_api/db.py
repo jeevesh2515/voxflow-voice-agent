@@ -61,56 +61,64 @@ def _driver_hint(url: str, exc: ModuleNotFoundError) -> str:
     )
 
 
-# Sync engine — for REST routes and CLI scripts.
-#
-# NOTE: two engines, two drivers. `routes/data.py` runs synchronously (FastAPI
-# puts those handlers in a threadpool) while the agent tools are async. Both
-# must be installable or the app cannot import at all.
+def _clean_db_url(raw_url: str) -> str:
+    if not raw_url or not isinstance(raw_url, str) or raw_url.strip() == "":
+        return "sqlite:///./voxflow.db"
+    val = raw_url.strip()
+    if val.startswith("http://") or val.startswith("https://"):
+        log.warning(
+            "DATABASE_URL was set to an HTTP/HTTPS URL (%s) instead of postgresql://. "
+            "Falling back to local SQLite to avoid dialect errors.",
+            val,
+        )
+        return "sqlite:///./voxflow.db"
+    if val.startswith("postgres://"):
+        return val.replace("postgres://", "postgresql://", 1)
+    return val
+
+
+_db_url = _clean_db_url(_settings.database_url)
+
 try:
     _engine = create_engine(
-        _settings.database_url,
-        connect_args={"check_same_thread": False} if _settings.database_url.startswith("sqlite") else {},
+        _db_url,
+        connect_args={"check_same_thread": False} if _db_url.startswith("sqlite") else {},
         echo=False,
         future=True,
     )
 except ModuleNotFoundError as e:  # pragma: no cover - exercised by test_db_drivers
-    raise RuntimeError(_driver_hint(_settings.database_url, e)) from e
+    raise RuntimeError(_driver_hint(_db_url, e)) from e
+except Exception as e:
+    log.error("Failed to create engine for %s: %s. Using SQLite fallback.", _db_url, e)
+    _db_url = "sqlite:///./voxflow.db"
+    _engine = create_engine(
+        _db_url,
+        connect_args={"check_same_thread": False},
+        echo=False,
+        future=True,
+    )
 
 SessionLocal = sessionmaker(bind=_engine, autoflush=False, autocommit=False, expire_on_commit=False)
 
 # Async engine — for agent tool functions inside async handlers
 def _async_db_url(url: str) -> str:
-    if url.startswith("sqlite"):
-        return url.replace("sqlite:///", "sqlite+aiosqlite:///", 1)
-    if url.startswith("postgresql://"):
-        return url.replace("postgresql://", "postgresql+asyncpg://", 1)
-    return url
+    cleaned = _clean_db_url(url)
+    if cleaned.startswith("sqlite"):
+        return cleaned.replace("sqlite:///", "sqlite+aiosqlite:///", 1)
+    if cleaned.startswith("postgresql://"):
+        return cleaned.replace("postgresql://", "postgresql+asyncpg://", 1)
+    return cleaned
 
 
 def _pooled_url(url: str) -> str:
     """DEPRECATED no-op. Put the full pooler URL in DATABASE_URL instead.
 
-    This used to rewrite `db.<ref>.supabase.co:5432` into
-    `db.<ref>.pooler.supabase.co:6543`. That hostname does not exist — Supabase's
-    pooler lives at `aws-<region>.pooler.supabase.com` and the username must be
-    tenant-qualified as `postgres.<project-ref>`. The rewrite could only ever
-    produce an unresolvable URL, so it now returns the URL untouched.
-
     Which endpoint you actually want:
-
-      Direct        db.<ref>.supabase.co:5432
-                    IPv6-ONLY. Unreachable from an IPv4-only host, and Docker
-                    containers have no IPv6 by default even when the host does.
-                    Fails with OSError [Errno 101] Network is unreachable.
 
       Session pool  aws-<region>.pooler.supabase.com:5432   ← USE THIS
                     IPv4. Session mode, so it behaves like a direct connection
                     and supports prepared statements. Correct for a
                     long-running server such as this one.
-
-      Txn pool      aws-<region>.pooler.supabase.com:6543
-                    IPv4 but TRANSACTION mode — no prepared statements. Built
-                    for serverless functions, wrong for this app.
     """
     if _settings.supabase_use_pooler:
         log.warning(
@@ -119,16 +127,23 @@ def _pooled_url(url: str) -> str:
             "postgresql://postgres.<project-ref>:<password>"
             "@aws-<region>.pooler.supabase.com:5432/postgres"
         )
-    return url
+    return _clean_db_url(url)
 
 try:
     _async_engine = create_async_engine(
-        _async_db_url(_pooled_url(_settings.database_url)),
+        _async_db_url(_settings.database_url),
         echo=False,
         future=True,
     )
 except ModuleNotFoundError as e:  # pragma: no cover - exercised by test_db_drivers
     raise RuntimeError(_driver_hint(_settings.database_url, e)) from e
+except Exception as e:
+    log.error("Failed to create async engine: %s. Using async SQLite fallback.", e)
+    _async_engine = create_async_engine(
+        "sqlite+aiosqlite:///./voxflow.db",
+        echo=False,
+        future=True,
+    )
 
 AsyncSessionLocal = async_sessionmaker(bind=_async_engine, autoflush=False, expire_on_commit=False)
 
