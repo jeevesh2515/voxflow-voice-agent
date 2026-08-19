@@ -22,17 +22,26 @@ def get_llm() -> LLMProvider:
         return _provider_singleton
 
     s = get_settings()
-    if s.llm_provider == "ollama":
+    if s.llm_provider == "groq":
+        if s.groq_api_key:
+            _provider_singleton = GroqProvider(
+                api_key=s.groq_api_key,
+                model=s.groq_model,
+                temperature=s.llm_temperature,
+                max_tokens=s.llm_max_tokens,
+            )
+        else:
+            log.warning("llm.groq_api_key_missing_falling_back_to_ollama")
+            _provider_singleton = OllamaProvider(
+                base_url=s.ollama_base_url,
+                model=s.ollama_model,
+                temperature=s.llm_temperature,
+                max_tokens=s.llm_max_tokens,
+            )
+    elif s.llm_provider == "ollama":
         _provider_singleton = OllamaProvider(
             base_url=s.ollama_base_url,
             model=s.ollama_model,
-            temperature=s.llm_temperature,
-            max_tokens=s.llm_max_tokens,
-        )
-    elif s.llm_provider == "groq":
-        _provider_singleton = GroqProvider(
-            api_key=s.groq_api_key,
-            model=s.groq_model,
             temperature=s.llm_temperature,
             max_tokens=s.llm_max_tokens,
         )

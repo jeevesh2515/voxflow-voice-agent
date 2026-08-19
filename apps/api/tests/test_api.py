@@ -268,3 +268,74 @@ def test_patch_call_resolution(client):
     assert data["staff_resolution"] == "Followed up with distributor. Replacement dispatched."
     assert data["staff_resolved_at"] is not None
 
+
+def test_workspace_provisioning(client):
+    payload = {
+        "tenant_id": "acme-logistics",
+        "name": "Acme Logistics Global",
+        "plan": "scale",
+        "admin_name": "Sarah Chen",
+        "admin_email": "sarah@acmelogistics.com",
+        "phone_number": "+14155550199",
+        "seed_starter_data": True,
+    }
+    r = client.post("/api/workspaces/provision", json=payload)
+    assert r.status_code == 200
+    data = r.json()
+    assert data["ok"] is True
+    assert data["tenant_id"] == "acme-logistics"
+    assert data["name"] == "Acme Logistics Global"
+    assert data["plan"] == "scale"
+    assert data["stats"]["products"] > 0
+    assert data["stats"]["suppliers"] > 0
+    assert data["stats"]["stock_units"] > 0
+    assert data["stats"]["orders"] == 1
+
+    # Verify provisioned tenant is in tenant list
+    r_tenants = client.get("/api/tenants")
+    assert r_tenants.status_code == 200
+    tenants = r_tenants.json()
+    assert any(t["id"] == "acme-logistics" for t in tenants)
+
+    # Verify suppliers list for the new tenant
+    r_sups = client.get("/api/suppliers?tenant_id=acme-logistics")
+    assert r_sups.status_code == 200
+    sups = r_sups.json()
+    assert len(sups) == 3
+    assert any(s["name"] == "Apex Supply & Freight Corp" for s in sups)
+
+    # Verify stock items for the new tenant
+    r_stock = client.get("/api/stock?tenant_id=acme-logistics")
+    assert r_stock.status_code == 200
+    stock = r_stock.json()
+    assert len(stock) >= 4
+
+    # Verify orders for the new tenant
+    r_orders = client.get("/api/orders?tenant_id=acme-logistics")
+    assert r_orders.status_code == 200
+    orders = r_orders.json()
+    assert len(orders) == 1
+    assert orders[0]["status"] == "confirmed"
+
+    # Verify summary for the new tenant
+    r_summary = client.get("/api/summary?tenant_id=acme-logistics")
+    assert r_summary.status_code == 200
+    summ = r_summary.json()
+    assert summ["suppliers"] == 3
+    assert summ["orders"] == 1
+    assert summ["pending_orders"] == 1
+
+
+def test_workspace_provisioning_idempotency(client):
+    payload = {
+        "tenant_id": "acme-logistics",
+        "name": "Acme Logistics Global v2",
+        "plan": "enterprise",
+        "seed_starter_data": True,
+    }
+    r = client.post("/api/workspaces/provision", json=payload)
+    assert r.status_code == 200
+    data = r.json()
+    assert data["ok"] is True
+    assert data["plan"] == "enterprise"
+

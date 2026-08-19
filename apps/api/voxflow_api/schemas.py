@@ -191,3 +191,26 @@ class ChatResponse(BaseModel):
     finish_reason: str = "stop"
     provider: str
     model: str
+
+
+# ---------- Workspace Provisioning ----------
+
+
+class WorkspaceProvisionIn(BaseModel):
+    tenant_id: str = Field(..., description="Unique slug for the workspace, e.g. acme-logistics")
+    name: str = Field(..., description="Company display name")
+    plan: str = "pro"
+    admin_name: str = ""
+    admin_email: str = ""
+    phone_number: str | None = None
+    default_language: str = "hi"
+    seed_starter_data: bool = True
+
+
+class WorkspaceProvisionOut(BaseModel):
+    ok: bool
+    tenant_id: str
+    name: str
+    plan: str
+    message: str
+    stats: dict[str, int] = {}

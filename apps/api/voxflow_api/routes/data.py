@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import json
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from typing import Any
 
 from fastapi import APIRouter, HTTPException, Query, Request
@@ -21,6 +21,7 @@ from ..db import (
     Stock,
     Supplier,
     Tenant,
+    TenantPhoneNumber,
     session_scope,
 )
 from ..llm import get_llm
@@ -39,6 +40,8 @@ from ..schemas import (
     StockItem,
     SupplierCreate,
     SupplierOut,
+    WorkspaceProvisionIn,
+    WorkspaceProvisionOut,
 )
 
 
@@ -55,14 +58,263 @@ def _tenant_id(request: Request, query_tenant: str | None = None) -> str:
     return get_settings().default_tenant_id
 
 
-# ---------- Tenants ----------
+# ---------- Tenants & Workspaces ----------
 
 
 @router.get("/tenants")
 def list_tenants() -> list[dict[str, Any]]:
     with session_scope() as db:
         rows = db.execute(select(Tenant).where(Tenant.active == 1)).scalars().all()
-        return [{"id": t.id, "name": t.name, "logo_url": t.logo_url} for t in rows]
+        return [
+            {
+                "id": t.id,
+                "name": t.name,
+                "logo_url": t.logo_url,
+                "agent_name": t.agent_name,
+                "plan": t.plan,
+                "default_language": t.default_language,
+            }
+            for t in rows
+        ]
+
+
+@router.post("/workspaces/provision", response_model=WorkspaceProvisionOut)
+def provision_workspace(payload: WorkspaceProvisionIn) -> WorkspaceProvisionOut:
+    """Provision a brand new tenant workspace in the backend database with starter seed data."""
+    slug = (
+        payload.tenant_id.lower()
+        .strip()
+        .replace(" ", "-")
+        .replace("_", "-")
+    )
+    if not slug:
+        slug = f"tenant-{int(datetime.now(timezone.utc).timestamp())}"
+
+    company_name = payload.name.strip() or "Voice Operations Workspace"
+    stats: dict[str, int] = {"products": 0, "suppliers": 0, "stock_units": 0, "orders": 0}
+
+    with session_scope() as db:
+        # 1. Create or update tenant row
+        tenant = db.get(Tenant, slug)
+        if not tenant:
+            tenant = Tenant(
+                id=slug,
+                name=company_name,
+                plan=payload.plan or "pro",
+                agent_name="Vaani",
+                welcome_message=f"नमस्ते! {company_name} में आपका स्वागत है। मैं आपकी क्या मदद कर सकती हूँ?",
+                default_language=payload.default_language or "hi",
+                active=1,
+            )
+            db.add(tenant)
+            db.flush()
+        else:
+            tenant.active = 1
+            if payload.name:
+                tenant.name = company_name
+            if payload.plan:
+                tenant.plan = payload.plan
+            db.flush()
+
+        # 2. Seed starter data if requested and not yet seeded
+        if payload.seed_starter_data:
+            existing_products = (
+                db.execute(select(Product).where(Product.tenant_id == slug))
+                .scalars()
+                .all()
+            )
+            if not existing_products:
+                prefix = slug.replace("-", "").upper()[:3] or "VOX"
+                starter_products = [
+                    Product(
+                        sku=f"{prefix}-CARTON-100",
+                        tenant_id=slug,
+                        name="Heavy Duty Shipping Carton (Pack of 100)",
+                        category="Packaging",
+                        pack_size="100 pcs",
+                        mrp_inr=1200.0,
+                    ),
+                    Product(
+                        sku=f"{prefix}-PALLET-STD",
+                        tenant_id=slug,
+                        name="Standard Euro Wooden Pallet (1200x800mm)",
+                        category="Warehouse",
+                        pack_size="1 unit",
+                        mrp_inr=850.0,
+                    ),
+                    Product(
+                        sku=f"{prefix}-TAPE-ROLL-06",
+                        tenant_id=slug,
+                        name="Reinforced Packing Tape 3-inch (Pack of 6)",
+                        category="Packaging",
+                        pack_size="6 rolls",
+                        mrp_inr=450.0,
+                    ),
+                    Product(
+                        sku=f"{prefix}-WATER-500ML",
+                        tenant_id=slug,
+                        name="Packaged Drinking Water 500ml (Pack of 24)",
+                        category="Beverages",
+                        pack_size="500ml x 24",
+                        mrp_inr=240.0,
+                    ),
+                ]
+                for p in starter_products:
+                    db.add(p)
+                db.flush()
+                stats["products"] = len(starter_products)
+
+                # Seed Stock
+                stock_entries = [
+                    Stock(tenant_id=slug, sku=f"{prefix}-CARTON-100", warehouse="Main Distribution Center", quantity=250),
+                    Stock(tenant_id=slug, sku=f"{prefix}-CARTON-100", warehouse="Express Logistics Bay", quantity=80),
+                    Stock(tenant_id=slug, sku=f"{prefix}-PALLET-STD", warehouse="Main Distribution Center", quantity=140),
+                    Stock(tenant_id=slug, sku=f"{prefix}-TAPE-ROLL-06", warehouse="Main Distribution Center", quantity=300),
+                    Stock(tenant_id=slug, sku=f"{prefix}-WATER-500ML", warehouse="Main Distribution Center", quantity=500),
+                    Stock(tenant_id=slug, sku=f"{prefix}-WATER-500ML", warehouse="Express Logistics Bay", quantity=180),
+                ]
+                for s in stock_entries:
+                    db.add(s)
+                stats["stock_units"] = sum(s.quantity for s in stock_entries)
+
+                # Seed Suppliers / Customer Accounts with PIN auth
+                starter_suppliers = [
+                    Supplier(
+                        id=f"sup-{slug}-001",
+                        tenant_id=slug,
+                        name="Apex Supply & Freight Corp",
+                        phone="+919876543210",
+                        city="Gurgaon",
+                        state="Haryana",
+                        pincode="122001",
+                        contact_person=payload.admin_name or "Rajesh Kumar",
+                        gstin="06AAAAA0000A1Z5",
+                        auth_pin="1234",
+                        contact_type="customer",
+                        active=1,
+                    ),
+                    Supplier(
+                        id=f"sup-{slug}-002",
+                        tenant_id=slug,
+                        name="Metro Wholesale Distributors",
+                        phone="+919812345678",
+                        city="Delhi NCR",
+                        state="Delhi",
+                        pincode="110001",
+                        contact_person="Amit Sharma",
+                        gstin="07BBBBB1111B1Z2",
+                        auth_pin="1234",
+                        contact_type="customer",
+                        active=1,
+                    ),
+                    Supplier(
+                        id=f"sup-{slug}-003",
+                        tenant_id=slug,
+                        name="BlueLine Logistics Partners",
+                        phone="+919999888777",
+                        city="Noida",
+                        state="Uttar Pradesh",
+                        pincode="201301",
+                        contact_person="Sanjay Verma",
+                        gstin="09CCCCC2222C1Z9",
+                        auth_pin="1234",
+                        contact_type="supplier",
+                        active=1,
+                    ),
+                ]
+                for sup in starter_suppliers:
+                    db.add(sup)
+                db.flush()
+                stats["suppliers"] = len(starter_suppliers)
+
+                # Seed Initial Confirmed PO
+                po_id = f"PO-{prefix}-001"
+                initial_order = Order(
+                    id=po_id,
+                    tenant_id=slug,
+                    supplier_id=f"sup-{slug}-001",
+                    status="confirmed",
+                    items_json=json.dumps([
+                        {"sku": f"{prefix}-CARTON-100", "quantity": 10},
+                        {"sku": f"{prefix}-TAPE-ROLL-06", "quantity": 5},
+                    ]),
+                    total_qty=15,
+                    notes="Initial automated onboarding stock order",
+                )
+                db.add(initial_order)
+                db.flush()
+                stats["orders"] = 1
+
+                # Seed Starter Shipment
+                now = datetime.now(timezone.utc)
+                initial_shipment = Shipment(
+                    id=f"SHIP-{prefix}-001",
+                    tenant_id=slug,
+                    order_id=po_id,
+                    status="in_transit",
+                    carrier="Delhivery Express",
+                    tracking_no=f"DLV{prefix}99812",
+                    expected_delivery=now + timedelta(days=2),
+                    last_update=now,
+                    history_json=json.dumps([
+                        {
+                            "status": "Dispatched from Central Warehouse",
+                            "location": "Gurgaon Hub",
+                            "timestamp": now.isoformat(),
+                        }
+                    ]),
+                )
+                db.add(initial_shipment)
+
+                # Seed Starter Dock Appointment
+                initial_appointment = Appointment(
+                    id=f"APT-{prefix}-001",
+                    tenant_id=slug,
+                    supplier_id=f"sup-{slug}-001",
+                    datetime=now + timedelta(days=1),
+                    purpose="Onboarding Dock Slot & Delivery Inspection",
+                    status="confirmed",
+                )
+                db.add(initial_appointment)
+
+                # Seed Starter Welcome Communication Log
+                initial_comm = CommunicationLog(
+                    id=f"msg-{slug[:6]}-001",
+                    tenant_id=slug,
+                    channel="sms",
+                    recipient=payload.admin_email or "+919876543210",
+                    subject="Welcome to VoxFlow",
+                    body=f"Welcome to VoxFlow Voice Operations for {company_name}! Your automated AI voice assistant is live and ready.",
+                    status="delivered",
+                )
+                db.add(initial_comm)
+
+        # 3. Map phone number if provided
+        if payload.phone_number:
+            clean_phone = payload.phone_number.strip()
+            existing_phone = db.get(TenantPhoneNumber, clean_phone)
+            if existing_phone:
+                existing_phone.tenant_id = slug
+                existing_phone.label = f"{company_name} Inbound Line"
+                existing_phone.active = 1
+            else:
+                db.add(
+                    TenantPhoneNumber(
+                        phone_number=clean_phone,
+                        tenant_id=slug,
+                        label=f"{company_name} Inbound Line",
+                        active=1,
+                    )
+                )
+
+    return WorkspaceProvisionOut(
+        ok=True,
+        tenant_id=slug,
+        name=company_name,
+        plan=payload.plan or "pro",
+        message=f"Workspace '{company_name}' ({slug}) successfully provisioned and ready for live voice operations.",
+        stats=stats,
+    )
 
 
 # ---------- Dashboard summary ----------
