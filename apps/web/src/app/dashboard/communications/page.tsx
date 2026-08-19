@@ -35,7 +35,26 @@ export default function CommunicationsPage() {
   const [subject, setSubject] = useState("VoxFlow Operations Update");
   const [messageBody, setMessageBody] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isSummarizing, setIsSummarizing] = useState(false);
+  const [summarizeFeedback, setSummarizeFeedback] = useState<string | null>(null);
   const [formError, setFormError] = useState("");
+
+  const handleSummarizeEmails = async () => {
+    setIsSummarizing(true);
+    setSummarizeFeedback(null);
+    try {
+      const res = await api.runEmailSummarizer(activeTenantId);
+      mutate(["communications", activeTenantId]);
+      setSummarizeFeedback(
+        `✓ Processed ${res.processed_count} new emails (${res.sheets_synced_count} synced to Google Sheets Email Log)`
+      );
+      setTimeout(() => setSummarizeFeedback(null), 6000);
+    } catch (err: any) {
+      setSummarizeFeedback(`Failed to sync emails: ${err.message}`);
+    } finally {
+      setIsSummarizing(false);
+    }
+  };
 
   const filteredComms = useMemo(() => {
     if (!comms) return [];
@@ -108,6 +127,14 @@ export default function CommunicationsPage() {
         </div>
         <div className="flex items-center gap-3">
           <button
+            onClick={handleSummarizeEmails}
+            disabled={isSummarizing}
+            className="bg-[#181824] hover:bg-[#202030] text-[#00ffcc] border border-[#00ffcc]/40 px-4 py-2 rounded-xl text-xs font-headline font-bold uppercase tracking-widest flex items-center gap-2 shadow-[0_0_15px_rgba(0,255,204,0.15)] hover:scale-105 active:scale-95 transition-all disabled:opacity-50"
+          >
+            <Mail size={14} className={isSummarizing ? "animate-spin" : ""} />
+            {isSummarizing ? "Summarizing Inbox..." : "⚡ Sync & Summarize Emails"}
+          </button>
+          <button
             onClick={() => setIsSendOpen(true)}
             className="bg-[#00ffcc] text-[#0a0a12] px-4 py-2 rounded-xl text-xs font-headline font-bold uppercase tracking-widest flex items-center gap-2 shadow-[0_0_20px_rgba(0,255,204,0.4)] hover:scale-105 active:scale-95 transition-all"
           >
@@ -115,6 +142,13 @@ export default function CommunicationsPage() {
           </button>
         </div>
       </header>
+
+      {summarizeFeedback && (
+        <div className="p-3.5 bg-[#00ffcc]/10 border border-[#00ffcc]/30 rounded-xl text-xs text-[#00ffcc] font-label font-bold flex items-center gap-2 shadow-[0_0_15px_rgba(0,255,204,0.15)] animate-fade-in">
+          <CheckCircle2 size={16} />
+          {summarizeFeedback}
+        </div>
+      )}
 
       {/* ==================== STAT CARDS ==================== */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">

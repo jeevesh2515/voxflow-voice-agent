@@ -131,9 +131,18 @@ CREATE TABLE IF NOT EXISTS communication_logs (
     recipient VARCHAR(255) NOT NULL,
     subject VARCHAR(255),
     body TEXT NOT NULL,
-    status VARCHAR(32) DEFAULT 'sent',     -- sent | failed
+    status VARCHAR(32) DEFAULT 'sent',     -- sent | failed | summarized
     timestamp TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
 );
+
+-- 11. Agent State & Persistent Memory Table
+CREATE TABLE IF NOT EXISTS agent_states (
+    key VARCHAR(128) PRIMARY KEY,
+    tenant_id VARCHAR(64) NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
+    value_json TEXT DEFAULT '{}',
+    updated_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
+);
+CREATE INDEX idx_agent_states_tenant ON agent_states(tenant_id);
 ```
 
 ---
@@ -152,6 +161,7 @@ ALTER TABLE calls ENABLE ROW LEVEL SECURITY;
 ALTER TABLE appointments ENABLE ROW LEVEL SECURITY;
 ALTER TABLE worksheet_logs ENABLE ROW LEVEL SECURITY;
 ALTER TABLE communication_logs ENABLE ROW LEVEL SECURITY;
+ALTER TABLE agent_states ENABLE ROW LEVEL SECURITY;
 
 -- Tenant Isolation RLS Policy Example:
 CREATE POLICY tenant_isolation_policy ON suppliers
