@@ -18,6 +18,7 @@ function getWsUrl(): string {
 
 export default function PhoneSimulator() {
   const { activeTenantId, activeTenant } = useTenant();
+  const [wsUrl, setWsUrl] = useState<string>("wss://voxflow-voice-agent.onrender.com");
   const [connected, setConnected] = useState(false);
   const [callId, setCallId] = useState<string | null>(null);
   const [turns, setTurns] = useState<Turn[]>([]);
@@ -27,6 +28,16 @@ export default function PhoneSimulator() {
   const [busy, setBusy] = useState(false);
   const [language, setLanguage] = useState<"hi" | "en">("hi");
   const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      if (window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1") {
+        setWsUrl(process.env.NEXT_PUBLIC_WS_URL || "ws://localhost:8000");
+      } else {
+        setWsUrl(process.env.NEXT_PUBLIC_WS_URL || "wss://voxflow-voice-agent.onrender.com");
+      }
+    }
+  }, []);
 
   const wsRef = useRef<WebSocket | null>(null);
   const audioCtxRef = useRef<AudioContext | null>(null);
@@ -47,7 +58,10 @@ export default function PhoneSimulator() {
   const connect = useCallback(() => {
     if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) return;
     setError(null);
-    const ws = new WebSocket(`${getWsUrl()}/ws/call`);
+    const targetWs = (typeof window !== "undefined" && (window.location.hostname !== "localhost" && window.location.hostname !== "127.0.0.1"))
+      ? "wss://voxflow-voice-agent.onrender.com"
+      : (process.env.NEXT_PUBLIC_WS_URL || "ws://localhost:8000");
+    const ws = new WebSocket(`${targetWs}/ws/call`);
     wsRef.current = ws;
 
     ws.onopen = () => {
@@ -345,7 +359,7 @@ export default function PhoneSimulator() {
           )}
 
           <div className="mt-auto pt-4 text-[10px] font-mono text-[#5a5068] leading-relaxed">
-            <div>WS: {getWsUrl()}/ws/call</div>
+            <div>WS: {wsUrl}/ws/call</div>
             <div>Tip: speak a 1-second phrase, then pause. Auto-commits on silence.</div>
           </div>
         </div>
