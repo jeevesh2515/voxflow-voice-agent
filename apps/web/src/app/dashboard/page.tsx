@@ -192,37 +192,61 @@ export default function DashboardOverview() {
                 </thead>
                 <tbody className="divide-y divide-[#302840]/40">
                   {/* SWR Dynamic Calls */}
-                  {(calls as Call[])?.slice(0, 4).map((c) => (
-                    <tr key={c.id} className="hover:bg-[#1a1a2e]/50 transition-colors group">
-                      <td className="px-6 py-4">
-                        <span className="text-sm font-label text-[#ff2d78] font-bold">#{c.id.substring(0, 8)}</span>
-                      </td>
-                      <td className="px-6 py-4">
-                        <div className="flex flex-col">
-                          <span className="text-sm font-bold text-[#e8e0f0]">{c.caller_name || "Regional Agent"}</span>
-                          <span className="text-[10px] font-label text-[#a098b0] uppercase tracking-widest">
-                            {c.caller_phone || "+91 9811..."}
+                  {(calls as Call[])?.length > 0 ? (
+                    (calls as Call[]).slice(0, 4).map((c) => (
+                      <tr key={c.id} className="hover:bg-[#1a1a2e]/50 transition-colors group">
+                        <td className="px-6 py-4">
+                          <span className="text-sm font-label text-[#ff2d78] font-bold">#{c.id.substring(0, 8)}</span>
+                        </td>
+                        <td className="px-6 py-4">
+                          <div className="flex flex-col">
+                            <span className="text-sm font-bold text-[#e8e0f0]">{c.caller_name || "Regional Agent"}</span>
+                            <span className="text-[10px] font-label text-[#a098b0] uppercase tracking-widest">
+                              {c.caller_phone || "+91 9811..."}
+                            </span>
+                          </div>
+                        </td>
+                        <td className="px-6 py-4 text-xs font-medium text-[#a098b0] uppercase tracking-widest font-label">
+                          {c.intent || "Order Verification"}
+                        </td>
+                        <td className="px-6 py-4">
+                          <span className="px-2 py-0.5 bg-[#00ffcc]/10 border border-[#00ffcc]/30 text-[#00ffcc] text-[10px] font-label font-bold rounded uppercase">
+                            {c.outcome || "COMPLETED"}
                           </span>
+                        </td>
+                        <td className="px-6 py-4 text-right">
+                          <Link
+                            href="/dashboard/calls"
+                            className="px-3 py-1 bg-[#28283e] border border-[#302840] text-[#e8e0f0] text-[10px] font-headline font-bold rounded uppercase tracking-widest hover:border-[#ff2d78] transition-colors inline-block"
+                          >
+                            Details
+                          </Link>
+                        </td>
+                      </tr>
+                    ))
+                  ) : (
+                    <tr>
+                      <td colSpan={5} className="px-6 py-8 text-center">
+                        <div className="flex flex-col items-center justify-center gap-2">
+                          <div className="p-3 bg-[#ff2d78]/10 text-[#ff2d78] rounded-xl border border-[#ff2d78]/30">
+                            <PhoneCall size={24} />
+                          </div>
+                          <p className="text-sm font-headline font-bold text-[#e8e0f0]">
+                            No calls logged yet for {activeTenant.name}
+                          </p>
+                          <p className="text-xs text-[#a098b0] max-w-sm">
+                            Your voice assistant is live. Place a test call using the <strong>Phone Simulator</strong> on the right to test ordering and stock inquiries in Hindi or English!
+                          </p>
+                          <Link
+                            href="/dashboard/simulator"
+                            className="mt-2 px-4 py-1.5 bg-[#ff2d78] text-[#1a0010] text-xs font-label font-bold rounded-lg uppercase tracking-wider hover:brightness-110 transition-all"
+                          >
+                            Launch Simulator
+                          </Link>
                         </div>
                       </td>
-                      <td className="px-6 py-4 text-xs font-medium text-[#a098b0] uppercase tracking-widest font-label">
-                        {c.intent || "Order Verification"}
-                      </td>
-                      <td className="px-6 py-4">
-                        <span className="px-2 py-0.5 bg-[#00ffcc]/10 border border-[#00ffcc]/30 text-[#00ffcc] text-[10px] font-label font-bold rounded uppercase">
-                          {c.outcome || "COMPLETED"}
-                        </span>
-                      </td>
-                      <td className="px-6 py-4 text-right">
-                        <Link
-                          href="/dashboard/calls"
-                          className="px-3 py-1 bg-[#28283e] border border-[#302840] text-[#e8e0f0] text-[10px] font-headline font-bold rounded uppercase tracking-widest hover:border-[#ff2d78] transition-colors inline-block"
-                        >
-                          Details
-                        </Link>
-                      </td>
                     </tr>
-                  ))}
+                  )}
                 </tbody>
               </table>
             </div>

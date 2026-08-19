@@ -6,6 +6,7 @@ import { Suspense, useState } from "react";
 import { FadeUp } from "@/components/ScrollAnimations";
 import { useTenant } from "@/lib/tenant-context";
 import { useAuth } from "@/lib/auth-context";
+import { api } from "@/lib/api";
 
 const planNames: Record<string, { label: string; price: string }> = {
   starter: { label: "Starter Pilot", price: "$0/mo" },
@@ -17,7 +18,7 @@ const planNames: Record<string, { label: string; price: string }> = {
 function SignUpContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const { addTenant } = useTenant();
+  const { addTenant, refreshTenants } = useTenant();
   const { signUp, loading: authLoading } = useAuth();
 
   const planKey = searchParams.get("plan") || "pro";
@@ -39,6 +40,23 @@ function SignUpContent() {
     const compName = company.trim() || "My Voice Operation";
     const tenant = addTenant(compName);
 
+    try {
+      // 1. Provision real workspace and starter data on the backend DB
+      await api.provisionWorkspace({
+        tenant_id: tenant.id,
+        name: compName,
+        plan: selectedPlan,
+        admin_name: name.trim() || "Operations Admin",
+        admin_email: email.trim(),
+        seed_starter_data: true,
+      });
+      await refreshTenants();
+    } catch (err: any) {
+      console.warn("Backend workspace provisioning note:", err?.message || err);
+      // Proceed with Supabase sign up even if backend is offline/cold-starting
+    }
+
+    // 2. Register user account in Supabase
     const result = await signUp(email.trim(), password.trim(), {
       name: name.trim() || "Operations Admin",
       company_name: compName,

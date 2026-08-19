@@ -23,7 +23,8 @@ class Settings(BaseSettings):
     )
 
     # ----- LLM -----
-    llm_provider: LLMProvider = "ollama"
+    # Default to "groq" for cloud production and sub-200ms voice turns.
+    llm_provider: LLMProvider = "groq"
     llm_temperature: float = 0.2
     llm_max_tokens: int = 512
 
@@ -31,7 +32,7 @@ class Settings(BaseSettings):
     ollama_model: str = "llama3.1:8b"
 
     groq_api_key: str = ""
-    groq_model: str = "openai/gpt-oss-120b"
+    groq_model: str = "llama-3.3-70b-versatile"
 
     openrouter_api_key: str = ""
     openrouter_model: str = "meta-llama/llama-3.1-8b-instruct:free"

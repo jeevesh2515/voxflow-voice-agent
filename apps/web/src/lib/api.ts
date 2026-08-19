@@ -69,6 +69,19 @@ async function http<T>(path: string, init?: RequestInit): Promise<T> {
 
 export const api = {
   tenants: () => http<any[]>("/api/tenants"),
+  provisionWorkspace: (payload: {
+    tenant_id: string;
+    name: string;
+    plan?: string;
+    admin_name?: string;
+    admin_email?: string;
+    phone_number?: string;
+    seed_starter_data?: boolean;
+  }) =>
+    http<any>("/api/workspaces/provision", {
+      method: "POST",
+      body: JSON.stringify(payload),
+    }),
   getTenant: (tenant_id: string) => http<any>(`/api/admin/tenants/${tenant_id}`),
   updateTenant: (tenant_id: string, payload: any) =>
     http<any>(`/api/admin/tenants/${tenant_id}`, {

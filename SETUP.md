@@ -16,26 +16,25 @@ testing.
    Caller's phone
         │
         ▼
-   Twilio  ──────── the only paid piece
-        │  webhook + Media Stream (audio)
+   Twilio / Dial  ─────── Telephony Carrier
+        │  webhook + Media Stream (audio WebSocket)
         ▼
-   Oracle Cloud VM  ── FREE forever
-   ├── Caddy      → automatic HTTPS certificate
-   └── VoxFlow API (FastAPI, Docker)
+   Render (Live Primary API)  ── Free Cloud Web Service
+   └── VoxFlow API (FastAPI, Docker container)
         │
-        ├──→ Groq          LLM + speech-to-text   FREE
-        ├──→ edge-tts      speech synthesis        FREE
-        ├──→ Supabase      Postgres database       FREE
-        └──→ Google Sheets call log                FREE
+        ├──→ Groq          LLM (Llama-3.3-70B) + Whisper STT   FREE
+        ├──→ edge-tts      speech synthesis                     FREE
+        ├──→ Supabase      Postgres DB (Managed Pooler)         FREE
+        └──→ Google Sheets Call & Email log sync                FREE
         │
         ▼
-   Vercel ── dashboard (already deployed)  FREE
+   Vercel ── Next.js SaaS Web Dashboard (Live)                 FREE
 ```
 
-**Why the backend can't live on Vercel:** a phone call holds a WebSocket open
-for its entire duration. Vercel's serverless functions can't do that, and they
-have no persistent memory for call state. The dashboard stays on Vercel; the
-API needs a real always-on server.
+**Why the backend lives on Render:** a phone call holds a WebSocket open
+for its entire duration. Vercel's serverless functions can't do that.
+Render provides persistent HTTP/WebSocket execution with zero server management.
+Live URL: `https://voxflow-voice-agent.onrender.com`
 
 ---
 
