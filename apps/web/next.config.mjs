@@ -8,7 +8,8 @@ const nextConfig = {
   turbopack: {
     root: monorepoRoot,
   },
-  output: 'standalone',
+  // Vercel supplies its own trace packaging; the Docker build still needs standalone output.
+  ...(process.env.VERCEL ? {} : { output: "standalone" }),
   reactStrictMode: true,
   env: {
     NEXT_PUBLIC_API_URL: process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000",
