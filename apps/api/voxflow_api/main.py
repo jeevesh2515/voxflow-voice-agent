@@ -66,6 +66,27 @@ async def lifespan(app: FastAPI):
 
     retry_task = asyncio.create_task(_sheets_retry_worker())
 
+    # 5. Start background worker for Email Summarizer Agent (runs 3x daily / interval)
+    async def _email_summarizer_worker():
+        if not settings.email_summarizer_enabled:
+            return
+        # small delay on startup before first check
+        await asyncio.sleep(10)
+        from .tasks.email_summarizer import EmailSummarizerAgent
+        agent = EmailSummarizerAgent(tenant_id=settings.default_tenant_id)
+        while True:
+            try:
+                res = await agent.run_sync_cycle(limit=15)
+                if res.get("processed_count", 0) > 0:
+                    log.info("api.email_summarizer_scheduled_run", processed=res["processed_count"], synced=res["sheets_synced_count"])
+            except asyncio.CancelledError:
+                break
+            except Exception as e:
+                log.warning("api.email_summarizer_worker_error", error=str(e))
+            await asyncio.sleep(settings.email_summarizer_interval_seconds)
+
+    email_task = asyncio.create_task(_email_summarizer_worker())
+
     log.info(
         "api.startup",
         provider=settings.llm_provider,
@@ -77,8 +98,13 @@ async def lifespan(app: FastAPI):
 
     # Shutdown
     retry_task.cancel()
+    email_task.cancel()
     try:
         await retry_task
+    except asyncio.CancelledError:
+        pass
+    try:
+        await email_task
     except asyncio.CancelledError:
         pass
     log.info("api.shutdown")

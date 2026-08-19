@@ -109,7 +109,16 @@ class Settings(BaseSettings):
     google_sheet_id: str = ""
     # Tab name inside that spreadsheet.
     google_sheet_tab: str = "Call Log"
+    google_sheet_email_tab: str = "Email Log"
     sheets_enabled: bool = False
+
+    # ----- Email Summarizer & Gmail -----
+    gmail_user_email: str = ""
+    gmail_app_password: str = ""
+    gmail_imap_server: str = "imap.gmail.com"
+    gmail_imap_port: int = 993
+    email_summarizer_enabled: bool = True
+    email_summarizer_interval_seconds: int = 28800  # 8 hours = 3 times daily
 
     # ----- Persistence & Storage -----
     data_dir: str = "./data"

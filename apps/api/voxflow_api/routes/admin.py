@@ -204,3 +204,48 @@ def get_tenant_usage_stats(tenant_id: str) -> dict[str, Any]:
             "rate_per_minute_usd": rate_per_min,
             "estimated_bill_usd": billable_amount_usd,
         }
+
+
+# ---------- Email Summarizer Agent Endpoints ----------
+
+
+@router.post("/email-summarizer/run")
+async def run_email_summarizer_now(
+    tenant_id: str = Query("varun", description="Tenant ID to summarize emails for"),
+    limit: int = Query(15, ge=1, le=50, description="Max emails to process"),
+) -> dict[str, Any]:
+    """Manually trigger an email summarization cycle."""
+    from ..tasks.email_summarizer import EmailSummarizerAgent
+    agent = EmailSummarizerAgent(tenant_id=tenant_id)
+    result = await agent.run_sync_cycle(limit=limit)
+    return result
+
+
+@router.get("/email-summarizer/status")
+def get_email_summarizer_status(
+    tenant_id: str = Query("varun", description="Tenant ID"),
+) -> dict[str, Any]:
+    """Get Email Summarizer operational status and last run metadata."""
+    import json
+    from ..config import get_settings
+    from ..db import AgentState
+    s = get_settings()
+    state_key = f"email_summarizer_last_run_{tenant_id}"
+    with session_scope() as db:
+        state = db.execute(select(AgentState).where(AgentState.key == state_key)).scalars().first()
+        last_run_data = json.loads(state.value_json) if state and state.value_json else {}
+
+        ids_key = f"processed_email_ids_{tenant_id}"
+        ids_state = db.execute(select(AgentState).where(AgentState.key == ids_key)).scalars().first()
+        processed_count = len(json.loads(ids_state.value_json)) if ids_state and ids_state.value_json else 0
+
+        return {
+            "enabled": s.email_summarizer_enabled,
+            "interval_seconds": s.email_summarizer_interval_seconds,
+            "gmail_user_email": s.gmail_user_email or "Sample / Simulation Mode",
+            "sheets_enabled": s.sheets_enabled,
+            "sheets_id": s.google_sheet_id,
+            "email_tab": s.google_sheet_email_tab,
+            "last_run": last_run_data.get("last_run"),
+            "total_processed_unique_emails": processed_count,
+        }

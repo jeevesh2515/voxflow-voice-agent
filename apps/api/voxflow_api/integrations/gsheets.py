@@ -60,6 +60,18 @@ CALL_LOG_HEADERS = [
     "Related Order",
 ]
 
+EMAIL_LOG_HEADERS = [
+    "Timestamp (IST)",
+    "Message ID",
+    "Sender",
+    "Subject",
+    "Category",
+    "Priority",
+    "AI Summary",
+    "Action Required",
+    "Linked Order/PO",
+]
+
 
 def _queue_dir() -> str:
     s = get_settings()
@@ -306,6 +318,27 @@ class GoogleSheetsClient:
         if not res.get("ok") and queue_on_failure and self.is_configured():
             self.queue_row(row, call_id=row.get("call_id"))
         return res
+
+    async def append_email_summary(self, email_entry: dict[str, Any], tab: str | None = None) -> dict[str, Any]:
+        """Append an email summary row to Google Sheets under the Email Log tab."""
+        s = get_settings()
+        tab_name = tab or s.google_sheet_email_tab
+        values = [
+            email_entry.get("timestamp", ""),
+            email_entry.get("message_id", ""),
+            email_entry.get("sender", ""),
+            email_entry.get("subject", ""),
+            email_entry.get("category", "General"),
+            email_entry.get("priority", "MEDIUM"),
+            email_entry.get("summary", ""),
+            "Yes" if email_entry.get("action_required") else "No",
+            email_entry.get("linked_order", ""),
+        ]
+        return await self.append_row(
+            values,
+            tab=tab_name,
+            headers=EMAIL_LOG_HEADERS,
+        )
 
     async def process_retry_queue(self) -> int:
         """Drain queued writes from disk. Returns count of successfully sent items."""
