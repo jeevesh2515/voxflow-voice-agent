@@ -18,7 +18,6 @@ function getWsUrl(): string {
 
 export default function PhoneSimulator() {
   const { activeTenantId, activeTenant } = useTenant();
-  const [wsUrl, setWsUrl] = useState<string>("wss://voxflow-voice-agent.onrender.com");
   const [connected, setConnected] = useState(false);
   const [callId, setCallId] = useState<string | null>(null);
   const [turns, setTurns] = useState<Turn[]>([]);
@@ -28,16 +27,6 @@ export default function PhoneSimulator() {
   const [busy, setBusy] = useState(false);
   const [language, setLanguage] = useState<"hi" | "en">("hi");
   const [error, setError] = useState<string | null>(null);
-
-  useEffect(() => {
-    if (typeof window !== "undefined") {
-      if (window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1") {
-        setWsUrl(process.env.NEXT_PUBLIC_WS_URL || "ws://localhost:8000");
-      } else {
-        setWsUrl(process.env.NEXT_PUBLIC_WS_URL || "wss://voxflow-voice-agent.onrender.com");
-      }
-    }
-  }, []);
 
   const wsRef = useRef<WebSocket | null>(null);
   const audioCtxRef = useRef<AudioContext | null>(null);
@@ -58,9 +47,7 @@ export default function PhoneSimulator() {
   const connect = useCallback(() => {
     if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) return;
     setError(null);
-    const targetWs = (typeof window !== "undefined" && (window.location.hostname !== "localhost" && window.location.hostname !== "127.0.0.1"))
-      ? "wss://voxflow-voice-agent.onrender.com"
-      : (process.env.NEXT_PUBLIC_WS_URL || "ws://localhost:8000");
+    const targetWs = getWsUrl();
     const ws = new WebSocket(`${targetWs}/ws/call`);
     wsRef.current = ws;
 

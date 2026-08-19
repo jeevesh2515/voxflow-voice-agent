@@ -1,10 +1,9 @@
-import { NextResponse } from "next/server";
-import type { NextRequest } from "next/server";
+import { NextResponse, type NextRequest } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 
 const publicRoutes = ["/sign-in", "/sign-up", "/", "/pricing", "/about"];
 
-export async function middleware(request: NextRequest) {
+export async function proxy(request: NextRequest) {
   const response = NextResponse.next();
 
   const isPublicRoute = publicRoutes.some((route) =>
@@ -36,7 +35,7 @@ export async function middleware(request: NextRequest) {
       url.pathname = "/dashboard";
       return NextResponse.redirect(url);
     }
-  } catch (error) {
+  } catch {
     if (!demoCookie && !isPublicRoute) {
       const url = request.nextUrl.clone();
       url.pathname = "/sign-in";

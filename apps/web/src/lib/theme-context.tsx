@@ -18,10 +18,14 @@ const ThemeContext = createContext<ThemeContextType>({
 
 export function ThemeProvider({ children }: { children: ReactNode }) {
   const [theme, setThemeState] = useState<Theme>("dark");
-  const [mounted, setMounted] = useState(false);
+
+  const applyTheme = (t: Theme) => {
+    const root = document.documentElement;
+    root.classList.remove("dark", "light");
+    root.classList.add(t);
+  };
 
   useEffect(() => {
-    setMounted(true);
     const saved = localStorage.getItem("voxflow_theme") as Theme | null;
     if (saved === "light" || saved === "dark") {
       setThemeState(saved);
@@ -30,12 +34,6 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
       applyTheme("dark");
     }
   }, []);
-
-  const applyTheme = (t: Theme) => {
-    const root = document.documentElement;
-    root.classList.remove("dark", "light");
-    root.classList.add(t);
-  };
 
   const setTheme = (t: Theme) => {
     setThemeState(t);

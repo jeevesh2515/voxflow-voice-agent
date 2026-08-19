@@ -4,12 +4,19 @@
 # conftest.py, which pytest imports before this module — so these imports can
 # sit at the top of the file where they belong.
 import pytest
+import pytest_asyncio
 from fastapi.testclient import TestClient
 
-from voxflow_api.db import reset_db
+from voxflow_api.db import close_db_engines, reset_db
 from voxflow_api.llm.base import LLMProvider, LLMResponse
 from voxflow_api.main import create_app
 from voxflow_api.seed import seed
+
+
+@pytest_asyncio.fixture(scope="module", loop_scope="module", autouse=True)
+async def close_async_db_after_module():
+    yield
+    await close_db_engines()
 
 
 class FakeLLM(LLMProvider):
@@ -120,7 +127,7 @@ def test_create_order(client):
     assert data["status"] == "pending"
 
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio(loop_scope="module")
 async def test_lookup_supplier_tool():
     """Tool dispatch without an LLM."""
     from voxflow_api.agent.tools import execute_tool
@@ -133,7 +140,7 @@ async def test_lookup_supplier_tool():
     assert s.supplier_id == "sup-varun-001"
 
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio(loop_scope="module")
 async def test_check_stock_tool():
     from voxflow_api.agent.tools import execute_tool
     from voxflow_api.voice.pipeline import CallSession
@@ -144,7 +151,7 @@ async def test_check_stock_tool():
     assert res["total"] > 0
 
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio(loop_scope="module")
 async def test_shipment_status_tool():
     from voxflow_api.agent.tools import execute_tool
     from voxflow_api.voice.pipeline import CallSession
@@ -155,7 +162,7 @@ async def test_shipment_status_tool():
     assert res["status"] == "in_transit"
 
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio(loop_scope="module")
 async def test_create_po_tool():
     from voxflow_api.agent.tools import execute_tool
     from voxflow_api.voice.pipeline import CallSession

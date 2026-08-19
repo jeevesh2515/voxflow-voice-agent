@@ -7,11 +7,14 @@ import pytest_asyncio
 
 from voxflow_api.agent.tools import create_po, lookup_supplier, verify_pin
 from voxflow_api.cache import supplier_cache
-from voxflow_api.db import Supplier, Tenant, async_session_scope
+from voxflow_api.db import Supplier, Tenant, async_session_scope, close_db_engines
 from voxflow_api.voice.pipeline import CallSession
 
 
-@pytest_asyncio.fixture
+pytestmark = pytest.mark.asyncio(loop_scope="module")
+
+
+@pytest_asyncio.fixture(loop_scope="module")
 async def pin_supplier():
     """Create a test tenant and supplier with a known 4-digit PIN."""
     supplier_cache.clear()
@@ -40,9 +43,9 @@ async def pin_supplier():
             await db.flush()
     yield
     supplier_cache.clear()
+    await close_db_engines()
 
 
-@pytest.mark.asyncio
 async def test_create_po_blocked_without_pin_auth(pin_supplier):
     """create_po must be blocked if session.pin_verified is False."""
     session = CallSession(call_id="call-pin-01", tenant_id="t-pin")
@@ -58,7 +61,6 @@ async def test_create_po_blocked_without_pin_auth(pin_supplier):
     assert res["verified_pin"] is False
 
 
-@pytest.mark.asyncio
 async def test_verify_pin_invalid_pin(pin_supplier):
     """verify_pin with incorrect PIN returns invalid_pin and increments attempts."""
     session = CallSession(call_id="call-pin-02", tenant_id="t-pin")
@@ -71,7 +73,6 @@ async def test_verify_pin_invalid_pin(pin_supplier):
     assert session.pin_attempts == 1
 
 
-@pytest.mark.asyncio
 async def test_verify_pin_success(pin_supplier):
     """verify_pin with correct PIN sets session.pin_verified to True."""
     session = CallSession(call_id="call-pin-03", tenant_id="t-pin")
@@ -82,7 +83,6 @@ async def test_verify_pin_success(pin_supplier):
     assert session.pin_verified is True
 
 
-@pytest.mark.asyncio
 async def test_create_po_succeeds_after_pin_auth(pin_supplier):
     """create_po succeeds once session.pin_verified is True."""
     session = CallSession(call_id="call-pin-04", tenant_id="t-pin")
@@ -99,7 +99,6 @@ async def test_create_po_succeeds_after_pin_auth(pin_supplier):
     assert "order_id" in res_po
 
 
-@pytest.mark.asyncio
 async def test_verify_pin_max_attempts_lockout(pin_supplier):
     """Exceeding 3 failed PIN attempts locks out and escalates the session."""
     session = CallSession(call_id="call-pin-05", tenant_id="t-pin")
