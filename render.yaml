@@ -49,3 +49,9 @@ services:
       # until Day 29 canary verification and explicit operator activation.
       - key: DURABLE_CAMPAIGN_WORKER_ENABLED
         value: "false"
+      # Day 33: Dial callback code is deployed for fixture certification only.
+      # No webhook subscription or signing secret is configured in production.
+      - key: DIAL_CALLBACK_ADAPTER_ENABLED
+        value: "false"
+      - key: DIAL_CALLBACK_SANDBOX_MODE
+        value: "true"

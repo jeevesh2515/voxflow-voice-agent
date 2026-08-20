@@ -118,6 +118,18 @@ class Settings(BaseSettings):
     provider_callback_validate_signature: bool = True
     provider_callback_max_age_seconds: int = 300
 
+    # ----- Dial sandbox callback adapter (Day 33) -----
+    # This provider-specific adapter stays off until fixture certification and an
+    # explicit sandbox tenant allow-list are both in place. It is independent of
+    # the campaign-worker kill switch, which must remain false for Day 33.
+    dial_callback_adapter_enabled: bool = False
+    dial_callback_sandbox_mode: bool = True
+    dial_callback_allowed_tenants: str = ""
+    # Current and previous webhook secrets may be supplied comma-delimited for a
+    # short, deliberate signing-secret rotation overlap. Blank always fails closed.
+    dial_callback_signing_secrets: str = ""
+    dial_callback_max_age_seconds: int = 300
+
     # ----- Google Sheets (call-outcome log) -----
     # Paste the full service-account JSON as a single-line env var, OR set
     # google_service_account_file to a path on disk. JSON wins if both are set.

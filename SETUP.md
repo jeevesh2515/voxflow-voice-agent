@@ -65,6 +65,7 @@ migrations/003_durable_job_ledger.sql
 migrations/004_outbox_relay_state.sql
 migrations/005_campaign_policy_controls.sql
 migrations/006_provider_callback_lifecycle.sql
+migrations/007_dial_sandbox_callback_adapter.sql
 ```
 
 Run migrations through an approved PostgreSQL migration procedure. Do not run a campaign worker merely to validate migration success. Use API health, test suites, and safe job-health reads instead.
@@ -85,6 +86,11 @@ Render is the backend runtime because the API hosts HTTP routes, WebSocket/inbou
 | `PROVIDER_CALLBACK_VALIDATE_SIGNATURE` | Enables HMAC/timestamp verification for normalized callbacks | **Keep `true`.** |
 | `PROVIDER_CALLBACK_SHARED_SECRET` | Callback ingress HMAC secret | **Leave unset until a provider-specific Day 33 sandbox adapter is approved.** An unset secret fails closed. |
 | `PROVIDER_CALLBACK_MAX_AGE_SECONDS` | Maximum signed callback age | Retain the default `300` unless an approved provider contract requires another bounded value. |
+| `DIAL_CALLBACK_ADAPTER_ENABLED` | Day 33 Dial-specific ingress switch | **Keep `false` in production.** It returns 503 before body parsing or persistence. |
+| `DIAL_CALLBACK_SANDBOX_MODE` | Prevents non-sandbox adapter operation | **Keep `true`.** The endpoint requires this value even when deliberately enabled for fixtures. |
+| `DIAL_CALLBACK_ALLOWED_TENANTS` | Stored-operation tenant application allow-list | Keep empty. A verified adapter event cannot apply without a deliberate sandbox tenant admission. |
+| `DIAL_CALLBACK_SIGNING_SECRETS` | Current/previous Dial webhook HMAC secret overlap | **Leave unset.** Never place secrets in logs, documents, browser configuration, or version control. |
+| `DIAL_CALLBACK_MAX_AGE_SECONDS` | Dial webhook replay-age bound | Retain `300` unless a reviewed provider contract requires another bounded value. |
 
 After deployment, verify only safe endpoints:
 
@@ -93,9 +99,11 @@ curl -fsS https://voxflow-voice-agent.onrender.com/api/health
 curl -fsS 'https://voxflow-voice-agent.onrender.com/api/jobs/health?tenant_id=varun'
 curl -fsS 'https://voxflow-voice-agent.onrender.com/api/campaign-policies/varun'
 curl -sS -o /dev/null -w '%{http_code}\n' -X POST 'https://voxflow-voice-agent.onrender.com/api/provider-callbacks/events' -H 'Content-Type: application/json' -d '{}'
+curl -sS -o /dev/null -w '%{http_code}\n' -X POST 'https://voxflow-voice-agent.onrender.com/api/provider-callbacks/dial/events' -H 'Content-Type: application/json' -d '{}'
+curl -fsS 'https://voxflow-voice-agent.onrender.com/api/analytics/overview?tenant_id=varun&days=7'
 ```
 
-Expected Day 32 posture is `activation_mode: "staged"`, `canary_allowed: false`, `dry_run: true`, an unconfigured tenant policy, and a callback endpoint returning `503` when no callback secret is configured. The final check is intentionally malformed and confirms fail-closed transport behavior; it must never be replaced with a live provider callback during deployment verification.
+Expected Day 33 posture is `activation_mode: "staged"`, `canary_allowed: false`, `dry_run: true`, an unconfigured tenant policy, generic normalized callback ingress returning `503`, and Dial ingress returning `503 dial_callback_adapter_disabled` before body parsing. The analytics response must include `dial_sandbox_adapter` with `adapter_enabled=false`, `sandbox_mode=true`, and no tenant audit receipts in an untouched deployment. These checks are intentionally malformed/read-only; they must never be replaced with a live Dial callback, configured secret, or provider ping during deployment verification.
 
 ## 5. Vercel frontend deployment
 
@@ -114,9 +122,10 @@ curl -I https://voxflow-voice-agent.vercel.app/
 curl -I https://voxflow-voice-agent.vercel.app/about
 curl -I https://voxflow-voice-agent.vercel.app/pricing
 curl -I https://voxflow-voice-agent.vercel.app/dashboard/campaigns
+curl -I https://voxflow-voice-agent.vercel.app/dashboard/analytics
 ```
 
-Public routes should return `200`. A session-free dashboard request should redirect to `/sign-in`. In an authenticated browser, verify the campaign page renders **Safe Staging** and **No Inline Dialling**, then verify the analytics page renders the read-only **Provider Lifecycle** aggregate before ending the deployment check.
+Public routes should return `200`. A session-free dashboard request should redirect to `/sign-in`. In an authenticated browser, verify the campaign page renders **Safe Staging** and **No Inline Dialling**, then verify the analytics page renders the read-only **Provider Lifecycle** and **Dial Sandbox Adapter** panels. In the safe default deployment the adapter panel must display **STAGED**, **BLOCKED**, and zero audit/failure totals; it cannot expose a provider configuration or trigger an action.
 
 ## 6. Quality gate before a delivery
 

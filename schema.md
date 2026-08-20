@@ -2,7 +2,7 @@
 
 **Last updated:** 2026-08-20
 **Authoritative implementation:** `apps/api/voxflow_api/db.py` and the ordered SQL files in `migrations/`.
-**Purpose of this document:** Explain tenant boundaries, durable execution, policy controls, and Day 32 provider callback evidence. It is not a substitute for applying production migrations.
+**Purpose of this document:** Explain tenant boundaries, durable execution, policy controls, Day 32 provider callback evidence, and Day 33 provider-adapter audit evidence. It is not a substitute for applying production migrations.
 
 ## 1. Schema and migration authority
 
@@ -13,6 +13,7 @@ Local SQLite development/tests create the SQLAlchemy metadata. Production Postgr
 004_outbox_relay_state.sql
 005_campaign_policy_controls.sql
 006_provider_callback_lifecycle.sql
+007_dial_sandbox_callback_adapter.sql
 ```
 
 The initial tenant/core schema and prior feature migrations must already be present. Do not copy partial DDL from this document into a production database; use the migration files so indexes and constraints remain aligned with code.
@@ -53,6 +54,7 @@ Every operational, campaign, durable-job, provider-operation, and policy record 
 | `provider_operations` | Tenant, provider, operation type, idempotency key, request hash, provider ID, durable status | Owns the external provider side-effect boundary. |
 | `provider_events` | Tenant-derived operation reference, provider/event/call IDs, type, occurrence time, payload hash, redacted normalized facts, application/anomaly status | Immutable signed-callback history; unique `(provider, provider_event_id)` enforces delivery idempotency. |
 | `provider_callback_quarantines` | Provider event/call metadata, payload hash, reason, timestamps; intentionally no tenant ID | Safe record for a trusted callback that cannot resolve an existing provider operation. |
+| `provider_callback_adapter_audits` | Optional derived tenant, provider event ID/type, payload hash, verification/normalization/application dispositions, reason, timestamp; unique `(provider, provider_event_id, payload_hash)` | Redacted immutable receipt for the Day 33 provider-specific adapter. It records safe verification and rollout-gate outcomes without storing raw bodies, headers, signatures, secrets, phone numbers, or transcripts. |
 
 The durable job repository uses conditional state transitions that verify the current `running` state, lease owner, and unexpired lease. This prevents a stale worker from completing, cancelling, or retrying a job it no longer owns.
 
@@ -90,7 +92,20 @@ The durable job repository uses conditional state transitions that verify the cu
 
 A terminal callback may finalize the job associated with the durable provider operation even if that job is waiting in a callback-pending retry state. The transition is guarded by the stored operation identity, immutable event deduplication, and terminal-state checks; late callbacks cannot reopen a completed, cancelled, or dead-lettered job.
 
-## 7. Relationship map
+## 7. Day 33 adapter audit evidence
+
+`provider_callback_adapter_audits` is intentionally distinct from `provider_events`. It contains one provider-adapter receipt per event/payload-hash identity, whereas `provider_events` exists only when the generic Day 32 lifecycle service receives a normalized observation. A valid Dial event can therefore be audited as `blocked_tenant`, `acknowledged`, or `rejected` without any campaign, queue, job, capacity, or provider-operation mutation.
+
+| Field | Data-handling rule |
+|---|---|
+| `tenant_id` | Null until and unless the normalized callback resolves exactly one stored outbound operation. It is derived from storage, never callback input. |
+| `verification_status` | `verified` or `rejected`; used for tenant-safe monitoring only where a tenant was safely derived. |
+| `normalization_status` | `normalized`, `ignored`, `ping`, or `not_normalized`; never contains a raw provider payload. |
+| `application_status` | `applied`, `duplicate`, `blocked_tenant`, `acknowledged`, `rejected`, or a Day 32 lifecycle disposition. |
+| `payload_hash` | Cryptographic equality evidence only. It is not a recoverable callback body. |
+| `reason_code` | Bounded operational code such as `invalid_dial_signature` or `dial_callback_tenant_not_allowed`; no raw exception detail. |
+
+## 8. Relationship map
 
 ```mermaid
 erDiagram
@@ -99,6 +114,7 @@ erDiagram
     TENANTS ||--o{ JOB_RUNS : owns
     TENANTS ||--o{ PROVIDER_OPERATIONS : owns
     TENANTS ||--o{ PROVIDER_EVENTS : derived_ownership
+    TENANTS ||--o{ PROVIDER_CALLBACK_ADAPTER_AUDITS : derived_when_known
     TENANTS ||--|| TENANT_CAMPAIGN_POLICIES : configures
     TENANTS ||--o{ RECIPIENT_CAMPAIGN_PREFERENCES : owns
     TENANTS ||--o{ TENANT_DAILY_DISPATCH_USAGE : tracks
@@ -110,7 +126,7 @@ erDiagram
     CAMPAIGN_QUEUE ||--o{ CAMPAIGN_POLICY_DECISIONS : evaluated
 ```
 
-## 8. Data-handling requirements
+## 9. Data-handling requirements
 
 1. New operational tables must remain tenant scoped and have production migration coverage.
 2. Tenant policy/audit endpoint responses must redact raw evidence data unless a scoped administrator workflow explicitly needs it.
@@ -119,7 +135,9 @@ erDiagram
 5. Expensive or external work must occur after the durable state is committed and must reconcile back through tenant-owned records.
 6. Provider callbacks must validate freshness and a provider-specific signature before they are normalized or persisted; a missing secret must fail closed.
 7. Unknown provider IDs must quarantine without creating a tenant, campaign, queue, job, or provider operation.
-8. Schema changes that affect policy, consent, jobs, provider operations, or provider events require migration review, targeted tests, and a `schema.md` update.
+8. Provider-adapter audit rows must persist only hashes, bounded event metadata, and bounded dispositions; never raw bodies, signature headers, secrets, phone numbers, or transcript content.
+9. A provider-specific adapter must be explicitly enabled in sandbox mode, have a signing secret, and resolve an allow-listed stored-operation tenant before it may create a Day 32 lifecycle event.
+10. Schema changes that affect policy, consent, jobs, provider operations, or provider events require migration review, targeted tests, and a `schema.md` update.
 
 ## References
 
@@ -130,3 +148,4 @@ erDiagram
 - `migrations/004_outbox_relay_state.sql`
 - `migrations/005_campaign_policy_controls.sql`
 - `migrations/006_provider_callback_lifecycle.sql`
+- `migrations/007_dial_sandbox_callback_adapter.sql`

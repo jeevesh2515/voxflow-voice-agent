@@ -636,6 +636,40 @@ class ProviderCallbackQuarantine(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_utcnow)
 
 
+# ---------- Day 33 provider adapter sandbox certification ----------
+
+
+class ProviderCallbackAdapterAudit(Base):
+    """Redacted immutable receipt for provider-adapter verification and rollout decisions.
+
+    Raw callback bodies, signature values, telephone numbers, and secrets must
+    never be placed in this model. A tenant is populated only after a normalized
+    event maps to one existing stored provider operation.
+    """
+
+    __tablename__ = "provider_callback_adapter_audits"
+    __table_args__ = (
+        UniqueConstraint(
+            "provider", "provider_event_id", "payload_hash",
+            name="uq_provider_callback_adapter_audit_event_payload",
+        ),
+        Index("ix_provider_callback_adapter_audit_tenant_created", "tenant_id", "created_at"),
+        Index("ix_provider_callback_adapter_audit_provider_created", "provider", "created_at"),
+    )
+
+    id: Mapped[str] = mapped_column(String(64), primary_key=True)
+    tenant_id: Mapped[str | None] = mapped_column(String(64), ForeignKey("tenants.id"), nullable=True, index=True)
+    provider: Mapped[str] = mapped_column(String(64), index=True)
+    provider_event_id: Mapped[str] = mapped_column(String(128))
+    provider_event_type: Mapped[str | None] = mapped_column(String(128), nullable=True, index=True)
+    payload_hash: Mapped[str] = mapped_column(String(128))
+    verification_status: Mapped[str] = mapped_column(String(32), index=True)
+    normalization_status: Mapped[str] = mapped_column(String(32), index=True)
+    application_status: Mapped[str] = mapped_column(String(32), index=True)
+    reason_code: Mapped[str | None] = mapped_column(String(128), nullable=True, index=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_utcnow)
+
+
 # ---------- Helpers ----------
 
 

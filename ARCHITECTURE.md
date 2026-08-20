@@ -1,7 +1,7 @@
 # VoxFlow Architecture
 
 **Last updated:** 2026-08-20
-**Current milestone:** Day 32 — provider lifecycle and idempotent callback reconciliation complete.
+**Current milestone:** Day 33 — Dial sandbox callback adapter certification and controlled rollout gate complete.
 **Operating mode:** Inbound voice and dashboard functions are deployed. Campaign dispatch is implemented but globally safe-staged in production.
 
 ## 1. System boundaries
@@ -20,8 +20,9 @@ flowchart TB
     Worker --> Gate[Campaign policy gate]
     Gate --> Audit[CampaignPolicyDecision]
     Gate --> ProviderOp[ProviderOperation]
-    ProviderOp --> Dial[Dial provider adapter]
-    Dial --> Callback[Signed provider callback adapter]
+    ProviderOp --> Dial[Dial outbound client]
+    Dial --> Callback[Dial sandbox adapter\nraw-body HMAC + normalizer + tenant gate]
+    Callback --> Audit[Redacted adapter-audit ledger]
     Callback --> Events[Immutable ProviderEvent ledger]
     Events --> Recon[Idempotent reconciliation or quarantine]
     Recon --> DB
@@ -33,7 +34,8 @@ flowchart TB
 | Command/control plane | FastAPI routes | Validate and persist tenant-scoped intent; do not create an outbound provider side effect inline. |
 | Durable execution | `WorkerRuntime` | Claim only leased jobs, use conditional transitions, retry only typed transient errors. |
 | Provider side effect | `ProviderOperation` | One idempotency key owns one provider request; retries reconcile rather than re-dial. |
-| Provider callback | `provider_callbacks.py` + `provider_events.py` | Verify timestamp/signature, derive tenant from stored operation, deduplicate immutable events, and quarantine unknown IDs. |
+| Normalized provider callback | `provider_callbacks.py` + `provider_events.py` | Verify generic timestamp/signature, derive tenant from stored operation, deduplicate immutable events, and quarantine unknown IDs. |
+| Dial sandbox callback | `dial_callbacks.py` + `integrations/dial_callbacks.py` | Fail closed unless sandbox adapter/secret/allow-list are explicit; verify Dial raw-body HMAC, normalize documented outbound call events, audit safely, then hand off to Day 32. |
 | Campaign permission | `campaign_policy.py` | Fail closed before provider intent: policy, consent, opt-out, timing, budget, and capacity. |
 | Operator visibility | Job health and campaign dashboard | Show tenant-owned counts and redacted audit/read models only. |
 
@@ -49,7 +51,7 @@ flowchart TB
 
 ### Durable job subsystem
 
-The Day 25–32 subsystem lives in `apps/api/voxflow_api/jobs/`.
+The Day 25–33 subsystem lives in `apps/api/voxflow_api/jobs/`.
 
 | Component | Responsibility |
 |---|---|
@@ -62,6 +64,7 @@ The Day 25–32 subsystem lives in `apps/api/voxflow_api/jobs/`.
 | `provider_operations.py` | Durable idempotency reservation and provider operation updates. |
 | `reconciliation.py` | Applies provider terminal outcomes back to job/campaign state. |
 | `provider_events.py` | Applies already-authenticated provider events, preserves event history, prevents terminal regression, and quarantines unknown provider call IDs. |
+| `provider_adapter_audits.py` | Stores redacted, idempotent verification/normalization/rollout receipts for provider-specific adapters. |
 | `campaign_policy.py` | Tenant policy evaluation, consent/opt-out enforcement, reservations, and immutable audit records. |
 
 ## 3. Campaign dispatch lifecycle
@@ -112,7 +115,7 @@ Day 32 exposes `POST /api/provider-callbacks/events`, a normalized callback ingr
 | Late event after terminal operation | Retain a marked event but do not reopen queue/job/counters. |
 | Terminal success/failure | Reconcile queue/campaign/capacity and terminal durable job once. |
 
-The current Dial integration has no provider-specific callback registration or documented signature adapter in VoxFlow. Day 32 therefore provides a generic normalized contract and keeps live callback application unavailable by default. No raw provider callback payload, secret, transcript, phone number, or job payload is rendered in analytics.
+Day 33 adds the Dial-specific adapter at `POST /api/provider-callbacks/dial/events`, but it is deployed in a certification-only posture. It parses `X-Dial-Signature: t=<unix-seconds>,v1=<hex-hmac>`, verifies HMAC-SHA256 over `timestamp + "." + raw body`, accepts only a configured current/previous secret overlap, and bounds replay age. It maps only documented outbound `call.status_changed` and `call.ended` events into the Day 32 neutral lifecycle; signed `webhook.ping` is acknowledged without creating a business event. The route cannot apply an event unless `DIAL_CALLBACK_ADAPTER_ENABLED=true`, sandbox mode remains true, a secret exists, and the resolved tenant is explicitly allow-listed. No raw provider callback payload, signature, secret, transcript, phone number, or job payload is rendered in analytics or stored in the adapter audit ledger. [1] [2] [3]
 
 ## 5. Tenant policy and auditable cancellation
 
@@ -143,13 +146,14 @@ The core business schema remains tenant scoped. Durable dispatch adds the follow
 | `provider_operations` | Provider-side idempotency and reconciliation boundary. |
 | `provider_events` | Append-only signed callback evidence with provider-event idempotency and application/anomaly state. |
 | `provider_callback_quarantines` | Trusted-but-unmatched callback evidence that deliberately has no tenant link. |
+| `provider_callback_adapter_audits` | Redacted immutable Dial-adapter verification, normalization, and tenant-rollout receipts. |
 | `tenant_campaign_policies` | Tenant timezone, calling window, quota, capacity, and enablement. |
 | `recipient_campaign_preferences` | Consent, purpose, opt-out, and provenance per tenant/phone. |
 | `tenant_daily_dispatch_usage` | Tenant-local daily reservation and active-dispatch counters. |
 | `campaign_dispatch_reservations` | One capacity reservation per job with active/released/settled lifecycle. |
 | `campaign_policy_decisions` | Immutable Day 30 policy audit evidence. |
 
-Production migrations are ordered as `003_durable_job_ledger.sql`, `004_outbox_relay_state.sql`, `005_campaign_policy_controls.sql`, then `006_provider_callback_lifecycle.sql`.
+Production migrations are ordered as `003_durable_job_ledger.sql`, `004_outbox_relay_state.sql`, `005_campaign_policy_controls.sql`, `006_provider_callback_lifecycle.sql`, then `007_dial_sandbox_callback_adapter.sql`.
 
 ## 7. Production safety and rollout
 
@@ -159,6 +163,10 @@ The deployed backend remains in a non-executing campaign posture:
 DURABLE_CAMPAIGN_WORKER_ENABLED=false
 PROVIDER_CALLBACK_VALIDATE_SIGNATURE=true
 PROVIDER_CALLBACK_SHARED_SECRET=(intentionally unset)
+DIAL_CALLBACK_ADAPTER_ENABLED=false
+DIAL_CALLBACK_SANDBOX_MODE=true
+DIAL_CALLBACK_ALLOWED_TENANTS=(intentionally empty)
+DIAL_CALLBACK_SIGNING_SECRETS=(intentionally unset)
 activation_mode=staged
 canary_allowed=false
 dry_run=true
@@ -176,7 +184,7 @@ These settings are a deliberate layered control, not a missing feature. An inter
 | Frontend production build | `npm run build --workspace=apps/web` |
 | Live job posture | `GET /api/jobs/health?tenant_id=varun` |
 
-At the Day 32 local delivery point, the backend suite has **188 passing tests** and GitHub CI validates API lint, API test, and web lint/build on every `main` delivery.
+At the Day 33 local delivery point, the backend suite has **195 passing tests** and GitHub CI validates API lint, API test, and web lint/build on every `main` delivery.
 
 ## References
 
@@ -186,4 +194,11 @@ At the Day 32 local delivery point, the backend suite has **188 passing tests** 
 - `migrations/004_outbox_relay_state.sql`
 - `migrations/005_campaign_policy_controls.sql`
 - `migrations/006_provider_callback_lifecycle.sql`
-- `apps/web/src/app/dashboard/campaigns/page.tsx`
+- `migrations/007_dial_sandbox_callback_adapter.sql`
+- `apps/api/voxflow_api/integrations/dial_callbacks.py`
+- `apps/api/voxflow_api/routes/dial_callbacks.py`
+- `apps/web/src/app/dashboard/analytics/page.tsx`
+
+[1] [Dial Webhooks](https://docs.getdial.ai/documentation/platform/webhooks.md)
+[2] [Dial `call.status_changed`](https://docs.getdial.ai/api-reference/events/call-status-changed.md)
+[3] [Dial `call.ended`](https://docs.getdial.ai/api-reference/events/call-ended.md)
