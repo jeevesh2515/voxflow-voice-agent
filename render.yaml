@@ -49,6 +49,12 @@ services:
       # until Day 29 canary verification and explicit operator activation.
       - key: DURABLE_CAMPAIGN_WORKER_ENABLED
         value: "false"
+      # Day 35: all pilot target admission remains fail-closed without a
+      # separately reviewed tenant-specific operating approval and allow-list.
+      - key: PILOT_READINESS_ENFORCED
+        value: "true"
+      - key: PILOT_READINESS_APPROVED_TENANTS
+        value: ""
       # Day 34: typed operational side-effect jobs are deployed but their worker
       # remains independently disabled and dry-run protected. No integration
       # request can originate from the Render API service.

@@ -2,7 +2,7 @@
 
 VoxFlow is a **Hindi-English voice operations platform** for supply-chain teams. It combines a FastAPI voice and operations backend with a Next.js dashboard for inbound support workflows, operational data, campaigns, escalations, and durable dispatch visibility.
 
-> **Current production posture:** campaign dispatch and operational side-effect workers are independently disabled. Outbound campaign dispatch is deliberately **safe-staged** and Day 34 external operations remain dry-run protected. No API request, browser verification, or dashboard action should place a real provider call, send a notification, post a CRM webhook, write Sheets, fetch Gmail, or retrieve a recording unless an explicitly approved future canary enables the correct worker and tenant controls.
+> **Current production posture:** campaign dispatch and operational side-effect workers are independently disabled. Day 35 pilot admission is additionally **fail-closed** with an empty tenant allow-list. No API request, browser verification, or dashboard action should place a real provider call, send a notification, post a CRM webhook, write Sheets, fetch Gmail, or retrieve a recording unless a separately approved future pilot enables the correct worker and tenant controls.
 
 | Area | Current implementation |
 |---|---|
@@ -10,12 +10,12 @@ VoxFlow is a **Hindi-English voice operations platform** for supply-chain teams.
 | Backend | FastAPI, Python 3.12, SQLAlchemy 2.0, SQLite for local tests and PostgreSQL-compatible production migrations. |
 | Voice | Twilio inbound webhook/media-stream path, Dial provider adapter for outbound capability, Hindi-English agent tooling. |
 | Durable execution | PostgreSQL-backed job ledger, transactional outbox, atomic claims, leases, retry/backoff, graceful drain, provider-operation idempotency, and redacted typed side-effect intents. |
-| Campaign safety | Feature gate, canary scoping, dry-run mode, tenant policy checks, consent/opt-out controls, capacity reservations, audit decisions, cancellation. |
+| Campaign safety | Feature gate, canary scoping, dry-run mode, tenant policy checks, consent/opt-out controls, capacity reservations, audit decisions, cancellation, and Day 35 fail-closed pilot cohort admission. |
 | Analytics and reporting | Tenant-safe KPI/trend aggregates, durable monitoring signals, provider-lifecycle totals, operator attention queue, and redacted CSV enterprise reports. |
 | Provider callbacks | Fail-closed normalized ingress plus a Dial-specific sandbox adapter: official-envelope HMAC verification, signed fixture normalization, redacted audit receipts, tenant rollout gate, immutable lifecycle reconciliation, and quarantine. |
 | Production | [Vercel dashboard](https://voxflow-voice-agent.vercel.app) and [Render API](https://voxflow-voice-agent.onrender.com/api/health). |
 
-## What is complete through Day 34
+## What is complete through Day 35
 
 VoxFlow has completed the durable-campaign foundation and policy-control program. Campaign targets are queued as durable jobs rather than called from the HTTP request path. The worker implementation protects provider side effects with a tenant-scoped idempotency key and reconciles provider terminal results without a blind re-dial.
 
@@ -29,6 +29,8 @@ Day 33 isolates Dial’s documented webhook protocol at the integration edge. `P
 
 Day 34 removes API-process ownership of operational side effects. Sheets mirrors, email scans, CRM webhooks, notifications, generic worksheet writes, and recording follow-up now persist a tenant-scoped `SideEffectIntent`, `JobRun`, and `JobOutbox` atomically. A separately deployed side-effect worker is disabled by default, requires an explicit tenant allow-list, and records a dry-run result instead of external IO. The dashboard exposes aggregate-only durable side-effect health; direct agent Twilio/Dial calls and fire-and-forget CRM dispatch are blocked.
 
+Day 35 adds a controlled-pilot readiness contract without an activation control. An eligible future target must pass the ordinary tenant policy and a second independent gate: an environment-approved tenant, an approved/unexpired pilot configuration, a reviewed hashed cohort, named primary and backup escalation owners, micro-cohort capacity, and a frozen metric-contract version. The read-only scorecard reports the exact completion, escalation, FCR, and confirmed-security-incident definitions; the database-only rollback drill cannot run while the worker is active or a pilot claim is live. The real pilot remains intentionally blocked until a human-owned one-tenant operating package is signed.
+
 | Day | Delivered capability | Primary evidence |
 |---:|---|---|
 | 25 | Durable job ledger, outbox, attempts, and provider operations | Migration `003_durable_job_ledger.sql` |
@@ -41,6 +43,7 @@ Day 34 removes API-process ownership of operational side effects. Sheets mirrors
 | 32 | Signed callback ingress, immutable provider events, quarantine, idempotent terminal reconciliation, lifecycle analytics | `tests/test_provider_callbacks.py` and migration `006_provider_callback_lifecycle.sql` |
 | 33 | Dial sandbox adapter, raw-body HMAC verification, secret-rotation overlap, outbound-event normalization, redacted audit ledger, tenant rollout gate, and analytics visibility | `tests/test_dial_callback_adapter.py`, `tests/test_analytics.py`, and migration `007_dial_sandbox_callback_adapter.sql` |
 | 34 | Typed side-effect intents/jobs for Sheets, email scans, CRM sync, notifications, worksheet writes, and recording retrieval; separate gated worker; no direct dispatch; analytics/operator panel | `tests/test_side_effect_jobs.py`, `tests/test_analytics.py`, and migration `008_typed_durable_side_effect_jobs.sql` |
+| 35 | Fail-closed pilot admission, hashed fixed cohort, expiry/capacity/escalation contract, frozen scorecard, read-only readiness APIs, dashboard evidence panel, and database-only rollback drill | `tests/test_pilot_readiness.py`, migration `009_controlled_pilot_readiness.sql`, and `railway.json` |
 
 ## Production safety controls
 
@@ -59,6 +62,7 @@ The following controls are intentional and must remain in place until a formal p
 | `DURABLE_SIDE_EFFECTS_WORKER_ENABLED=false` | Independent hard stop for Sheets, email, CRM, notification, and recording job execution. |
 | `DURABLE_SIDE_EFFECTS_DRY_RUN=true` | A future admitted side-effect worker records dry-run evidence rather than external integration IO. |
 | Empty `DURABLE_SIDE_EFFECTS_ALLOWED_TENANTS` | No tenant is eligible for operational-side-effect worker claims. |
+| `PILOT_READINESS_ENFORCED=true` plus empty `PILOT_READINESS_APPROVED_TENANTS` | The Day 35 target-admission gate denies every tenant until a written pilot approval is independently reflected in a future environment change. |
 
 An approved live canary needs all of the following: one explicitly allowed tenant, a tenant policy with a valid IANA timezone and local calling window, a recorded consented E.164 test recipient, no opt-out, capacity and daily limit of one, dry-run evidence, an operator owner, and a rollback plan.
 
@@ -140,6 +144,7 @@ migrations/005_campaign_policy_controls.sql
 migrations/006_provider_callback_lifecycle.sql
 migrations/007_dial_sandbox_callback_adapter.sql
 migrations/008_typed_durable_side_effect_jobs.sql
+migrations/009_controlled_pilot_readiness.sql
 ```
 
 Do not enable the campaign worker as a migration smoke test. The policy and worker test suites use mocked providers and must remain the default verification path.
@@ -160,7 +165,7 @@ npm run lint --workspace=apps/web
 npm run build --workspace=apps/web
 ```
 
-At the Day 34 local delivery point, the backend suite has **204 passing tests**, API lint is clean, and the frontend production build generates **20 routes**. The GitHub CI workflow runs API lint, API tests, and web lint/build on `main`.
+At the Day 35 local delivery point, the backend suite has **215 passing tests**, API lint is clean, and the frontend production build generates **20 routes**. The GitHub CI workflow runs API lint, API tests, and web lint/build on `main`.
 
 ## Deployment
 
@@ -172,8 +177,9 @@ At the Day 34 local delivery point, the backend suite has **204 passing tests**,
 | Analytics overview | Render | <https://voxflow-voice-agent.onrender.com/api/analytics/overview?tenant_id=varun&days=30> |
 | Normalized provider callbacks | Render | `<POST /api/provider-callbacks/events>`; intentionally returns `503` until its normalized callback secret is configured. |
 | Dial sandbox callbacks | Render | `<POST /api/provider-callbacks/dial/events>`; intentionally returns `503` while `DIAL_CALLBACK_ADAPTER_ENABLED=false`. |
+| Pilot readiness | Temporary backend after provisioning | `GET /api/pilot-readiness/varun`; read-only scorecard, intentionally blocked until human-owned evidence exists. |
 
-The frontend uses `NEXT_PUBLIC_API_URL=https://voxflow-voice-agent.onrender.com`. Analytics, callback evidence, and the Day 34 side-effect panel are read-only with respect to activation: a callback can reconcile only a pre-existing provider operation and cannot create a dial, while a side-effect intent cannot execute without its separately gated worker. The backend must retain both staged worker configurations until a formal controlled-pilot approval after Day 35 readiness gates.
+The frontend currently uses `NEXT_PUBLIC_API_URL=https://voxflow-voice-agent.onrender.com`. While the documented Render outage persists, `railway.json` permits a reversible GitHub/Docker temporary backend. Only after safe HTTPS health/API verification should `NEXT_PUBLIC_API_URL` be changed to that temporary origin. Analytics, callback evidence, Day 34 side-effect health, and Day 35 pilot readiness are read-only with respect to activation: no dashboard panel can create a dial or execute an integration. The backend must retain all staged worker controls and empty allow-lists until the separate human go/no-go approval.
 
 ## Documentation map
 

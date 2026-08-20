@@ -1,12 +1,12 @@
 # VoxFlow Security and Safety Audit
 
 **Last updated:** 2026-08-20
-**Scope:** Current repository controls through Day 34.
+**Scope:** Current repository controls through Day 35.
 **Status:** Inbound/dashboard deployment is operational; outbound campaign execution and operational side-effect execution are intentionally safe-staged and are **not approved for general live activation**.
 
 ## 1. Security posture summary
 
-VoxFlow applies layered controls to tenant-aware voice and campaign operations. Traditional authentication, tenant scoping, signed inbound telephony handling, secret isolation, and rate controls protect the existing application surface. Days 25–30 add a distinct safety layer for outbound side effects: durable intent, leases, provider-operation idempotency, global worker gating, tenant policy, recipient permission, quota/capacity controls, and immutable policy evidence. Day 32 adds a fail-closed signed callback ingress, immutable provider-event evidence, terminal-state guards, and unknown-call quarantine. Day 34 extends the durable boundary to application-side Sheets, email, CRM, notification, worksheet, and recording work through typed intent rows and a separately gated worker.
+VoxFlow applies layered controls to tenant-aware voice and campaign operations. Traditional authentication, tenant scoping, signed inbound telephony handling, secret isolation, and rate controls protect the existing application surface. Days 25–30 add a distinct safety layer for outbound side effects: durable intent, leases, provider-operation idempotency, global worker gating, tenant policy, recipient permission, quota/capacity controls, and immutable policy evidence. Day 32 adds a fail-closed signed callback ingress, immutable provider-event evidence, terminal-state guards, and unknown-call quarantine. Day 34 extends the durable boundary to application-side Sheets, email, CRM, notification, worksheet, and recording work through typed intent rows and a separately gated worker. Day 35 adds an independent fail-closed pilot admission boundary, hash-only cohort evidence, frozen success metrics, read-only readiness visibility, and a database-only rollback drill that refuses live worker/lease conditions.
 
 > The absence of a global worker enablement, tenant policy, recipient consent, or approved canary is a deliberate prohibition on outbound provider action—not a degraded mode that can fall open.
 
@@ -48,6 +48,10 @@ VoxFlow applies layered controls to tenant-aware voice and campaign operations. 
 | Side-effect dry-run | Enforced in production | `DURABLE_SIDE_EFFECTS_DRY_RUN=true`; an admitted future worker records dry-run evidence instead of integration IO. |
 | Side-effect tenant admission | Enforced in production | Empty `DURABLE_SIDE_EFFECTS_ALLOWED_TENANTS` prevents any tenant worker claim. |
 | Side-effect result redaction | Implemented | Intent rows store trusted aggregate references, hashes, bounded status/result codes, and no raw messages, recordings, callback bodies, signatures, or credentials. |
+| Pilot gate | Enforced by default | `PILOT_READINESS_ENFORCED=true` denies a target unless a separately approved tenant, valid written pilot record, complete hashed cohort, coverage, expiry, and micro-capacity conditions all hold. |
+| Pilot cohort minimisation | Implemented | Cohort ledger stores SHA-256 recipient hashes and consent-evidence references, not raw E.164 values. |
+| Pilot scorecard API | Read-only | No HTTP route can approve a pilot, enable a worker, add a cohort member, execute rollback, or contact a supplier. |
+| Rollback drill guard | Implemented | Database-only cancellation refuses while the worker is enabled or any pilot job has an active lease; it emits no provider request. |
 
 ## 4. Input and data controls
 
@@ -59,6 +63,8 @@ VoxFlow applies layered controls to tenant-aware voice and campaign operations. 
 | Policy audit read | Redacted operator response | Raw evidence JSON is not returned by the campaign policy-decision endpoint. |
 | Provider callbacks | Signature/timestamp, payload bounds, typed normalized fields, and event-ID deduplication | Raw callback payload is not persisted; secret and provider-specific verification remain configuration/adapter concerns. |
 | Durable side-effect intent | Typed allow-list, trusted aggregate ID, tenant idempotency, payload hash, bounded outcome code | Raw email/message/body, phone number, recording bytes, CRM webhook payload, signature, and provider secret are excluded from the intent/job ledger and analytics export. |
+| Pilot cohort member | Tenant/cohort-scoped SHA-256 recipient hash plus bounded consent evidence reference | Raw E.164 data is never returned from pilot readiness endpoints or dashboard panels. |
+| Pilot configuration | Bounded names/roles, capacity, expiry, metric version, cohort count | No escalation contact channel, provider secret, recipient number, or activation control is stored or returned. |
 | SQL | SQLAlchemy parameterized queries | Raw interpolated SQL is prohibited. |
 
 ## 5. Secrets and deployment configuration
@@ -73,6 +79,7 @@ VoxFlow applies layered controls to tenant-aware voice and campaign operations. 
 | Canary tenant list remains empty/unapproved | Required until approved canary. |
 | Render side-effect worker flag remains false | Required until the Day 35 controlled-pilot approval. |
 | Side-effect dry-run remains true and allow-list empty | Required until a tenant-specific operational authorization has passed every preflight gate. |
+| Pilot admission remains enforced with empty tenant list | Required until the signed, one-tenant operating package is independently reviewed and deployed. |
 | Learning journals contain no credentials | Required; `.learning/` is local and gitignored. |
 
 ## 6. Network and browser boundary
@@ -92,8 +99,8 @@ VoxFlow applies layered controls to tenant-aware voice and campaign operations. 
 |---|---|---|
 | Provider-specific callback adapter certification | **Day 33 local implementation complete.** An uncontrolled live subscription would still risk an unintended callback rollout. | Keep `DIAL_CALLBACK_ADAPTER_ENABLED=false` in production. The Dial adapter now verifies raw-body HMAC/freshness, normalizes outbound events only, audits redacted dispositions, and requires a stored-operation tenant allow-list before application. |
 | RBAC for policy/replay/config mutation | Broad access could alter policy or worker configuration. | Add platform/tenant admin/operator/read-only authorization matrix. |
-| Callback and side-effect alert routing/runbooks | Day 34 adds tenant-safe side-effect error/staged aggregates, but external alert routing, named incident owners, and formal drills are not yet implemented. | Day 35 must define the pilot roster, scorecard, callback/side-effect alert owners, response windows, and rollback drill. |
-| Controlled-pilot authorization | Live provider and integration behavior is intentionally not verified. | Day 35 must require one approved tenant, fixed consented cohort, explicit operating hours, human escalation coverage, metric definitions, and a written go/no-go decision before a micro-cohort can be authorized. |
+| Callback and side-effect alert routing/runbooks | Day 35 exposes readiness evidence and frozen scorecards but cannot invent real alert recipients or operate external alert delivery. | Obtain named callback/side-effect alert owners and response windows in the signed tenant package before any future activation. |
+| Controlled-pilot authorization | Day 35 code is complete but no real human approval, cohort, or provider/integration behavior is deployed. | Obtain one approved tenant, consent evidence processed into a fixed hash cohort, explicit hours/expiry, named escalation coverage, metric approval, and a written go/no-go decision before a micro-cohort can be authorized. |
 | Full security-header coverage | API response headers are not yet uniformly hardened. | Add/test a FastAPI security-header policy in later hardening work. |
 
 ## 8. Verification commands
@@ -116,12 +123,14 @@ curl -fsS https://voxflow-voice-agent.onrender.com/api/campaign-policies/varun
 curl -sS -o /dev/null -w '%{http_code}\n' -X POST https://voxflow-voice-agent.onrender.com/api/provider-callbacks/events -H 'Content-Type: application/json' -d '{}'
 curl -sS -o /dev/null -w '%{http_code}\n' -X POST https://voxflow-voice-agent.onrender.com/api/provider-callbacks/dial/events -H 'Content-Type: application/json' -d '{}'
 curl -fsS 'https://voxflow-voice-agent.onrender.com/api/analytics/overview?tenant_id=varun&days=7'
+curl -fsS 'https://voxflow-voice-agent.onrender.com/api/pilot-readiness/varun'
+curl -fsS 'https://voxflow-voice-agent.onrender.com/api/pilot-readiness/varun/rollback-preview'
 # Confirm the delivered aggregate includes durable_side_effects with staged mode;
 # do not invoke an endpoint that creates a side-effect intent or external request.
 curl -I https://voxflow-voice-agent.vercel.app/dashboard/analytics
 ```
 
-Expected Day 34 live result is staged rollout with the campaign worker and side-effect worker disabled, normalized callback ingress returning `503` while its secret is intentionally absent, and Dial sandbox ingress returning `503 dial_callback_adapter_disabled` before body parsing. The analytics response should include `dial_sandbox_adapter` and `durable_side_effects`, with `activation_mode=staged`, dry-run true, no admitted tenant, and zero intent/error counts in an untouched deployment. Do not treat a passing dashboard load, job-health read, analytics response, or callback rejection as authorization to enable outbound dispatch, configure a Dial secret, fire a provider ping, register a live provider callback URL, send an integration request, or create a live side-effect intent.
+Expected Day 35 live result is staged rollout with campaign and side-effect workers disabled, empty pilot/worker/adapter allow-lists, normalized callback ingress returning `503` while its secret is intentionally absent, and Dial sandbox ingress returning `503 dial_callback_adapter_disabled` before body parsing. Analytics should include `dial_sandbox_adapter` and `durable_side_effects`; pilot readiness should return a **blocked** scorecard with no configuration until a human-owned package exists. Do not treat a passing dashboard load, job-health read, analytics response, pilot scorecard, or callback rejection as authorization to enable outbound dispatch, configure a Dial secret, fire a provider ping, register a live callback URL, send an integration request, or create a live side-effect intent.
 
 ## References
 
@@ -133,6 +142,8 @@ Expected Day 34 live result is staged rollout with the campaign worker and side-
 - `migrations/006_provider_callback_lifecycle.sql`
 - `migrations/007_dial_sandbox_callback_adapter.sql`
 - `migrations/008_typed_durable_side_effect_jobs.sql`
+- `migrations/009_controlled_pilot_readiness.sql`
+- `apps/api/voxflow_api/pilot_readiness.py`
 - `apps/api/voxflow_api/jobs/side_effects.py`
 - `apps/api/voxflow_api/jobs/side_effect_worker_service.py`
 - `apps/api/voxflow_api/integrations/dial_callbacks.py`

@@ -415,6 +415,84 @@ class TenantCampaignPolicy(Base):
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_utcnow, onupdate=_utcnow)
 
 
+# ---------- Day 35 controlled pilot readiness ----------
+
+
+class PilotConfiguration(Base):
+    """Versioned, tenant-scoped readiness contract for one controlled pilot.
+
+    It deliberately stores no recipient phone numbers or escalation contact
+    channels. Those remain in the consent and external staff systems. A row is
+    only *eligible* when it is approved, unexpired, covered by the environment
+    allow-list, and has a reviewed redacted cohort ledger.
+    """
+
+    __tablename__ = "pilot_configurations"
+
+    tenant_id: Mapped[str] = mapped_column(String(64), ForeignKey("tenants.id"), primary_key=True)
+    pilot_id: Mapped[str] = mapped_column(String(96), unique=True, index=True)
+    version: Mapped[int] = mapped_column(Integer, default=1)
+    status: Mapped[str] = mapped_column(String(32), default="draft", index=True)  # draft | approved | paused | expired | rolled_back
+    cohort_id: Mapped[str] = mapped_column(String(96), index=True)
+    cohort_size: Mapped[int] = mapped_column(Integer, default=0)
+    timezone_name: Mapped[str] = mapped_column(String(64), default="Asia/Kolkata")
+    calling_window_start: Mapped[str] = mapped_column(String(5), default="09:00")
+    calling_window_end: Mapped[str] = mapped_column(String(5), default="20:00")
+    daily_call_limit: Mapped[int] = mapped_column(Integer, default=1)
+    max_in_flight: Mapped[int] = mapped_column(Integer, default=1)
+    expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), index=True)
+    primary_escalation_owner: Mapped[str] = mapped_column(String(255), default="")
+    backup_escalation_owner: Mapped[str] = mapped_column(String(255), default="")
+    acknowledgement_timeout_minutes: Mapped[int] = mapped_column(Integer, default=15)
+    metric_contract_version: Mapped[str] = mapped_column(String(32), default="day35-v1")
+    approved_by: Mapped[str] = mapped_column(String(255), default="")
+    approved_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_utcnow)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_utcnow, onupdate=_utcnow)
+
+
+class PilotCohortMember(Base):
+    """One reviewed recipient admission represented only by a stable SHA-256 hash."""
+
+    __tablename__ = "pilot_cohort_members"
+    __table_args__ = (
+        UniqueConstraint("tenant_id", "cohort_id", "recipient_hash", name="uq_pilot_cohort_recipient"),
+        Index("ix_pilot_cohort_member_lookup", "tenant_id", "cohort_id", "status"),
+    )
+
+    id: Mapped[str] = mapped_column(String(64), primary_key=True)
+    tenant_id: Mapped[str] = mapped_column(String(64), ForeignKey("tenants.id"), index=True)
+    cohort_id: Mapped[str] = mapped_column(String(96), index=True)
+    recipient_hash: Mapped[str] = mapped_column(String(64), index=True)
+    consent_evidence_ref: Mapped[str] = mapped_column(String(128), default="")
+    status: Mapped[str] = mapped_column(String(32), default="approved", index=True)  # approved | withdrawn | excluded
+    added_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_utcnow)
+    reviewed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+
+
+class PilotSecurityIncident(Base):
+    """Tenant-scoped confirmed security finding for a pilot scorecard.
+
+    This ledger intentionally records classification and bounded summary only;
+    raw callback content, secrets, contact data, and access tokens never belong
+    in pilot reporting.
+    """
+
+    __tablename__ = "pilot_security_incidents"
+    __table_args__ = (Index("ix_pilot_security_incident_tenant_created", "tenant_id", "created_at"),)
+
+    id: Mapped[str] = mapped_column(String(64), primary_key=True)
+    tenant_id: Mapped[str] = mapped_column(String(64), ForeignKey("tenants.id"), index=True)
+    pilot_id: Mapped[str] = mapped_column(String(96), index=True)
+    category: Mapped[str] = mapped_column(String(96), index=True)
+    severity: Mapped[str] = mapped_column(String(32), default="medium", index=True)
+    status: Mapped[str] = mapped_column(String(32), default="confirmed", index=True)  # suspected | confirmed | resolved
+    summary: Mapped[str] = mapped_column(String(512), default="")
+    detected_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_utcnow)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_utcnow)
+    resolved_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+
+
 class RecipientCampaignPreference(Base):
     """Current recipient consent and opt-out state, isolated by tenant and phone."""
 

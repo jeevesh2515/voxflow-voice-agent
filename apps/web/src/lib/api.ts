@@ -1,6 +1,6 @@
 // Lightweight API client with multi-tenant filtering and auth.
 
-import type { AnalyticsOverview } from "./types";
+import type { AnalyticsOverview, PilotReadiness } from "./types";
 
 function getApiUrl(): string {
   if (typeof window !== "undefined") {
@@ -116,6 +116,7 @@ export const api = {
   analyticsOverview: (tenant_id: string, days: number = 30) =>
     http<AnalyticsOverview>(`/api/analytics/overview?tenant_id=${tenant_id}&days=${days}`),
   downloadAnalyticsReport,
+  pilotReadiness: (tenant_id: string) => http<PilotReadiness>(`/api/pilot-readiness/${tenant_id}`),
   mapPhone: (tenant_id: string, phone_number: string, label?: string) =>
     http<any>(`/api/admin/tenants/${tenant_id}/phone-numbers`, {
       method: "POST",

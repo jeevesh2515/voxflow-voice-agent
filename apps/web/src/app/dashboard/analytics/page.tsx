@@ -18,7 +18,7 @@ import {
 } from "lucide-react";
 import { api } from "@/lib/api";
 import { useTenant } from "@/lib/tenant-context";
-import type { AnalyticsOverview } from "@/lib/types";
+import type { AnalyticsOverview, PilotReadiness } from "@/lib/types";
 
 const PERIODS = [7, 30, 90] as const;
 
@@ -110,6 +110,12 @@ export default function AnalyticsPage() {
   const { data, error, isLoading, mutate } = useSWR(
     ["analytics-overview", activeTenantId, days],
     () => api.analyticsOverview(activeTenantId, days),
+    { refreshInterval: 30_000, revalidateOnFocus: true },
+  );
+
+  const { data: pilotReadiness, error: pilotError } = useSWR<PilotReadiness>(
+    ["pilot-readiness", activeTenantId],
+    () => api.pilotReadiness(activeTenantId),
     { refreshInterval: 30_000, revalidateOnFocus: true },
   );
 
@@ -282,6 +288,22 @@ export default function AnalyticsPage() {
                 <div className="rounded-xl border border-[#2c2c40] bg-[#181826] p-3"><p className="text-[10px] font-mono text-[#94a3b8]">ERRORS</p><p className={`mt-1 text-xl font-bold ${data.durable_side_effects.error_count ? "text-[#ffe04a]" : "text-[#00ffcc]"}`}>{data.durable_side_effects.error_count}</p></div>
               </div>
               <div className="mt-4 text-xs text-[#cbd5e1]">Pending: <span className="font-mono font-bold text-white">{data.durable_side_effects.pending_count}</span> · Tenant gate: <span className={`font-mono font-bold ${data.durable_side_effects.tenant_allowed ? "text-[#00ffcc]" : "text-[#ffe04a]"}`}>{data.durable_side_effects.tenant_allowed ? "ALLOWED" : "BLOCKED"}</span> · {data.durable_side_effects.dry_run ? "Dry-run protected" : "Execution gate required"}</div>
+            </div>
+
+            <div className="rounded-2xl border border-[#28283c] bg-[#141422] p-5">
+              <div className="flex items-center gap-2"><ShieldCheck size={18} className="text-[#00ffcc]" /><h3 className="font-headline text-sm font-bold text-white">Controlled Pilot Readiness</h3></div>
+              <p className="mt-2 text-xs text-[#94a3b8]">Read-only one-tenant readiness evidence. This panel cannot approve a pilot, activate a worker, or contact a supplier.</p>
+              {pilotError ? <p className="mt-4 text-xs text-[#ff9bbd]">Pilot scorecard could not be loaded.</p> : pilotReadiness ? (
+                <>
+                  <div className="mt-5 grid grid-cols-3 gap-3">
+                    <div className="rounded-xl border border-[#2c2c40] bg-[#181826] p-3"><p className="text-[10px] font-mono text-[#94a3b8]">STATE</p><p className={`mt-1 text-sm font-bold ${pilotReadiness.readiness.state === "ready_for_review" ? "text-[#00ffcc]" : "text-[#ffe04a]"}`}>{pilotReadiness.readiness.state === "ready_for_review" ? "REVIEW" : "BLOCKED"}</p></div>
+                    <div className="rounded-xl border border-[#2c2c40] bg-[#181826] p-3"><p className="text-[10px] font-mono text-[#94a3b8]">COHORT</p><p className="mt-1 text-xl font-bold text-white">{pilotReadiness.pilot?.approved_member_count || 0}/{pilotReadiness.pilot?.cohort_size || 0}</p></div>
+                    <div className="rounded-xl border border-[#2c2c40] bg-[#181826] p-3"><p className="text-[10px] font-mono text-[#94a3b8]">ROLLBACK</p><p className="mt-1 text-xl font-bold text-white">{pilotReadiness.rollback.would_cancel_job_count || 0}</p></div>
+                  </div>
+                  <div className="mt-4 text-xs text-[#cbd5e1]">Completion: <span className="font-mono font-bold text-white">{((pilotReadiness.metrics.successful_call_completion?.rate || 0) * 100).toFixed(1)}%</span> · Escalation: <span className="font-mono font-bold text-white">{((pilotReadiness.metrics.escalation_rate?.rate || 0) * 100).toFixed(1)}%</span> · FCR: <span className="font-mono font-bold text-white">{((pilotReadiness.metrics.first_call_resolution?.rate || 0) * 100).toFixed(1)}%</span> · Confirmed incidents: <span className={`font-mono font-bold ${(pilotReadiness.metrics.security_incidents?.confirmed_count || 0) ? "text-[#ff2d78]" : "text-[#00ffcc]"}`}>{pilotReadiness.metrics.security_incidents?.confirmed_count || 0}</span></div>
+                  <div className="mt-3 text-[11px] text-[#94a3b8]">{pilotReadiness.readiness.blocking_reasons.length ? pilotReadiness.readiness.blocking_reasons.map(titleCase).join(" · ") : "All persisted controls are ready for an authorized human review."}</div>
+                </>
+              ) : <p className="mt-4 text-xs text-[#64748b]">Loading pilot scorecard…</p>}
             </div>
           </section>
 
