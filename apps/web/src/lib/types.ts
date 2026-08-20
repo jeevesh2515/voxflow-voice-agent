@@ -141,6 +141,77 @@ export interface JobHealth {
   };
 }
 
+export interface AnalyticsAlert {
+  level: "info" | "warning" | "critical";
+  code: string;
+  message: string;
+}
+
+export interface AnalyticsTrendPoint {
+  date: string;
+  calls: number;
+  resolved: number;
+  escalated: number;
+  duration_sec: number;
+}
+
+export interface AnalyticsOverview {
+  tenant: {
+    id: string;
+    name: string;
+    plan: string;
+  };
+  period: {
+    days: number;
+    from: string;
+    to: string;
+    generated_at: string;
+  };
+  kpis: {
+    total_calls: number;
+    resolved_calls: number;
+    resolution_rate: number;
+    escalated_calls: number;
+    escalation_rate: number;
+    open_follow_ups: number;
+    verified_call_rate: number;
+    average_handle_time_sec: number;
+    total_duration_sec: number;
+    total_minutes: number;
+  };
+  trends: AnalyticsTrendPoint[];
+  distribution: {
+    intents: Record<string, number>;
+    outcomes: Record<string, number>;
+    satisfaction: Record<string, number>;
+    languages: Record<string, number>;
+  };
+  campaigns: {
+    total_campaigns: number;
+    status_counts: Record<string, number>;
+    target_status_counts: Record<string, number>;
+    policy_decision_counts: Record<string, number>;
+    policy_reason_counts: Record<string, number>;
+  };
+  monitoring: {
+    state: "healthy" | "attention" | "critical";
+    alerts: AnalyticsAlert[];
+    job_status_counts: Record<string, number>;
+    active_jobs: number;
+    expired_leases: number;
+    dead_lettered_jobs: number;
+    jobs_with_error_evidence: number;
+    oldest_ready_age_sec: number | null;
+    unpublished_outbox: number;
+    oldest_outbox_age_sec: number | null;
+    rollout: {
+      activation_mode: "staged" | "dry_run" | "canary";
+      canary_allowed: boolean;
+      dry_run: boolean;
+    };
+  };
+}
+
 export interface JobSummary {
   id: string;
   job_type: string;

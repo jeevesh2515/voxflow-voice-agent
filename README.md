@@ -11,13 +11,16 @@ VoxFlow is a **Hindi-English voice operations platform** for supply-chain teams.
 | Voice | Twilio inbound webhook/media-stream path, Dial provider adapter for outbound capability, Hindi-English agent tooling. |
 | Durable execution | PostgreSQL-backed job ledger, transactional outbox, atomic claims, leases, retry/backoff, graceful drain, provider-operation idempotency. |
 | Campaign safety | Feature gate, canary scoping, dry-run mode, tenant policy checks, consent/opt-out controls, capacity reservations, audit decisions, cancellation. |
+| Analytics and reporting | Tenant-safe KPI/trend aggregates, durable monitoring signals, operator attention queue, and redacted CSV enterprise reports. |
 | Production | [Vercel dashboard](https://voxflow-voice-agent.vercel.app) and [Render API](https://voxflow-voice-agent.onrender.com/api/health). |
 
-## What is complete through Day 30
+## What is complete through Day 31
 
 VoxFlow has completed the durable-campaign foundation and policy-control program. Campaign targets are queued as durable jobs rather than called from the HTTP request path. The worker implementation protects provider side effects with a tenant-scoped idempotency key and reconciles provider terminal results without a blind re-dial.
 
 Day 30 adds an explicit permission boundary before a provider operation may be reserved. The handler requires an enabled tenant policy, an active campaign, recorded recipient consent, no opt-out, an allowed consent purpose, an open tenant-local calling window, daily budget, and available tenant capacity. A denied target is terminally **cancelled** with immutable audit evidence. A temporarily ineligible target is **deferred** to the exact next eligible time.
+
+Day 31 turns persisted calls, campaign targets, policy decisions, jobs, leases, and outbox state into a tenant-safe analytics read model. The dashboard presents real KPIs, daily trends, durable-work attention signals, staged rollout status, and a CSV report that excludes transcripts, phone numbers, raw job payloads, and policy evidence.
 
 | Day | Delivered capability | Primary evidence |
 |---:|---|---|
@@ -27,6 +30,7 @@ Day 30 adds an explicit permission boundary before a provider operation may be r
 | 28 | Transactional outbox relay, job-health APIs, operator panel, safe staging | Migration `004_outbox_relay_state.sql` |
 | 29 | Controlled canary worker, dry run, no-redial provider reconciliation | Campaign-dispatch integration tests |
 | 30 | Tenant policy, consent, opt-out, budget/capacity controls, auditable cancellation | Migration `005_campaign_policy_controls.sql` |
+| 31 | Advanced analytics, pull-based monitoring, operator attention queue, redacted enterprise CSV reporting | `tests/test_analytics.py` and `/api/analytics` |
 
 ## Production safety controls
 
@@ -58,6 +62,8 @@ flowchart LR
     D --> R[Provider reconciliation]
     R --> DB
     API --> T[Twilio inbound media streams]
+    DB --> AN[Analytics and report read model]
+    AN --> UI
 ```
 
 The HTTP API persists intent quickly. A durable worker—not an HTTP handler—owns campaign execution. The policy evaluator runs before provider intent reservation, and provider callbacks/reconciliation update the same durable operation rather than creating a second call.
@@ -132,7 +138,7 @@ npm run lint --workspace=apps/web
 npm run build --workspace=apps/web
 ```
 
-At the Day 30 delivery point, the backend suite has **182 passing tests** and the frontend production build generates **20 routes**. The GitHub CI workflow runs API lint, API tests, and web lint/build on `main`.
+At the Day 31 delivery point, the backend suite has **184 passing tests** and the frontend production build generates **20 routes**. The GitHub CI workflow runs API lint, API tests, and web lint/build on `main`.
 
 ## Deployment
 
@@ -141,8 +147,9 @@ At the Day 30 delivery point, the backend suite has **182 passing tests** and th
 | Web dashboard | Vercel | <https://voxflow-voice-agent.vercel.app> |
 | API | Render | <https://voxflow-voice-agent.onrender.com> |
 | Job health | Render | <https://voxflow-voice-agent.onrender.com/api/jobs/health?tenant_id=varun> |
+| Analytics overview | Render | <https://voxflow-voice-agent.onrender.com/api/analytics/overview?tenant_id=varun&days=30> |
 
-The frontend uses `NEXT_PUBLIC_API_URL=https://voxflow-voice-agent.onrender.com`. The backend must retain the staged campaign configuration until a formal Day 33-style internal canary is approved.
+The frontend uses `NEXT_PUBLIC_API_URL=https://voxflow-voice-agent.onrender.com`. The analytics surface is read-only and does not change campaign activation. The backend must retain the staged campaign configuration until a formal Day 34-style internal canary is approved.
 
 ## Documentation map
 
