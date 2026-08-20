@@ -443,6 +443,7 @@ class JobOutbox(Base):
     __table_args__ = (
         UniqueConstraint("tenant_id", "idempotency_key", name="uq_job_outbox_tenant_idempotency"),
         Index("ix_job_outbox_unpublished", "published_at", "created_at"),
+        Index("ix_job_outbox_claim", "published_at", "relay_lease_expires_at", "created_at"),
     )
 
     id: Mapped[str] = mapped_column(String(64), primary_key=True)
@@ -454,6 +455,11 @@ class JobOutbox(Base):
     idempotency_key: Mapped[str] = mapped_column(String(255))
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_utcnow)
     published_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    relay_owner: Mapped[str | None] = mapped_column(String(128), nullable=True)
+    relay_lease_expires_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    publish_attempt: Mapped[int] = mapped_column(Integer, default=0)
+    last_error_code: Mapped[str | None] = mapped_column(String(128), nullable=True)
+    last_error_json: Mapped[str | None] = mapped_column(Text, nullable=True)
 
 
 class JobAttempt(Base):

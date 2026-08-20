@@ -203,6 +203,10 @@ export const api = {
       method: "POST",
     }),
   getCampaignQueue: (id: string) => http<any[]>(`/api/campaigns/${id}/queue`),
+  jobHealth: (tenant_id?: string) =>
+    http<any>(`/api/jobs/health?tenant_id=${tenant_id || "varun"}`),
+  recentJobs: (tenant_id?: string, limit: number = 20) =>
+    http<any[]>(`/api/jobs?tenant_id=${tenant_id || "varun"}&limit=${limit}`),
 
   health: () => http<any>("/api/health"),
 };

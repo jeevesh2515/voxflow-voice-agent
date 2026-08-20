@@ -12,8 +12,8 @@ from sqlalchemy.orm import Session
 
 from ..db import CampaignQueue, OutboundCampaign, get_session
 from ..jobs.enqueue import enqueue_campaign_target
+from ..jobs.staging import campaign_activation_mode
 from ..logging import get_logger
-from ..tasks.campaign_worker import process_campaign_batch
 
 log = get_logger(__name__)
 
@@ -104,9 +104,9 @@ async def create_campaign(
 
     db.commit()
 
-    if req.auto_start and req.targets:
-        # Run first batch immediately
-        await process_campaign_batch(campaign_id, max_concurrent=len(req.targets))
+    # Day 28 safety boundary: intent is durable and observable, but calls are
+    # never made inline from an HTTP command. Day 29 activates a separately
+    # deployed worker only after controlled staging verification.
 
     return {
         "ok": True,
@@ -115,6 +115,8 @@ async def create_campaign(
         "campaign_type": campaign.campaign_type,
         "status": campaign.status,
         "total_targets": len(req.targets),
+        "execution_mode": campaign_activation_mode(),
+        "message": "Campaign targets are durably staged for worker dispatch.",
     }
 
 
@@ -151,15 +153,32 @@ def get_campaign_detail(
 
 
 @router.post("/{campaign_id}/run")
-async def run_campaign(
+def stage_campaign_run(
     campaign_id: str,
-    max_concurrent: int = Query(5, ge=1, le=20),
+    tenant_id: str = Query("varun"),
+    db: Session = Depends(get_session),
 ) -> dict[str, Any]:
-    """Trigger execution of queued calls for a campaign."""
-    res = await process_campaign_batch(campaign_id, max_concurrent=max_concurrent)
-    if not res.get("ok"):
-        raise HTTPException(status_code=400, detail=res.get("error", "Execution failed"))
-    return res
+    """Confirm safe durable staging without invoking a telephony provider inline."""
+
+    campaign = (
+        db.query(OutboundCampaign)
+        .filter(OutboundCampaign.id == campaign_id, OutboundCampaign.tenant_id == tenant_id)
+        .first()
+    )
+    if not campaign:
+        raise HTTPException(status_code=404, detail="Campaign not found")
+    if campaign.status == "draft":
+        campaign.status = "active"
+        db.commit()
+
+    return {
+        "ok": True,
+        "id": campaign_id,
+        "processed": 0,
+        "successful": 0,
+        "execution_mode": campaign_activation_mode(),
+        "message": "Campaign is staged. Durable worker activation is intentionally disabled pending Day 29 rollout verification.",
+    }
 
 
 @router.get("/{campaign_id}/queue")
