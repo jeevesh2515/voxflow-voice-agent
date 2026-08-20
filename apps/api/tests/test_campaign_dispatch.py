@@ -6,7 +6,15 @@ from datetime import datetime, timedelta, timezone
 
 import pytest
 
-from voxflow_api.db import CampaignQueue, JobRun, ProviderOperation, SessionLocal, reset_db
+from voxflow_api.db import (
+    CampaignQueue,
+    JobRun,
+    ProviderOperation,
+    RecipientCampaignPreference,
+    SessionLocal,
+    TenantCampaignPolicy,
+    reset_db,
+)
 from voxflow_api.jobs.campaign_dispatch import CampaignDispatchHandler
 from voxflow_api.jobs.reconciliation import reconcile_campaign_provider_operation
 from voxflow_api.jobs.worker import WorkerRuntime
@@ -41,6 +49,22 @@ def _create_campaign_target(*, campaign_id: str, queue_id: str, job_id: str, sta
             context_data_json='{"po_id":"PO-29","quantity":10}',
             status="queued",
         )
+        policy = TenantCampaignPolicy(
+            tenant_id="varun",
+            timezone_name="UTC",
+            calling_window_start="00:00",
+            calling_window_end="23:59",
+            daily_call_limit=10,
+            max_in_flight=2,
+        )
+        preference = RecipientCampaignPreference(
+            id=f"pref-{queue_id}",
+            tenant_id="varun",
+            recipient_phone="+919876543210",
+            consent_status="granted",
+            consent_purpose="outbound_campaign",
+            opted_out=0,
+        )
         job = JobRun(
             id=job_id,
             tenant_id="varun",
@@ -51,7 +75,7 @@ def _create_campaign_target(*, campaign_id: str, queue_id: str, job_id: str, sta
             idempotency_key=f"campaign-target:{queue_id}",
             max_attempts=5,
         )
-        db.add_all([campaign, queue, job])
+        db.add_all([campaign, queue, policy, preference, job])
         db.commit()
     finally:
         db.close()

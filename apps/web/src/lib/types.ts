@@ -116,7 +116,7 @@ export interface CampaignQueueItem {
   id: string;
   recipient_phone: string;
   recipient_name: string;
-  status: "queued" | "dialing" | "answered" | "no_answer" | "completed" | "failed";
+  status: "queued" | "dialing" | "answered" | "no_answer" | "completed" | "failed" | "cancelled";
   attempts_made: number;
   call_id?: string | null;
   transcript_summary?: string | null;

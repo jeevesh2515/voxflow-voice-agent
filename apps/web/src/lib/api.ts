@@ -184,7 +184,8 @@ export const api = {
   // Day 24: Outbound Voice Campaigns
   campaigns: (tenant_id?: string) =>
     http<any[]>(`/api/campaigns${tenant_id ? `?tenant_id=${tenant_id}` : ""}`),
-  getCampaign: (id: string) => http<any>(`/api/campaigns/${id}`),
+  getCampaign: (id: string, tenant_id?: string) =>
+    http<any>(`/api/campaigns/${id}?tenant_id=${tenant_id || "varun"}`),
   createCampaign: (
     payload: {
       name: string;
@@ -198,11 +199,14 @@ export const api = {
       method: "POST",
       body: JSON.stringify(payload),
     }),
-  runCampaign: (id: string, max_concurrent: number = 5) =>
-    http<any>(`/api/campaigns/${id}/run?max_concurrent=${max_concurrent}`, {
+  runCampaign: (id: string, max_concurrent: number = 5, tenant_id?: string) =>
+    http<any>(`/api/campaigns/${id}/run?max_concurrent=${max_concurrent}&tenant_id=${tenant_id || "varun"}`, {
       method: "POST",
     }),
-  getCampaignQueue: (id: string) => http<any[]>(`/api/campaigns/${id}/queue`),
+  getCampaignQueue: (id: string, tenant_id?: string) =>
+    http<any[]>(`/api/campaigns/${id}/queue?tenant_id=${tenant_id || "varun"}`),
+  campaignPolicyDecisions: (id: string, tenant_id?: string, limit: number = 50) =>
+    http<any[]>(`/api/campaigns/${id}/policy-decisions?tenant_id=${tenant_id || "varun"}&limit=${limit}`),
   jobHealth: (tenant_id?: string) =>
     http<any>(`/api/jobs/health?tenant_id=${tenant_id || "varun"}`),
   recentJobs: (tenant_id?: string, limit: number = 20) =>

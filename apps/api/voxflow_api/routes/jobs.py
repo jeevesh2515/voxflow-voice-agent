@@ -34,7 +34,7 @@ def get_job_health(
         .all()
     )
     status_counts = {status: count for status, count in status_rows}
-    for status in ("ready", "running", "retry_scheduled", "succeeded", "dead_lettered"):
+    for status in ("ready", "running", "retry_scheduled", "succeeded", "dead_lettered", "cancelled"):
         status_counts.setdefault(status, 0)
 
     oldest_ready = (

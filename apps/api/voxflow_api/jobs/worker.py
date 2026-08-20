@@ -25,17 +25,27 @@ from sqlalchemy.orm import Session, sessionmaker
 
 from ..db import JobRun
 from .repository import (
+    CANCELLED,
     DEAD_LETTERED,
+    POLICY_DEFERRED,
     RETRY_SCHEDULED,
     SUCCEEDED,
+    cancel_job,
     claim_jobs,
     complete_job,
     dead_letter_job,
+    defer_for_policy,
     extend_lease,
     schedule_retry,
     utcnow,
 )
-from .retry import PermanentJobError, RetryableJobError, retry_decision
+from .retry import (
+    PermanentJobError,
+    PolicyCancelledJobError,
+    PolicyDeferredJobError,
+    RetryableJobError,
+    retry_decision,
+)
 
 
 @dataclass(frozen=True)
@@ -61,6 +71,8 @@ class WorkerRunResult:
     succeeded: int = 0
     retried: int = 0
     dead_lettered: int = 0
+    cancelled: int = 0
+    deferred: int = 0
     stale: int = 0
 
 
@@ -192,6 +204,27 @@ class WorkerRuntime:
         try:
             if outcome == SUCCEEDED:
                 changed = complete_job(db, job_id=job.id, worker_id=self.worker_id, now=at)
+            elif outcome == POLICY_DEFERRED:
+                if retry_after_seconds is None:
+                    raise ValueError("policy defer requires an explicit eligibility time")
+                changed = defer_for_policy(
+                    db,
+                    job_id=job.id,
+                    worker_id=self.worker_id,
+                    next_run_at=at + timedelta(seconds=retry_after_seconds),
+                    error_code=error_code or "policy_deferred",
+                    error_json=error_json,
+                    now=at,
+                )
+            elif outcome == CANCELLED:
+                changed = cancel_job(
+                    db,
+                    job_id=job.id,
+                    worker_id=self.worker_id,
+                    error_code=error_code or "policy_cancelled",
+                    error_json=error_json,
+                    now=at,
+                )
             elif outcome == RETRY_SCHEDULED:
                 decision = retry_decision(
                     job.attempt,
@@ -246,6 +279,22 @@ class WorkerRuntime:
                 raise PermanentJobError("unregistered_handler", f"no handler for {job.job_type}")
             handler(context)
             return self._transition(job, SUCCEEDED)
+        except PolicyDeferredJobError as exc:
+            delay = max(0.0, (exc.next_eligible_at - self.now()).total_seconds())
+            return self._transition(
+                job,
+                POLICY_DEFERRED,
+                error_code=exc.code,
+                error_detail=exc.detail,
+                retry_after_seconds=delay,
+            )
+        except PolicyCancelledJobError as exc:
+            return self._transition(
+                job,
+                CANCELLED,
+                error_code=exc.code,
+                error_detail=exc.detail,
+            )
         except RetryableJobError as exc:
             return self._transition(
                 job,
@@ -307,6 +356,8 @@ class WorkerRuntime:
             succeeded=outcomes.count(SUCCEEDED),
             retried=outcomes.count(RETRY_SCHEDULED),
             dead_lettered=outcomes.count(DEAD_LETTERED),
+            cancelled=outcomes.count(CANCELLED),
+            deferred=outcomes.count(POLICY_DEFERRED),
             stale=outcomes.count("stale"),
         )
 
