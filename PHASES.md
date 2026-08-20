@@ -1,7 +1,7 @@
 # VoxFlow Delivery Phases
 
 **Last updated:** 2026-08-20
-**Current position:** Day 33 implementation and local verification complete; GitHub CI, deployment, and live browser verification remain required before final release status. Day 34 typed durable jobs is next.
+**Current position:** Day 33 complete, deployed, and browser-verified. Day 34 typed durable jobs is next.
 **Planning rule:** a milestone is complete only when its implementation, automated verification, deployment result, and safety boundary are recorded.
 
 ## Programme status
@@ -13,7 +13,7 @@
 | Controlled campaign cutover | 29–30 | Complete | Feature-gated worker, provider-operation idempotency, reconciliation foundation, tenant policy and auditable cancellation. |
 | Enterprise analytics and monitoring | 31 | Complete | Tenant KPI/trend aggregates, durable health signals, redacted CSV reporting, and dashboard operator view. |
 | Provider lifecycle hardening | 32 | Complete | Signed/fresh callbacks, immutable event ledger, tenant-derived reconciliation, quarantine, and lifecycle analytics. |
-| Integration reliability and canary readiness | 33–38 | Day 33 locally complete; 34–38 planned | Dial sandbox callback certification now exists; next are typed jobs, internal test-tenant canary, traces, alert routing, dead-letter controls, and resilience game days. |
+| Integration reliability and canary readiness | 33–38 | Day 33 complete; 34–38 planned | Dial sandbox callback certification is deployed and verified; next are typed jobs, internal test-tenant canary, traces, alert routing, dead-letter controls, and resilience game days. |
 | Security and tenant controls | 39–43 | Planned | RBAC, RLS audit, callback hardening, retention, security evidence. |
 | Voice quality and integrations | 44–48 | Planned | Evaluation corpus, release thresholds, provider/integration contracts. |
 | Pilot readiness | 49–54 | Planned | Promotion controls, load/recovery rehearsal, tenant onboarding, controlled pilot. |
@@ -50,7 +50,9 @@ Days 1–24 established the backend, dashboard, tenant-aware data model, inbound
 | Operator rollout gate | Adapter enablement, sandbox mode, secret presence, and stored-operation tenant allow-list must all be satisfied before application. |
 | Callback observability | `provider_callback_adapter_audits` stores hash/disposition only; analytics/dashboard expose tenant-safe aggregate state and alerts. |
 
-**Safety boundary:** production campaign worker remains disabled. Day 33 uses signed local fixtures only; it does not register a provider callback URL, configure a production secret, fire a provider ping, or authorize a real provider call. Deployment and browser evidence remain release gates.
+**Release evidence:** runtime commit [`0a52152`](https://github.com/jeevesh2515/voxflow-voice-agent/commit/0a5215275ff51d0b31b3bbadee825322cb30f429) was pushed to `main`; GitHub Actions [run #105](https://github.com/jeevesh2515/voxflow-voice-agent/actions/runs/32387989478) passed `api-lint`, `api-test`, and `web-lint`. The deployed Render Dial route returned `503 dial_callback_adapter_disabled` for `{}`, and tenant analytics returned the disabled/sandbox/zero-audit aggregate. The authenticated Vercel analytics dashboard rendered **Provider Lifecycle** 0/0 plus **Dial Sandbox Adapter** with **STAGED**, **AUDITS 0**, **BLOCKED**, and **Verification failures 0**.
+
+**Safety boundary:** production campaign worker remains disabled. Day 33 used signed local fixtures only; it did not register a provider callback URL, configure a production secret, fire a provider ping, or authorize a real provider call. The deployed adapter remains disabled with no secret and no tenant allow-list.
 
 ## Upcoming campaign-cutover work
 

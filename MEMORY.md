@@ -5,12 +5,11 @@
 ## Current position
 
 **Last updated:** 2026-08-20
-**Current milestone:** **Day 33 implemented and locally verified — Dial Sandbox Callback Adapter Certification and Controlled Rollout Gate.**
-**Release state:** Commit, GitHub CI, Render deployment, and live Vercel/browser evidence are still required before Day 33 is release-complete.
+**Current milestone:** **Day 33 complete, deployed, and browser-verified — Dial Sandbox Callback Adapter Certification and Controlled Rollout Gate.**
 **Next implementation:** **Day 34 — Typed Durable Jobs for Sheets, email, recording, CRM, and notification side effects.**
-**Verified Day 32 runtime revision:** `8f1b167` — signed provider callback lifecycle (`b02c76f`) plus fail-closed-before-payload-validation correction (`8f1b167`). The subsequent `main` commits record final deployment evidence only.
+**Verified Day 33 runtime revision:** `0a52152` — Dial sandbox adapter, rollout audit ledger, analytics visibility, migration `007`, and signed fixture certification. The subsequent `main` commit records final delivery evidence only.
 
-The durable campaign, observability, and callback-certification programme for Days 25–33 is implemented locally. No real outbound provider call, provider subscription, signing-secret configuration, or provider ping has been performed during any milestone or verification.
+The durable campaign, observability, and callback-certification programme for Days 25–33 is implemented, committed, deployed, and verified. No real outbound provider call, provider subscription, signing-secret configuration, or provider ping has been performed during any milestone or verification.
 
 ## Verified delivery state
 
@@ -19,9 +18,9 @@ The durable campaign, observability, and callback-certification programme for Da
 | Backend quality | `ruff check .` clean; **195 tests passing**. Day 33 adds six signed Dial adapter fixture tests plus tenant-safe adapter analytics/redaction coverage. |
 | Frontend quality | ESLint clean; Next.js 16.3.1 production build completed with **20 routes**, including the Dial Sandbox Adapter dashboard panel. |
 | Day 32 CI/deployment | Day 32 implementation CI [#101](https://github.com/jeevesh2515/voxflow-voice-agent/actions/runs/32380869101) and correction CI #102 passed; Render/Vercel Day 32 browser evidence remains recorded below. |
-| Day 33 GitHub/CI | **Pending:** commit Day 33, push to `main`, and record the triggered CI run. |
-| Day 33 Render | **Pending:** confirm migration/startup and safe `503 dial_callback_adapter_disabled` result for `{}`. |
-| Day 33 Vercel/dashboard | **Pending:** confirm deployment and authenticated browser rendering of the Dial Sandbox Adapter panel in **STAGED** / **BLOCKED** state. |
+| Day 33 GitHub/CI | Commit [`0a52152`](https://github.com/jeevesh2515/voxflow-voice-agent/commit/0a5215275ff51d0b31b3bbadee825322cb30f429) is pushed to `main`. GitHub Actions [run #105](https://github.com/jeevesh2515/voxflow-voice-agent/actions/runs/32387989478) passed all `api-lint`, `api-test`, and `web-lint` jobs. |
+| Day 33 Render | `POST /api/provider-callbacks/dial/events` with `{}` returned **503** and `dial_callback_adapter_disabled`. Analytics returned **200** and included `dial_sandbox_adapter` with `adapter_enabled=false`, `sandbox_mode=true`, `tenant_allowed=false`, `audit_count=0`, and empty status counts. |
+| Day 33 Vercel/dashboard | Authenticated [analytics dashboard](https://voxflow-voice-agent.vercel.app/dashboard/analytics) rendered the **Dial Sandbox Adapter** panel with **STAGED**, **AUDITS 0**, **Tenant gate BLOCKED**, and **Verification failures 0**, alongside Provider Lifecycle 0 events/0 anomalies. |
 | Day 32 Vercel | <https://voxflow-voice-agent.vercel.app/dashboard/analytics> loaded successfully in the authenticated browser and rendered the Day 32 Provider Lifecycle panel. |
 | Day 32 Render | `POST /api/provider-callbacks/events` with `{}` returned **503** and `provider_callback_not_configured`; `GET /api/analytics/overview?tenant_id=varun&days=7` returned **200** with the Day 32 `provider_lifecycle` aggregate. |
 | Session-free boundary | `/dashboard/campaigns` redirects to `/sign-in` without a session. |
@@ -79,7 +78,7 @@ The deployed `GET /api/jobs/health?tenant_id=varun` response reported zero ready
 
 | Area | Current status | Next action |
 |---|---|---|
-| Provider-specific callback adapter | **Day 33 locally complete.** The Dial sandbox adapter is implemented and remains disabled in production pending release verification. | Push/CI/deploy, verify production 503, analytics aggregate, and Vercel panel; do not configure a secret or subscription. |
+| Provider-specific callback adapter | **Day 33 verified complete.** The Dial sandbox adapter is deployed and remains disabled in production. | Keep it disabled with no signing secret/allow-list until a separately approved future sandbox subscription or canary decision. |
 | Campaign activation | Deliberately disabled. | Do not enable before future internal-canary controls; Day 33 callback fixture evidence does not authorize activation. |
 | Tenant policy data | API exists; deployed Varun policy is intentionally unconfigured. | Configure only as part of approved pilot checklist. |
 | RBAC and full tenant access review | Not the Day 30 deliverable. | Future security/tenant-control phase. |
@@ -88,12 +87,10 @@ The deployed `GET /api/jobs/health?tenant_id=varun` response reported zero ready
 
 ## Immediate next session
 
-1. Inspect the Day 33 diff and create the implementation commit on `main`.
-2. Push the commit and record the GitHub Actions API lint, API test, and web lint/build results.
-3. Confirm Render receives the migration/model and that `POST /api/provider-callbacks/dial/events` with `{}` returns `503 dial_callback_adapter_disabled`.
-4. Confirm the analytics overview includes `dial_sandbox_adapter` with disabled/sandbox/empty audit state.
-5. Verify the Vercel analytics dashboard in the authenticated browser shows Provider Lifecycle and Dial Sandbox Adapter panels in the safe default state.
-6. Keep `DURABLE_CAMPAIGN_WORKER_ENABLED=false`, `DIAL_CALLBACK_ADAPTER_ENABLED=false`, and all provider callback secrets unset. Begin Day 34 only after release evidence is recorded.
+1. Begin Day 34 by inventorying Sheets retry, email summarization, recording retrieval, CRM sync, notification, and periodic-loop side effects.
+2. Define the first typed durable job and transactional outbox intent without enabling a worker against production credentials.
+3. Preserve the Day 33 deployment safety boundary: `DURABLE_CAMPAIGN_WORKER_ENABLED=false`, `DIAL_CALLBACK_ADAPTER_ENABLED=false`, no Dial signing secret, no adapter tenant allow-list, no provider subscription, and no real outbound call.
+4. Keep Day 33 release evidence current if a later documentation-only commit is made; runtime verification applies to `0a52152`.
 
 ## References
 
