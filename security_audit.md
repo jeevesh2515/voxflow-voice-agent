@@ -2,7 +2,7 @@
 
 **Last updated:** 2026-08-20
 **Scope:** Current repository controls through Day 35.
-**Status:** Inbound/dashboard deployment is operational; outbound campaign execution and operational side-effect execution are intentionally safe-staged and are **not approved for general live activation**.
+**Status:** The temporary Fly backend and Vercel dashboard are operational; outbound campaign execution and operational side-effect execution are intentionally safe-staged and are **not approved for general live activation**. Render remains outage-blocked and is not the current browser API origin.
 
 ## 1. Security posture summary
 
@@ -74,10 +74,10 @@ VoxFlow applies layered controls to tenant-aware voice and campaign operations. 
 | `.env` and local environment files excluded from Git | Required and verified by repository ignore rules. |
 | Provider/LLM/database credentials stored in deployment secret managers | Required. |
 | Frontend uses only public configuration values | Required; no service-role key in browser environment. |
-| Render campaign global flag remains false | Required until approved canary. |
+| Active backend campaign global flag remains false | Required until approved canary, on both temporary Fly and future restored Render deployments. |
 | Provider callback signature validation remains true | Required. An absent callback secret must keep ingress fail closed until sandbox certification. |
 | Canary tenant list remains empty/unapproved | Required until approved canary. |
-| Render side-effect worker flag remains false | Required until the Day 35 controlled-pilot approval. |
+| Active backend side-effect worker flag remains false | Required until the Day 35 controlled-pilot approval, on both temporary Fly and future restored Render deployments. |
 | Side-effect dry-run remains true and allow-list empty | Required until a tenant-specific operational authorization has passed every preflight gate. |
 | Pilot admission remains enforced with empty tenant list | Required until the signed, one-tenant operating package is independently reviewed and deployed. |
 | Learning journals contain no credentials | Required; `.learning/` is local and gitignored. |
@@ -86,7 +86,7 @@ VoxFlow applies layered controls to tenant-aware voice and campaign operations. 
 
 | Control | Current expectation |
 |---|---|
-| API CORS | Restrict to local development and approved Vercel origins. |
+| API CORS | Temporary Fly backend is restricted to the approved Vercel origin plus localhost; restore the equivalent restriction before returning to Render. |
 | Public frontend | Landing/about/pricing are public. |
 | Dashboard | Session-free request must redirect to sign-in. |
 | Inbound voice transport | Use HTTPS/WSS and provider signature validation. |
@@ -116,21 +116,22 @@ cd ../..
 npm run lint --workspace=apps/web
 npm run build --workspace=apps/web
 
-# Safe deployment checks
-curl -fsS https://voxflow-voice-agent.onrender.com/api/health
-curl -fsS 'https://voxflow-voice-agent.onrender.com/api/jobs/health?tenant_id=varun'
-curl -fsS https://voxflow-voice-agent.onrender.com/api/campaign-policies/varun
-curl -sS -o /dev/null -w '%{http_code}\n' -X POST https://voxflow-voice-agent.onrender.com/api/provider-callbacks/events -H 'Content-Type: application/json' -d '{}'
-curl -sS -o /dev/null -w '%{http_code}\n' -X POST https://voxflow-voice-agent.onrender.com/api/provider-callbacks/dial/events -H 'Content-Type: application/json' -d '{}'
-curl -fsS 'https://voxflow-voice-agent.onrender.com/api/analytics/overview?tenant_id=varun&days=7'
-curl -fsS 'https://voxflow-voice-agent.onrender.com/api/pilot-readiness/varun'
-curl -fsS 'https://voxflow-voice-agent.onrender.com/api/pilot-readiness/varun/rollback-preview'
+# Safe deployment checks (Fly is current; substitute Render only after its recovery deployment)
+API_ORIGIN=https://voxflow-voice-agent.fly.dev
+curl -fsS "$API_ORIGIN/api/health"
+curl -fsS "$API_ORIGIN/api/jobs/health?tenant_id=varun"
+curl -fsS "$API_ORIGIN/api/campaign-policies/varun"
+curl -sS -o /dev/null -w '%{http_code}\n' -X POST "$API_ORIGIN/api/provider-callbacks/events" -H 'Content-Type: application/json' -d '{}'
+curl -sS -o /dev/null -w '%{http_code}\n' -X POST "$API_ORIGIN/api/provider-callbacks/dial/events" -H 'Content-Type: application/json' -d '{}'
+curl -fsS "$API_ORIGIN/api/analytics/overview?tenant_id=varun&days=7"
+curl -fsS "$API_ORIGIN/api/pilot-readiness/varun"
+curl -fsS "$API_ORIGIN/api/pilot-readiness/varun/rollback-preview"
 # Confirm the delivered aggregate includes durable_side_effects with staged mode;
 # do not invoke an endpoint that creates a side-effect intent or external request.
 curl -I https://voxflow-voice-agent.vercel.app/dashboard/analytics
 ```
 
-Expected Day 35 live result is staged rollout with campaign and side-effect workers disabled, empty pilot/worker/adapter allow-lists, normalized callback ingress returning `503` while its secret is intentionally absent, and Dial sandbox ingress returning `503 dial_callback_adapter_disabled` before body parsing. Analytics should include `dial_sandbox_adapter` and `durable_side_effects`; pilot readiness should return a **blocked** scorecard with no configuration until a human-owned package exists. Do not treat a passing dashboard load, job-health read, analytics response, pilot scorecard, or callback rejection as authorization to enable outbound dispatch, configure a Dial secret, fire a provider ping, register a live callback URL, send an integration request, or create a live side-effect intent.
+Expected Day 35 live result is staged rollout with campaign and side-effect workers disabled, empty pilot/worker/adapter allow-lists, normalized callback ingress returning `503` while its secret is intentionally absent, and Dial sandbox ingress returning `503 dial_callback_adapter_disabled` before body parsing. Analytics should include `dial_sandbox_adapter` and `durable_side_effects`; pilot readiness should return a **blocked** scorecard with no configuration until a human-owned package exists. The current Fly/Vercel verification has met those read-only expectations. Do not treat a passing dashboard load, job-health read, analytics response, pilot scorecard, or callback rejection as authorization to enable outbound dispatch, configure a Dial secret, fire a provider ping, register a live callback URL, send an integration request, or create a live side-effect intent. Restore Render only after rerunning these checks and the dashboard verification, then retire Fly under recorded operator ownership.
 
 ## References
 
