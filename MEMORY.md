@@ -7,7 +7,7 @@
 **Last updated:** 2026-08-20
 **Current milestone:** **Day 31 complete — Advanced Analytics, Monitoring, and Enterprise Reporting.**
 **Next implementation:** **Day 32 — Provider Lifecycle and Idempotent Callback Reconciliation.**
-**Main branch:** `0fb2948` — `feat: add tenant analytics and enterprise reporting`.
+**Main branch:** `7434c72` — Day 31 analytics delivery plus verified production-evidence documentation. The functional delivery commit is `0fb2948` (`feat: add tenant analytics and enterprise reporting`).
 
 The durable campaign and observability programme for Days 25–31 is implemented, verified, committed, pushed to `main`, and deployed. No real outbound provider call has been performed during these milestones.
 
@@ -18,7 +18,7 @@ The durable campaign and observability programme for Days 25–31 is implemented
 | Backend quality | `ruff check voxflow_api tests` clean; **184 tests passing**. |
 | Frontend quality | ESLint clean; Next.js 16.3.1 production build completed with **20 routes**. |
 | CI | GitHub Actions run `32334590276` passed API lint, API tests, and web lint/build. |
-| GitHub | `main` is synchronized at `0fb2948`. |
+| GitHub | `main` is synchronized at `7434c72`; functional analytics delivery is `0fb2948`. |
 | Vercel | Day 31 production deployment succeeded at <https://voxflow-voice-agent.vercel.app>. |
 | Render | API responds at <https://voxflow-voice-agent.onrender.com>. |
 | Dashboard | Authenticated Day 31 analytics dashboard rendered live KPI/trend/attention state and staged rollout messaging in the browser. |
