@@ -126,7 +126,11 @@ export interface CampaignQueueItem {
 
 export interface JobHealth {
   tenant_id: string;
-  activation_mode: "staged" | "enabled";
+  activation_mode: "staged" | "dry_run" | "canary";
+  rollout: {
+    canary_allowed: boolean;
+    dry_run: boolean;
+  };
   status_counts: Record<string, number>;
   active_leases: number;
   expired_leases: number;

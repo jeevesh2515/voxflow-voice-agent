@@ -10,7 +10,7 @@ from sqlalchemy import func
 from sqlalchemy.orm import Session
 
 from ..db import JobOutbox, JobRun, get_session
-from ..jobs.staging import campaign_activation_mode
+from ..jobs.staging import campaign_activation_mode, canary_tenant_ids, durable_campaign_dry_run
 
 router = APIRouter(prefix="/api/jobs", tags=["jobs"])
 
@@ -81,6 +81,10 @@ def get_job_health(
     return {
         "tenant_id": tenant_id,
         "activation_mode": campaign_activation_mode(),
+        "rollout": {
+            "canary_allowed": tenant_id in canary_tenant_ids(),
+            "dry_run": durable_campaign_dry_run(),
+        },
         "status_counts": status_counts,
         "active_leases": active_leases,
         "expired_leases": expired_leases,
