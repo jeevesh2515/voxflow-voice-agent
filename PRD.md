@@ -1,6 +1,6 @@
 # VoxFlow Product Requirements Document
 
-**Status:** Living product document; Day 34 local implementation complete and pending release verification. Day 35 is the final controlled-pilot readiness gate.
+**Status:** Living product document; Day 35 controlled-pilot readiness is source-complete and locally verified. Deployment verification is pending a staged temporary backend while the Render outage persists; human authority and live activation remain deliberately blocked.
 **Last updated:** 2026-08-20
 **Repository:** <https://github.com/jeevesh2515/voxflow-voice-agent>
 
@@ -50,6 +50,9 @@ Day 30 adds central dispatch permission controls.
 | No inline integration IO | Voice/API/callback/dashboard paths may persist intent but cannot send a notification, CRM webhook, Sheets write, Gmail fetch, recording retrieval, or direct outbound call inline. |
 | Separate side-effect gate | An independent worker requires its own global enablement, tenant allow-list, and dry-run control; it is disabled in production. |
 | Side-effect observability | Tenant-safe analytics/CSV show aggregate intent state, pending/error totals, rollout posture, and alert signals without raw external payloads. |
+| Pilot admission | A second pre-provider gate requires an environment-approved tenant plus an approved, unexpired pilot record with hashed reviewed cohort membership, named primary/backup coverage, micro-capacity, and frozen metric-contract version. |
+| Pilot scorecard | Read-only API/dashboard reports fixed formulas, denominators, exclusions, completion, escalation, FCR, confirmed security incidents, and rollback readiness; it has no activation control. |
+| Pilot rollback drill | Database-only cancellation refuses if a campaign worker is enabled or a scoped job is actively leased and never contacts a provider. |
 
 ## 4. Current availability and safety boundary
 
@@ -57,6 +60,8 @@ The Vercel dashboard and Render API are live. The durable campaign system is imp
 
 ```text
 DURABLE_CAMPAIGN_WORKER_ENABLED=false
+PILOT_READINESS_ENFORCED=true
+PILOT_READINESS_APPROVED_TENANTS=(intentionally empty)
 PROVIDER_CALLBACK_VALIDATE_SIGNATURE=true
 PROVIDER_CALLBACK_SHARED_SECRET=(intentionally unset)
 DIAL_CALLBACK_ADAPTER_ENABLED=false
@@ -75,7 +80,7 @@ This is the planned current state. The campaign UI does not bypass the worker gl
 
 ## 5. Non-goals at the current milestone
 
-The following are deliberately out of scope for the current Day 34 production posture:
+The following are deliberately out of scope for the current Day 35 non-activating production posture:
 
 - Outbound cold calling, sales prospecting, payment collection, or campaign dispatch without recorded permission.
 - Activating a production worker for an unapproved tenant.
@@ -86,6 +91,7 @@ The following are deliberately out of scope for the current Day 34 production po
 - Enabling the Dial sandbox adapter, campaign worker, or Day 34 side-effect worker merely because fixture/local certification is implemented.
 - Calling Twilio, Dial, Sheets, Gmail, a CRM endpoint, a notification service, or recording URL inline from an API request, voice turn, callback, dashboard, or FastAPI lifespan loop.
 - A broad multi-tenant pilot before provider adapter release verification, RBAC, observability, and release-readiness gates are completed.
+- Treating a `ready_for_review` scorecard state as authorization to enable a worker, configure a callback secret, contact a supplier, or expand capacity.
 
 ## 6. Pilot requirements
 
@@ -120,7 +126,7 @@ A live operational canary can be considered only after the following evidence ex
 
 ## 8. Near-term roadmap
 
-Day 32 completed a generic signed, tenant-derived callback lifecycle with immutable event evidence, duplicate/terminal guards, quarantine, and operator lifecycle aggregates. Day 33 implements Dial-specific sandbox verification, outbound-event normalization, secret-overlap support, redacted adapter auditing, tenant rollout gating, and operator visibility; its production route remains disabled. Day 34 completes the local migration of Sheets, email scans, recording follow-up, CRM synchronization, notifications, and worksheet side effects into typed durable jobs, with a separate disabled/dry-run worker and aggregate-only dashboard evidence. Day 35 is the final pilot-readiness day: it must produce a written one-tenant/fixed-cohort/explicit-hours/human-escalation/scorecard/rollback package, with readiness measured by proof rather than a promise of business outcomes or zero incidents in advance.
+Day 32 completed a generic signed, tenant-derived callback lifecycle with immutable event evidence, duplicate/terminal guards, quarantine, and operator lifecycle aggregates. Day 33 implemented Dial-specific sandbox verification, outbound-event normalization, secret-overlap support, redacted adapter auditing, tenant rollout gating, and operator visibility; its production route remains disabled. Day 34 migrated Sheets, email scans, recording follow-up, CRM synchronization, notifications, and worksheet side effects into typed durable jobs, with a separate disabled/dry-run worker and aggregate-only dashboard evidence. Day 35 now delivers the final readiness controls: fail-closed tenant admission, hashed fixed cohort, expiry/capacity/coverage contract, frozen scorecard, confirmed-incident count, read-only APIs/dashboard, and a zero-provider-call rollback drill. The remaining go/no-go is human-owned and requires written one-tenant authorization plus deployed verification; no business KPI or zero-incident outcome is promised in advance.
 
 ## References
 

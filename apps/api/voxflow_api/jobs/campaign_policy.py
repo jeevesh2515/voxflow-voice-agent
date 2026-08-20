@@ -11,6 +11,7 @@ from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
+from ..pilot_readiness import evaluate_pilot_admission
 from ..db import (
     CampaignDispatchReservation,
     CampaignPolicyDecision,
@@ -130,6 +131,18 @@ def evaluate_campaign_policy(
             {"consent_purpose": preference.consent_purpose, "campaign_type": campaign.campaign_type},
         )
 
+    # Day 35 adds a second, independent fail-closed admission boundary. It is
+    # evaluated only after tenant ownership and consent have passed, and before
+    # any time-window or capacity reservation can authorize a provider effect.
+    pilot = evaluate_pilot_admission(
+        db,
+        tenant_id=tenant_id,
+        recipient_phone=target.recipient_phone,
+        now=now,
+    )
+    if pilot.decision != "allowed":
+        return PolicyDecision(pilot.decision, pilot.reason_code, pilot.evidence)
+
     try:
         tz = _timezone(policy.timezone_name)
         start = _parse_clock(policy.calling_window_start)
@@ -174,6 +187,7 @@ def evaluate_campaign_policy(
             "local_date": local_now.date().isoformat(),
             "daily_call_limit": policy.daily_call_limit,
             "max_in_flight": policy.max_in_flight,
+            "pilot": pilot.evidence,
         },
     )
 

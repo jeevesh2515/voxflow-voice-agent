@@ -130,6 +130,13 @@ class Settings(BaseSettings):
     dial_callback_signing_secrets: str = ""
     dial_callback_max_age_seconds: int = 300
 
+    # ----- Day 35 controlled-pilot readiness -----
+    # Admission is fail-closed: a tenant needs an approved, unexpired pilot
+    # configuration *and* an explicit environment allow-list before a campaign
+    # target can pass the pilot gate. This setting never starts a worker.
+    pilot_readiness_enforced: bool = True
+    pilot_readiness_approved_tenants: str = ""
+
     # ----- Day 34 durable operational side-effect worker -----
     # Separate from the campaign worker. It remains disabled and dry-run by
     # default so a deployment cannot send messages, post webhooks, write sheets,
@@ -197,6 +204,16 @@ class Settings(BaseSettings):
         return tuple(
             tenant_id.strip()
             for tenant_id in self.durable_campaign_canary_tenants.split(",")
+            if tenant_id.strip()
+        )
+
+    @property
+    def pilot_readiness_approved_tenant_ids(self) -> tuple[str, ...]:
+        """Parse the tenant IDs deliberately approved for a future pilot gate."""
+
+        return tuple(
+            tenant_id.strip()
+            for tenant_id in self.pilot_readiness_approved_tenants.split(",")
             if tenant_id.strip()
         )
 

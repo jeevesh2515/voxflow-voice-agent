@@ -253,3 +253,60 @@ export interface JobSummary {
   created_at: string | null;
   updated_at: string | null;
 }
+
+export interface PilotReadinessMetric {
+  numerator?: number;
+  denominator?: number;
+  rate?: number | null;
+  confirmed_count?: number;
+  objective?: number;
+}
+
+export interface PilotReadiness {
+  tenant_id: string;
+  configured: boolean;
+  pilot?: {
+    pilot_id: string;
+    version: number;
+    status: string;
+    cohort_id: string;
+    cohort_size: number;
+    approved_member_count: number;
+    timezone_name: string;
+    calling_window_start: string;
+    calling_window_end: string;
+    daily_call_limit: number;
+    max_in_flight: number;
+    expires_at: string;
+    primary_escalation_owner: string;
+    backup_escalation_owner: string;
+    acknowledgement_timeout_minutes: number;
+    metric_contract_version: string;
+    approved_by: string;
+  };
+  readiness: {
+    state: "blocked" | "ready_for_review";
+    blocking_reasons: string[];
+    workers?: {
+      campaign_worker_enabled: boolean;
+      campaign_dry_run: boolean;
+      side_effect_worker_enabled: boolean;
+      side_effect_dry_run: boolean;
+    };
+  };
+  metric_contract: Record<string, { formula: string; denominator: string; exclusions: string; source: string }>;
+  metrics: {
+    successful_call_completion?: PilotReadinessMetric;
+    escalation_rate?: PilotReadinessMetric;
+    first_call_resolution?: PilotReadinessMetric;
+    security_incidents?: PilotReadinessMetric;
+  };
+  rollback: {
+    configured: boolean;
+    can_execute: boolean;
+    active_claim_count?: number;
+    would_cancel_job_count?: number;
+    worker_disabled?: boolean;
+    reason?: string;
+  };
+}

@@ -1,8 +1,8 @@
 # VoxFlow Architecture
 
 **Last updated:** 2026-08-20
-**Current milestone:** Day 34 — typed durable operational-side-effect jobs complete locally; release verification pending.
-**Operating mode:** Inbound voice and dashboard functions are deployed. Campaign dispatch and operational side-effect workers are independently safe-staged in production.
+**Current milestone:** Day 35 — controlled-pilot readiness complete in source; local tests and frontend build passed. Deployed verification is pending a staged temporary backend while Render’s free-service deployment incident persists.
+**Operating mode:** Inbound voice and dashboard functions are deployed. Campaign dispatch and operational side-effect workers are independently safe-staged, and Day 35 pilot admission is fail-closed with an empty tenant allow-list.
 
 ## 1. System boundaries
 
@@ -18,7 +18,8 @@ flowchart TB
     Outbox --> Ledger[JobRun + JobAttempt]
     Ledger --> Worker[Campaign WorkerRuntime\nindependent process]
     Worker --> Gate[Campaign policy gate]
-    Gate --> Audit[CampaignPolicyDecision]
+    Gate --> Pilot[Day 35 pilot admission\nconfiguration + hashed cohort]
+    Pilot --> Audit[CampaignPolicyDecision]
     Gate --> ProviderOp[ProviderOperation]
     Ledger --> SideWorker[Side-effect WorkerRuntime\nseparate gated process]
     SideWorker --> Intent[SideEffectIntent\ntrusted aggregate references]
@@ -39,8 +40,9 @@ flowchart TB
 | Provider side effect | `ProviderOperation` | One idempotency key owns one provider request; retries reconcile rather than re-dial. |
 | Normalized provider callback | `provider_callbacks.py` + `provider_events.py` | Verify generic timestamp/signature, derive tenant from stored operation, deduplicate immutable events, and quarantine unknown IDs. |
 | Dial sandbox callback | `dial_callbacks.py` + `integrations/dial_callbacks.py` | Fail closed unless sandbox adapter/secret/allow-list are explicit; verify Dial raw-body HMAC, normalize documented outbound call events, audit safely, then hand off to Day 32. |
-| Campaign permission | `campaign_policy.py` | Fail closed before provider intent: policy, consent, opt-out, timing, budget, and capacity. |
+| Campaign permission | `campaign_policy.py` + `pilot_readiness.py` | Fail closed before provider intent: policy, consent, opt-out, explicit pilot tenant/configuration/cohort/expiry/coverage, timing, budget, and capacity. |
 | Operational side effects | `side_effects.py` + `side_effect_worker_service.py` | Persist intent/outbox with a trusted aggregate; execute only from a separate feature-gated, tenant-scoped worker. |
+| Pilot readiness | `pilot_readiness.py` + read-only route | Freeze metric definitions, show redacted cohort/coverage/expiry/rollback evidence, and keep all approval/activation operations outside HTTP. |
 | Operator visibility | Job health and analytics dashboard | Show tenant-owned counts and redacted audit/read models only; no activation control. |
 
 ## 2. Runtime components
@@ -151,8 +153,12 @@ The policy gate runs before `ProviderOperation` reservation. A dispatch target m
 | Calling window is open in tenant timezone | Tenant policy | `outside_calling_window` exact deferral |
 | Daily budget remains | `tenant_daily_dispatch_usage` | `daily_call_budget_exhausted` deferral |
 | Active tenant capacity remains | Same usage record | `tenant_concurrency_limited` deferral |
+| Pilot tenant explicitly approved | `PILOT_READINESS_APPROVED_TENANTS` | `pilot_tenant_not_approved` cancellation |
+| Written pilot is approved/unexpired/staffed/micro-capped | `pilot_configurations` | Pilot configuration/expiry/coverage/capacity cancellation |
+| Recipient belongs to reviewed fixed cohort | `pilot_cohort_members` SHA-256 hash | `pilot_cohort_mismatch` cancellation |
 
-Every policy evaluation appends a `campaign_policy_decisions` record. The operator endpoint returns decision, reason code, timestamp, and next eligible time, but does not expose raw evidence JSON. Policy cancellations map to terminal durable `cancelled` jobs rather than dead letters.
+Every policy evaluation appends a `campaign_policy_decisions` record.
+ The operator endpoint returns decision, reason code, timestamp, and next eligible time, but does not expose raw evidence JSON. Policy cancellations map to terminal durable `cancelled` jobs rather than dead letters.
 
 ## 7. Data model
 
@@ -173,8 +179,11 @@ The core business schema remains tenant scoped. Durable dispatch adds the follow
 | `campaign_dispatch_reservations` | One capacity reservation per job with active/released/settled lifecycle. |
 | `campaign_policy_decisions` | Immutable Day 30 policy audit evidence. |
 | `side_effect_intents` | Day 34 append-only tenant effect owner with a one-to-one durable job, aggregate reference, idempotency key, hash, redacted result, and status. |
+| `pilot_configurations` | Versioned one-tenant readiness contract: cohort reference/count, IANA window, micro-capacity, expiry, named coverage, approver, and metric contract. |
+| `pilot_cohort_members` | Reviewed cohort membership represented only by tenant-scoped SHA-256 recipient hashes and consent-evidence references. |
+| `pilot_security_incidents` | Bounded confirmed security findings that make the pilot’s zero-incident objective measurable rather than assumed. |
 
-Production migrations are ordered as `003_durable_job_ledger.sql`, `004_outbox_relay_state.sql`, `005_campaign_policy_controls.sql`, `006_provider_callback_lifecycle.sql`, `007_dial_sandbox_callback_adapter.sql`, then `008_typed_durable_side_effect_jobs.sql`.
+Production migrations are ordered as `003_durable_job_ledger.sql`, `004_outbox_relay_state.sql`, `005_campaign_policy_controls.sql`, `006_provider_callback_lifecycle.sql`, `007_dial_sandbox_callback_adapter.sql`, `008_typed_durable_side_effect_jobs.sql`, then `009_controlled_pilot_readiness.sql`.
 
 ## 8. Production safety and rollout
 
@@ -182,6 +191,8 @@ The deployed backend remains in a non-executing campaign posture:
 
 ```text
 DURABLE_CAMPAIGN_WORKER_ENABLED=false
+PILOT_READINESS_ENFORCED=true
+PILOT_READINESS_APPROVED_TENANTS=(intentionally empty)
 PROVIDER_CALLBACK_VALIDATE_SIGNATURE=true
 PROVIDER_CALLBACK_SHARED_SECRET=(intentionally unset)
 DIAL_CALLBACK_ADAPTER_ENABLED=false
@@ -208,7 +219,7 @@ These settings are a deliberate layered control, not a missing feature. An inter
 | Frontend production build | `npm run build --workspace=apps/web` |
 | Live job posture | `GET /api/jobs/health?tenant_id=varun` |
 
-At the Day 34 local delivery point, the backend suite has **204 passing tests**, API lint is clean, and the frontend production build generates 20 routes. GitHub CI validates API lint, API test, and web lint/build on every `main` delivery.
+At the Day 35 local delivery point, the backend suite has **215 passing tests**, API lint is clean, and the frontend production build generates 20 routes. GitHub CI validates API lint, API test, and web lint/build on every `main` delivery.
 
 ## References
 
@@ -220,6 +231,10 @@ At the Day 34 local delivery point, the backend suite has **204 passing tests**,
 - `migrations/006_provider_callback_lifecycle.sql`
 - `migrations/007_dial_sandbox_callback_adapter.sql`
 - `migrations/008_typed_durable_side_effect_jobs.sql`
+- `migrations/009_controlled_pilot_readiness.sql`
+- `apps/api/voxflow_api/pilot_readiness.py`
+- `apps/api/voxflow_api/routes/pilot_readiness.py`
+- `railway.json`
 - `apps/api/voxflow_api/jobs/side_effects.py`
 - `apps/api/voxflow_api/jobs/side_effect_worker_service.py`
 - `apps/api/voxflow_api/integrations/dial_callbacks.py`

@@ -1,7 +1,7 @@
 # VoxFlow Delivery Phases
 
 **Last updated:** 2026-08-20
-**Current position:** Day 34 typed durable side-effect jobs are locally complete and awaiting CI/deployment/browser release evidence. Day 35 is the final controlled-pilot readiness gate, not automatic pilot activation.
+**Current position:** Day 35 controlled-pilot readiness is source-complete and locally verified. Day 34 Render deployment verification remains blocked by the documented provider outage; Day 35 deployed verification will use the staged temporary backend path. Day 36 is evidence-led pilot operations, not automatic pilot activation or expansion.
 **Planning rule:** a milestone is complete only when its implementation, automated verification, deployment result, and safety boundary are recorded.
 
 ## Programme status
@@ -13,7 +13,7 @@
 | Controlled campaign cutover | 29–30 | Complete | Feature-gated worker, provider-operation idempotency, reconciliation foundation, tenant policy and auditable cancellation. |
 | Enterprise analytics and monitoring | 31 | Complete | Tenant KPI/trend aggregates, durable health signals, redacted CSV reporting, and dashboard operator view. |
 | Provider lifecycle hardening | 32 | Complete | Signed/fresh callbacks, immutable event ledger, tenant-derived reconciliation, quarantine, and lifecycle analytics. |
-| Integration reliability and pilot readiness | 33–35 | Day 33 complete; Day 34 locally complete; Day 35 planned | Dial callback certification plus typed durable side-effect jobs establish the final controlled-pilot readiness foundation. Day 35 adds a one-tenant, fixed-cohort, operating-hours, human-escalation, scorecard, and rollback-governance gate. |
+| Integration reliability and pilot readiness | 33–35 | Source-complete; deployed verification pending temporary backend | Dial callback certification, typed durable side-effect jobs, and Day 35 fail-closed pilot admission establish final pilot-readiness controls. No worker, callback secret, or provider integration is enabled. |
 | Post-pilot observability and resilience | 36–38 | Planned | Correlated tracing, dead-letter operator controls, alert routing, and resilience game-day evidence follow only after the pilot-readiness decision. |
 | Security and tenant controls | 39–43 | Planned | RBAC, RLS audit, callback hardening, retention, security evidence. |
 | Voice quality and integrations | 44–48 | Planned | Evaluation corpus, release thresholds, provider/integration contracts. |
@@ -23,7 +23,7 @@
 
 Days 1–24 established the backend, dashboard, tenant-aware data model, inbound voice functionality, security controls, operational modules, deployment path, and outbound campaign domain. The detailed original day-by-day worksheets are retained under `.planning/` and `.learning/` as historical learning material. The source of current engineering truth is this document together with `MEMORY.md`, `ARCHITECTURE.md`, and the latest `.learning` day guides.
 
-## Completed durable execution, callback certification, observability, and typed side effects: Days 25–34
+## Completed durable execution, callback certification, typed side effects, and controlled-pilot readiness: Days 25–35
 
 | Day | Implementation | Verification and exit result |
 |---:|---|---|
@@ -37,6 +37,7 @@ Days 1–24 established the backend, dashboard, tenant-aware data model, inbound
 | 32 | Added fail-closed signed callback ingress, immutable provider events, unknown-call quarantine, duplicate/terminal ordering guards, terminal job reconciliation, and provider lifecycle analytics. | Callback signature/replay, tenant spoofing, duplicate, terminal, stale, unconfigured-before-payload-validation, quarantine, and lifecycle analytics tests passed; migration `006_provider_callback_lifecycle.sql` added. |
 | 33 | Added the Dial sandbox callback adapter, raw-body HMAC verification, bounded freshness, controlled current/previous-secret overlap, outbound lifecycle normalizer, redacted adapter audit ledger, tenant application gate, analytics aggregate, and dashboard panel. | Six adapter fixture tests cover disabled fail-close, signature tamper, stale delivery, secret overlap, replay/ordering/terminal reconciliation, tenant block, and signed ping. Analytics tests prove tenant-scoped redaction. Migration `007_dial_sandbox_callback_adapter.sql` added. |
 | 34 | Added typed `SideEffectIntent` ownership for Sheets, email scans, CRM sync, notifications, worksheet appends, and recording follow-up; atomically coupled intent/job/outbox writes; independent gated worker; legacy process-loop/direct-dispatch removal; redacted analytics and dashboard panel. | Atomicity, idempotency, dry-run no-IO, tenant isolation, retry classification, manual email queueing, direct-call rejection, analytics/CSV redaction, and legacy-flow tests pass. Migration `008_typed_durable_side_effect_jobs.sql` added. |
+| 35 | Added fail-closed pilot tenant admission, `PilotConfiguration`, hashed `PilotCohortMember` records, a confirmed-security-incident count, frozen scorecard formulas, read-only pilot and rollback-preview APIs, dashboard evidence panel, and database-only rollback drill. | 11 focused Day 35 tests plus full backend **215-test** suite passed; API lint and frontend lint/build passed. Migration `009_controlled_pilot_readiness.sql` and `railway.json` temporary-host manifest added. |
 
 **Day 32 release evidence:** backend lint clean; **188 backend tests passing**; frontend lint/build passing with 20 routes; GitHub Actions implementation CI [#101](https://github.com/jeevesh2515/voxflow-voice-agent/actions/runs/32380869101) and follow-up correction CI #102 passed. The deployed Render callback endpoint returns `503 provider_callback_not_configured` for `{}` before schema validation, and the Vercel analytics page renders the Provider Lifecycle panel with 0 events/0 anomalies. The production campaign worker remains disabled and the callback secret is intentionally unconfigured, so no real provider callback or outbound call can mutate campaign state.
 
@@ -68,18 +69,18 @@ Days 1–24 established the backend, dashboard, tenant-aware data model, inbound
 | Worker safety | Disabled worker cannot claim; dry-run worker records evidence without integration IO; retryable vs permanent outcomes remain bounded. |
 | Operator evidence | Tenant-safe analytics/CSV/dashboard expose activation mode, gates, intent/pending/error totals, and aggregate distributions only. |
 
-**Pending release evidence:** local backend suite **204 passed** with clean Ruff; frontend lint/build passed with 20 routes. The required remaining gate is the Day 34 `main` CI/deployment/browser record. Production configuration remains `DURABLE_CAMPAIGN_WORKER_ENABLED=false`, `DURABLE_SIDE_EFFECTS_WORKER_ENABLED=false`, `DURABLE_SIDE_EFFECTS_DRY_RUN=true`, empty side-effect tenant allow-list, disabled Dial adapter, and unconfigured generic callback secret.
+**Pending release evidence:** Day 34 commit `9e8c809` and CI #107 passed, and the Vercel frontend revision is live. Render free-service builds/deploys/spin-up remain blocked by the official Google Cloud upstream incident. Production configuration remains staged: campaign and side-effect workers disabled, side-effect dry-run true, empty tenant allow-lists, disabled Dial adapter, and no generic callback secret.
 
-## Day 35 — Final controlled-pilot readiness gate (planned)
+## Day 35 — Final controlled-pilot readiness gate (source-complete)
 
-Day 35 does not promise a business KPI or enable a tenant merely because code is available. It must prepare a written, reversible one-tenant pilot package: fixed consented supplier cohort, IANA-timezone operating hours, named primary/backup human escalation coverage, frozen definitions for completion/escalation/FCR/security metrics, callback and side-effect alert owners, a micro-cohort capacity cap, and a tested durable rollback. A pilot can be authorized only by an explicit go/no-go decision that cites this evidence; outcomes are measured during operation rather than guaranteed in advance.
+Day 35 implements the measurable, reversible readiness package without promising business outcomes or activating a tenant. The production-default policy gate requires an explicit environment tenant approval plus an approved, unexpired pilot record containing hashed reviewed cohort membership, named primary/backup escalation coverage, micro-capacity, and a frozen metric-contract version. The scorecard reports completion, escalation, FCR, and confirmed security incidents with fixed denominators/exclusions; rates are `null` until data exists. The read-only APIs have no activation route, and the rollback drill refuses to run if a worker is enabled or a scoped job has an active lease. A real pilot remains blocked pending human-owned authorization and temporary-backend deployment verification.
 
 ## Post-pilot observability and resilience work
 
 | Day | Planned focus | Required proof |
 |---:|---|---|
-| 35 | Final controlled-pilot readiness: one approved tenant, fixed consented supplier cohort, explicit operating hours, human escalation coverage, pilot scorecard, callback/side-effect alert ownership, and rollback governance. | Dry-run and rollback drills pass; the go/no-go package makes readiness measurable. No KPI or zero-incident outcome is promised before observed pilot operation. |
-| 36 | Correlated tracing through command, outbox, job, provider operation, callback, communication record, and side-effect intent. | One approved fixture target traceable end to end without a database shell. |
+| 35 | Final controlled-pilot readiness: one approved tenant, fixed consented supplier cohort, explicit operating hours, human escalation coverage, pilot scorecard, callback/side-effect alert ownership, and rollback governance. | **Source-complete.** Fail-closed admission, frozen metrics, read-only scorecard, and zero-provider-call rollback drill pass. The signed human operating package and deployed verification remain required. |
+| 36 | Evidence-led pilot operations: preflight, hold-point scorecard review, callback/queue observability, pause/rollback evidence, and no-auto-expansion discipline. | An operator can produce one redacted, tenant-scoped evidence packet for every approved window and account for every claim, callback, escalation, and rollback decision. |
 | 37 | Dead-letter operator controls: inspect, annotate, cancel, replay, and audit. | Explicit replay creates a new auditable attempt only. |
 | 38 | Alert routing, runbooks, and resilience game-day preparation. | Every critical durable-work signal has a named response path. |
 

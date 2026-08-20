@@ -5,20 +5,22 @@
 ## Current position
 
 **Last updated:** 2026-08-20
-**Current milestone:** **Day 34 locally complete — Typed Durable Jobs for Sheets, email scans, recording follow-up, CRM sync, notifications, and worksheet side effects. CI, deployment, and browser verification are pending.**
-**Next implementation:** **Day 35 — Final controlled-pilot readiness gates for one approved tenant, a fixed cohort, explicit hours, human escalation coverage, scorecard definitions, and rollback governance.**
+**Current milestone:** **Day 35 source-complete — Final controlled-pilot readiness controls: fail-closed tenant admission, redacted cohort ledger, frozen metric contract, read-only scorecard/API, and database-only rollback drill. Local verification is complete; deployed verification requires a temporary backend because Render’s free-service deployment incident remains unresolved.**
+**Next implementation:** **Day 36 — Evidence-led controlled-pilot operations, hold-point review, and no-auto-expansion governance.**
 **Verified Day 33 runtime revision:** `0a52152` — Dial sandbox adapter, rollout audit ledger, analytics visibility, migration `007`, and signed fixture certification. The subsequent `main` commit records final delivery evidence only.
 
-The durable campaign, observability, and callback-certification programme for Days 25–33 is implemented, committed, deployed, and verified. Day 34 durable operational side effects are implemented and locally verified pending release gates. No real outbound provider call, notification, provider subscription, signing-secret configuration, provider ping, CRM webhook, Sheets write, Gmail fetch, or recording download has been performed during any milestone or verification.
+The durable campaign, observability, callback-certification, typed side-effect, and pilot-readiness programme for Days 25–35 is implemented in source. Day 34 remains pending Render backend deployment verification because of the documented platform outage; Day 35 adds a provider-neutral Railway manifest for a temporary recovery path. No real outbound provider call, notification, provider subscription, signing-secret configuration, provider ping, CRM webhook, Sheets write, Gmail fetch, or recording download has been performed during any milestone or verification.
 
 ## Verified delivery state
 
 | Area | Verified state |
 |---|---|
-| Backend quality | `ruff check .` clean; **204 tests passing**. Day 34 adds typed side-effect atomicity, idempotency, tenant-isolation, dry-run no-IO, retry, manual scan queueing, direct-call rejection, and aggregate-redaction coverage. |
-| Frontend quality | ESLint clean; Next.js 16.3.1 production build completed with **20 routes**, including the Dial Sandbox Adapter and Durable Side Effects dashboard panels. |
+| Backend quality | `ruff check .` clean; **215 tests passing**. Day 35 adds fail-closed admission, cohort hash isolation, pilot expiry/capacity/coverage enforcement, frozen metrics, read-only API contracts, tenant isolation, and database-only rollback coverage. |
+| Frontend quality | ESLint clean; Next.js 16.3.1 production build completed with **20 routes**, including Dial Sandbox Adapter, Durable Side Effects, and Controlled Pilot Readiness dashboard panels. |
 | Day 34 local scope | `SideEffectIntent`, transactional job/outbox enqueue, separate staged worker service, migration `008`, legacy Sheets/email loop removal, direct notification/CRM/worksheet/call-dispatch migration, analytics/CSV aggregation, and dashboard visibility are complete locally. |
-| Day 34 release gates | Pending: commit/push, GitHub CI, Render deployment, safe analytics verification, and authenticated Vercel panel verification. |
+| Day 34 release gates | Commit `9e8c809` and GitHub CI #107 passed; Vercel frontend is live. Render backend deployment and safe API/panel verification are blocked by the official free-service outage. |
+| Day 35 local scope | `PilotConfiguration`, `PilotCohortMember`, and `PilotSecurityIncident` models; migration `009`; fail-closed campaign admission; frozen scorecard; read-only pilot and rollback-preview APIs; dashboard panel; database-only rollback drill; `railway.json` temporary-host manifest. |
+| Day 35 release gates | Pending: commit/push and CI for the Day 35 revision, then temporary-backend provisioning, safe API checks, and authenticated Vercel scorecard verification. |
 | Day 32 CI/deployment | Day 32 implementation CI [#101](https://github.com/jeevesh2515/voxflow-voice-agent/actions/runs/32380869101) and correction CI #102 passed; Render/Vercel Day 32 browser evidence remains recorded below. |
 | Day 33 GitHub/CI | Commit [`0a52152`](https://github.com/jeevesh2515/voxflow-voice-agent/commit/0a5215275ff51d0b31b3bbadee825322cb30f429) is pushed to `main`. GitHub Actions [run #105](https://github.com/jeevesh2515/voxflow-voice-agent/actions/runs/32387989478) passed all `api-lint`, `api-test`, and `web-lint` jobs. |
 | Day 33 Render | `POST /api/provider-callbacks/dial/events` with `{}` returned **503** and `dial_callback_adapter_disabled`. Analytics returned **200** and included `dial_sandbox_adapter` with `adapter_enabled=false`, `sandbox_mode=true`, `tenant_allowed=false`, `audit_count=0`, and empty status counts. |
@@ -41,6 +43,7 @@ The durable campaign, observability, and callback-certification programme for Da
 | 32 | Fail-closed signed callback ingress, immutable provider-event ledger, tenant-derived lookup, unknown-call quarantine, duplicate/terminal guard, job reconciliation, lifecycle aggregate, and callback anomaly alert. |
 | 33 | Dial-specific sandbox HMAC adapter, secret-overlap support, outbound lifecycle normalization, redacted adapter-audit ledger, tenant rollout gate, tenant-safe analytics alerts, and dashboard panel. |
 | 34 | Typed `SideEffectIntent` ledger and atomic intent/job/outbox writes for Sheets, email scans, CRM sync, notifications, worksheet appends, and recording retrieval; independent staged worker; legacy in-process/direct-dispatch removal; tenant-safe analytics and dashboard panel. |
+| 35 | `PilotConfiguration`, hashed fixed cohort ledger, pilot expiry/capacity/primary-backup coverage contract, fail-closed environment and policy gate, frozen scorecard definitions, confirmed security-incident count, read-only readiness/rollback APIs, dashboard panel, and a zero-provider-call database rollback drill. |
 
 ## Current production safety posture
 
@@ -48,6 +51,8 @@ The campaign system is intentionally operationally **implemented but non-executi
 
 ```text
 DURABLE_CAMPAIGN_WORKER_ENABLED=false
+PILOT_READINESS_ENFORCED=true
+PILOT_READINESS_APPROVED_TENANTS=(intentionally empty)
 PROVIDER_CALLBACK_VALIDATE_SIGNATURE=true
 PROVIDER_CALLBACK_SHARED_SECRET=(intentionally unset)
 DIAL_CALLBACK_ADAPTER_ENABLED=false
@@ -82,6 +87,8 @@ The deployed `GET /api/jobs/health?tenant_id=varun` response reported zero ready
 14. The side-effect worker is independently disabled, dry-run protected, and tenant-allow-listed; no default tenant is admitted.
 15. Side-effect intent/job payloads and analytics contain only trusted references, hashes, and bounded result facts—not raw messages, phone numbers, recordings, callback data, integration payloads, or secrets.
 16. No real outbound call, notification, provider subscription, provider ping, secret configuration, CRM webhook, Sheets write, Gmail fetch, or recording download is allowed during local or browser verification.
+17. When pilot readiness is enforced, a target requires both a named approved tenant in the environment and an approved, unexpired configuration with reviewed cohort membership, named escalation coverage, micro-capacity, and a frozen metric version.
+18. Pilot readiness and rollback HTTP APIs are read-only. The database-only rollback drill refuses to proceed while a campaign worker is enabled or any scoped claim is active.
 
 ## Open work and known boundaries
 
@@ -94,14 +101,16 @@ The deployed `GET /api/jobs/health?tenant_id=varun` response reported zero ready
 | Metrics, alerting, game days | Day 33 adds verification-failure and rollout-blocked aggregates; external alert delivery, incident runbooks, and game days are not complete. | Day 38 alert-routing and resilience work. |
 | Live provider sandbox canary | Not authorized or executed. | Do not register a provider subscription or enable the campaign worker; Day 35 requires separate written pilot approval and runbook evidence. |
 | Operational side-effect worker | Day 34 implementation complete locally; production worker remains disabled and dry-run protected. | Do not configure an allow-list or enable it until Day 35 has a written tenant approval, integration review, named operator, and rollback proof. |
-| Pilot scorecard and human operations | Not yet implemented or approved. | Day 35 must freeze metric definitions/denominators, one tenant/cohort/hours, primary/backup escalation responders, callback/side-effect alert owners, and rollback command ownership. |
+| Pilot scorecard and human operations | Day 35 implementation complete; production remains intentionally blocked with no real named cohort or approver record. | Obtain written one-tenant authority, consent-evidence references, E.164 cohort through the protected data steward, named primary/backup responders, hours, expiry, and go/no-go owner before any future activation decision. |
+| Temporary backend workaround | Railway manifest committed locally; Railway is selected as the simplest Docker/GitHub fallback. | Provision temporary service with the existing Supabase connection and staged environment only; update Vercel API URL only after safe HTTPS health/API checks. |
 
 ## Immediate next session
 
-1. Complete Day 34 release gates: commit/push, GitHub CI, Render deployment, safe analytics checks, and authenticated Vercel Durable Side Effects panel verification.
-2. Preserve both safety boundaries: `DURABLE_CAMPAIGN_WORKER_ENABLED=false`, `DURABLE_SIDE_EFFECTS_WORKER_ENABLED=false`, `DURABLE_SIDE_EFFECTS_DRY_RUN=true`, `DIAL_CALLBACK_ADAPTER_ENABLED=false`, empty worker/adapter allow-lists, no signing secret, and no provider/integration call.
-3. Begin Day 35 only with a clear pilot-readiness scope: written tenant authorization, fixed consented cohort, explicit time window, named primary/backup escalation coverage, frozen completion/escalation/FCR/security scorecard, alert owners, and durable rollback drill.
-4. Do not promise business KPIs or zero incidents before the controlled pilot measures them. The Day 35 deliverable must make them observable, bounded, and reversible.
+1. Commit and push Day 35, confirm CI, then provision the Railway temporary backend using the existing root Dockerfile, current Supabase `DATABASE_URL`, Vercel-only CORS origin, and all staged defaults.
+2. Preserve the hard safety boundary: both workers disabled; campaign and side-effect dry run; empty pilot/worker/adapter allow-lists; no callback signing secret; no provider/integration action.
+3. Safely verify health, Day 34 analytics, callback 503 fail-closed responses, Day 35 read-only scorecard/rollback-preview endpoints, and the Vercel Durable Side Effects and Controlled Pilot Readiness panels.
+4. Collect the human-owned operating package before any go/no-go: written tenant authorization, consent evidence, a fixed E.164 cohort processed into hashes, explicit hours/expiry, named primary/backup coverage, alert owners, frozen metric approval, and a rollback owner.
+5. Do not promise business KPIs or zero incidents before the controlled pilot measures them. Day 35 makes them observable, bounded, and reversible.
 
 ## References
 

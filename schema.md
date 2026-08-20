@@ -2,7 +2,7 @@
 
 **Last updated:** 2026-08-20
 **Authoritative implementation:** `apps/api/voxflow_api/db.py` and the ordered SQL files in `migrations/`.
-**Purpose of this document:** Explain tenant boundaries, durable execution, policy controls, Day 32 provider callback evidence, Day 33 provider-adapter audit evidence, and Day 34 typed side-effect intent evidence. It is not a substitute for applying production migrations.
+**Purpose of this document:** Explain tenant boundaries, durable execution, policy controls, provider callback evidence, typed side-effect intent evidence, and Day 35 controlled-pilot readiness evidence. It is not a substitute for applying production migrations.
 
 ## 1. Schema and migration authority
 
@@ -15,6 +15,7 @@ Local SQLite development/tests create the SQLAlchemy metadata. Production Postgr
 006_provider_callback_lifecycle.sql
 007_dial_sandbox_callback_adapter.sql
 008_typed_durable_side_effect_jobs.sql
+009_controlled_pilot_readiness.sql
 ```
 
 The initial tenant/core schema and prior feature migrations must already be present. Do not copy partial DDL from this document into a production database; use the migration files so indexes and constraints remain aligned with code.
@@ -122,7 +123,17 @@ A side-effect intent is created in the same transaction as its business or audit
 
 The `side_effect_intents` table does not authorize execution by itself. `DURABLE_SIDE_EFFECTS_WORKER_ENABLED`, an explicit tenant allow-list, and dry-run mode are independent operational controls. In the Day 34 deployed posture the worker is disabled; the worker does not claim integration work.
 
-## 9. Relationship map
+## 9. Day 35 pilot-readiness evidence
+
+| Table | Key fields | Data-handling and operational role |
+|---|---|---|
+| `pilot_configurations` | One row per tenant: pilot/version/status, cohort ID/count, IANA window, daily/in-flight micro-capacity, expiry, named primary/backup owners, acknowledgement SLO, metric version, approver/timestamps | A versioned readiness contract. It contains no recipient phone or escalation channel. It does not enable a worker or authorize a call by itself. |
+| `pilot_cohort_members` | Tenant, cohort, SHA-256 recipient hash, consent-evidence reference, reviewed status/timestamp; unique `(tenant_id, cohort_id, recipient_hash)` | Fixed cohort matching without exposing E.164 values through the dashboard or readiness API. An approved-member count must equal `cohort_size` before admission succeeds. |
+| `pilot_security_incidents` | Tenant, pilot ID, bounded category/severity/status/summary, detection/resolution time | Measures confirmed findings for the frozen security metric. It is not proof that no unidentified incident exists. |
+
+The Day 35 policy gate requires an explicit environment tenant allow-list, `PilotConfiguration.status=approved`, an unexpired configuration, named primary/backup coverage and approver, micro-capacity, a fully reviewed cohort count, and an exact recipient hash match. Its scorecard and rollback-preview routes are read-only. The database-only rollback utility refuses while the campaign worker is enabled or any scoped job has a live lease.
+
+## 10. Relationship map
 
 ```mermaid
 erDiagram
@@ -133,6 +144,9 @@ erDiagram
     TENANTS ||--o{ PROVIDER_EVENTS : derived_ownership
     TENANTS ||--o{ PROVIDER_CALLBACK_ADAPTER_AUDITS : derived_when_known
     TENANTS ||--o{ SIDE_EFFECT_INTENTS : owns
+    TENANTS ||--|| PILOT_CONFIGURATIONS : owns
+    TENANTS ||--o{ PILOT_COHORT_MEMBERS : owns
+    TENANTS ||--o{ PILOT_SECURITY_INCIDENTS : owns
     TENANTS ||--|| TENANT_CAMPAIGN_POLICIES : configures
     TENANTS ||--o{ RECIPIENT_CAMPAIGN_PREFERENCES : owns
     TENANTS ||--o{ TENANT_DAILY_DISPATCH_USAGE : tracks
@@ -145,7 +159,7 @@ erDiagram
     CAMPAIGN_QUEUE ||--o{ CAMPAIGN_POLICY_DECISIONS : evaluated
 ```
 
-## 10. Data-handling requirements
+## 11. Data-handling requirements
 
 1. New operational tables must remain tenant scoped and have production migration coverage.
 2. Tenant policy/audit endpoint responses must redact raw evidence data unless a scoped administrator workflow explicitly needs it.
@@ -158,7 +172,9 @@ erDiagram
 9. A provider-specific adapter must be explicitly enabled in sandbox mode, have a signing secret, and resolve an allow-listed stored-operation tenant before it may create a Day 32 lifecycle event.
 10. Side-effect intents must retain only trusted aggregate identifiers, hashes, and bounded result facts; no job/intention ledger may copy raw external payloads, messages, recordings, credentials, or signature material.
 11. A request, voice tool, callback, dashboard, or FastAPI lifespan process may persist a side-effect intent but must not execute the effect inline; only an independently feature-gated worker may do so.
-12. Schema changes that affect policy, consent, jobs, provider operations, provider events, or side-effect intents require migration review, targeted tests, and a `schema.md` update.
+12. Pilot cohort records must use stable recipient hashes and consent-evidence references; no dashboard/read-only API may return raw E.164 data from the cohort ledger.
+13. A Day 35 readiness scorecard reports fixed formulas and observed values only; it must not imply an approval or activation.
+14. Schema changes that affect policy, consent, jobs, provider operations, provider events, side-effect intents, or pilot readiness require migration review, targeted tests, and a `schema.md` update.
 
 ## References
 
@@ -171,4 +187,6 @@ erDiagram
 - `migrations/006_provider_callback_lifecycle.sql`
 - `migrations/007_dial_sandbox_callback_adapter.sql`
 - `migrations/008_typed_durable_side_effect_jobs.sql`
+- `migrations/009_controlled_pilot_readiness.sql`
+- `apps/api/voxflow_api/pilot_readiness.py`
 - `apps/api/voxflow_api/jobs/side_effects.py`
