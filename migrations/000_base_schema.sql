@@ -53,12 +53,19 @@ CREATE TABLE IF NOT EXISTS job_outbox (
 	idempotency_key VARCHAR(255) NOT NULL,
 	created_at TIMESTAMP WITH TIME ZONE NOT NULL,
 	published_at TIMESTAMP WITH TIME ZONE,
+	relay_owner VARCHAR(128),
+	relay_lease_expires_at TIMESTAMP WITH TIME ZONE,
+	publish_attempt INTEGER NOT NULL,
+	last_error_code VARCHAR(128),
+	last_error_json TEXT,
 	PRIMARY KEY (id),
 	CONSTRAINT uq_job_outbox_tenant_idempotency UNIQUE (tenant_id, idempotency_key),
 	FOREIGN KEY(tenant_id) REFERENCES tenants (id)
 );
 
 CREATE INDEX IF NOT EXISTS ix_job_outbox_aggregate_id ON job_outbox (aggregate_id);
+
+CREATE INDEX IF NOT EXISTS ix_job_outbox_claim ON job_outbox (published_at, relay_lease_expires_at, created_at);
 
 CREATE INDEX IF NOT EXISTS ix_job_outbox_event_type ON job_outbox (event_type);
 

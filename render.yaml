@@ -45,3 +45,7 @@ services:
         value: "groq"
       - key: TTS_DEFAULT_LANG
         value: "hi"
+      # Day 28: worker code is deployed but campaign dispatch remains staged
+      # until Day 29 canary verification and explicit operator activation.
+      - key: DURABLE_CAMPAIGN_WORKER_ENABLED
+        value: "false"

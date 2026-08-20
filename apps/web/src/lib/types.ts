@@ -122,3 +122,32 @@ export interface CampaignQueueItem {
   transcript_summary?: string | null;
   updated_at: string;
 }
+
+
+export interface JobHealth {
+  tenant_id: string;
+  activation_mode: "staged" | "enabled";
+  status_counts: Record<string, number>;
+  active_leases: number;
+  expired_leases: number;
+  oldest_ready_at: string | null;
+  outbox: {
+    unpublished: number;
+    oldest_unpublished_at: string | null;
+  };
+}
+
+export interface JobSummary {
+  id: string;
+  job_type: string;
+  status: string;
+  attempt: number;
+  max_attempts: number;
+  priority: number;
+  next_run_at: string | null;
+  lease_owner: string | null;
+  lease_expires_at: string | null;
+  last_error_code: string | null;
+  created_at: string | null;
+  updated_at: string | null;
+}

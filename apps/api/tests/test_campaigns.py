@@ -76,20 +76,21 @@ def test_create_and_list_campaigns(client):
     assert len(queue) == 2
     assert queue[0]["status"] == "queued"
 
-    # 5. Run campaign batch
-    r_run = client.post(f"/api/campaigns/{campaign_id}/run?max_concurrent=5")
+    # 5. Stage campaign execution; Day 28 intentionally avoids inline provider calls.
+    r_run = client.post(f"/api/campaigns/{campaign_id}/run?tenant_id=varun")
     assert r_run.status_code == 200
     run_res = r_run.json()
     assert run_res["ok"] is True
-    assert run_res["processed"] == 2
-    assert run_res["successful"] == 2
+    assert run_res["processed"] == 0
+    assert run_res["execution_mode"] == "staged"
 
-    # 6. Verify status transitioned to completed
+    # 6. Verify targets remain durable and queued for controlled worker rollout.
     r_detail_after = client.get(f"/api/campaigns/{campaign_id}")
     assert r_detail_after.status_code == 200
     detail_after = r_detail_after.json()
-    assert detail_after["status"] == "completed"
-    assert detail_after["successful_calls"] == 2
+    assert detail_after["status"] == "active"
+    assert detail_after["successful_calls"] == 0
+    assert detail_after["queue_stats"]["queued"] == 2
 
 
 def test_autostart_campaign(client):
@@ -110,12 +111,13 @@ def test_autostart_campaign(client):
     data = r.json()
     campaign_id = data["id"]
 
-    # Verify queue was executed immediately
+    # Auto-start activates durable staging only; no inline provider call is made.
     r_detail = client.get(f"/api/campaigns/{campaign_id}")
     assert r_detail.status_code == 200
     detail = r_detail.json()
-    assert detail["status"] == "completed"
-    assert detail["successful_calls"] == 1
+    assert detail["status"] == "active"
+    assert detail["successful_calls"] == 0
+    assert detail["queue_stats"]["queued"] == 1
 
 
 def test_nonexistent_campaign_returns_404(client):

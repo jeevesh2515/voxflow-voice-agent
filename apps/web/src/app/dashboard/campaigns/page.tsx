@@ -18,11 +18,13 @@ import {
   ArrowRight,
   ShieldCheck,
   Radio,
+  Activity,
+  Database,
 } from "lucide-react";
 import { api } from "@/lib/api";
 import { useTenant } from "@/lib/tenant-context";
 import { fmtRelative } from "@/lib/format";
-import type { OutboundCampaign, CampaignQueueItem } from "@/lib/types";
+import type { OutboundCampaign, CampaignQueueItem, JobHealth } from "@/lib/types";
 
 export default function CampaignsPage() {
   const { activeTenantId, activeTenant } = useTenant();
@@ -32,6 +34,11 @@ export default function CampaignsPage() {
   );
   const { data: suppliers } = useSWR(["suppliers", activeTenantId], () =>
     api.suppliers(undefined, activeTenantId),
+  );
+  const { data: jobHealth, mutate: refreshJobHealth } = useSWR(
+    ["job-health", activeTenantId],
+    () => api.jobHealth(activeTenantId),
+    { refreshInterval: 15000 },
   );
 
   const [searchQuery, setSearchQuery] = useState("");
@@ -43,7 +50,7 @@ export default function CampaignsPage() {
   const [campaignName, setCampaignName] = useState("North Hub Urgent PO Verification");
   const [campaignType, setCampaignType] = useState("po_confirmation");
   const [targetPhones, setTargetPhones] = useState("+919876543210\n+919811122233");
-  const [autoStart, setAutoStart] = useState(true);
+  const [autoStart, setAutoStart] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [runningCampaignId, setRunningCampaignId] = useState<string | null>(null);
   const [formError, setFormError] = useState("");
@@ -324,7 +331,7 @@ export default function CampaignsPage() {
                           className="px-3 py-1 bg-[#00ffcc] hover:bg-[#00e6b8] text-black rounded-lg text-xs font-bold flex items-center gap-1.5 transition-colors disabled:opacity-50"
                         >
                           <Play size={12} fill="currentColor" />
-                          <span>{isRunning ? "Dialing..." : "Run Batch"}</span>
+                          <span>{isRunning ? "Staging..." : "Stage Queue"}</span>
                         </button>
                       )}
                     </div>
@@ -364,8 +371,46 @@ export default function CampaignsPage() {
           )}
         </div>
 
-        {/* Right 1 Col: Queue Inspector */}
+        {/* Right 1 Col: Durable Job Health + Queue Inspector */}
         <div className="space-y-4">
+          <div className="bg-[#141422] p-5 rounded-2xl border border-[#28283c] shadow-sm space-y-4">
+            <div className="flex items-center justify-between pb-3 border-b border-[#242436]">
+              <div className="flex items-center gap-2">
+                <Activity size={16} className="text-[#00ffcc]" />
+                <h3 className="font-headline font-bold text-sm text-white">Durable Dispatch Health</h3>
+              </div>
+              <button
+                onClick={() => refreshJobHealth()}
+                className="text-xs text-[#00ffcc] hover:underline font-mono"
+              >
+                Refresh
+              </button>
+            </div>
+            {jobHealth ? (() => {
+              const health = jobHealth as JobHealth;
+              return (
+                <>
+                  <div className="flex items-center gap-2 text-[10px] font-mono uppercase">
+                    <span className={`px-2 py-1 rounded border ${health.activation_mode === "enabled" ? "text-emerald-400 border-emerald-500/30 bg-emerald-500/10" : "text-amber-400 border-amber-500/30 bg-amber-500/10"}`}>
+                      {health.activation_mode === "enabled" ? "Worker enabled" : "Safe staging"}
+                    </span>
+                    <span className="text-[#94a3b8]">No inline dialling</span>
+                  </div>
+                  <div className="grid grid-cols-2 gap-2 text-xs">
+                    <div className="rounded-lg bg-[#10101a] p-2.5 border border-[#28283c]"><span className="text-[#94a3b8] block text-[10px] font-mono uppercase">Ready</span><strong className="text-white text-base">{health.status_counts.ready || 0}</strong></div>
+                    <div className="rounded-lg bg-[#10101a] p-2.5 border border-[#28283c]"><span className="text-[#94a3b8] block text-[10px] font-mono uppercase">Running</span><strong className="text-[#00ffcc] text-base">{health.status_counts.running || 0}</strong></div>
+                    <div className="rounded-lg bg-[#10101a] p-2.5 border border-[#28283c]"><span className="text-[#94a3b8] block text-[10px] font-mono uppercase">Retrying</span><strong className="text-amber-400 text-base">{health.status_counts.retry_scheduled || 0}</strong></div>
+                    <div className="rounded-lg bg-[#10101a] p-2.5 border border-[#28283c]"><span className="text-[#94a3b8] block text-[10px] font-mono uppercase">Review</span><strong className="text-red-400 text-base">{health.status_counts.dead_lettered || 0}</strong></div>
+                  </div>
+                  <div className="flex items-center gap-2 text-[11px] text-[#94a3b8]">
+                    <Database size={13} className="text-blue-400" />
+                    <span>{health.outbox.unpublished} unpublished event{health.outbox.unpublished === 1 ? "" : "s"}</span>
+                    {health.expired_leases > 0 && <span className="text-red-400">• {health.expired_leases} expired lease{health.expired_leases === 1 ? "" : "s"}</span>}
+                  </div>
+                </>
+              );
+            })() : <div className="text-xs text-[#94a3b8] py-2">Loading durable queue health…</div>}
+          </div>
           <div className="bg-[#141422] p-5 rounded-2xl border border-[#28283c] shadow-sm space-y-4">
             <div className="flex items-center justify-between pb-3 border-b border-[#242436]">
               <div className="flex items-center gap-2">
@@ -502,7 +547,7 @@ export default function CampaignsPage() {
                   className="rounded border-[#28283c] bg-[#10101a] text-[#ff2d78] focus:ring-0"
                 />
                 <label htmlFor="autostart" className="text-xs text-[#cbd5e1] cursor-pointer">
-                  Start dialing immediately upon creation
+                  Mark active on creation; calls remain safely staged until worker rollout approval
                 </label>
               </div>
 
