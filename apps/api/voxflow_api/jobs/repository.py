@@ -251,3 +251,104 @@ def recover_expired_leases(
 
     db.flush()
     return LeaseRecoveryResult(retried=retried, dead_lettered=dead_lettered)
+
+
+def schedule_retry(
+    db: Session,
+    *,
+    job_id: str,
+    worker_id: str,
+    next_run_at: datetime,
+    error_code: str,
+    error_json: str | None = None,
+    now: datetime | None = None,
+) -> bool:
+    """Release a valid lease and make a transient failure retryable later.
+
+    The retry transition is guarded by the same owner-and-expiry predicates as
+    completion. A stale worker cannot postpone or reopen work claimed by a new
+    worker.
+    """
+
+    scheduled_at = now or utcnow()
+    result = db.execute(
+        update(JobRun)
+        .where(
+            JobRun.id == job_id,
+            JobRun.status == RUNNING,
+            JobRun.lease_owner == worker_id,
+            JobRun.lease_expires_at > scheduled_at,
+            JobRun.attempt < JobRun.max_attempts,
+        )
+        .values(
+            status=RETRY_SCHEDULED,
+            lease_owner=None,
+            lease_expires_at=None,
+            next_run_at=next_run_at,
+            last_error_code=error_code,
+            last_error_json=error_json,
+            updated_at=scheduled_at,
+        )
+    )
+    if result.rowcount != 1:
+        return False
+
+    db.execute(
+        update(JobAttempt)
+        .where(
+            JobAttempt.job_id == job_id,
+            JobAttempt.worker_id == worker_id,
+            JobAttempt.outcome == RUNNING,
+            JobAttempt.finished_at.is_(None),
+        )
+        .values(outcome=RETRY_SCHEDULED, finished_at=scheduled_at, error_code=error_code, error_json=error_json)
+    )
+    db.flush()
+    return True
+
+
+def dead_letter_job(
+    db: Session,
+    *,
+    job_id: str,
+    worker_id: str,
+    error_code: str,
+    error_json: str | None = None,
+    now: datetime | None = None,
+) -> bool:
+    """Terminate a valid lease with a human-reviewable terminal failure."""
+
+    failed_at = now or utcnow()
+    result = db.execute(
+        update(JobRun)
+        .where(
+            JobRun.id == job_id,
+            JobRun.status == RUNNING,
+            JobRun.lease_owner == worker_id,
+            JobRun.lease_expires_at > failed_at,
+        )
+        .values(
+            status=DEAD_LETTERED,
+            lease_owner=None,
+            lease_expires_at=None,
+            finished_at=failed_at,
+            last_error_code=error_code,
+            last_error_json=error_json,
+            updated_at=failed_at,
+        )
+    )
+    if result.rowcount != 1:
+        return False
+
+    db.execute(
+        update(JobAttempt)
+        .where(
+            JobAttempt.job_id == job_id,
+            JobAttempt.worker_id == worker_id,
+            JobAttempt.outcome == RUNNING,
+            JobAttempt.finished_at.is_(None),
+        )
+        .values(outcome=DEAD_LETTERED, finished_at=failed_at, error_code=error_code, error_json=error_json)
+    )
+    db.flush()
+    return True
