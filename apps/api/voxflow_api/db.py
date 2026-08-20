@@ -26,6 +26,7 @@ from sqlalchemy import (
     Text,
     UniqueConstraint,
     create_engine,
+    text,
 )
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 from sqlalchemy.pool import NullPool
@@ -508,6 +509,41 @@ class ProviderOperation(Base):
 # ---------- Helpers ----------
 
 
+def _ensure_day28_outbox_columns() -> None:
+    """Upgrade legacy outbox tables for Day 28 in deployments using create_all.
+
+    Existing managed databases predate the ORM columns, and SQLAlchemy's
+    ``create_all`` never alters a table it already finds. The checked-in SQL
+    migration remains the primary production migration; this idempotent startup
+    safeguard prevents a partial deploy from serving a 500 before that migration
+    has been applied by the hosting platform.
+    """
+
+    statements = [
+        "ALTER TABLE job_outbox ADD COLUMN IF NOT EXISTS relay_owner VARCHAR(128)",
+        "ALTER TABLE job_outbox ADD COLUMN IF NOT EXISTS relay_lease_expires_at TIMESTAMP WITH TIME ZONE",
+        "ALTER TABLE job_outbox ADD COLUMN IF NOT EXISTS publish_attempt INTEGER NOT NULL DEFAULT 0",
+        "ALTER TABLE job_outbox ADD COLUMN IF NOT EXISTS last_error_code VARCHAR(128)",
+        "ALTER TABLE job_outbox ADD COLUMN IF NOT EXISTS last_error_json TEXT",
+        "CREATE INDEX IF NOT EXISTS ix_job_outbox_claim ON job_outbox (published_at, relay_lease_expires_at, created_at)",
+    ]
+    if _engine.dialect.name == "sqlite":
+        # SQLite supports ADD COLUMN but not PostgreSQL's IF NOT EXISTS form.
+        statements = [statement.replace(" ADD COLUMN IF NOT EXISTS", " ADD COLUMN") for statement in statements]
+
+    with _engine.begin() as conn:
+        for statement in statements:
+            try:
+                conn.execute(text(statement))
+            except Exception as exc:
+                # SQLite raises duplicate-column errors when the application is
+                # restarted after a previous successful local upgrade. Postgres
+                # uses IF NOT EXISTS, so any other error remains actionable.
+                if _engine.dialect.name == "sqlite" and "duplicate column name" in str(exc).lower():
+                    continue
+                raise
+
+
 def init_db() -> None:
     from pathlib import Path
     if _db_url.startswith("sqlite"):
@@ -515,6 +551,7 @@ def init_db() -> None:
         if path_str and not path_str.startswith(":memory:"):
             Path(path_str).parent.mkdir(parents=True, exist_ok=True)
     Base.metadata.create_all(_engine)
+    _ensure_day28_outbox_columns()
 
 
 def get_session() -> Iterator[Session]:
