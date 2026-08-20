@@ -7,7 +7,7 @@
 **Last updated:** 2026-08-20
 **Current milestone:** **Day 32 complete, deployed, and browser-verified — Provider Lifecycle and Idempotent Callback Reconciliation.**
 **Next implementation:** **Day 33 — Provider Adapter Sandbox Certification and Callback Rollout.**
-**Main branch:** `8f1b167` — Day 32 signed provider callback lifecycle (`b02c76f`) plus fail-closed-before-payload-validation correction (`8f1b167`).
+**Verified Day 32 runtime revision:** `8f1b167` — signed provider callback lifecycle (`b02c76f`) plus fail-closed-before-payload-validation correction (`8f1b167`). The subsequent `main` commits record final deployment evidence only.
 
 The durable campaign and observability programme for Days 25–32 is implemented, committed, deployed, and verified. No real outbound provider call has been performed during any milestone or production verification.
 
@@ -18,7 +18,7 @@ The durable campaign and observability programme for Days 25–32 is implemented
 | Backend quality | `ruff check .` clean; **188 tests passing**, including the four Day 32 callback lifecycle tests. |
 | Frontend quality | ESLint clean; Next.js 16.3.1 production build completed with **20 routes**. |
 | CI | Day 32 implementation CI [#101](https://github.com/jeevesh2515/voxflow-voice-agent/actions/runs/32380869101) passed. Regression-correction CI **#102** for `8f1b167` also passed in 1 minute 3 seconds. |
-| GitHub | `main` is synchronized at `8f1b167d906d43d3908815c551c5de7c3b13f7c2`; Day 32 is fully pushed. |
+| GitHub | The Day 32 runtime feature revision `8f1b167d906d43d3908815c551c5de7c3b13f7c2` and its final verification records are fully pushed to `main`. |
 | Vercel | <https://voxflow-voice-agent.vercel.app/dashboard/analytics> loaded successfully in the authenticated browser and rendered the Day 32 Provider Lifecycle panel. |
 | Render | `POST /api/provider-callbacks/events` with `{}` returned **503** and `provider_callback_not_configured`; `GET /api/analytics/overview?tenant_id=varun&days=7` returned **200** with the Day 32 `provider_lifecycle` aggregate. |
 | Dashboard | Browser verification showed the tenant-local Provider Lifecycle panel with **0 events**, **0 anomalies**, and `Applied: 0 · Terminal ignored: 0`. |
