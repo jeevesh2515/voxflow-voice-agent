@@ -13,7 +13,7 @@ VoxFlow is a **Hindi-English voice operations platform** for supply-chain teams.
 | Campaign safety | Feature gate, canary scoping, dry-run mode, tenant policy checks, consent/opt-out controls, capacity reservations, audit decisions, cancellation, and Day 35 fail-closed pilot cohort admission. |
 | Analytics and reporting | Tenant-safe KPI/trend aggregates, durable monitoring signals, provider-lifecycle totals, operator attention queue, and redacted CSV enterprise reports. |
 | Provider callbacks | Fail-closed normalized ingress plus a Dial-specific sandbox adapter: official-envelope HMAC verification, signed fixture normalization, redacted audit receipts, tenant rollout gate, immutable lifecycle reconciliation, and quarantine. |
-| Production | [Vercel dashboard](https://voxflow-voice-agent.vercel.app) and [Render API](https://voxflow-voice-agent.onrender.com/api/health). |
+| Production | [Vercel dashboard](https://voxflow-voice-agent.vercel.app) and the temporary [Fly API](https://voxflow-voice-agent.fly.dev/api/health); Render remains outage-blocked. |
 
 ## What is complete through Day 35
 
@@ -29,7 +29,7 @@ Day 33 isolates Dial’s documented webhook protocol at the integration edge. `P
 
 Day 34 removes API-process ownership of operational side effects. Sheets mirrors, email scans, CRM webhooks, notifications, generic worksheet writes, and recording follow-up now persist a tenant-scoped `SideEffectIntent`, `JobRun`, and `JobOutbox` atomically. A separately deployed side-effect worker is disabled by default, requires an explicit tenant allow-list, and records a dry-run result instead of external IO. The dashboard exposes aggregate-only durable side-effect health; direct agent Twilio/Dial calls and fire-and-forget CRM dispatch are blocked.
 
-Day 35 adds a controlled-pilot readiness contract without an activation control. An eligible future target must pass the ordinary tenant policy and a second independent gate: an environment-approved tenant, an approved/unexpired pilot configuration, a reviewed hashed cohort, named primary and backup escalation owners, micro-cohort capacity, and a frozen metric-contract version. The read-only scorecard reports the exact completion, escalation, FCR, and confirmed-security-incident definitions; the database-only rollback drill cannot run while the worker is active or a pilot claim is live. The real pilot remains intentionally blocked until a human-owned one-tenant operating package is signed.
+Day 35 adds a controlled-pilot readiness contract without an activation control. An eligible future target must pass the ordinary tenant policy and a second independent gate: an environment-approved tenant, an approved/unexpired pilot configuration, a reviewed hashed cohort, named primary and backup escalation owners, micro-cohort capacity, and a frozen metric-contract version. The read-only scorecard reports the exact completion, escalation, FCR, and confirmed-security-incident definitions; the database-only rollback drill cannot run while the worker is active or a pilot claim is live. Commit `8f14f1b`, CI #108, Fly safe API checks, and Vercel browser verification prove the package without authorizing a real pilot, which remains intentionally blocked until a human-owned one-tenant operating package is signed.
 
 | Day | Delivered capability | Primary evidence |
 |---:|---|---|
@@ -43,7 +43,7 @@ Day 35 adds a controlled-pilot readiness contract without an activation control.
 | 32 | Signed callback ingress, immutable provider events, quarantine, idempotent terminal reconciliation, lifecycle analytics | `tests/test_provider_callbacks.py` and migration `006_provider_callback_lifecycle.sql` |
 | 33 | Dial sandbox adapter, raw-body HMAC verification, secret-rotation overlap, outbound-event normalization, redacted audit ledger, tenant rollout gate, and analytics visibility | `tests/test_dial_callback_adapter.py`, `tests/test_analytics.py`, and migration `007_dial_sandbox_callback_adapter.sql` |
 | 34 | Typed side-effect intents/jobs for Sheets, email scans, CRM sync, notifications, worksheet writes, and recording retrieval; separate gated worker; no direct dispatch; analytics/operator panel | `tests/test_side_effect_jobs.py`, `tests/test_analytics.py`, and migration `008_typed_durable_side_effect_jobs.sql` |
-| 35 | Fail-closed pilot admission, hashed fixed cohort, expiry/capacity/escalation contract, frozen scorecard, read-only readiness APIs, dashboard evidence panel, and database-only rollback drill | `tests/test_pilot_readiness.py`, migration `009_controlled_pilot_readiness.sql`, and `railway.json` |
+| 35 | Fail-closed pilot admission, hashed fixed cohort, expiry/capacity/escalation contract, frozen scorecard, read-only readiness APIs, dashboard evidence panel, and database-only rollback drill | `tests/test_pilot_readiness.py`, migration `009_controlled_pilot_readiness.sql`, CI #108, Fly deployment `1918958`, and Vercel production deployment `56QMWDU6A` |
 
 ## Production safety controls
 
@@ -70,7 +70,7 @@ An approved live canary needs all of the following: one explicitly allowed tenan
 
 ```mermaid
 flowchart LR
-    UI[Next.js dashboard\nVercel] --> API[FastAPI control plane\nRender]
+    UI[Next.js dashboard\nVercel] --> API[FastAPI control plane\nFly temporary fallback]
     API --> DB[(PostgreSQL / SQLite)]
     API --> OB[Transactional outbox]
     OB --> JR[Durable job ledger]
@@ -172,14 +172,15 @@ At the Day 35 local delivery point, the backend suite has **215 passing tests**,
 | Component | Service | URL |
 |---|---|---|
 | Web dashboard | Vercel | <https://voxflow-voice-agent.vercel.app> |
-| API | Render | <https://voxflow-voice-agent.onrender.com> |
-| Job health | Render | <https://voxflow-voice-agent.onrender.com/api/jobs/health?tenant_id=varun> |
-| Analytics overview | Render | <https://voxflow-voice-agent.onrender.com/api/analytics/overview?tenant_id=varun&days=30> |
-| Normalized provider callbacks | Render | `<POST /api/provider-callbacks/events>`; intentionally returns `503` until its normalized callback secret is configured. |
-| Dial sandbox callbacks | Render | `<POST /api/provider-callbacks/dial/events>`; intentionally returns `503` while `DIAL_CALLBACK_ADAPTER_ENABLED=false`. |
-| Pilot readiness | Temporary backend after provisioning | `GET /api/pilot-readiness/varun`; read-only scorecard, intentionally blocked until human-owned evidence exists. |
+| API | Fly temporary fallback | <https://voxflow-voice-agent.fly.dev> |
+| Job health | Fly temporary fallback | <https://voxflow-voice-agent.fly.dev/api/jobs/health?tenant_id=varun> |
+| Analytics overview | Fly temporary fallback | <https://voxflow-voice-agent.fly.dev/api/analytics/overview?tenant_id=varun&days=30> |
+| Normalized provider callbacks | Fly temporary fallback | `<POST /api/provider-callbacks/events>`; verified to return `503` until its normalized callback secret is configured. |
+| Dial sandbox callbacks | Fly temporary fallback | `<POST /api/provider-callbacks/dial/events>`; verified to return `503` while `DIAL_CALLBACK_ADAPTER_ENABLED=false`. |
+| Pilot readiness | Fly temporary fallback | `GET /api/pilot-readiness/varun`; read-only scorecard, intentionally blocked until human-owned evidence exists. |
+| Original backend | Render | <https://voxflow-voice-agent.onrender.com>; temporarily unavailable during the documented incident. |
 
-The frontend currently uses `NEXT_PUBLIC_API_URL=https://voxflow-voice-agent.onrender.com`. While the documented Render outage persists, `railway.json` permits a reversible GitHub/Docker temporary backend. Only after safe HTTPS health/API verification should `NEXT_PUBLIC_API_URL` be changed to that temporary origin. Analytics, callback evidence, Day 34 side-effect health, and Day 35 pilot readiness are read-only with respect to activation: no dashboard panel can create a dial or execute an integration. The backend must retain all staged worker controls and empty allow-lists until the separate human go/no-go approval.
+The Vercel Production `NEXT_PUBLIC_API_URL` currently uses `https://voxflow-voice-agent.fly.dev`, verified through production deployment `56QMWDU6A`. This is a reversible outage workaround: retain the staged workers and empty allow-lists, then re-run the same safe API/browser checks before restoring Render and retiring Fly. Analytics, callback evidence, Day 34 side-effect health, and Day 35 pilot readiness are read-only with respect to activation: no dashboard panel can create a dial or execute an integration. The backend must retain all staged worker controls and empty allow-lists until the separate human go/no-go approval.
 
 ## Documentation map
 
@@ -190,7 +191,7 @@ The frontend currently uses `NEXT_PUBLIC_API_URL=https://voxflow-voice-agent.onr
 | [PHASES.md](PHASES.md) | Day-by-day delivery record and next implementation phase. |
 | [MEMORY.md](MEMORY.md) | Live project status and next operational action. |
 | [schema.md](schema.md) | Schema reference, durable-job tables, and policy records. |
-| [SETUP.md](SETUP.md) | Current Render/Vercel deployment and staging verification procedure. |
+| [SETUP.md](SETUP.md) | Current temporary-backend/Vercel deployment, safe verification, and Render restoration procedure. |
 | [security_audit.md](security_audit.md) | Security controls, known gaps, and verification commands. |
 | [.learning/README.md](.learning/README.md) | Local-only theory and implementation journal. |
 | [.planning/planning_overview.md](.planning/planning_overview.md) | Current roadmap index and historical-plan boundary. |
