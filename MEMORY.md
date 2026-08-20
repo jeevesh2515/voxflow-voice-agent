@@ -7,9 +7,9 @@
 **Last updated:** 2026-08-20
 **Current milestone:** **Day 31 complete — Advanced Analytics, Monitoring, and Enterprise Reporting.**
 **Next implementation:** **Day 32 — Provider Lifecycle and Idempotent Callback Reconciliation.**
-**Main branch:** Day 31 implementation is locally verified and pending its delivery commit.
+**Main branch:** `0fb2948` — `feat: add tenant analytics and enterprise reporting`.
 
-The durable campaign and observability programme for Days 25–31 is implemented and locally verified. No real outbound provider call has been performed during these milestones.
+The durable campaign and observability programme for Days 25–31 is implemented, verified, committed, pushed to `main`, and deployed. No real outbound provider call has been performed during these milestones.
 
 ## Verified delivery state
 
@@ -17,11 +17,11 @@ The durable campaign and observability programme for Days 25–31 is implemented
 |---|---|
 | Backend quality | `ruff check voxflow_api tests` clean; **184 tests passing**. |
 | Frontend quality | ESLint clean; Next.js 16.3.1 production build completed with **20 routes**. |
-| CI | GitHub Actions run `32329027046` passed API lint, API tests, and web lint/build. |
-| GitHub | `main` is synchronized at `5dfe02e`. |
-| Vercel | Current production deployment succeeded at <https://voxflow-voice-agent.vercel.app>. |
+| CI | GitHub Actions run `32334590276` passed API lint, API tests, and web lint/build. |
+| GitHub | `main` is synchronized at `0fb2948`. |
+| Vercel | Day 31 production deployment succeeded at <https://voxflow-voice-agent.vercel.app>. |
 | Render | API responds at <https://voxflow-voice-agent.onrender.com>. |
-| Dashboard | Campaign durable health is live; Day 31 analytics dashboard is locally production-built and pending deployment verification. |
+| Dashboard | Authenticated Day 31 analytics dashboard rendered live KPI/trend/attention state and staged rollout messaging in the browser. |
 | Session-free boundary | `/dashboard/campaigns` redirects to `/sign-in` without a session. |
 
 ## Durable campaign and monitoring system: completed Days 25–31
