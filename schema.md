@@ -2,7 +2,7 @@
 
 **Last updated:** 2026-08-20
 **Authoritative implementation:** `apps/api/voxflow_api/db.py` and the ordered SQL files in `migrations/`.
-**Purpose of this document:** Explain the tenant boundaries, durable execution model, and Day 30 policy tables. It is not a substitute for applying production migrations.
+**Purpose of this document:** Explain tenant boundaries, durable execution, policy controls, and Day 32 provider callback evidence. It is not a substitute for applying production migrations.
 
 ## 1. Schema and migration authority
 
@@ -12,6 +12,7 @@ Local SQLite development/tests create the SQLAlchemy metadata. Production Postgr
 003_durable_job_ledger.sql
 004_outbox_relay_state.sql
 005_campaign_policy_controls.sql
+006_provider_callback_lifecycle.sql
 ```
 
 The initial tenant/core schema and prior feature migrations must already be present. Do not copy partial DDL from this document into a production database; use the migration files so indexes and constraints remain aligned with code.
@@ -50,6 +51,8 @@ Every operational, campaign, durable-job, provider-operation, and policy record 
 | `job_outbox` | Tenant-owned event aggregate, payload, publish/lease state, idempotency key | Prevents loss between a committed domain change and job publication. |
 | `job_attempts` | Job ID, worker, started/finished timestamps, outcome, error evidence | Immutable execution/claim history. `policy_deferred` is an intentional business wait, not an unclassified failure. |
 | `provider_operations` | Tenant, provider, operation type, idempotency key, request hash, provider ID, durable status | Owns the external provider side-effect boundary. |
+| `provider_events` | Tenant-derived operation reference, provider/event/call IDs, type, occurrence time, payload hash, redacted normalized facts, application/anomaly status | Immutable signed-callback history; unique `(provider, provider_event_id)` enforces delivery idempotency. |
+| `provider_callback_quarantines` | Provider event/call metadata, payload hash, reason, timestamps; intentionally no tenant ID | Safe record for a trusted callback that cannot resolve an existing provider operation. |
 
 The durable job repository uses conditional state transitions that verify the current `running` state, lease owner, and unexpired lease. This prevents a stale worker from completing, cancelling, or retrying a job it no longer owns.
 
@@ -74,7 +77,20 @@ The durable job repository uses conditional state transitions that verify the cu
 | Reservation | `settled` | Dry-run or terminal provider outcome completed; active capacity released while the day’s call decision remains accounted for. |
 | Policy decision | `allowed`, `deferred`, `cancelled` | Immutable record of every dispatch-policy evaluation. |
 
-## 6. Relationship map
+## 6. Day 32 provider callback evidence
+
+`provider_events.tenant_id` is derived only after the service resolves an existing `provider_operations` row by `(provider, provider_id)`. The callback transport never supplies an authoritative tenant, campaign, queue, or job reference. Unknown calls are inserted only into `provider_callback_quarantines`, which deliberately has no tenant relationship.
+
+| Callback evidence field | Data handling rule |
+|---|---|
+| `provider_event_id` and `provider_call_id` | Used for idempotency and stored-operation lookup; not shown in the tenant analytics aggregate. |
+| `payload_hash` | Retained for forensic equality checks; raw callback payload is not stored in the event ledger. |
+| `normalized_payload_json` | Contains only normalized outcome facts needed for reconciliation. It must not contain secrets, transcript content, or raw provider payload. |
+| `apply_status` and `anomaly_code` | Used for operator lifecycle aggregate and alerting; does not by itself authorize a retry or re-dial. |
+
+A terminal callback may finalize the job associated with the durable provider operation even if that job is waiting in a callback-pending retry state. The transition is guarded by the stored operation identity, immutable event deduplication, and terminal-state checks; late callbacks cannot reopen a completed, cancelled, or dead-lettered job.
+
+## 7. Relationship map
 
 ```mermaid
 erDiagram
@@ -82,24 +98,28 @@ erDiagram
     TENANTS ||--o{ CAMPAIGN_QUEUE : owns
     TENANTS ||--o{ JOB_RUNS : owns
     TENANTS ||--o{ PROVIDER_OPERATIONS : owns
+    TENANTS ||--o{ PROVIDER_EVENTS : derived_ownership
     TENANTS ||--|| TENANT_CAMPAIGN_POLICIES : configures
     TENANTS ||--o{ RECIPIENT_CAMPAIGN_PREFERENCES : owns
     TENANTS ||--o{ TENANT_DAILY_DISPATCH_USAGE : tracks
     OUTBOUND_CAMPAIGNS ||--o{ CAMPAIGN_QUEUE : contains
     JOB_RUNS ||--o{ JOB_ATTEMPTS : records
+    PROVIDER_OPERATIONS ||--o{ PROVIDER_EVENTS : receives
     JOB_RUNS ||--|| CAMPAIGN_DISPATCH_RESERVATIONS : reserves
     JOB_RUNS ||--o{ CAMPAIGN_POLICY_DECISIONS : explains
     CAMPAIGN_QUEUE ||--o{ CAMPAIGN_POLICY_DECISIONS : evaluated
 ```
 
-## 7. Data-handling requirements
+## 8. Data-handling requirements
 
 1. New operational tables must remain tenant scoped and have production migration coverage.
 2. Tenant policy/audit endpoint responses must redact raw evidence data unless a scoped administrator workflow explicitly needs it.
 3. The provider operation idempotency key must be stable for the job’s intended provider request.
 4. Do not delete or overwrite attempt/policy evidence in normal execution paths.
 5. Expensive or external work must occur after the durable state is committed and must reconcile back through tenant-owned records.
-6. Schema changes that affect policy, consent, jobs, or provider operations require migration review, targeted tests, and a `schema.md` update.
+6. Provider callbacks must validate freshness and a provider-specific signature before they are normalized or persisted; a missing secret must fail closed.
+7. Unknown provider IDs must quarantine without creating a tenant, campaign, queue, job, or provider operation.
+8. Schema changes that affect policy, consent, jobs, provider operations, or provider events require migration review, targeted tests, and a `schema.md` update.
 
 ## References
 
@@ -109,3 +129,4 @@ erDiagram
 - `migrations/003_durable_job_ledger.sql`
 - `migrations/004_outbox_relay_state.sql`
 - `migrations/005_campaign_policy_controls.sql`
+- `migrations/006_provider_callback_lifecycle.sql`

@@ -111,6 +111,13 @@ class Settings(BaseSettings):
     durable_campaign_dry_run: bool = True
     durable_campaign_max_in_flight_per_tenant: int = 1
 
+    # ----- Provider callback lifecycle (Day 32) -----
+    # Public callback ingestion fails closed when signature verification is on
+    # and no shared secret has been configured for the provider adapter.
+    provider_callback_shared_secret: str = ""
+    provider_callback_validate_signature: bool = True
+    provider_callback_max_age_seconds: int = 300
+
     # ----- Google Sheets (call-outcome log) -----
     # Paste the full service-account JSON as a single-line env var, OR set
     # google_service_account_file to a path on disk. JSON wins if both are set.

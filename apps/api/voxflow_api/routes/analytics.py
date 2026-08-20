@@ -21,6 +21,7 @@ from ..db import (
     JobOutbox,
     JobRun,
     OutboundCampaign,
+    ProviderEvent,
     Tenant,
     session_scope,
 )
@@ -108,6 +109,16 @@ def _analytics_payload(tenant_id: str, days: int) -> dict[str, Any]:
             .scalars()
             .all()
         )
+        provider_events = (
+            db.execute(
+                select(ProviderEvent).where(
+                    ProviderEvent.tenant_id == tenant_id,
+                    ProviderEvent.created_at >= period_start,
+                )
+            )
+            .scalars()
+            .all()
+        )
 
     total_calls = len(calls)
     resolved_calls = sum(1 for call in calls if call.resolution_status == "resolved" or call.outcome == "completed")
@@ -148,6 +159,9 @@ def _analytics_payload(tenant_id: str, days: int) -> dict[str, Any]:
     policy_reason_counts = Counter(_normalise_bucket(decision.reason_code) for decision in policy_decisions)
     queue_counts = Counter(_normalise_bucket(item.status, "queued") for item in queue_items)
     job_counts = Counter(_normalise_bucket(job.status, "ready") for job in jobs)
+    provider_event_type_counts = Counter(_normalise_bucket(event.event_type) for event in provider_events)
+    provider_event_apply_counts = Counter(_normalise_bucket(event.apply_status) for event in provider_events)
+    provider_event_anomaly_count = sum(1 for event in provider_events if event.anomaly_code)
 
     active_jobs = [job for job in jobs if job.status in {"ready", "retry_scheduled", "running"}]
     ready_jobs = [job for job in jobs if job.status in {"ready", "retry_scheduled"}]
@@ -174,6 +188,13 @@ def _analytics_payload(tenant_id: str, days: int) -> dict[str, Any]:
         _add_alert(alert_rows, "warning", "job_backlog_age", "The oldest ready/retry job is older than 15 minutes.")
     if follow_up_open:
         _add_alert(alert_rows, "warning", "open_follow_ups", f"{follow_up_open} call follow-up item(s) remain unresolved.")
+    if provider_event_anomaly_count:
+        _add_alert(
+            alert_rows,
+            "warning",
+            "provider_callback_anomalies",
+            f"{provider_event_anomaly_count} provider callback event(s) need lifecycle review.",
+        )
     if campaign_activation_mode() == "staged":
         _add_alert(alert_rows, "info", "campaigns_staged", "Campaign dispatch remains safely staged; no provider worker is active.")
 
@@ -221,6 +242,12 @@ def _analytics_payload(tenant_id: str, days: int) -> dict[str, Any]:
             "target_status_counts": dict(sorted(queue_counts.items())),
             "policy_decision_counts": dict(sorted(policy_counts.items())),
             "policy_reason_counts": dict(sorted(policy_reason_counts.items())),
+        },
+        "provider_lifecycle": {
+            "event_count": len(provider_events),
+            "event_type_counts": dict(sorted(provider_event_type_counts.items())),
+            "apply_status_counts": dict(sorted(provider_event_apply_counts.items())),
+            "anomaly_count": provider_event_anomaly_count,
         },
         "monitoring": {
             "state": monitoring_state,
@@ -282,6 +309,12 @@ def analytics_report_csv(
     writer.writerow(["Date", "Calls", "Resolved", "Escalated", "Duration seconds"])
     for point in payload["trends"]:
         writer.writerow([point["date"], point["calls"], point["resolved"], point["escalated"], point["duration_sec"]])
+    writer.writerow([])
+    writer.writerow(["Provider lifecycle events", payload["provider_lifecycle"]["event_count"]])
+    writer.writerow(["Provider callback anomalies", payload["provider_lifecycle"]["anomaly_count"]])
+    writer.writerow(["Provider event type", "Count"])
+    for event_type, count in payload["provider_lifecycle"]["event_type_counts"].items():
+        writer.writerow([_safe_csv_value(event_type), count])
     writer.writerow([])
     writer.writerow(["Monitoring state", payload["monitoring"]["state"]])
     writer.writerow(["Alert level", "Code", "Message"])

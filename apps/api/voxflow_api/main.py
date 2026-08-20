@@ -26,6 +26,7 @@ from .routes import campaign_policies as campaign_policy_routes
 from .routes import campaigns as campaign_routes
 from .routes import data as data_routes
 from .routes import jobs as job_routes
+from .routes import provider_callbacks as provider_callback_routes
 from .routes import twilio as twilio_routes
 from .routes import ws as ws_routes
 from .routes.ws import get_pipeline
@@ -150,6 +151,7 @@ def create_app() -> FastAPI:
     app.include_router(campaign_routes.router)
     app.include_router(campaign_policy_routes.router)
     app.include_router(job_routes.router)
+    app.include_router(provider_callback_routes.router)
     app.include_router(ws_routes.router, tags=["ws"])
     app.include_router(twilio_routes.router)
 

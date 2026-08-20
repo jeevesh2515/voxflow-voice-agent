@@ -193,6 +193,12 @@ export interface AnalyticsOverview {
     policy_decision_counts: Record<string, number>;
     policy_reason_counts: Record<string, number>;
   };
+  provider_lifecycle: {
+    event_count: number;
+    event_type_counts: Record<string, number>;
+    apply_status_counts: Record<string, number>;
+    anomaly_count: number;
+  };
   monitoring: {
     state: "healthy" | "attention" | "critical";
     alerts: AnalyticsAlert[];
