@@ -80,9 +80,9 @@ VoxFlow applies layered controls to tenant-aware voice and campaign operations. 
 
 | Gap | Risk | Required next action |
 |---|---|---|
-| Provider-specific callback adapter certification | An undocumented or incorrectly canonicalized live provider callback could be rejected or mis-normalized. | Day 33 sandbox contract capture, signature fixtures, normalizer, replay/reorder drills, and controlled adapter gate. |
+| Provider-specific callback adapter certification | **Day 33 local implementation complete.** An uncontrolled live subscription would still risk an unintended callback rollout. | Keep `DIAL_CALLBACK_ADAPTER_ENABLED=false` in production. The Dial adapter now verifies raw-body HMAC/freshness, normalizes outbound events only, audits redacted dispositions, and requires a stored-operation tenant allow-list before application. |
 | RBAC for policy/replay/config mutation | Broad access could alter policy or worker configuration. | Add platform/tenant admin/operator/read-only authorization matrix. |
-| Callback alert routing/runbooks | Day 32 exposes lifecycle aggregates but does not route alerts or provide incident drills. | Add provider event age, verification-failure, quarantine, duplicate, and anomaly response paths after adapter certification. |
+| Callback alert routing/runbooks | Day 33 adds tenant-safe verification-failure and rollout-blocked aggregates, but external alert routing and formal incident drills are not yet implemented. | Day 38 must add named alert routes, response owners, provider-event-age monitoring, quarantine review, and resilience game-day evidence. |
 | Internal canary evidence | Live provider behavior is intentionally not verified. | Use provider sandbox or approved single-target internal canary only after prerequisite gates. |
 | Full security-header coverage | API response headers are not yet uniformly hardened. | Add/test a FastAPI security-header policy in later hardening work. |
 
@@ -104,10 +104,12 @@ curl -fsS https://voxflow-voice-agent.onrender.com/api/health
 curl -fsS 'https://voxflow-voice-agent.onrender.com/api/jobs/health?tenant_id=varun'
 curl -fsS https://voxflow-voice-agent.onrender.com/api/campaign-policies/varun
 curl -sS -o /dev/null -w '%{http_code}\n' -X POST https://voxflow-voice-agent.onrender.com/api/provider-callbacks/events -H 'Content-Type: application/json' -d '{}'
-curl -I https://voxflow-voice-agent.vercel.app/dashboard/campaigns
+curl -sS -o /dev/null -w '%{http_code}\n' -X POST https://voxflow-voice-agent.onrender.com/api/provider-callbacks/dial/events -H 'Content-Type: application/json' -d '{}'
+curl -fsS 'https://voxflow-voice-agent.onrender.com/api/analytics/overview?tenant_id=varun&days=7'
+curl -I https://voxflow-voice-agent.vercel.app/dashboard/analytics
 ```
 
-Expected Day 32 live result is staged rollout with the campaign worker disabled and callback ingress returning `503` while the callback secret is intentionally absent. Do not treat a passing dashboard load, job-health read, or callback rejection as authorization to enable outbound dispatch or register a live provider callback URL.
+Expected Day 33 live result is staged rollout with the campaign worker disabled, normalized callback ingress returning `503` while its secret is intentionally absent, and Dial sandbox ingress returning `503 dial_callback_adapter_disabled` before body parsing. The analytics response should include `dial_sandbox_adapter` with `adapter_enabled=false`, `sandbox_mode=true`, and zero tenant audit receipts in an untouched deployment. Do not treat a passing dashboard load, job-health read, analytics response, or callback rejection as authorization to enable outbound dispatch, configure a Dial secret, fire a provider ping, or register a live provider callback URL.
 
 ## References
 
@@ -117,3 +119,6 @@ Expected Day 32 live result is staged rollout with the campaign worker disabled 
 - `apps/api/voxflow_api/jobs/`
 - `migrations/005_campaign_policy_controls.sql`
 - `migrations/006_provider_callback_lifecycle.sql`
+- `migrations/007_dial_sandbox_callback_adapter.sql`
+- `apps/api/voxflow_api/integrations/dial_callbacks.py`
+- `apps/api/voxflow_api/routes/dial_callbacks.py`

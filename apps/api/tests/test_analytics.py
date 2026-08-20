@@ -13,6 +13,7 @@ from voxflow_api.db import (
     JobOutbox,
     JobRun,
     OutboundCampaign,
+    ProviderCallbackAdapterAudit,
     SessionLocal,
     Tenant,
     reset_db,
@@ -188,6 +189,85 @@ def test_analytics_overview_is_tenant_scoped_and_reports_operational_metrics():
     assert other.status_code == 200
     assert other.json()["kpis"]["total_calls"] == 1
     assert other.json()["monitoring"]["dead_lettered_jobs"] == 0
+
+
+def test_day33_adapter_analytics_is_tenant_scoped_and_redacted():
+    reset_db()
+    seed(reset=True)
+    _seed_analytics_rows()
+    now = datetime.now(timezone.utc)
+    db = SessionLocal()
+    try:
+        db.add_all(
+            [
+                ProviderCallbackAdapterAudit(
+                    id="adapter-audit-varun-rejected",
+                    tenant_id="varun",
+                    provider="dial",
+                    provider_event_id="evt-varun-rejected",
+                    provider_event_type="call.status_changed",
+                    payload_hash="hash-varun-rejected",
+                    verification_status="rejected",
+                    normalization_status="not_normalized",
+                    application_status="rejected",
+                    reason_code="invalid_dial_signature",
+                    created_at=now,
+                ),
+                ProviderCallbackAdapterAudit(
+                    id="adapter-audit-varun-blocked",
+                    tenant_id="varun",
+                    provider="dial",
+                    provider_event_id="evt-varun-blocked",
+                    provider_event_type="call.ended",
+                    payload_hash="hash-varun-blocked",
+                    verification_status="verified",
+                    normalization_status="normalized",
+                    application_status="blocked_tenant",
+                    reason_code="dial_callback_tenant_not_allowed",
+                    created_at=now,
+                ),
+                ProviderCallbackAdapterAudit(
+                    id="adapter-audit-other",
+                    tenant_id="tenant-analytics-other",
+                    provider="dial",
+                    provider_event_id="evt-other-private",
+                    provider_event_type="call.ended",
+                    payload_hash="hash-other-private",
+                    verification_status="verified",
+                    normalization_status="normalized",
+                    application_status="applied",
+                    reason_code=None,
+                    created_at=now,
+                ),
+            ]
+        )
+        db.commit()
+    finally:
+        db.close()
+
+    with TestClient(create_app()) as client:
+        response = client.get("/api/analytics/overview?tenant_id=varun&days=7")
+        other = client.get("/api/analytics/overview?tenant_id=tenant-analytics-other&days=7")
+        report = client.get("/api/analytics/report.csv?tenant_id=varun&days=7")
+
+    assert response.status_code == 200
+    adapter = response.json()["dial_sandbox_adapter"]
+    assert adapter["audit_count"] == 2
+    assert adapter["verification_failure_count"] == 1
+    assert adapter["blocked_application_count"] == 1
+    assert adapter["verification_status_counts"] == {"rejected": 1, "verified": 1}
+    assert adapter["application_status_counts"] == {"blocked_tenant": 1, "rejected": 1}
+    alert_codes = {alert["code"] for alert in response.json()["monitoring"]["alerts"]}
+    assert {"dial_callback_verification_failures", "dial_callback_rollout_blocked"} <= alert_codes
+    assert "evt-other-private" not in str(response.json())
+
+    assert other.status_code == 200
+    assert other.json()["dial_sandbox_adapter"]["audit_count"] == 1
+    assert other.json()["dial_sandbox_adapter"]["application_status_counts"] == {"applied": 1}
+    assert report.status_code == 200
+    assert "Dial adapter verification failures,1" in report.text
+    assert "evt-varun-rejected" not in report.text
+    assert "hash-varun-rejected" not in report.text
 
 
 def test_analytics_csv_report_is_tenant_safe_and_excludes_sensitive_payloads():

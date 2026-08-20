@@ -199,6 +199,17 @@ export interface AnalyticsOverview {
     apply_status_counts: Record<string, number>;
     anomaly_count: number;
   };
+  dial_sandbox_adapter: {
+    adapter_enabled: boolean;
+    sandbox_mode: boolean;
+    tenant_allowed: boolean;
+    audit_count: number;
+    verification_status_counts: Record<string, number>;
+    normalization_status_counts: Record<string, number>;
+    application_status_counts: Record<string, number>;
+    verification_failure_count: number;
+    blocked_application_count: number;
+  };
   monitoring: {
     state: "healthy" | "attention" | "critical";
     alerts: AnalyticsAlert[];

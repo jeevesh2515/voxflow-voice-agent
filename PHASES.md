@@ -1,7 +1,7 @@
 # VoxFlow Delivery Phases
 
 **Last updated:** 2026-08-20
-**Current position:** Day 32 complete; Day 33 provider-adapter sandbox certification is the next implementation phase.
+**Current position:** Day 33 implementation and local verification complete; GitHub CI, deployment, and live browser verification remain required before final release status. Day 34 typed durable jobs is next.
 **Planning rule:** a milestone is complete only when its implementation, automated verification, deployment result, and safety boundary are recorded.
 
 ## Programme status
@@ -13,7 +13,7 @@
 | Controlled campaign cutover | 29–30 | Complete | Feature-gated worker, provider-operation idempotency, reconciliation foundation, tenant policy and auditable cancellation. |
 | Enterprise analytics and monitoring | 31 | Complete | Tenant KPI/trend aggregates, durable health signals, redacted CSV reporting, and dashboard operator view. |
 | Provider lifecycle hardening | 32 | Complete | Signed/fresh callbacks, immutable event ledger, tenant-derived reconciliation, quarantine, and lifecycle analytics. |
-| Integration reliability and canary readiness | 33–38 | Planned | Provider sandbox certification, typed jobs, internal test-tenant canary, traces, alert routing, dead-letter controls, resilience game days. |
+| Integration reliability and canary readiness | 33–38 | Day 33 locally complete; 34–38 planned | Dial sandbox callback certification now exists; next are typed jobs, internal test-tenant canary, traces, alert routing, dead-letter controls, and resilience game days. |
 | Security and tenant controls | 39–43 | Planned | RBAC, RLS audit, callback hardening, retention, security evidence. |
 | Voice quality and integrations | 44–48 | Planned | Evaluation corpus, release thresholds, provider/integration contracts. |
 | Pilot readiness | 49–54 | Planned | Promotion controls, load/recovery rehearsal, tenant onboarding, controlled pilot. |
@@ -22,7 +22,7 @@
 
 Days 1–24 established the backend, dashboard, tenant-aware data model, inbound voice functionality, security controls, operational modules, deployment path, and outbound campaign domain. The detailed original day-by-day worksheets are retained under `.planning/` and `.learning/` as historical learning material. The source of current engineering truth is this document together with `MEMORY.md`, `ARCHITECTURE.md`, and the latest `.learning` day guides.
 
-## Completed durable execution and observability: Days 25–32
+## Completed durable execution, callback certification, and observability: Days 25–33
 
 | Day | Implementation | Verification and exit result |
 |---:|---|---|
@@ -34,28 +34,28 @@ Days 1–24 established the backend, dashboard, tenant-aware data model, inbound
 | 30 | Added tenant policy, recipient consent/opt-out/purpose checks, timezone calling windows, daily budget, active capacity, exact deferral, immutable policy decisions, and durable cancellation. | Paused, closed-window, consent, opt-out, quota, API scoping, and audit-redaction tests passed; migration `005_campaign_policy_controls.sql` added. |
 | 31 | Added tenant-safe operational KPI/trend aggregation, pull-based durable monitoring signals, redacted CSV enterprise reports, and a live analytics dashboard. | Tenant isolation, policy trends, lease/dead-letter alerting, CSV sensitive-data exclusion, backend lint/**184 tests**, and frontend lint/build passed. |
 | 32 | Added fail-closed signed callback ingress, immutable provider events, unknown-call quarantine, duplicate/terminal ordering guards, terminal job reconciliation, and provider lifecycle analytics. | Callback signature/replay, tenant spoofing, duplicate, terminal, stale, unconfigured-before-payload-validation, quarantine, and lifecycle analytics tests passed; migration `006_provider_callback_lifecycle.sql` added. |
+| 33 | Added the Dial sandbox callback adapter, raw-body HMAC verification, bounded freshness, controlled current/previous-secret overlap, outbound lifecycle normalizer, redacted adapter audit ledger, tenant application gate, analytics aggregate, and dashboard panel. | Six adapter fixture tests cover disabled fail-close, signature tamper, stale delivery, secret overlap, replay/ordering/terminal reconciliation, tenant block, and signed ping. Analytics tests prove tenant-scoped redaction. Migration `007_dial_sandbox_callback_adapter.sql` added. |
 
 **Day 32 release evidence:** backend lint clean; **188 backend tests passing**; frontend lint/build passing with 20 routes; GitHub Actions implementation CI [#101](https://github.com/jeevesh2515/voxflow-voice-agent/actions/runs/32380869101) and follow-up correction CI #102 passed. The deployed Render callback endpoint returns `503 provider_callback_not_configured` for `{}` before schema validation, and the Vercel analytics page renders the Provider Lifecycle panel with 0 events/0 anomalies. The production campaign worker remains disabled and the callback secret is intentionally unconfigured, so no real provider callback or outbound call can mutate campaign state.
 
-## Day 33 — Provider adapter sandbox certification and callback rollout
+## Day 33 — Dial sandbox adapter certification (local milestone)
 
-**Objective:** Certify a provider-specific callback adapter against documented sandbox fixtures before registering any live callback URL or permitting callback application for a tenant.
+**Delivered locally:** The Dial route `POST /api/provider-callbacks/dial/events` is disabled by default and fails closed before parsing. When deliberately enabled in sandbox mode with a configured fixture secret, it verifies the raw-body HMAC/fresh timestamp, checks header/body event identity, normalizes only outbound `call.status_changed`/`call.ended`, acknowledges signed pings without lifecycle mutation, and routes an eligible normalized observation to Day 32. It writes only redacted audit dispositions and derives the tenant from the stored provider operation before enforcing a second allow-list.
 
-| Work item | Acceptance criterion |
+| Work item | Local acceptance result |
 |---|---|
-| Provider signature adapter | Documented canonicalization verifies authentic sandbox events and rejects tampering before database access. |
-| Event normalization | Provider-specific payloads map only to the Day 32 normalized event shape; no callback tenant/queue/job input is trusted. |
-| Replay and reordering drills | Original, duplicate, delayed, and reordered fixtures leave counters and lifecycle state correct. |
-| Operator rollout gate | An explicit adapter feature flag and tenant allow-list can stop application immediately. |
-| Callback observability | Verification failures, quarantines, duplicates, event age, and anomalies have tenant-safe operator visibility. |
+| Provider signature adapter | Dial signature/header/envelope checks are isolated in `integrations/dial_callbacks.py`; tampered and stale events reject before normalization. |
+| Event normalization | The provider body never supplies a tenant, queue, campaign, job, or recipient identity. |
+| Replay and reordering drills | Exact replay creates no second lifecycle/audit record; post-terminal delayed event cannot regress the job/queue or re-dial. |
+| Operator rollout gate | Adapter enablement, sandbox mode, secret presence, and stored-operation tenant allow-list must all be satisfied before application. |
+| Callback observability | `provider_callback_adapter_audits` stores hash/disposition only; analytics/dashboard expose tenant-safe aggregate state and alerts. |
 
-**Safety boundary:** production campaign worker remains disabled. Day 33 may use sandbox fixtures only; it does not authorize a real provider call.
+**Safety boundary:** production campaign worker remains disabled. Day 33 uses signed local fixtures only; it does not register a provider callback URL, configure a production secret, fire a provider ping, or authorize a real provider call. Deployment and browser evidence remain release gates.
 
 ## Upcoming campaign-cutover work
 
 | Day | Planned focus | Required proof |
 |---:|---|---|
-| 33 | Provider-specific sandbox callback certification, replay drills, and controlled adapter gate. | Documented signature contract and safe adapter fixture suite; live callback remains disabled. |
 | 34 | Move Sheets retry, email summarization, recording retrieval, CRM sync, and outbound notifications into typed durable jobs. | Disable legacy in-process loops in staging without losing work. |
 | 35 | Internal test-tenant worker canary or provider sandbox only. | Crash/restart and callback-delay recovery with a unique provider-operation record. |
 | 36 | Correlated tracing through command, outbox, job, provider operation, callback, and communication record. | One target traceable end to end without a database shell. |

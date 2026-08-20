@@ -21,10 +21,12 @@ from ..db import (
     JobOutbox,
     JobRun,
     OutboundCampaign,
+    ProviderCallbackAdapterAudit,
     ProviderEvent,
     Tenant,
     session_scope,
 )
+from ..integrations.dial_callbacks import dial_callback_allowed_tenant_ids
 from ..jobs.staging import campaign_activation_mode, canary_tenant_ids, durable_campaign_dry_run
 
 router = APIRouter(prefix="/api/analytics", tags=["analytics"])
@@ -119,6 +121,16 @@ def _analytics_payload(tenant_id: str, days: int) -> dict[str, Any]:
             .scalars()
             .all()
         )
+        provider_adapter_audits = (
+            db.execute(
+                select(ProviderCallbackAdapterAudit).where(
+                    ProviderCallbackAdapterAudit.tenant_id == tenant_id,
+                    ProviderCallbackAdapterAudit.created_at >= period_start,
+                )
+            )
+            .scalars()
+            .all()
+        )
 
     total_calls = len(calls)
     resolved_calls = sum(1 for call in calls if call.resolution_status == "resolved" or call.outcome == "completed")
@@ -162,6 +174,11 @@ def _analytics_payload(tenant_id: str, days: int) -> dict[str, Any]:
     provider_event_type_counts = Counter(_normalise_bucket(event.event_type) for event in provider_events)
     provider_event_apply_counts = Counter(_normalise_bucket(event.apply_status) for event in provider_events)
     provider_event_anomaly_count = sum(1 for event in provider_events if event.anomaly_code)
+    adapter_verification_counts = Counter(_normalise_bucket(audit.verification_status) for audit in provider_adapter_audits)
+    adapter_normalization_counts = Counter(_normalise_bucket(audit.normalization_status) for audit in provider_adapter_audits)
+    adapter_application_counts = Counter(_normalise_bucket(audit.application_status) for audit in provider_adapter_audits)
+    adapter_verification_failure_count = adapter_verification_counts.get("rejected", 0)
+    adapter_blocked_application_count = adapter_application_counts.get("blocked_tenant", 0)
 
     active_jobs = [job for job in jobs if job.status in {"ready", "retry_scheduled", "running"}]
     ready_jobs = [job for job in jobs if job.status in {"ready", "retry_scheduled"}]
@@ -194,6 +211,20 @@ def _analytics_payload(tenant_id: str, days: int) -> dict[str, Any]:
             "warning",
             "provider_callback_anomalies",
             f"{provider_event_anomaly_count} provider callback event(s) need lifecycle review.",
+        )
+    if adapter_verification_failure_count:
+        _add_alert(
+            alert_rows,
+            "warning",
+            "dial_callback_verification_failures",
+            f"{adapter_verification_failure_count} Dial callback delivery/deliveries failed adapter verification.",
+        )
+    if adapter_blocked_application_count:
+        _add_alert(
+            alert_rows,
+            "info",
+            "dial_callback_rollout_blocked",
+            f"{adapter_blocked_application_count} verified Dial callback delivery/deliveries were held by the tenant rollout gate.",
         )
     if campaign_activation_mode() == "staged":
         _add_alert(alert_rows, "info", "campaigns_staged", "Campaign dispatch remains safely staged; no provider worker is active.")
@@ -248,6 +279,17 @@ def _analytics_payload(tenant_id: str, days: int) -> dict[str, Any]:
             "event_type_counts": dict(sorted(provider_event_type_counts.items())),
             "apply_status_counts": dict(sorted(provider_event_apply_counts.items())),
             "anomaly_count": provider_event_anomaly_count,
+        },
+        "dial_sandbox_adapter": {
+            "adapter_enabled": get_settings().dial_callback_adapter_enabled,
+            "sandbox_mode": get_settings().dial_callback_sandbox_mode,
+            "tenant_allowed": tenant_id in dial_callback_allowed_tenant_ids(),
+            "audit_count": len(provider_adapter_audits),
+            "verification_status_counts": dict(sorted(adapter_verification_counts.items())),
+            "normalization_status_counts": dict(sorted(adapter_normalization_counts.items())),
+            "application_status_counts": dict(sorted(adapter_application_counts.items())),
+            "verification_failure_count": adapter_verification_failure_count,
+            "blocked_application_count": adapter_blocked_application_count,
         },
         "monitoring": {
             "state": monitoring_state,
@@ -315,6 +357,13 @@ def analytics_report_csv(
     writer.writerow(["Provider event type", "Count"])
     for event_type, count in payload["provider_lifecycle"]["event_type_counts"].items():
         writer.writerow([_safe_csv_value(event_type), count])
+    writer.writerow([])
+    writer.writerow(["Dial sandbox adapter enabled", payload["dial_sandbox_adapter"]["adapter_enabled"]])
+    writer.writerow(["Dial sandbox mode", payload["dial_sandbox_adapter"]["sandbox_mode"]])
+    writer.writerow(["Dial adapter tenant allowed", payload["dial_sandbox_adapter"]["tenant_allowed"]])
+    writer.writerow(["Dial adapter tenant audit receipts", payload["dial_sandbox_adapter"]["audit_count"]])
+    writer.writerow(["Dial adapter verification failures", payload["dial_sandbox_adapter"]["verification_failure_count"]])
+    writer.writerow(["Dial adapter blocked applications", payload["dial_sandbox_adapter"]["blocked_application_count"]])
     writer.writerow([])
     writer.writerow(["Monitoring state", payload["monitoring"]["state"]])
     writer.writerow(["Alert level", "Code", "Message"])
