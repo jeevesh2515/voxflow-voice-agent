@@ -23,6 +23,8 @@ RUNNING = "running"
 RETRY_SCHEDULED = "retry_scheduled"
 SUCCEEDED = "succeeded"
 DEAD_LETTERED = "dead_lettered"
+CANCELLED = "cancelled"
+POLICY_DEFERRED = "policy_deferred"
 
 CLAIMABLE_STATUSES = (READY, RETRY_SCHEDULED)
 
@@ -311,6 +313,106 @@ def schedule_retry(
             JobAttempt.finished_at.is_(None),
         )
         .values(outcome=RETRY_SCHEDULED, finished_at=scheduled_at, error_code=error_code, error_json=error_json)
+    )
+    db.flush()
+    return True
+
+
+def defer_for_policy(
+    db: Session,
+    *,
+    job_id: str,
+    worker_id: str,
+    next_run_at: datetime,
+    error_code: str,
+    error_json: str | None = None,
+    now: datetime | None = None,
+) -> bool:
+    """Release a lease until an exact policy-selected eligibility boundary.
+
+    Policy deferrals are deliberate business waits rather than failing execution
+    attempts, so the attempt ceiling grows with the immutable attempt history.
+    """
+
+    deferred_at = now or utcnow()
+    result = db.execute(
+        update(JobRun)
+        .where(
+            JobRun.id == job_id,
+            JobRun.status == RUNNING,
+            JobRun.lease_owner == worker_id,
+            JobRun.lease_expires_at > deferred_at,
+        )
+        .values(
+            status=RETRY_SCHEDULED,
+            lease_owner=None,
+            lease_expires_at=None,
+            next_run_at=next_run_at,
+            max_attempts=JobRun.max_attempts + 1,
+            last_error_code=error_code,
+            last_error_json=error_json,
+            updated_at=deferred_at,
+        )
+    )
+    if result.rowcount != 1:
+        return False
+
+    db.execute(
+        update(JobAttempt)
+        .where(
+            JobAttempt.job_id == job_id,
+            JobAttempt.worker_id == worker_id,
+            JobAttempt.outcome == RUNNING,
+            JobAttempt.finished_at.is_(None),
+        )
+        .values(outcome=POLICY_DEFERRED, finished_at=deferred_at, error_code=error_code, error_json=error_json)
+    )
+    db.flush()
+    return True
+
+
+def cancel_job(
+    db: Session,
+    *,
+    job_id: str,
+    worker_id: str,
+    error_code: str,
+    error_json: str | None = None,
+    now: datetime | None = None,
+) -> bool:
+    """Terminally cancel a leased job for a non-retriable policy decision."""
+
+    cancelled_at = now or utcnow()
+    result = db.execute(
+        update(JobRun)
+        .where(
+            JobRun.id == job_id,
+            JobRun.status == RUNNING,
+            JobRun.lease_owner == worker_id,
+            JobRun.lease_expires_at > cancelled_at,
+        )
+        .values(
+            status=CANCELLED,
+            lease_owner=None,
+            lease_expires_at=None,
+            finished_at=cancelled_at,
+            last_error_code=error_code,
+            last_error_json=error_json,
+            updated_at=cancelled_at,
+        )
+    )
+    if result.rowcount != 1:
+        return False
+
+    db.execute(
+        update(JobAttempt)
+        .where(
+            JobAttempt.job_id == job_id,
+            JobAttempt.worker_id == worker_id,
+            JobAttempt.outcome == RUNNING,
+            JobAttempt.finished_at.is_(None),
+        )
+        .values(outcome=CANCELLED, finished_at=cancelled_at, error_code=error_code, error_json=error_json)
     )
     db.flush()
     return True

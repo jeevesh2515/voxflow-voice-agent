@@ -4,11 +4,12 @@ from __future__ import annotations
 
 import json
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import datetime, timezone
 
 from sqlalchemy.orm import Session
 
 from ..db import CampaignQueue, JobRun, OutboundCampaign, ProviderOperation
+from .campaign_policy import settle_dispatch_capacity
 from .provider_operations import update_provider_operation
 
 
@@ -95,6 +96,9 @@ def reconcile_campaign_provider_operation(
     elif provider_status == "accepted":
         item.status = "dialing"
         item.call_id = provider_id or operation.provider_id or item.call_id
+
+    if provider_status in {"confirmed", "failed_permanent"}:
+        settle_dispatch_capacity(db, job_id=job.id, now=now or datetime.now(timezone.utc))
 
     db.flush()
     return ReconciliationResult(operation.id, job.id, item.id, provider_status)

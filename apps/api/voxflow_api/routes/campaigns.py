@@ -10,7 +10,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 
-from ..db import CampaignQueue, OutboundCampaign, get_session
+from ..db import CampaignPolicyDecision, CampaignQueue, OutboundCampaign, get_session
 from ..jobs.enqueue import enqueue_campaign_target
 from ..jobs.staging import campaign_activation_mode
 from ..logging import get_logger
@@ -123,10 +123,15 @@ async def create_campaign(
 @router.get("/{campaign_id}")
 def get_campaign_detail(
     campaign_id: str,
+    tenant_id: str = Query("varun", min_length=1),
     db: Session = Depends(get_session),
 ) -> dict[str, Any]:
-    """Retrieve full details, statistics, and progress for a campaign."""
-    campaign = db.query(OutboundCampaign).filter(OutboundCampaign.id == campaign_id).first()
+    """Retrieve tenant-owned campaign details, statistics, and progress."""
+    campaign = (
+        db.query(OutboundCampaign)
+        .filter(OutboundCampaign.id == campaign_id, OutboundCampaign.tenant_id == tenant_id)
+        .first()
+    )
     if not campaign:
         raise HTTPException(status_code=404, detail="Campaign not found")
 
@@ -135,6 +140,7 @@ def get_campaign_detail(
         "dialing": db.query(CampaignQueue).filter(CampaignQueue.campaign_id == campaign_id, CampaignQueue.status == "dialing").count(),
         "completed": db.query(CampaignQueue).filter(CampaignQueue.campaign_id == campaign_id, CampaignQueue.status == "completed").count(),
         "failed": db.query(CampaignQueue).filter(CampaignQueue.campaign_id == campaign_id, CampaignQueue.status == "failed").count(),
+        "cancelled": db.query(CampaignQueue).filter(CampaignQueue.campaign_id == campaign_id, CampaignQueue.status == "cancelled").count(),
     }
 
     return {
@@ -181,15 +187,63 @@ def stage_campaign_run(
     }
 
 
+@router.get("/{campaign_id}/policy-decisions")
+def get_campaign_policy_decisions(
+    campaign_id: str,
+    tenant_id: str = Query("varun", min_length=1),
+    limit: int = Query(50, ge=1, le=200),
+    db: Session = Depends(get_session),
+) -> list[dict[str, Any]]:
+    """Return tenant-owned immutable policy decisions without provider payloads."""
+
+    campaign = (
+        db.query(OutboundCampaign)
+        .filter(OutboundCampaign.id == campaign_id, OutboundCampaign.tenant_id == tenant_id)
+        .one_or_none()
+    )
+    if campaign is None:
+        raise HTTPException(status_code=404, detail="Campaign not found")
+    rows = (
+        db.query(CampaignPolicyDecision)
+        .filter(
+            CampaignPolicyDecision.tenant_id == tenant_id,
+            CampaignPolicyDecision.campaign_id == campaign_id,
+        )
+        .order_by(CampaignPolicyDecision.created_at.desc(), CampaignPolicyDecision.id.desc())
+        .limit(limit)
+        .all()
+    )
+    return [
+        {
+            "id": row.id,
+            "job_id": row.job_id,
+            "campaign_queue_id": row.campaign_queue_id,
+            "decision": row.decision,
+            "reason_code": row.reason_code,
+            "next_eligible_at": row.next_eligible_at.isoformat() if row.next_eligible_at else None,
+            "created_at": row.created_at.isoformat() if row.created_at else None,
+        }
+        for row in rows
+    ]
+
+
 @router.get("/{campaign_id}/queue")
 def get_campaign_queue(
     campaign_id: str,
+    tenant_id: str = Query("varun", min_length=1),
     db: Session = Depends(get_session),
 ) -> list[dict[str, Any]]:
-    """List queue targets and individual call results for a campaign."""
+    """List tenant-owned queue targets and individual call results for a campaign."""
+    campaign = (
+        db.query(OutboundCampaign)
+        .filter(OutboundCampaign.id == campaign_id, OutboundCampaign.tenant_id == tenant_id)
+        .one_or_none()
+    )
+    if campaign is None:
+        raise HTTPException(status_code=404, detail="Campaign not found")
     items = (
         db.query(CampaignQueue)
-        .filter(CampaignQueue.campaign_id == campaign_id)
+        .filter(CampaignQueue.campaign_id == campaign_id, CampaignQueue.tenant_id == tenant_id)
         .order_by(CampaignQueue.updated_at.desc())
         .all()
     )

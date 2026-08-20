@@ -21,6 +21,7 @@ from .llm import get_llm
 from .llm.base import ChatTurn
 from .logging import get_logger, setup_logging
 from .routes import admin as admin_routes
+from .routes import campaign_policies as campaign_policy_routes
 from .routes import campaigns as campaign_routes
 from .routes import data as data_routes
 from .routes import jobs as job_routes
@@ -145,6 +146,7 @@ def create_app() -> FastAPI:
     app.include_router(data_routes.router, prefix="/api", tags=["data"])
     app.include_router(admin_routes.router, prefix="/api/admin", tags=["admin"])
     app.include_router(campaign_routes.router)
+    app.include_router(campaign_policy_routes.router)
     app.include_router(job_routes.router)
     app.include_router(ws_routes.router, tags=["ws"])
     app.include_router(twilio_routes.router)

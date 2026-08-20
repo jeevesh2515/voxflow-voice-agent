@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import random
 from dataclasses import dataclass
+from datetime import datetime
 from typing import Callable
 
 
@@ -26,6 +27,18 @@ class RetryableJobError(JobExecutionError):
 
 class PermanentJobError(JobExecutionError):
     """A terminal validation, policy, or configuration error."""
+
+
+class PolicyCancelledJobError(PermanentJobError):
+    """A policy denial that is terminal, auditable, and not a dead letter."""
+
+
+class PolicyDeferredJobError(JobExecutionError):
+    """A policy delay with an exact durable eligibility boundary."""
+
+    def __init__(self, code: str, *, next_eligible_at: datetime, detail: str = "") -> None:
+        super().__init__(code, detail)
+        self.next_eligible_at = next_eligible_at
 
 
 @dataclass(frozen=True)

@@ -26,6 +26,19 @@ def _seed_health_rows() -> None:
             )
         )
         db.add(
+            JobRun(
+                id="job-varun-policy-cancelled",
+                tenant_id="varun",
+                job_type="campaign.target.dispatch",
+                payload_json='{"campaign_id":"cmp-varun-cancelled"}',
+                status="cancelled",
+                priority=0,
+                idempotency_key="health-varun-policy-cancelled",
+                max_attempts=3,
+                last_error_code="recipient_opted_out",
+            )
+        )
+        db.add(
             JobOutbox(
                 id="out-varun-health",
                 tenant_id="varun",
@@ -66,6 +79,7 @@ def test_job_health_is_tenant_scoped_and_recent_jobs_redact_payloads():
     assert varun.json()["activation_mode"] == "staged"
     assert varun.json()["status_counts"]["ready"] == 1
     assert varun.json()["status_counts"]["dead_lettered"] == 0
+    assert varun.json()["status_counts"]["cancelled"] == 1
     assert varun.json()["outbox"]["unpublished"] == 1
 
     assert other.status_code == 200
@@ -74,9 +88,9 @@ def test_job_health_is_tenant_scoped_and_recent_jobs_redact_payloads():
     assert other.json()["outbox"]["unpublished"] == 0
 
     assert recent.status_code == 200
-    assert [job["id"] for job in recent.json()] == ["job-varun-health"]
-    assert "payload_json" not in recent.json()[0]
-    assert "secret" not in str(recent.json()[0])
+    assert {job["id"] for job in recent.json()} == {"job-varun-health", "job-varun-policy-cancelled"}
+    assert all("payload_json" not in job for job in recent.json())
+    assert "secret" not in str(recent.json())
 
 
 def test_campaign_autostart_and_run_are_safely_staged_without_inline_telephony():

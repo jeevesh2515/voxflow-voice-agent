@@ -388,13 +388,94 @@ class CampaignQueue(Base):
     recipient_phone: Mapped[str] = mapped_column(String(32))
     recipient_name: Mapped[str] = mapped_column(String(255), default="")
     context_data_json: Mapped[str] = mapped_column(Text, default="{}")
-    status: Mapped[str] = mapped_column(String(32), default="queued")  # queued | dialing | answered | no_answer | completed | failed
+    status: Mapped[str] = mapped_column(String(32), default="queued")  # queued | dialing | answered | no_answer | completed | failed | cancelled
     attempts_made: Mapped[int] = mapped_column(Integer, default=0)
     max_attempts: Mapped[int] = mapped_column(Integer, default=3)
     next_retry_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     call_id: Mapped[str | None] = mapped_column(String(64), nullable=True)
     transcript_summary: Mapped[str | None] = mapped_column(Text, nullable=True)
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_utcnow, onupdate=_utcnow)
+
+
+# ---------- Day 30 campaign policy controls ----------
+
+
+class TenantCampaignPolicy(Base):
+    """One explicit, tenant-scoped outbound-campaign policy configuration."""
+
+    __tablename__ = "tenant_campaign_policies"
+
+    tenant_id: Mapped[str] = mapped_column(String(64), ForeignKey("tenants.id"), primary_key=True)
+    timezone_name: Mapped[str] = mapped_column(String(64), default="Asia/Kolkata")
+    calling_window_start: Mapped[str] = mapped_column(String(5), default="09:00")
+    calling_window_end: Mapped[str] = mapped_column(String(5), default="20:00")
+    daily_call_limit: Mapped[int] = mapped_column(Integer, default=100)
+    max_in_flight: Mapped[int] = mapped_column(Integer, default=1)
+    enabled: Mapped[int] = mapped_column(Integer, default=1)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_utcnow, onupdate=_utcnow)
+
+
+class RecipientCampaignPreference(Base):
+    """Current recipient consent and opt-out state, isolated by tenant and phone."""
+
+    __tablename__ = "recipient_campaign_preferences"
+    __table_args__ = (UniqueConstraint("tenant_id", "recipient_phone", name="uq_recipient_campaign_preference"),)
+
+    id: Mapped[str] = mapped_column(String(64), primary_key=True)
+    tenant_id: Mapped[str] = mapped_column(String(64), ForeignKey("tenants.id"), index=True)
+    recipient_phone: Mapped[str] = mapped_column(String(32), index=True)
+    consent_status: Mapped[str] = mapped_column(String(32), default="granted")  # granted | withdrawn | unknown
+    consent_purpose: Mapped[str] = mapped_column(String(64), default="outbound_campaign")
+    opted_out: Mapped[int] = mapped_column(Integer, default=0)
+    source: Mapped[str] = mapped_column(String(128), default="tenant_default")
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_utcnow, onupdate=_utcnow)
+
+
+class TenantDailyDispatchUsage(Base):
+    """Atomic per-tenant local-day capacity and daily dispatch budget counters."""
+
+    __tablename__ = "tenant_daily_dispatch_usage"
+    __table_args__ = (UniqueConstraint("tenant_id", "local_date", name="uq_tenant_dispatch_usage_day"),)
+
+    id: Mapped[str] = mapped_column(String(96), primary_key=True)
+    tenant_id: Mapped[str] = mapped_column(String(64), ForeignKey("tenants.id"), index=True)
+    local_date: Mapped[str] = mapped_column(String(10), index=True)
+    reserved_calls: Mapped[int] = mapped_column(Integer, default=0)
+    active_dispatches: Mapped[int] = mapped_column(Integer, default=0)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_utcnow, onupdate=_utcnow)
+
+
+class CampaignDispatchReservation(Base):
+    """One active/settled policy capacity reservation per durable campaign job."""
+
+    __tablename__ = "campaign_dispatch_reservations"
+    __table_args__ = (UniqueConstraint("job_id", name="uq_campaign_dispatch_reservation_job"),)
+
+    id: Mapped[str] = mapped_column(String(64), primary_key=True)
+    job_id: Mapped[str] = mapped_column(String(64), ForeignKey("job_runs.id"), index=True)
+    tenant_id: Mapped[str] = mapped_column(String(64), ForeignKey("tenants.id"), index=True)
+    local_date: Mapped[str] = mapped_column(String(10), index=True)
+    status: Mapped[str] = mapped_column(String(32), default="active")  # active | released | settled
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_utcnow)
+    settled_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+
+
+class CampaignPolicyDecision(Base):
+    """Immutable policy-evaluation audit record for an individual target attempt."""
+
+    __tablename__ = "campaign_policy_decisions"
+    __table_args__ = (Index("ix_campaign_policy_decision_target", "tenant_id", "campaign_queue_id", "created_at"),)
+
+    id: Mapped[str] = mapped_column(String(64), primary_key=True)
+    tenant_id: Mapped[str] = mapped_column(String(64), ForeignKey("tenants.id"), index=True)
+    job_id: Mapped[str] = mapped_column(String(64), ForeignKey("job_runs.id"), index=True)
+    campaign_id: Mapped[str] = mapped_column(String(64), ForeignKey("outbound_campaigns.id"), index=True)
+    campaign_queue_id: Mapped[str] = mapped_column(String(64), ForeignKey("campaign_queue.id"), index=True)
+    decision: Mapped[str] = mapped_column(String(32), index=True)  # allowed | deferred | cancelled
+    reason_code: Mapped[str] = mapped_column(String(128), index=True)
+    evidence_json: Mapped[str] = mapped_column(Text, default="{}")
+    next_eligible_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_utcnow)
 
 
 # ---------- Durable jobs and transactional outbox (Day 25) ----------

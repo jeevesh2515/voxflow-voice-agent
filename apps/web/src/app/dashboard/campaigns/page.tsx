@@ -57,8 +57,8 @@ export default function CampaignsPage() {
 
   // Selected Campaign Queue details
   const { data: queueItems, mutate: refreshQueue } = useSWR(
-    selectedCampaignId ? ["campaign-queue", selectedCampaignId] : null,
-    () => (selectedCampaignId ? api.getCampaignQueue(selectedCampaignId) : null),
+    selectedCampaignId ? ["campaign-queue", activeTenantId, selectedCampaignId] : null,
+    () => (selectedCampaignId ? api.getCampaignQueue(selectedCampaignId, activeTenantId) : null),
   );
 
   const filteredCampaigns = useMemo(() => {
@@ -144,10 +144,10 @@ export default function CampaignsPage() {
   const handleRunCampaign = async (id: string) => {
     setRunningCampaignId(id);
     try {
-      await api.runCampaign(id, 5);
+      await api.runCampaign(id, 5, activeTenantId);
       mutate(["campaigns", activeTenantId]);
       if (selectedCampaignId === id) {
-        mutate(["campaign-queue", id]);
+        mutate(["campaign-queue", activeTenantId, id]);
       }
     } catch (err) {
       console.error("Failed to run campaign batch:", err);
@@ -405,6 +405,7 @@ export default function CampaignsPage() {
                   <div className="flex items-center gap-2 text-[11px] text-[#94a3b8]">
                     <Database size={13} className="text-blue-400" />
                     <span>{health.outbox.unpublished} unpublished event{health.outbox.unpublished === 1 ? "" : "s"}</span>
+                    {(health.status_counts.cancelled || 0) > 0 && <span className="text-violet-300">• {health.status_counts.cancelled} policy stop{health.status_counts.cancelled === 1 ? "" : "s"}</span>}
                     {health.expired_leases > 0 && <span className="text-red-400">• {health.expired_leases} expired lease{health.expired_leases === 1 ? "" : "s"}</span>}
                   </div>
                 </>
@@ -450,6 +451,8 @@ export default function CampaignsPage() {
                             ? "bg-[#00ffcc]/15 text-[#00ffcc] border-[#00ffcc]/30 animate-pulse"
                             : item.status === "failed"
                             ? "bg-red-500/15 text-red-400 border-red-500/30"
+                            : item.status === "cancelled"
+                            ? "bg-violet-500/15 text-violet-300 border-violet-500/30"
                             : "bg-amber-500/15 text-amber-400 border-amber-500/30"
                         }`}
                       >
