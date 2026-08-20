@@ -249,10 +249,19 @@ export default function AnalyticsPage() {
             </div>
           </section>
 
-          <section className="grid grid-cols-1 gap-6 lg:grid-cols-3">
+          <section className="grid grid-cols-1 gap-6 lg:grid-cols-2 xl:grid-cols-4">
             <DistributionList title="Top Intents" values={data.distribution.intents} emptyLabel="No call intents in this period." />
             <DistributionList title="Call Outcomes" values={data.distribution.outcomes} emptyLabel="No call outcomes in this period." />
             <DistributionList title="Policy Decisions" values={data.campaigns.policy_decision_counts} emptyLabel="No durable policy decisions in this period." />
+            <div className="rounded-2xl border border-[#28283c] bg-[#141422] p-5">
+              <div className="flex items-center gap-2"><Activity size={18} className="text-blue-400" /><h3 className="font-headline text-sm font-bold text-white">Provider Lifecycle</h3></div>
+              <p className="mt-2 text-xs text-[#94a3b8]">Signed callback observations owned by this tenant only.</p>
+              <div className="mt-5 grid grid-cols-2 gap-3">
+                <div className="rounded-xl border border-[#2c2c40] bg-[#181826] p-3"><p className="text-[10px] font-mono text-[#94a3b8]">EVENTS</p><p className="mt-1 text-xl font-bold text-white">{data.provider_lifecycle.event_count}</p></div>
+                <div className="rounded-xl border border-[#2c2c40] bg-[#181826] p-3"><p className="text-[10px] font-mono text-[#94a3b8]">ANOMALIES</p><p className={`mt-1 text-xl font-bold ${data.provider_lifecycle.anomaly_count ? "text-[#ffe04a]" : "text-[#00ffcc]"}`}>{data.provider_lifecycle.anomaly_count}</p></div>
+              </div>
+              <div className="mt-4 text-xs text-[#cbd5e1]">Applied: <span className="font-mono font-bold text-white">{data.provider_lifecycle.apply_status_counts.applied || 0}</span> · Terminal ignored: <span className="font-mono font-bold text-white">{data.provider_lifecycle.apply_status_counts.ignored_terminal || 0}</span></div>
+            </div>
           </section>
 
           <section className="grid grid-cols-1 gap-6 xl:grid-cols-5">

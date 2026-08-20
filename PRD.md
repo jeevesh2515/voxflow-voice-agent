@@ -1,6 +1,6 @@
 # VoxFlow Product Requirements Document
 
-**Status:** Living product document; Day 30 implementation complete.
+**Status:** Living product document; Day 32 implementation complete.
 **Last updated:** 2026-08-20
 **Repository:** <https://github.com/jeevesh2515/voxflow-voice-agent>
 
@@ -41,6 +41,8 @@ Day 30 adds central dispatch permission controls.
 | Daily budget and capacity | Reserved atomically per tenant local day; concurrent workers cannot overbook. |
 | Auditable result | Each evaluation records an immutable allowed, deferred, or cancelled decision. |
 | No provider duplication | A provider operation idempotency key owns a single external request; retries reconcile it. |
+| Callback trust | A signed callback derives tenant ownership from the stored operation, deduplicates an immutable event ID, and never trusts callback tenant/campaign/queue/job input. |
+| Unknown/late callback safety | Unknown call IDs quarantine without tenant state changes; duplicates and late events cannot reopen terminal queue/job/capacity state. |
 
 ## 4. Current availability and safety boundary
 
@@ -48,6 +50,8 @@ The Vercel dashboard and Render API are live. The durable campaign system is imp
 
 ```text
 DURABLE_CAMPAIGN_WORKER_ENABLED=false
+PROVIDER_CALLBACK_VALIDATE_SIGNATURE=true
+PROVIDER_CALLBACK_SHARED_SECRET=(intentionally unset)
 activation_mode=staged
 canary_allowed=false
 dry_run=true
@@ -57,14 +61,15 @@ This is the planned current state. The campaign UI does not bypass the worker gl
 
 ## 5. Non-goals at the current milestone
 
-The following are deliberately out of scope for the current Day 30 production posture:
+The following are deliberately out of scope for the current Day 32 production posture:
 
 - Outbound cold calling, sales prospecting, payment collection, or campaign dispatch without recorded permission.
 - Activating a production worker for an unapproved tenant.
 - Enabling a provider request from an HTTP campaign route.
 - Treating missing consent or policy as permission.
 - Reopening a terminal cancellation automatically.
-- A broad multi-tenant pilot before provider callback lifecycle, RBAC, observability, and release-readiness gates are completed.
+- Registering a live provider callback URL or configuring a callback secret before provider-specific sandbox certification.
+- A broad multi-tenant pilot before provider adapter certification, RBAC, observability, and release-readiness gates are completed.
 
 ## 6. Pilot requirements
 
@@ -75,9 +80,9 @@ A live operational canary can be considered only after the following evidence ex
 | Worker safety | Global enablement is separately approved; worker process, tenant allow-list, and rollback are documented. |
 | Tenant permission | Explicit policy, valid IANA timezone/window, daily limit, capacity, and enabled setting exist. |
 | Recipient permission | Approved E.164 target has recorded consent and no opt-out. |
-| Provider safety | Dry run, no-redial, reconciliation, duplicate callback, and crash/restart tests pass. |
+| Provider safety | Dry run, no-redial, reconciliation, duplicate callback, unknown-call quarantine, terminal ordering, and crash/restart tests pass. |
 | Operator safety | Job health, policy reason, cancellation, and escalation/read-only support paths are visible. |
-| Security | Signed callback validation, tenant-safe APIs, and least-privilege access are verified. |
+| Security | Provider-specific callback signature adapter is sandbox-certified, callback ingestion remains fail closed without its secret, tenant-safe APIs, and least-privilege access are verified. |
 
 ## 7. Success metrics
 
@@ -92,11 +97,11 @@ A live operational canary can be considered only after the following evidence ex
 
 ## 8. Near-term roadmap
 
-Day 31 focuses on signed provider lifecycle callbacks, duplicate/out-of-order event handling, and a normalized accepted/connected/ended/outcome state machine. Subsequent work covers typed background jobs for integration tasks, internal test-tenant canary execution, metrics/tracing, role controls, security hardening, evaluation quality, and pilot rehearsal.
+Day 32 completed a generic signed, tenant-derived callback lifecycle with immutable event evidence, duplicate/terminal guards, quarantine, and operator lifecycle aggregates. Day 33 certifies one provider-specific sandbox adapter before a callback URL or secret is registered. Subsequent work covers typed background jobs for integration tasks, internal test-tenant canary execution, metrics/tracing, role controls, security hardening, evaluation quality, and pilot rehearsal.
 
 ## References
 
 - [Architecture](ARCHITECTURE.md)
 - [Roadmap](PHASES.md)
 - [Live status](MEMORY.md)
-- [Day 30 learning guide](.learning/day-30-tenant-policy-controls-and-auditable-cancellation.md)
+- [Day 32 learning guide](.learning/day-32-provider-lifecycle-and-idempotent-callback-reconciliation.md)

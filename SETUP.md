@@ -12,8 +12,10 @@ flowchart LR
     W --> A[FastAPI API\nRender]
     T[Twilio inbound media streams] --> A
     A --> P[(PostgreSQL / Supabase-compatible DB)]
-    A --> J[Durable job/outbox tables]
+    A --> J[Durable job/outbox/event tables]
     J --> CW[Campaign worker\ncurrently disabled]
+    PC[Provider callback ingress\nsecret intentionally unset] --> A
+
 ```
 
 | Component | Production URL | Role |
@@ -62,6 +64,7 @@ SQLite tests initialize from SQLAlchemy metadata. Production database upgrades u
 migrations/003_durable_job_ledger.sql
 migrations/004_outbox_relay_state.sql
 migrations/005_campaign_policy_controls.sql
+migrations/006_provider_callback_lifecycle.sql
 ```
 
 Run migrations through an approved PostgreSQL migration procedure. Do not run a campaign worker merely to validate migration success. Use API health, test suites, and safe job-health reads instead.
@@ -79,16 +82,20 @@ Render is the backend runtime because the API hosts HTTP routes, WebSocket/inbou
 | `DURABLE_CAMPAIGN_WORKER_ENABLED` | Global campaign worker kill switch | **Keep `false` in production.** |
 | `DURABLE_CAMPAIGN_CANARY_TENANTS` | Future canary admission list | Keep empty until explicit approval. |
 | `DURABLE_CAMPAIGN_DRY_RUN` | Provider-free campaign-worker path | Keep enabled for staging/dry-run evidence. |
+| `PROVIDER_CALLBACK_VALIDATE_SIGNATURE` | Enables HMAC/timestamp verification for normalized callbacks | **Keep `true`.** |
+| `PROVIDER_CALLBACK_SHARED_SECRET` | Callback ingress HMAC secret | **Leave unset until a provider-specific Day 33 sandbox adapter is approved.** An unset secret fails closed. |
+| `PROVIDER_CALLBACK_MAX_AGE_SECONDS` | Maximum signed callback age | Retain the default `300` unless an approved provider contract requires another bounded value. |
 
 After deployment, verify only safe endpoints:
 
 ```bash
 curl -fsS https://voxflow-voice-agent.onrender.com/api/health
 curl -fsS 'https://voxflow-voice-agent.onrender.com/api/jobs/health?tenant_id=varun'
-curl -fsS https://voxflow-voice-agent.onrender.com/api/campaign-policies/varun
+curl -fsS 'https://voxflow-voice-agent.onrender.com/api/campaign-policies/varun'
+curl -sS -o /dev/null -w '%{http_code}\n' -X POST 'https://voxflow-voice-agent.onrender.com/api/provider-callbacks/events' -H 'Content-Type: application/json' -d '{}'
 ```
 
-Expected Day 30 posture is `activation_mode: "staged"`, `canary_allowed: false`, `dry_run: true`, and an unconfigured tenant policy unless a formal pilot configuration has been approved.
+Expected Day 32 posture is `activation_mode: "staged"`, `canary_allowed: false`, `dry_run: true`, an unconfigured tenant policy, and a callback endpoint returning `503` when no callback secret is configured. The final check is intentionally malformed and confirms fail-closed transport behavior; it must never be replaced with a live provider callback during deployment verification.
 
 ## 5. Vercel frontend deployment
 
@@ -109,7 +116,7 @@ curl -I https://voxflow-voice-agent.vercel.app/pricing
 curl -I https://voxflow-voice-agent.vercel.app/dashboard/campaigns
 ```
 
-Public routes should return `200`. A session-free dashboard request should redirect to `/sign-in`. In an authenticated browser, verify the campaign page renders **Safe Staging** and **No Inline Dialling** before ending the deployment check.
+Public routes should return `200`. A session-free dashboard request should redirect to `/sign-in`. In an authenticated browser, verify the campaign page renders **Safe Staging** and **No Inline Dialling**, then verify the analytics page renders the read-only **Provider Lifecycle** aggregate before ending the deployment check.
 
 ## 6. Quality gate before a delivery
 
@@ -137,7 +144,7 @@ Before a future internal canary, confirm all of the following:
 3. The tenant policy is valid and enabled.
 4. The E.164 test target has consent and no opt-out.
 5. Daily limit and in-flight capacity are one.
-6. Provider sandbox or dry-run has passed.
+6. Provider sandbox or dry-run has passed, including signed callback duplicate/reorder/unknown-call drills.
 7. An operator can monitor jobs, policy decisions, provider operations, and rollback.
 
 ## 8. Historical self-hosted instructions

@@ -587,6 +587,55 @@ class ProviderOperation(Base):
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_utcnow, onupdate=_utcnow)
 
 
+# ---------- Day 32 provider callback lifecycle ----------
+
+
+class ProviderEvent(Base):
+    """Immutable, signature-verified provider callback applied to one operation."""
+
+    __tablename__ = "provider_events"
+    __table_args__ = (
+        UniqueConstraint("provider", "provider_event_id", name="uq_provider_events_provider_event"),
+        Index("ix_provider_events_operation_occurred", "provider_operation_id", "occurred_at"),
+        Index("ix_provider_events_tenant_created", "tenant_id", "created_at"),
+    )
+
+    id: Mapped[str] = mapped_column(String(64), primary_key=True)
+    tenant_id: Mapped[str] = mapped_column(String(64), ForeignKey("tenants.id"), index=True)
+    provider_operation_id: Mapped[str] = mapped_column(String(64), ForeignKey("provider_operations.id"), index=True)
+    provider: Mapped[str] = mapped_column(String(64), index=True)
+    provider_event_id: Mapped[str] = mapped_column(String(128))
+    provider_call_id: Mapped[str] = mapped_column(String(128), index=True)
+    event_type: Mapped[str] = mapped_column(String(64), index=True)
+    occurred_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), index=True)
+    payload_hash: Mapped[str] = mapped_column(String(128))
+    normalized_payload_json: Mapped[str] = mapped_column(Text, default="{}")
+    apply_status: Mapped[str] = mapped_column(String(32), default="applied", index=True)
+    anomaly_code: Mapped[str | None] = mapped_column(String(128), nullable=True, index=True)
+    applied_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_utcnow)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_utcnow)
+
+
+class ProviderCallbackQuarantine(Base):
+    """Safe record for a trusted-but-unmatched callback; it has no tenant linkage."""
+
+    __tablename__ = "provider_callback_quarantines"
+    __table_args__ = (
+        UniqueConstraint("provider", "provider_event_id", name="uq_provider_callback_quarantine_event"),
+        Index("ix_provider_callback_quarantine_created", "created_at"),
+    )
+
+    id: Mapped[str] = mapped_column(String(64), primary_key=True)
+    provider: Mapped[str] = mapped_column(String(64), index=True)
+    provider_event_id: Mapped[str] = mapped_column(String(128))
+    provider_call_id: Mapped[str] = mapped_column(String(128), index=True)
+    event_type: Mapped[str] = mapped_column(String(64), index=True)
+    payload_hash: Mapped[str] = mapped_column(String(128))
+    reason_code: Mapped[str] = mapped_column(String(128), default="unknown_provider_operation")
+    received_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_utcnow)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_utcnow)
+
+
 # ---------- Helpers ----------
 
 

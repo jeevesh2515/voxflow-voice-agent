@@ -1,7 +1,7 @@
 # VoxFlow Architecture
 
 **Last updated:** 2026-08-20
-**Current milestone:** Day 30 — tenant policy controls and auditable cancellation complete.
+**Current milestone:** Day 32 — provider lifecycle and idempotent callback reconciliation complete.
 **Operating mode:** Inbound voice and dashboard functions are deployed. Campaign dispatch is implemented but globally safe-staged in production.
 
 ## 1. System boundaries
@@ -21,7 +21,9 @@ flowchart TB
     Gate --> Audit[CampaignPolicyDecision]
     Gate --> ProviderOp[ProviderOperation]
     ProviderOp --> Dial[Dial provider adapter]
-    Dial --> Recon[Provider reconciliation]
+    Dial --> Callback[Signed provider callback adapter]
+    Callback --> Events[Immutable ProviderEvent ledger]
+    Events --> Recon[Idempotent reconciliation or quarantine]
     Recon --> DB
 ```
 
@@ -31,6 +33,7 @@ flowchart TB
 | Command/control plane | FastAPI routes | Validate and persist tenant-scoped intent; do not create an outbound provider side effect inline. |
 | Durable execution | `WorkerRuntime` | Claim only leased jobs, use conditional transitions, retry only typed transient errors. |
 | Provider side effect | `ProviderOperation` | One idempotency key owns one provider request; retries reconcile rather than re-dial. |
+| Provider callback | `provider_callbacks.py` + `provider_events.py` | Verify timestamp/signature, derive tenant from stored operation, deduplicate immutable events, and quarantine unknown IDs. |
 | Campaign permission | `campaign_policy.py` | Fail closed before provider intent: policy, consent, opt-out, timing, budget, and capacity. |
 | Operator visibility | Job health and campaign dashboard | Show tenant-owned counts and redacted audit/read models only. |
 
@@ -46,7 +49,7 @@ flowchart TB
 
 ### Durable job subsystem
 
-The Day 25–30 subsystem lives in `apps/api/voxflow_api/jobs/`.
+The Day 25–32 subsystem lives in `apps/api/voxflow_api/jobs/`.
 
 | Component | Responsibility |
 |---|---|
@@ -58,6 +61,7 @@ The Day 25–30 subsystem lives in `apps/api/voxflow_api/jobs/`.
 | `campaign_dispatch.py` | Campaign target handler: policy, capacity, dry run, provider-operation reservation, and no-redial behavior. |
 | `provider_operations.py` | Durable idempotency reservation and provider operation updates. |
 | `reconciliation.py` | Applies provider terminal outcomes back to job/campaign state. |
+| `provider_events.py` | Applies already-authenticated provider events, preserves event history, prevents terminal regression, and quarantines unknown provider call IDs. |
 | `campaign_policy.py` | Tenant policy evaluation, consent/opt-out enforcement, reservations, and immutable audit records. |
 
 ## 3. Campaign dispatch lifecycle
@@ -69,6 +73,7 @@ sequenceDiagram
     participant W as WorkerRuntime
     participant P as Policy evaluator
     participant D as Provider adapter
+    participant C as Signed callback ingress
 
     UI->>DB: enqueue target + outbox in one transaction
     DB-->>W: lease-protected JobRun claim
@@ -86,14 +91,30 @@ sequenceDiagram
             W->>D: one provider request
             D-->>W: accepted / rejected
             W->>DB: persist operation result
-            D-->>DB: callback or reconciliation terminal result
+            D-->>C: signed lifecycle callback
+            C->>DB: immutable provider event or quarantine
+            C->>DB: idempotent terminal reconciliation
         end
     end
 ```
 
 A `requested` provider operation with unknown acceptance is retried through reconciliation, not by making a second provider request. An `accepted` operation waits for a callback/reconciliation terminal result. Terminal outcomes settle active capacity; a pre-request policy deferral or lease loss releases unused capacity and budget reservation.
 
-## 4. Tenant policy and auditable cancellation
+## 4. Provider callback lifecycle
+
+Day 32 exposes `POST /api/provider-callbacks/events`, a normalized callback ingress for an existing provider operation. With signature validation enabled, the route requires a current timestamp and HMAC-SHA256 signature over the raw body. The endpoint fails closed with `503` when no callback secret is configured, which is the deployed default until a provider-specific sandbox adapter is certified.
+
+| Incoming condition | Durable response |
+|---|---|
+| Valid new event for known operation | Append `provider_events` record and apply only the allowed lifecycle transition. |
+| Exact event replay | Return idempotent success with no new event, counter, job, or provider request. |
+| Unknown call ID | Append `provider_callback_quarantines` record with no tenant mutation. |
+| Late event after terminal operation | Retain a marked event but do not reopen queue/job/counters. |
+| Terminal success/failure | Reconcile queue/campaign/capacity and terminal durable job once. |
+
+The current Dial integration has no provider-specific callback registration or documented signature adapter in VoxFlow. Day 32 therefore provides a generic normalized contract and keeps live callback application unavailable by default. No raw provider callback payload, secret, transcript, phone number, or job payload is rendered in analytics.
+
+## 5. Tenant policy and auditable cancellation
 
 The policy gate runs before `ProviderOperation` reservation. A dispatch target must satisfy all conditions below.
 
@@ -110,7 +131,7 @@ The policy gate runs before `ProviderOperation` reservation. A dispatch target m
 
 Every policy evaluation appends a `campaign_policy_decisions` record. The operator endpoint returns decision, reason code, timestamp, and next eligible time, but does not expose raw evidence JSON. Policy cancellations map to terminal durable `cancelled` jobs rather than dead letters.
 
-## 5. Data model
+## 6. Data model
 
 The core business schema remains tenant scoped. Durable dispatch adds the following tables.
 
@@ -120,20 +141,24 @@ The core business schema remains tenant scoped. Durable dispatch adds the follow
 | `job_outbox` | Transactional events persisted with domain changes and published by a relay. |
 | `job_attempts` | Immutable execution-attempt evidence. |
 | `provider_operations` | Provider-side idempotency and reconciliation boundary. |
+| `provider_events` | Append-only signed callback evidence with provider-event idempotency and application/anomaly state. |
+| `provider_callback_quarantines` | Trusted-but-unmatched callback evidence that deliberately has no tenant link. |
 | `tenant_campaign_policies` | Tenant timezone, calling window, quota, capacity, and enablement. |
 | `recipient_campaign_preferences` | Consent, purpose, opt-out, and provenance per tenant/phone. |
 | `tenant_daily_dispatch_usage` | Tenant-local daily reservation and active-dispatch counters. |
 | `campaign_dispatch_reservations` | One capacity reservation per job with active/released/settled lifecycle. |
 | `campaign_policy_decisions` | Immutable Day 30 policy audit evidence. |
 
-Production migrations are ordered as `003_durable_job_ledger.sql`, `004_outbox_relay_state.sql`, then `005_campaign_policy_controls.sql`.
+Production migrations are ordered as `003_durable_job_ledger.sql`, `004_outbox_relay_state.sql`, `005_campaign_policy_controls.sql`, then `006_provider_callback_lifecycle.sql`.
 
-## 6. Production safety and rollout
+## 7. Production safety and rollout
 
 The deployed backend remains in a non-executing campaign posture:
 
 ```text
 DURABLE_CAMPAIGN_WORKER_ENABLED=false
+PROVIDER_CALLBACK_VALIDATE_SIGNATURE=true
+PROVIDER_CALLBACK_SHARED_SECRET=(intentionally unset)
 activation_mode=staged
 canary_allowed=false
 dry_run=true
@@ -141,7 +166,7 @@ dry_run=true
 
 These settings are a deliberate layered control, not a missing feature. An internal canary must use a dedicated worker process, explicit tenant allow-list, dry-run evidence, tenant policy configuration, consented test target, concurrency one, monitoring, and a rollback owner. The dashboard’s `Launch Campaign` control does not bypass the worker gate or invoke the provider inline.
 
-## 7. Engineering quality gates
+## 8. Engineering quality gates
 
 | Surface | Command |
 |---|---|
@@ -151,7 +176,7 @@ These settings are a deliberate layered control, not a missing feature. An inter
 | Frontend production build | `npm run build --workspace=apps/web` |
 | Live job posture | `GET /api/jobs/health?tenant_id=varun` |
 
-At the Day 30 delivery point, the backend suite has 182 passing tests and GitHub CI validates API lint, API test, and web lint/build on every `main` delivery.
+At the Day 32 local delivery point, the backend suite has **188 passing tests** and GitHub CI validates API lint, API test, and web lint/build on every `main` delivery.
 
 ## References
 
@@ -160,4 +185,5 @@ At the Day 30 delivery point, the backend suite has 182 passing tests and GitHub
 - `migrations/003_durable_job_ledger.sql`
 - `migrations/004_outbox_relay_state.sql`
 - `migrations/005_campaign_policy_controls.sql`
+- `migrations/006_provider_callback_lifecycle.sql`
 - `apps/web/src/app/dashboard/campaigns/page.tsx`
