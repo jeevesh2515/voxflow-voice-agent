@@ -27,6 +27,7 @@ from fastapi.responses import Response
 
 from ..config import get_settings
 from ..db import Call, async_session_scope
+from ..jobs.side_effects import RECORDING_RETRIEVE, enqueue_side_effect_async
 from ..logging import get_logger
 from ..voice.pipeline import CallSession
 from .ws import get_pipeline
@@ -421,12 +422,23 @@ async def recording_callback(request: Request) -> Response:
             if session:
                 session.recording_url = recording_url
 
-            # Update DB call record
+            # Persist recording metadata and a durable retrieval intent in the
+            # same transaction. The Day 34 worker remains disabled in production
+            # and dry-run by default, so this callback never downloads media.
             async with async_session_scope() as db:
                 c = await db.get(Call, call_sid)
                 if c:
                     c.recording_url = recording_url
-                    await db.commit()
+                    await db.flush()
+                    await enqueue_side_effect_async(
+                        db,
+                        tenant_id=c.tenant_id,
+                        effect_type=RECORDING_RETRIEVE,
+                        aggregate_type="call",
+                        aggregate_id=c.id,
+                        idempotency_key=f"recording:{c.id}",
+                        trace_id=f"call:{c.id}",
+                    )
     except Exception as e:
         log.warning("twilio.recording_callback_error", error=str(e))
 

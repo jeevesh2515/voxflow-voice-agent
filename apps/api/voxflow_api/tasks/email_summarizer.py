@@ -5,17 +5,18 @@ and maintains persistent memory (AgentState) for zero lost information and idemp
 
 from __future__ import annotations
 
+import hashlib
 import json
 import re
 import time
-import uuid
 from datetime import datetime, timedelta, timezone
 from typing import Any
 
 from sqlalchemy import select
 
 from ..config import get_settings
-from ..db import AgentState, CommunicationLog, async_session_scope
+from ..db import AgentState, CommunicationLog, WorksheetLog, async_session_scope
+from ..jobs.side_effects import SHEETS_EMAIL_SUMMARY, enqueue_side_effect_async
 from ..integrations.gmail import EmailMessage, get_gmail_client
 from ..integrations.gsheets import get_sheets_client
 from ..llm import get_llm
@@ -165,7 +166,9 @@ class EmailSummarizerAgent:
         emails = await self.gmail.fetch_recent_emails(limit=limit)
 
         new_count = 0
-        sheets_synced = 0
+        # Day 34 no longer mirrors an email inline. The durable Sheets job may
+        # later succeed/retry independently; this cycle reports queued mirrors.
+        sheets_enqueued = 0
         summaries: list[dict[str, Any]] = []
         ist = timezone(timedelta(hours=5, minutes=30))
 
@@ -173,12 +176,20 @@ class EmailSummarizerAgent:
             if msg.message_id in processed_ids:
                 continue
 
-            summary_info = await self.summarize_email_with_llm(msg)
+            # A stable communication primary key makes message retries
+            # idempotent even if the process dies after the database transaction
+            # but before AgentState is updated.
+            message_hash = hashlib.sha256(msg.message_id.encode("utf-8")).hexdigest()[:20]
+            comm_id = f"comm-email-{message_hash}"
             now_ist = datetime.now(ist).strftime("%Y-%m-%d %H:%M:%S")
 
-            # 1. Save to Database (CommunicationLog)
-            comm_id = f"comm-email-{uuid.uuid4().hex[:6]}"
             async with async_session_scope() as db:
+                existing = await db.get(CommunicationLog, comm_id)
+                if existing is not None:
+                    await self.record_processed_message_id(msg.message_id)
+                    continue
+
+                summary_info = await self.summarize_email_with_llm(msg)
                 comm = CommunicationLog(
                     id=comm_id,
                     tenant_id=self.tenant_id,
@@ -189,34 +200,47 @@ class EmailSummarizerAgent:
                     status="summarized",
                 )
                 db.add(comm)
+                sheet_payload = {
+                    "timestamp": now_ist,
+                    "message_id": msg.message_id,
+                    "sender": msg.sender,
+                    "subject": msg.subject,
+                    "category": summary_info["category"],
+                    "priority": summary_info["priority"],
+                    "summary": summary_info["summary"],
+                    "action_required": summary_info["action_required"],
+                    "linked_order": summary_info["linked_order"],
+                }
+                worksheet_log = WorksheetLog(
+                    tenant_id=self.tenant_id,
+                    worksheet_name=self.settings.google_sheet_email_tab,
+                    action_type="append",
+                    row_data_json=json.dumps(sheet_payload, default=str),
+                )
+                db.add(worksheet_log)
+                await db.flush()
+                enqueue_result = await enqueue_side_effect_async(
+                    db,
+                    tenant_id=self.tenant_id,
+                    effect_type=SHEETS_EMAIL_SUMMARY,
+                    aggregate_type="worksheet_log",
+                    aggregate_id=str(worksheet_log.id),
+                    idempotency_key=f"sheets-email:{comm_id}",
+                    trace_id=f"email:{message_hash}",
+                )
 
-            # 2. Append to Google Sheets Email Log tab
-            sheet_payload = {
-                "timestamp": now_ist,
-                "message_id": msg.message_id,
-                "sender": msg.sender,
-                "subject": msg.subject,
-                "category": summary_info["category"],
-                "priority": summary_info["priority"],
-                "summary": summary_info["summary"],
-                "action_required": summary_info["action_required"],
-                "linked_order": summary_info["linked_order"],
-            }
-
-            res = await self.sheets.append_email_summary(sheet_payload)
-            if res.get("ok"):
-                sheets_synced += 1
-
-            # 3. Mark processed in persistent memory
+            # AgentState is a bounded convenience/read model. The deterministic
+            # communication ID above remains the primary duplicate barrier.
             await self.record_processed_message_id(msg.message_id)
-
             new_count += 1
+            sheets_enqueued += 1 if enqueue_result.created else 0
             summaries.append({
                 "message_id": msg.message_id,
                 "sender": msg.sender,
                 "subject": msg.subject,
                 **summary_info,
-                "sheet_synced": res.get("ok", False),
+                "sheets_job_id": enqueue_result.job_id,
+                "sheet_synced": False,
             })
 
         # Update last run state
@@ -236,7 +260,7 @@ class EmailSummarizerAgent:
         log.info(
             "email_summarizer.cycle_complete",
             processed=new_count,
-            sheets_synced=sheets_synced,
+            sheets_enqueued=sheets_enqueued,
             elapsed_sec=elapsed,
         )
 
@@ -244,7 +268,8 @@ class EmailSummarizerAgent:
             "ok": True,
             "tenant_id": self.tenant_id,
             "processed_count": new_count,
-            "sheets_synced_count": sheets_synced,
+            "sheets_synced_count": 0,
+            "sheets_enqueued_count": sheets_enqueued,
             "elapsed_sec": elapsed,
             "summaries": summaries,
         }

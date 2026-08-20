@@ -210,6 +210,16 @@ export interface AnalyticsOverview {
     verification_failure_count: number;
     blocked_application_count: number;
   };
+  durable_side_effects: {
+    activation_mode: "staged" | "blocked" | "dry_run" | "canary";
+    dry_run: boolean;
+    tenant_allowed: boolean;
+    intent_count: number;
+    pending_count: number;
+    error_count: number;
+    type_counts: Record<string, number>;
+    status_counts: Record<string, number>;
+  };
   monitoring: {
     state: "healthy" | "attention" | "critical";
     alerts: AnalyticsAlert[];

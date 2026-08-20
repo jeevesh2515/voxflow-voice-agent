@@ -9,6 +9,7 @@ from pydantic import BaseModel, Field
 from sqlalchemy import select
 
 from ..db import Call, Tenant, TenantPhoneNumber, session_scope
+from ..jobs.side_effects import EMAIL_SUMMARIZATION_SCAN, enqueue_side_effect
 from ..logging import get_logger
 
 
@@ -210,15 +211,37 @@ def get_tenant_usage_stats(tenant_id: str) -> dict[str, Any]:
 
 
 @router.post("/email-summarizer/run")
-async def run_email_summarizer_now(
+def run_email_summarizer_now(
     tenant_id: str = Query("varun", description="Tenant ID to summarize emails for"),
     limit: int = Query(15, ge=1, le=50, description="Max emails to process"),
 ) -> dict[str, Any]:
-    """Manually trigger an email summarization cycle."""
-    from ..tasks.email_summarizer import EmailSummarizerAgent
-    agent = EmailSummarizerAgent(tenant_id=tenant_id)
-    result = await agent.run_sync_cycle(limit=limit)
-    return result
+    """Record a durable email scan request without fetching email inline."""
+
+    with session_scope() as db:
+        tenant = db.get(Tenant, tenant_id)
+        if tenant is None:
+            raise HTTPException(status_code=404, detail="tenant_not_found")
+        result = enqueue_side_effect(
+            db,
+            tenant_id=tenant_id,
+            effect_type=EMAIL_SUMMARIZATION_SCAN,
+            aggregate_type="email_scan",
+            aggregate_id=str(limit),
+            # A manual request is intentionally idempotent only within a bounded
+            # minute bucket. Operators may request another audited scan later.
+            idempotency_key=f"email-scan:{tenant_id}:{limit}",
+            max_attempts=3,
+            trace_id=f"email-manual:{tenant_id}",
+        )
+    return {
+        "ok": True,
+        "queued": True,
+        "tenant_id": tenant_id,
+        "limit": limit,
+        "job_id": result.job_id,
+        "outbox_id": result.outbox_id,
+        "created": result.created,
+    }
 
 
 @router.get("/email-summarizer/status")

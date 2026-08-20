@@ -2,7 +2,7 @@
 
 **Last updated:** 2026-08-20
 **Authoritative implementation:** `apps/api/voxflow_api/db.py` and the ordered SQL files in `migrations/`.
-**Purpose of this document:** Explain tenant boundaries, durable execution, policy controls, Day 32 provider callback evidence, and Day 33 provider-adapter audit evidence. It is not a substitute for applying production migrations.
+**Purpose of this document:** Explain tenant boundaries, durable execution, policy controls, Day 32 provider callback evidence, Day 33 provider-adapter audit evidence, and Day 34 typed side-effect intent evidence. It is not a substitute for applying production migrations.
 
 ## 1. Schema and migration authority
 
@@ -14,6 +14,7 @@ Local SQLite development/tests create the SQLAlchemy metadata. Production Postgr
 005_campaign_policy_controls.sql
 006_provider_callback_lifecycle.sql
 007_dial_sandbox_callback_adapter.sql
+008_typed_durable_side_effect_jobs.sql
 ```
 
 The initial tenant/core schema and prior feature migrations must already be present. Do not copy partial DDL from this document into a production database; use the migration files so indexes and constraints remain aligned with code.
@@ -55,6 +56,7 @@ Every operational, campaign, durable-job, provider-operation, and policy record 
 | `provider_events` | Tenant-derived operation reference, provider/event/call IDs, type, occurrence time, payload hash, redacted normalized facts, application/anomaly status | Immutable signed-callback history; unique `(provider, provider_event_id)` enforces delivery idempotency. |
 | `provider_callback_quarantines` | Provider event/call metadata, payload hash, reason, timestamps; intentionally no tenant ID | Safe record for a trusted callback that cannot resolve an existing provider operation. |
 | `provider_callback_adapter_audits` | Optional derived tenant, provider event ID/type, payload hash, verification/normalization/application dispositions, reason, timestamp; unique `(provider, provider_event_id, payload_hash)` | Redacted immutable receipt for the Day 33 provider-specific adapter. It records safe verification and rollout-gate outcomes without storing raw bodies, headers, signatures, secrets, phone numbers, or transcripts. |
+| `side_effect_intents` | Tenant, one durable `job_id`, typed effect, trusted aggregate type/ID, tenant idempotency key, SHA-256 identifier hash, bounded status/result, timestamps; unique `(tenant_id, idempotency_key)` and unique `job_id` | Day 34 durable owner for an external operation. It references a locally stored trusted aggregate rather than duplicating raw Sheets rows, email content, notification bodies, recording bytes, webhook payloads, signatures, or credentials. |
 
 The durable job repository uses conditional state transitions that verify the current `running` state, lease owner, and unexpired lease. This prevents a stale worker from completing, cancelling, or retrying a job it no longer owns.
 
@@ -105,7 +107,22 @@ A terminal callback may finalize the job associated with the durable provider op
 | `payload_hash` | Cryptographic equality evidence only. It is not a recoverable callback body. |
 | `reason_code` | Bounded operational code such as `invalid_dial_signature` or `dial_callback_tenant_not_allowed`; no raw exception detail. |
 
-## 8. Relationship map
+## 8. Day 34 side-effect intent evidence
+
+A side-effect intent is created in the same transaction as its business or audit record, its `job_runs` row, and its `job_outbox` row. The job payload contains only `side_effect_intent_id`. The worker re-loads the tenant-owned intent and aggregate under a valid lease before it can perform an approved operation.
+
+| Field | Data-handling rule |
+|---|---|
+| `effect_type` | Must be a predefined handler type such as `sheets.call_outcome.append`, `email.summarization.scan`, `crm.webhook.sync`, `notification.dispatch`, or `recording.retrieve`; arbitrary task execution is prohibited. |
+| `aggregate_type` / `aggregate_id` | Trusted reference to an existing local row, used to reconstruct an operation payload only in a separately gated worker. |
+| `idempotency_key` | Tenant-scoped durable ownership boundary; repeated enqueue returns the same job/intent. |
+| `payload_hash` | Hash of bounded identifiers, not recoverable business content. |
+| `status` / `result_code` / `result_json` | Bounded state and result evidence only. Never store raw integration output, phone number, message content, recording bytes, secret, callback header, or provider payload. |
+| `job_id` | One-to-one durable job ownership. Job attempts retain worker execution history; the intent supplies operation-specific evidence. |
+
+The `side_effect_intents` table does not authorize execution by itself. `DURABLE_SIDE_EFFECTS_WORKER_ENABLED`, an explicit tenant allow-list, and dry-run mode are independent operational controls. In the Day 34 deployed posture the worker is disabled; the worker does not claim integration work.
+
+## 9. Relationship map
 
 ```mermaid
 erDiagram
@@ -115,18 +132,20 @@ erDiagram
     TENANTS ||--o{ PROVIDER_OPERATIONS : owns
     TENANTS ||--o{ PROVIDER_EVENTS : derived_ownership
     TENANTS ||--o{ PROVIDER_CALLBACK_ADAPTER_AUDITS : derived_when_known
+    TENANTS ||--o{ SIDE_EFFECT_INTENTS : owns
     TENANTS ||--|| TENANT_CAMPAIGN_POLICIES : configures
     TENANTS ||--o{ RECIPIENT_CAMPAIGN_PREFERENCES : owns
     TENANTS ||--o{ TENANT_DAILY_DISPATCH_USAGE : tracks
     OUTBOUND_CAMPAIGNS ||--o{ CAMPAIGN_QUEUE : contains
     JOB_RUNS ||--o{ JOB_ATTEMPTS : records
+    JOB_RUNS ||--|| SIDE_EFFECT_INTENTS : owns_execution
     PROVIDER_OPERATIONS ||--o{ PROVIDER_EVENTS : receives
     JOB_RUNS ||--|| CAMPAIGN_DISPATCH_RESERVATIONS : reserves
     JOB_RUNS ||--o{ CAMPAIGN_POLICY_DECISIONS : explains
     CAMPAIGN_QUEUE ||--o{ CAMPAIGN_POLICY_DECISIONS : evaluated
 ```
 
-## 9. Data-handling requirements
+## 10. Data-handling requirements
 
 1. New operational tables must remain tenant scoped and have production migration coverage.
 2. Tenant policy/audit endpoint responses must redact raw evidence data unless a scoped administrator workflow explicitly needs it.
@@ -137,7 +156,9 @@ erDiagram
 7. Unknown provider IDs must quarantine without creating a tenant, campaign, queue, job, or provider operation.
 8. Provider-adapter audit rows must persist only hashes, bounded event metadata, and bounded dispositions; never raw bodies, signature headers, secrets, phone numbers, or transcript content.
 9. A provider-specific adapter must be explicitly enabled in sandbox mode, have a signing secret, and resolve an allow-listed stored-operation tenant before it may create a Day 32 lifecycle event.
-10. Schema changes that affect policy, consent, jobs, provider operations, or provider events require migration review, targeted tests, and a `schema.md` update.
+10. Side-effect intents must retain only trusted aggregate identifiers, hashes, and bounded result facts; no job/intention ledger may copy raw external payloads, messages, recordings, credentials, or signature material.
+11. A request, voice tool, callback, dashboard, or FastAPI lifespan process may persist a side-effect intent but must not execute the effect inline; only an independently feature-gated worker may do so.
+12. Schema changes that affect policy, consent, jobs, provider operations, provider events, or side-effect intents require migration review, targeted tests, and a `schema.md` update.
 
 ## References
 
@@ -149,3 +170,5 @@ erDiagram
 - `migrations/005_campaign_policy_controls.sql`
 - `migrations/006_provider_callback_lifecycle.sql`
 - `migrations/007_dial_sandbox_callback_adapter.sql`
+- `migrations/008_typed_durable_side_effect_jobs.sql`
+- `apps/api/voxflow_api/jobs/side_effects.py`

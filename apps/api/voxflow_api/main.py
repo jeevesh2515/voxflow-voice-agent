@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import asyncio
 import os
 from contextlib import asynccontextmanager
 from datetime import datetime, timezone
@@ -16,7 +15,6 @@ from pydantic import BaseModel
 from .auth import AuthMiddleware
 from .config import get_settings
 from .db import close_db_engines, init_db
-from .integrations.gsheets import get_sheets_client
 from .llm import get_llm
 from .llm.base import ChatTurn
 from .logging import get_logger, setup_logging
@@ -42,9 +40,11 @@ log = get_logger(__name__)
 async def lifespan(app: FastAPI):
     settings = get_settings()
 
-    # 1. Ensure persistent data directories exist
+    # 1. Ensure persistent data directories exist. Day 34 removed the
+    # process-local Sheets retry queue; durable jobs and the database own retry
+    # state instead of an API-instance filesystem directory.
     data_dir = settings.resolved_data_dir
-    for sub in ("sessions", "sheets_queue", "logs", "backups"):
+    for sub in ("sessions", "logs", "backups"):
         os.makedirs(os.path.join(data_dir, sub), exist_ok=True)
 
     # 2. Initialize database schema
@@ -56,42 +56,9 @@ async def lifespan(app: FastAPI):
     if recovered > 0:
         log.info("api.sessions_recovered", count=recovered)
 
-    # 4. Start background worker for Google Sheets retry queue
-    async def _sheets_retry_worker():
-        sheets = get_sheets_client()
-        while True:
-            try:
-                synced = await sheets.process_retry_queue()
-                if synced > 0:
-                    log.info("api.sheets_queue_processed", synced_count=synced)
-            except asyncio.CancelledError:
-                break
-            except Exception as e:
-                log.warning("api.sheets_queue_worker_error", error=str(e))
-            await asyncio.sleep(settings.sheets_retry_interval)
-
-    retry_task = asyncio.create_task(_sheets_retry_worker())
-
-    # 5. Start background worker for Email Summarizer Agent (runs 3x daily / interval)
-    async def _email_summarizer_worker():
-        if not settings.email_summarizer_enabled:
-            return
-        # small delay on startup before first check
-        await asyncio.sleep(10)
-        from .tasks.email_summarizer import EmailSummarizerAgent
-        agent = EmailSummarizerAgent(tenant_id=settings.default_tenant_id)
-        while True:
-            try:
-                res = await agent.run_sync_cycle(limit=15)
-                if res.get("processed_count", 0) > 0:
-                    log.info("api.email_summarizer_scheduled_run", processed=res["processed_count"], synced=res["sheets_synced_count"])
-            except asyncio.CancelledError:
-                break
-            except Exception as e:
-                log.warning("api.email_summarizer_worker_error", error=str(e))
-            await asyncio.sleep(settings.email_summarizer_interval_seconds)
-
-    email_task = asyncio.create_task(_email_summarizer_worker())
+    # 4. Day 34 deliberately starts no side-effect worker here. Sheets retries,
+    # email scans, CRM sync, notifications, and recording retrieval are typed
+    # JobRun rows claimed only by the separately deployed, feature-gated worker.
 
     log.info(
         "api.startup",
@@ -103,16 +70,6 @@ async def lifespan(app: FastAPI):
     yield
 
     # Shutdown
-    retry_task.cancel()
-    email_task.cancel()
-    try:
-        await retry_task
-    except asyncio.CancelledError:
-        pass
-    try:
-        await email_task
-    except asyncio.CancelledError:
-        pass
     await close_db_engines()
     log.info("api.shutdown")
 

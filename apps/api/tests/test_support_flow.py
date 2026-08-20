@@ -588,7 +588,8 @@ def test_outcome_logging_does_not_block_the_caller_on_a_slow_sheet():
     # The tool returned essentially immediately, NOT after SLOW seconds.
     assert elapsed < 1.0, f"caller waited {elapsed:.2f}s on Google — must be ~0"
     assert result["ok"] is True
-    assert result["sheet_synced"] == "pending"
+    assert result["sheet_synced"] == "queued"
+    assert result["sheet_job_id"].startswith("job-")
     # The outcome data is already safe on the session for Postgres.
     assert s.resolution_status == "resolved"
     assert s.satisfaction == "happy"
@@ -682,7 +683,7 @@ def test_a1_used_for_both_read_and_append() -> None:
 
 
 def test_send_sms_tool_execution():
-    """Verify send_sms logs communication and formats the recipient cleanly."""
+    """Verify send_sms queues a durable notification without direct Twilio IO."""
     from unittest.mock import MagicMock, patch
 
     mock_client = MagicMock()
@@ -703,4 +704,6 @@ def test_send_sms_tool_execution():
     assert res["channel"] == "sms"
     assert res["recipient"] == "+9876500001"
     assert res["comm_id"].startswith("comm-sms-")
-    assert mock_client.messages.create.called
+    assert res["status"] == "queued"
+    assert res["job_id"].startswith("job-")
+    assert not mock_client.messages.create.called

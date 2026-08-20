@@ -9,7 +9,6 @@ Dispatches signed HTTP POST events asynchronously when key call actions occur:
 
 from __future__ import annotations
 
-import asyncio
 import hashlib
 import hmac
 import json
@@ -88,9 +87,17 @@ async def dispatch_webhook(tenant_id: str, event_type: str, payload: dict[str, A
 
 
 def dispatch_webhook_background(tenant_id: str, event_type: str, payload: dict[str, Any]) -> None:
-    """Fire-and-forget webhook dispatcher for use inside sync or async tools."""
-    try:
-        loop = asyncio.get_running_loop()
-        loop.create_task(dispatch_webhook(tenant_id, event_type, payload))
-    except Exception as e:
-        log.warning("webhook.schedule_failed", error=str(e))
+    """Deprecated Day 34 safety shim; it never performs a fire-and-forget POST.
+
+    New callers must persist a trusted aggregate and enqueue `crm.webhook.sync`
+    through the side-effect ledger. The no-op avoids reintroducing direct
+    external HTTP ownership while legacy extensions are migrated.
+    """
+
+    del payload
+    log.warning(
+        "webhook.direct_dispatch_disabled",
+        tenant_id=tenant_id,
+        event=event_type,
+        required_job_type="crm.webhook.sync",
+    )

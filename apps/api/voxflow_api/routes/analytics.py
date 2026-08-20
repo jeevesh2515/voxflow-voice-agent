@@ -23,11 +23,19 @@ from ..db import (
     OutboundCampaign,
     ProviderCallbackAdapterAudit,
     ProviderEvent,
+    SideEffectIntent,
     Tenant,
     session_scope,
 )
 from ..integrations.dial_callbacks import dial_callback_allowed_tenant_ids
-from ..jobs.staging import campaign_activation_mode, canary_tenant_ids, durable_campaign_dry_run
+from ..jobs.staging import (
+    campaign_activation_mode,
+    canary_tenant_ids,
+    durable_campaign_dry_run,
+    durable_side_effects_dry_run,
+    side_effects_activation_mode,
+    side_effects_tenant_ids,
+)
 
 router = APIRouter(prefix="/api/analytics", tags=["analytics"])
 
@@ -131,6 +139,16 @@ def _analytics_payload(tenant_id: str, days: int) -> dict[str, Any]:
             .scalars()
             .all()
         )
+        side_effect_intents = (
+            db.execute(
+                select(SideEffectIntent).where(
+                    SideEffectIntent.tenant_id == tenant_id,
+                    SideEffectIntent.created_at >= period_start,
+                )
+            )
+            .scalars()
+            .all()
+        )
 
     total_calls = len(calls)
     resolved_calls = sum(1 for call in calls if call.resolution_status == "resolved" or call.outcome == "completed")
@@ -179,6 +197,10 @@ def _analytics_payload(tenant_id: str, days: int) -> dict[str, Any]:
     adapter_application_counts = Counter(_normalise_bucket(audit.application_status) for audit in provider_adapter_audits)
     adapter_verification_failure_count = adapter_verification_counts.get("rejected", 0)
     adapter_blocked_application_count = adapter_application_counts.get("blocked_tenant", 0)
+    side_effect_type_counts = Counter(_normalise_bucket(intent.effect_type) for intent in side_effect_intents)
+    side_effect_status_counts = Counter(_normalise_bucket(intent.status, "queued") for intent in side_effect_intents)
+    side_effect_error_count = sum(1 for intent in side_effect_intents if intent.result_code)
+    side_effect_pending_count = sum(1 for intent in side_effect_intents if intent.status in {"queued", "running", "retry_scheduled"})
 
     active_jobs = [job for job in jobs if job.status in {"ready", "retry_scheduled", "running"}]
     ready_jobs = [job for job in jobs if job.status in {"ready", "retry_scheduled"}]
@@ -228,6 +250,20 @@ def _analytics_payload(tenant_id: str, days: int) -> dict[str, Any]:
         )
     if campaign_activation_mode() == "staged":
         _add_alert(alert_rows, "info", "campaigns_staged", "Campaign dispatch remains safely staged; no provider worker is active.")
+    if side_effect_error_count:
+        _add_alert(
+            alert_rows,
+            "warning",
+            "side_effect_error_evidence",
+            f"{side_effect_error_count} durable side-effect intent(s) have bounded error evidence.",
+        )
+    if side_effects_activation_mode() == "staged":
+        _add_alert(
+            alert_rows,
+            "info",
+            "side_effects_staged",
+            "Operational side-effect jobs remain staged; no integration worker is active.",
+        )
 
     if any(alert["level"] == "critical" for alert in alert_rows):
         monitoring_state = "critical"
@@ -290,6 +326,16 @@ def _analytics_payload(tenant_id: str, days: int) -> dict[str, Any]:
             "application_status_counts": dict(sorted(adapter_application_counts.items())),
             "verification_failure_count": adapter_verification_failure_count,
             "blocked_application_count": adapter_blocked_application_count,
+        },
+        "durable_side_effects": {
+            "activation_mode": side_effects_activation_mode(),
+            "dry_run": durable_side_effects_dry_run(),
+            "tenant_allowed": tenant_id in side_effects_tenant_ids(),
+            "intent_count": len(side_effect_intents),
+            "pending_count": side_effect_pending_count,
+            "error_count": side_effect_error_count,
+            "type_counts": dict(sorted(side_effect_type_counts.items())),
+            "status_counts": dict(sorted(side_effect_status_counts.items())),
         },
         "monitoring": {
             "state": monitoring_state,
@@ -364,6 +410,16 @@ def analytics_report_csv(
     writer.writerow(["Dial adapter tenant audit receipts", payload["dial_sandbox_adapter"]["audit_count"]])
     writer.writerow(["Dial adapter verification failures", payload["dial_sandbox_adapter"]["verification_failure_count"]])
     writer.writerow(["Dial adapter blocked applications", payload["dial_sandbox_adapter"]["blocked_application_count"]])
+    writer.writerow([])
+    writer.writerow(["Durable side-effect activation mode", payload["durable_side_effects"]["activation_mode"]])
+    writer.writerow(["Durable side-effect dry run", payload["durable_side_effects"]["dry_run"]])
+    writer.writerow(["Durable side-effect tenant allowed", payload["durable_side_effects"]["tenant_allowed"]])
+    writer.writerow(["Durable side-effect intents", payload["durable_side_effects"]["intent_count"]])
+    writer.writerow(["Durable side-effect pending", payload["durable_side_effects"]["pending_count"]])
+    writer.writerow(["Durable side-effect error evidence", payload["durable_side_effects"]["error_count"]])
+    writer.writerow(["Durable side-effect type", "Count"])
+    for effect_type, count in payload["durable_side_effects"]["type_counts"].items():
+        writer.writerow([_safe_csv_value(effect_type), count])
     writer.writerow([])
     writer.writerow(["Monitoring state", payload["monitoring"]["state"]])
     writer.writerow(["Alert level", "Code", "Message"])
