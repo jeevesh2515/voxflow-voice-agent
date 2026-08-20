@@ -8,7 +8,7 @@ from datetime import datetime, timezone
 from typing import Literal
 
 from fastapi import APIRouter, Depends, HTTPException, Request
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, ValidationError
 from sqlalchemy.orm import Session
 
 from ..config import get_settings
@@ -78,13 +78,22 @@ def _verify_callback_signature(request: Request, body: bytes) -> None:
 @router.post("/events")
 async def provider_callback_event(
     request: Request,
-    payload: ProviderCallbackIn,
     db: Session = Depends(get_session),
 ) -> dict[str, str | None | bool]:
-    """Store and apply one signed provider event without trusting caller tenant fields."""
+    """Store and apply one signed provider event without trusting caller tenant fields.
+
+    The fail-closed configuration and HMAC checks deliberately precede body
+    parsing. This ensures an unset production secret yields 503 even when an
+    untrusted sender supplies a malformed or incomplete JSON payload.
+    """
 
     body = await request.body()
     _verify_callback_signature(request, body)
+    try:
+        payload = ProviderCallbackIn.model_validate_json(body)
+    except ValidationError as exc:
+        raise HTTPException(status_code=422, detail=exc.errors()) from exc
+
     payload_hash = hashlib.sha256(body).hexdigest()
     try:
         result = apply_provider_callback(
