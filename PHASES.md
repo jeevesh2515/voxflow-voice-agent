@@ -34,7 +34,7 @@ Days 1–24 established the backend, dashboard, tenant-aware data model, inbound
 | 30 | Added tenant policy, recipient consent/opt-out/purpose checks, timezone calling windows, daily budget, active capacity, exact deferral, immutable policy decisions, and durable cancellation. | Paused, closed-window, consent, opt-out, quota, API scoping, and audit-redaction tests passed; migration `005_campaign_policy_controls.sql` added. |
 | 31 | Added tenant-safe operational KPI/trend aggregation, pull-based durable monitoring signals, redacted CSV enterprise reports, and a live analytics dashboard. | Tenant isolation, policy trends, lease/dead-letter alerting, CSV sensitive-data exclusion, backend lint/**184 tests**, and frontend lint/build passed. |
 
-**Day 31 release evidence:** backend lint clean; **184 backend tests passing**; frontend lint/build passing with 20 routes. No real outbound call was made.
+**Day 31 release evidence:** backend lint clean; **184 backend tests passing**; frontend lint/build passing with 20 routes; GitHub CI run `32334590276` passed; Vercel deployment passed; Render analytics/CSV endpoints and the authenticated browser dashboard were verified. No real outbound call was made.
 
 ## Day 32 — Provider lifecycle and idempotent callback reconciliation
 
