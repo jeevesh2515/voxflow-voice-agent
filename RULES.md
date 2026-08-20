@@ -17,7 +17,7 @@ repo. Read this before starting any day's work in PHASES.md.
 | TTS | `edge-tts` | ElevenLabs, unless a specific quality problem is proven first — edge-tts is free and already integrated |
 | Telephony | Twilio (Voice + Media Streams) | Do not evaluate alternatives (Vonage, Plivo, etc.) until Twilio is proven insufficient |
 | Database | Supabase Postgres | Do not migrate vendors — see ARCHITECTURE.md section 2 |
-| Frontend | Next.js 14, Tailwind, existing component set | Do not introduce a second UI framework or CSS system |
+| Frontend | Next.js 16, Tailwind, existing component set | Do not introduce a second UI framework or CSS system |
 | Auth | Supabase Auth (once implemented) | Do not build custom JWT/session handling from scratch |
 
 ## 2. Explicitly Avoid
@@ -36,8 +36,7 @@ repo. Read this before starting any day's work in PHASES.md.
   auth systems exist by design: staff login (Supabase Auth) and caller
   verification (phone + city/GSTIN, later PIN). Do not conflate them or
   build a third system.
-- **Do not build outbound calling, payment processing, or CRM features**
-  — explicitly out of scope per PRD.md section 6.
+- **Do not build outbound cold calling, payment processing, or generic CRM features.** Controlled operational campaigns already exist, but their worker remains globally disabled in production and they must obey `ARCHITECTURE.md` policy, consent, idempotency, and canary rules. Never add an inline provider call to an API request path.
 - **Do not commit `.env` files, API keys, or Supabase service role keys.**
   `.gitignore` already excludes these — verify before every commit,
   don't assume.
@@ -54,8 +53,7 @@ repo. Read this before starting any day's work in PHASES.md.
   arg, (b) scope every DB query by `session.tenant_id`, (c) return a
   plain `dict[str, Any]`, (d) be registered in both `execute_tool()`
   dispatcher and `TOOL_DEFINITIONS` schema in `tools.py`
-- Every new DB table must include `tenant_id` with a foreign key to
-  `tenants.id`, and get an RLS policy added to `schema.md`
+- Every new tenant-owned DB table must include `tenant_id` with a foreign key to `tenants.id`, production migration coverage, tenant-safe query/read handling, and a `schema.md` update. Tables reached only through a tenant-owned parent must document that ownership explicitly.
 - Frontend: follow existing dark-neon design system (see DESIGN.md) —
   do not introduce new color values outside the existing Tailwind config
   without updating DESIGN.md first
@@ -82,9 +80,8 @@ repo:
 - **Secrets:** never paste real API keys into a prompt to an AI assistant
   if that conversation could be logged or shared. Use `.env.example`
   placeholders when discussing config.
-- **Multi-tenancy is non-negotiable.** Any AI-generated code that touches
-  a business table without `tenant_id` scoping should be rejected on
-  review, no exceptions, no "I'll fix it later."
+- **Multi-tenancy is non-negotiable.** Any AI-generated code that touches a business, job, provider-operation, preference, reservation, or policy-audit record without tenant scoping should be rejected on review, no exceptions, no "I'll fix it later."
+- **Outbound side effects are non-negotiably gated.** Any campaign change must preserve transactional enqueue, provider-operation idempotency, tenant policy before reservation, no-redial reconciliation, and the production kill switch. Tests and browser checks must use mocked providers or dry run.
 
 ## 5. When to Deviate From This Document
 

@@ -1,207 +1,163 @@
-# VoxFlow — Architecture
+# VoxFlow Architecture
 
-**Last updated:** 2026-07-25
-**Scope:** Directs app flow, component boundaries, folder structure, and
-the specific latency-sensitive design decisions for the voice path.
+**Last updated:** 2026-08-20
+**Current milestone:** Day 30 — tenant policy controls and auditable cancellation complete.
+**Operating mode:** Inbound voice and dashboard functions are deployed. Campaign dispatch is implemented but globally safe-staged in production.
 
----
+## 1. System boundaries
 
-## 1. System Overview
+VoxFlow separates the latency-sensitive inbound voice path from durable operational work. FastAPI receives web/API requests and persists intent. Durable workers claim lease-protected jobs from the database and execute bounded units of background work. Campaign provider calls are not performed inside the campaign HTTP request transaction.
 
-```
-                    Caller's Phone
-                         │
-                         ▼
-              Twilio Voice (Media Streams / WebSocket)
-                         │
-                         ▼
-         ┌───────────────────────────────────────┐
-         │        FastAPI Backend (apps/api)       │
-         │                                          │
-         │  voxflow_api/voice/pipeline.py           │
-         │    - Buffers PCM audio                   │
-         │    - STT (faster-whisper, local)         │
-         │         │                                │
-         │         ▼                                │
-         │  voxflow_api/agent/runner.py              │
-         │    - LangGraph-style tool-calling loop    │
-         │    - LLM (Groq / Ollama / OpenRouter)     │
-         │         │                                │
-         │         ▼                                │
-         │  voxflow_api/agent/tools.py                │
-         │    - lookup_supplier, check_stock, etc.   │
-         │    - Reads/writes via db.py (SQLAlchemy)  │
-         │         │                                │
-         │         ▼                                │
-         │  voxflow_api/voice/tts.py (edge-tts)      │
-         └───────────────────────────────────────┘
-                         │
-                         ▼
-              Postgres (Supabase, tenant-isolated via RLS)
-                         │
-                         ▼
-         ┌───────────────────────────────────────┐
-         │      Next.js 14 Dashboard (apps/web)     │
-         │  Live call view, orders, stock, etc.     │
-         │  Supabase client for auth + realtime     │
-         └───────────────────────────────────────┘
+```mermaid
+flowchart TB
+    Browser[Next.js dashboard\nVercel] --> API
+    Twilio[Twilio inbound voice\nwebhook + media stream] --> API[FastAPI API and voice gateway\nRender]
+    API --> Voice[Voice pipeline\nSTT → agent tools → TTS]
+    API --> DB[(PostgreSQL production\nSQLite local tests)]
+    API --> Outbox[JobOutbox]
+    Outbox --> Ledger[JobRun + JobAttempt]
+    Ledger --> Worker[WorkerRuntime\nindependent process]
+    Worker --> Gate[Campaign policy gate]
+    Gate --> Audit[CampaignPolicyDecision]
+    Gate --> ProviderOp[ProviderOperation]
+    ProviderOp --> Dial[Dial provider adapter]
+    Dial --> Recon[Provider reconciliation]
+    Recon --> DB
 ```
 
-## 2. The Latency-Critical Path
-
-The single most important architectural constraint in this project: **every
-second between the caller finishing a sentence and the agent starting to
-speak is felt directly by a human on a phone call.** Unlike a chat UI, there
-is no acceptable "spinner" — silence on a call reads as broken.
-
-Current latency budget per turn (approximate, to be measured for real once
-Twilio is wired in):
-
-| Step | Est. latency | Notes |
+| Boundary | Owner | Rule |
 |---|---|---|
-| STT (faster-whisper, local) | 200-600ms | Runs in executor thread, non-blocking — already correct |
-| LLM turn (Groq) | 300-800ms per iteration | Multiple tool calls = multiple iterations, compounds |
-| DB round-trip per tool call | ??? | **Currently synchronous, blocks event loop — must fix** |
-| TTS (edge-tts) | 200-500ms | Network call to Microsoft's edge service |
+| Inbound voice | FastAPI voice pipeline | Preserve per-call latency; never wait on campaign jobs or outbox relays. |
+| Command/control plane | FastAPI routes | Validate and persist tenant-scoped intent; do not create an outbound provider side effect inline. |
+| Durable execution | `WorkerRuntime` | Claim only leased jobs, use conditional transitions, retry only typed transient errors. |
+| Provider side effect | `ProviderOperation` | One idempotency key owns one provider request; retries reconcile rather than re-dial. |
+| Campaign permission | `campaign_policy.py` | Fail closed before provider intent: policy, consent, opt-out, timing, budget, and capacity. |
+| Operator visibility | Job health and campaign dashboard | Show tenant-owned counts and redacted audit/read models only. |
 
-**The one architectural change that matters most:** move `db.py` from
-synchronous SQLAlchemy (`create_engine`, `sessionmaker`) to the async
-equivalent (`create_async_engine` with `asyncpg`, `async_sessionmaker`),
-and make every tool function in `tools.py` an `async def` using `await
-db.execute(...)`. Right now, `execute_tool()` runs synchronous DB calls
-inside `async def handle_turn`, which blocks the event loop for the
-duration of every DB call — this is the real latency risk, not the choice
-of Postgres host.
+## 2. Runtime components
 
-**Secondary fix:** add a lightweight cache (in-process `dict` with TTL, or
-Redis/Upstash if you want it shared across server instances) in front of
-`check_stock` and `lookup_supplier` — these are read-heavy, low-change-
-frequency queries and don't need a network round-trip on every single call.
+### Frontend
 
-**Do not** try to solve latency by switching database vendors (Supabase →
-Neon or similar). Any hosted Postgres has the same network-round-trip
-characteristic; the fix is architectural (async + caching), not a vendor
-swap.
+`apps/web` is a Next.js 16.3.1 application deployed on Vercel. It uses TypeScript, Tailwind CSS, and SWR. The tenant context is passed to campaign lists, queue views, run/stage actions, health, and recent job reads. The campaigns page visualizes staged rollout state, durable job health, queued targets, and policy cancellations.
 
-## 3. Multi-Tenancy
+### FastAPI backend
 
-- Every business table has `tenant_id` (see `schema.md`)
-- RLS policies enforce isolation at the database level — this is the last
-  line of defense, not the only one
-- Application-level enforcement: every tool function in `tools.py` takes
-  `session: CallSession` which carries `tenant_id`, and every query is
-  scoped by it — this pattern is already correctly followed, keep it
-- The dashboard's `TenantProvider` (`apps/web/src/lib/tenant-context.tsx`)
-  scopes all frontend data fetching to the active tenant
+`apps/api/voxflow_api` provides synchronous and asynchronous SQLAlchemy paths, inbound voice routes, dashboard APIs, campaign APIs, and job-health read models. The backend runs on Render in the deployed environment and supports SQLite for deterministic local tests.
 
-## 4. Folder Structure
+### Durable job subsystem
 
-```
-voxflow-voice-agent/
-├── PRD.md                      # product requirements
-├── ARCHITECTURE.md             # this file
-├── RULES.md                    # what to use, what to avoid, AI boundaries
-├── PHASES.md                   # week-by-week, day-by-day build plan
-├── DESIGN.md                   # color, type, visual language
-├── MEMORY.md                   # live status — what's done, what's in progress
-├── schema.md                   # DDL + RLS policy reference
-├── docker-compose.yml
-├── vercel.json
-├── apps/
-│   ├── api/                            # FastAPI backend
-│   │   ├── voxflow_api/
-│   │   │   ├── agent/
-│   │   │   │   ├── runner.py           # conversation loop, tool-calling
-│   │   │   │   ├── tools.py            # all agent tools + DB access
-│   │   │   │   └── prompts.py          # system prompt construction
-│   │   │   ├── llm/
-│   │   │   │   ├── factory.py          # provider selection
-│   │   │   │   ├── groq.py / ollama.py / openrouter.py
-│   │   │   │   └── base.py             # shared ChatTurn / response types
-│   │   │   ├── voice/
-│   │   │   │   ├── pipeline.py         # call session + turn orchestration
-│   │   │   │   ├── stt.py              # faster-whisper wrapper
-│   │   │   │   └── tts.py              # edge-tts wrapper
-│   │   │   ├── routes/
-│   │   │   │   ├── ws.py               # WebSocket call endpoint
-│   │   │   │   └── data.py             # REST endpoints for dashboard
-│   │   │   ├── db.py                   # SQLAlchemy models + session mgmt
-│   │   │   ├── config.py               # env-driven settings
-│   │   │   ├── schemas.py              # Pydantic request/response models
-│   │   │   ├── seed.py                 # demo data seeding
-│   │   │   └── verify_db.py            # DB health check script
-│   │   ├── tests/
-│   │   └── requirements.txt
-│   └── web/                            # Next.js 14 dashboard
-│       └── src/
-│           ├── app/
-│           │   ├── dashboard/
-│           │   │   ├── calls/ orders/ shipments/ stock/
-│           │   │   ├── suppliers/ appointments/ communications/
-│           │   │   └── simulator/                # browser phone simulator
-│           │   ├── sign-in/ sign-up/ pricing/ about/
-│           │   └── layout.tsx / page.tsx
-│           ├── components/                        # Nav, Sidebar, Topbar, Footer
-│           └── lib/
-│               ├── supabase/           # client + server Supabase clients
-│               ├── tenant-context.tsx  # active tenant state
-│               ├── theme-context.tsx   # dark/light mode
-│               └── api.ts / types.ts
-├── packages/core/                      # shared types/logic (currently minimal)
-└── .planning/                          # historical phase tracking
+The Day 25–30 subsystem lives in `apps/api/voxflow_api/jobs/`.
+
+| Component | Responsibility |
+|---|---|
+| `enqueue.py` | Atomically persists campaign target intent and outbox event. |
+| `outbox.py` | Leases and relays unprocessed transactional outbox events. |
+| `repository.py` | Atomic claim, lease extension, success, retry, cancel, dead-letter, and recovery transitions. |
+| `worker.py` | Bounded polling runtime, typed outcomes, backoff, graceful drain, and stale-worker protection. |
+| `campaign_worker_service.py` | Standalone campaign worker entry point with global gate and canary tenant filter. |
+| `campaign_dispatch.py` | Campaign target handler: policy, capacity, dry run, provider-operation reservation, and no-redial behavior. |
+| `provider_operations.py` | Durable idempotency reservation and provider operation updates. |
+| `reconciliation.py` | Applies provider terminal outcomes back to job/campaign state. |
+| `campaign_policy.py` | Tenant policy evaluation, consent/opt-out enforcement, reservations, and immutable audit records. |
+
+## 3. Campaign dispatch lifecycle
+
+```mermaid
+sequenceDiagram
+    participant UI as Dashboard/API
+    participant DB as PostgreSQL
+    participant W as WorkerRuntime
+    participant P as Policy evaluator
+    participant D as Provider adapter
+
+    UI->>DB: enqueue target + outbox in one transaction
+    DB-->>W: lease-protected JobRun claim
+    W->>P: evaluate tenant policy and recipient permission
+    alt cancelled
+        P->>DB: CampaignPolicyDecision + queue/job cancelled
+    else deferred
+        P->>DB: CampaignPolicyDecision + exact next_run_at
+    else allowed
+        P->>DB: reserve daily budget and active capacity
+        W->>DB: reserve ProviderOperation idempotency key
+        alt dry run
+            W->>DB: mark dry-run completion and settle capacity
+        else live worker enabled
+            W->>D: one provider request
+            D-->>W: accepted / rejected
+            W->>DB: persist operation result
+            D-->>DB: callback or reconciliation terminal result
+        end
+    end
 ```
 
-**Rule of thumb going forward:** anything voice/agent-logic-related goes in
-`apps/api/voxflow_api/`; anything dashboard/UI goes in `apps/web/src/`;
-anything shared between the two (types, constants) should move into
-`packages/core` rather than being duplicated.
+A `requested` provider operation with unknown acceptance is retried through reconciliation, not by making a second provider request. An `accepted` operation waits for a callback/reconciliation terminal result. Terminal outcomes settle active capacity; a pre-request policy deferral or lease loss releases unused capacity and budget reservation.
 
-## 5. Tech Stack (current, confirmed from repo)
+## 4. Tenant policy and auditable cancellation
 
-| Layer | Choice | Status |
+The policy gate runs before `ProviderOperation` reservation. A dispatch target must satisfy all conditions below.
+
+| Check | Data source | Failed outcome |
 |---|---|---|
-| Backend framework | FastAPI 0.115 | ✅ in place |
-| ORM | SQLAlchemy 2.0 (async + sync) | ✅ async migration complete |
-| Database | Supabase Postgres (prod) / SQLite (dev) | ✅ keep, fix async layer |
-| LLM | Groq (Llama 3.1), Ollama, OpenRouter (pluggable) | ✅ in place |
-| STT | faster-whisper (local, CPU) | ✅ in place |
-| TTS | edge-tts | ✅ in place |
-| Telephony | Twilio Media Streams via WebSocket | ✅ routes/twilio.py: TwiML + mulaw decoder + VAD + STT flush (agent audio streaming = Day 9) |
-| Frontend | Next.js 14, Tailwind | ✅ in place |
-| Auth (staff) | localStorage session (temporary) | ⚠️ needs real Supabase Auth |
-| Realtime (dashboard) | — | ❌ not started, Phase 5 |
-| Deployment | Vercel (frontend), TBD (backend — Railway mentioned in README) | ⚠️ backend host not finalized |
+| Tenant policy exists and is enabled | `tenant_campaign_policies` | `tenant_policy_missing` or `tenant_policy_disabled` cancellation |
+| Campaign is active/running | `outbound_campaigns` | `campaign_not_active` cancellation |
+| Consent is granted | `recipient_campaign_preferences` | `consent_not_granted` cancellation |
+| Recipient is not opted out | `recipient_campaign_preferences` | `recipient_opted_out` cancellation |
+| Consent purpose covers dispatch | Recipient preference + campaign type | `consent_purpose_mismatch` cancellation |
+| Calling window is open in tenant timezone | Tenant policy | `outside_calling_window` exact deferral |
+| Daily budget remains | `tenant_daily_dispatch_usage` | `daily_call_budget_exhausted` deferral |
+| Active tenant capacity remains | Same usage record | `tenant_concurrency_limited` deferral |
 
-## 6. Twilio Integration (Days 6-7, continuing)
+Every policy evaluation appends a `campaign_policy_decisions` record. The operator endpoint returns decision, reason code, timestamp, and next eligible time, but does not expose raw evidence JSON. Policy cancellations map to terminal durable `cancelled` jobs rather than dead letters.
 
-### Status: STT wired into the receive path (Day 8)
+## 5. Data model
 
-The Twilio integration lives in `apps/api/voxflow_api/routes/twilio.py`:
+The core business schema remains tenant scoped. Durable dispatch adds the following tables.
 
-1. **`POST /twilio/voice`** — TwiML webhook. Returns XML that plays a
-   greeting and opens a `<Connect><Stream>` to the `/twilio/media`
-   WebSocket endpoint. Also captures `CallSid` + `From` so the WebSocket
-   can build a `CallSession` with the caller's phone. (Day 6)
-2. **`WebSocket /twilio/media`** — receives 8kHz μ-law audio frames from
-   Twilio Media Streams. Decodes mulaw→PCM (16-bit linear, correct G.711
-   expansion), resamples 8kHz→16kHz via linear interpolation. (Day 7)
-3. **Per-call buffering + VAD (Day 8)** — decoded PCM is appended to a
-   per-`callSid` buffer on the `CallSession`. A simple amplitude VAD
-   (RMS > 800 = speech) tracks speech; after ≥700ms of trailing silence
-   the utterance is flushed in a background task via
-   `pipeline.commit_audio()` (STT → `AgentRunner` → edge-tts), and the
-   transcript is logged as `twilio.media.transcript`. The agent's reply
-   + TTS audio (`last_turn`) is retained on the stream state for Day 9.
-   On `stop`/disconnect, any in-flight flush and leftover buffer are
-   drained, then `pipeline.end_session()` persists the call.
+| Table | Purpose |
+|---|---|
+| `job_runs` | Durable queued work, state, lease, retry timing, idempotency key, and terminal outcome. |
+| `job_outbox` | Transactional events persisted with domain changes and published by a relay. |
+| `job_attempts` | Immutable execution-attempt evidence. |
+| `provider_operations` | Provider-side idempotency and reconciliation boundary. |
+| `tenant_campaign_policies` | Tenant timezone, calling window, quota, capacity, and enablement. |
+| `recipient_campaign_preferences` | Consent, purpose, opt-out, and provenance per tenant/phone. |
+| `tenant_daily_dispatch_usage` | Tenant-local daily reservation and active-dispatch counters. |
+| `campaign_dispatch_reservations` | One capacity reservation per job with active/released/settled lifecycle. |
+| `campaign_policy_decisions` | Immutable Day 30 policy audit evidence. |
 
-### What's next (Days 9-10):
+Production migrations are ordered as `003_durable_job_ledger.sql`, `004_outbox_relay_state.sql`, then `005_campaign_policy_controls.sql`.
 
-4. Encode the stored TTS audio back to mulaw 8kHz and stream it to Twilio
-   as `media` messages (Day 9)
-5. Full closed loop: greet → identify → stock check → confirm by voice (Day 9)
-6. Multi-caller real-world testing + VAD tuning (Day 10)
+## 6. Production safety and rollout
 
-### Future (post-pilot):
+The deployed backend remains in a non-executing campaign posture:
 
-8. `tenant_phone_numbers` table for mapping phone numbers to tenants
+```text
+DURABLE_CAMPAIGN_WORKER_ENABLED=false
+activation_mode=staged
+canary_allowed=false
+dry_run=true
+```
+
+These settings are a deliberate layered control, not a missing feature. An internal canary must use a dedicated worker process, explicit tenant allow-list, dry-run evidence, tenant policy configuration, consented test target, concurrency one, monitoring, and a rollback owner. The dashboard’s `Launch Campaign` control does not bypass the worker gate or invoke the provider inline.
+
+## 7. Engineering quality gates
+
+| Surface | Command |
+|---|---|
+| Backend lint | `cd apps/api && .venv/bin/ruff check voxflow_api tests` |
+| Backend tests | `cd apps/api && .venv/bin/pytest -q` |
+| Frontend lint | `npm run lint --workspace=apps/web` |
+| Frontend production build | `npm run build --workspace=apps/web` |
+| Live job posture | `GET /api/jobs/health?tenant_id=varun` |
+
+At the Day 30 delivery point, the backend suite has 182 passing tests and GitHub CI validates API lint, API test, and web lint/build on every `main` delivery.
+
+## References
+
+- `apps/api/voxflow_api/jobs/`
+- `apps/api/voxflow_api/db.py`
+- `migrations/003_durable_job_ledger.sql`
+- `migrations/004_outbox_relay_state.sql`
+- `migrations/005_campaign_policy_controls.sql`
+- `apps/web/src/app/dashboard/campaigns/page.tsx`

@@ -1,5 +1,7 @@
 # VoxFlow — Week 4 Implementation Log (Days 16–20)
 
+> **Historical snapshot — updated 2026-08-20:** This file records the Day 16–18 session as it was delivered. Its original test counts, route counts, infrastructure notes, and pending Day 19–20 text are not the project’s current state. Use [`MEMORY.md`](MEMORY.md), [`PHASES.md`](PHASES.md), [`ARCHITECTURE.md`](ARCHITECTURE.md), and the Day 25–30 planning/learning guides for the active delivery record.
+
 **Date:** 2026-08-13  
 **Engineer:** Senior AI Engineer  
 **Branch:** `main`
