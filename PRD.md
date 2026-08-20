@@ -1,143 +1,102 @@
-# VoxFlow — Product Requirements Document
+# VoxFlow Product Requirements Document
 
-**Status:** Living document — Phase 3 (voice/Twilio) in progress: Days 6-8 done (TwiML webhook, Media Streams receive path, STT→agent→TTS wired), Day 9 closes the audio loop back to the caller
-**Owner:** Jesse (Jeevesh Singale)
-**Repo:** github.com/jeevesh2515/voxflow-voice-agent
-**Last updated:** 2026-07-23
+**Status:** Living product document; Day 30 implementation complete.
+**Last updated:** 2026-08-20
+**Repository:** <https://github.com/jeevesh2515/voxflow-voice-agent>
 
----
+## 1. Product statement
 
-## 0. Reality Check
+VoxFlow is a bilingual Hindi-English voice operations platform for FMCG and supply-chain teams. It supports verified inbound voice workflows, operational dashboards, and controlled outbound campaign execution for operational—not sales—use cases such as delayed shipment follow-up, purchase-order confirmation, and dock reminders.
 
-No paying customer or design partner has been confirmed yet. "Varun Beverages"
-in this document is a hypothesis target, informed secondhand (a friend who
-works there), not a validated spec. Do not let Phase 4+ (real Twilio numbers,
-billing, pricing commitments) proceed without an actual conversation
-confirming the workflow described in Section 5 is accurate.
+The product is designed around a simple safety principle: operational automation must be **tenant scoped, policy controlled, and auditable**. A campaign target may not reach a telephony provider merely because an operator created a campaign or an HTTP request succeeded.
 
----
+## 2. User problems
 
-## 1. Problem Statement
+| User | Problem | Required product outcome |
+|---|---|---|
+| Operations staff | Manual supplier/customer calls delay shipment, PO, and dock workflows. | Structured call handling, operational records, campaign queues, and escalation visibility. |
+| Tenant administrator | Cannot safely delegate outbound operational reminders without proof of consent and capacity controls. | Tenant-local policy, recipient preference, quotas, cancellation evidence, and a hard stop. |
+| Operator | Cannot diagnose a stuck dispatch without database access. | Tenant-safe job health, target queue, reason codes, and audit timeline. |
+| Platform owner | Provider retries can create duplicate side effects. | Durable job ledger, leases, provider-operation idempotency, reconciliation, and staged rollout. |
 
-Regional distributors and C&F (carrying & forwarding) agents for large FMCG
-brands in India — e.g. a PepsiCo distributor like Varun Beverages — sit in
-the middle of a call-heavy, error-prone workflow:
+## 3. Product capabilities
 
-- **Inbound calls** from their own supplier/retail network placing POs,
-  checking stock, asking about shipment status
-- **Outbound-facing demand** from modern trade and quick-commerce partners
-  (Swiggy Instamart, Blinkit, Flipkart Minutes) who expect fast, accurate
-  stock and order confirmation — often on tight SLAs
-- One or a handful of ops staff manually juggling phone calls, Excel
-  sheets, and WhatsApp to keep all of this straight
+### Inbound operations
 
-This creates bottlenecks (staff unavailable = calls missed or delayed),
-data entry errors (manual re-typing from a phone call into Excel), and no
-structured record of what was promised on any given call — which becomes a
-real liability when a quick-commerce partner disputes a stock commitment.
+VoxFlow supports tenant-aware inbound voice flows with caller verification, stock/order/shipment support, appointment scheduling, escalation, transcript persistence, and Hindi-English voice interaction. The dashboard provides operational lists, call records, inventory, orders, shipments, suppliers, appointments, communications, and a voice simulator.
 
-## 2. Solution
+### Durable outbound operations
 
-VoxFlow is a bilingual (Hindi/English) voice AI agent that answers inbound
-calls on behalf of a distributor, identifies and verifies the caller,
-handles stock checks/PO creation/shipment status via natural conversation,
-writes structured data to the company's database in real time, and gives
-staff a live dashboard of every call — in progress and completed — with
-full transcripts and an audit trail.
+Campaign targets are queued as durable work. The delivery path includes transactional enqueue/outbox persistence, lease-based job claims, attempt history, typed retry behavior, provider-operation idempotency, and callback/reconciliation primitives.
 
-It is explicitly scoped to **structured, transactional phone workflows**
-(stock check, PO creation, shipment status, appointment scheduling) — not
-a general-purpose chatbot, not outbound sales, not payment processing.
+Day 30 adds central dispatch permission controls.
 
-## 3. Target Customer
+| Requirement | Behavior |
+|---|---|
+| Explicit tenant policy | Required before dispatch. Policy holds timezone, calling window, daily call limit, capacity, and enabled switch. |
+| Recipient consent | Target requires granted consent for outbound campaigns or the specific campaign type. |
+| Opt-out | Any opt-out is terminal and blocks provider access. |
+| Active campaign | Draft, paused, or completed campaigns cannot dispatch. |
+| Local calling hours | Closed windows defer to the exact next tenant-local opening time. |
+| Daily budget and capacity | Reserved atomically per tenant local day; concurrent workers cannot overbook. |
+| Auditable result | Each evaluation records an immutable allowed, deferred, or cancelled decision. |
+| No provider duplication | A provider operation idempotency key owns a single external request; retries reconcile it. |
 
-- **Primary (validation target):** Regional FMCG distributors/C&F agents
-  in India handling high call volume from their supplier network and
-  answering to modern-trade/quick-commerce demand (Swiggy Instamart,
-  Blinkit, Flipkart Minutes, Zepto, etc.)
-- **Buyer persona:** Ops manager or owner who currently relies on 1-2
-  people manually handling all supplier/customer calls plus Excel
-  reconciliation
-- **Not yet targeted:** National call centers, multi-brand/multi-category
-  retail hotlines, anything requiring outbound cold-calling
+## 4. Current availability and safety boundary
 
-## 4. Current Build Status (as of this document)
+The Vercel dashboard and Render API are live. The durable campaign system is implemented but **not enabled for live outbound traffic**.
 
-Already implemented in the repo:
-- FastAPI backend (`apps/api`) with a working agent loop (`AgentRunner`)
-  using pluggable LLM providers (Groq / Ollama / OpenRouter)
-- 11 working agent tools: `lookup_supplier`, `verify_caller`, `check_stock`,
-  `get_shipment_status`, `create_po`, `verify_po`, `schedule_appointment`,
-  `send_email`, `send_whatsapp_message`, `update_worksheet`, `type_notes`,
-  `escalate_to_human`
-- Full multi-tenant schema (`schema.md`) with `tenant_id` on every
-  business table, RLS policy blueprint for Supabase
-- Local STT (`faster-whisper`) and TTS (`edge-tts`) wired into a
-  WebSocket-based voice pipeline (`voice/pipeline.py`) — currently
-  reachable via an in-browser phone simulator, not real phone calls
-- Next.js 14 dashboard (`apps/web`) with pages for calls, orders,
-  shipments, stock, suppliers, appointments, communications, a simulator,
-  pricing, and sign-in/sign-up — with a working tenant-switcher for
-  multiple demo companies (Varun Beverages, Amul, Haldirams, Britannia)
-- A distinctive dark neon design system already implemented (see
-  DESIGN.md)
+```text
+DURABLE_CAMPAIGN_WORKER_ENABLED=false
+activation_mode=staged
+canary_allowed=false
+dry_run=true
+```
 
-**Not yet implemented:**
-- Real telephony end-to-end — Twilio Media Streams receive path works (mulaw
-  decode → VAD → STT → agent → TTS, Day 8) but agent audio is not yet streamed
-  back to the caller (Day 9) and no real Twilio number has been wired up to
-  validate a live call; the browser simulator remains the fully-working demo path
-- Async/non-blocking DB layer (current DB calls are synchronous inside
-  async request handlers — see ARCHITECTURE.md)
-- Caller-side PIN/stronger auth beyond city/GSTIN verification
-- Real Supabase Auth for staff login (currently `localStorage`-based
-  session, per `security_audit.md`)
-- Any real pilot or design partner
+This is the planned current state. The campaign UI does not bypass the worker global gate or issue inline telephony requests. The deployed policy endpoint can report an unconfigured tenant; this is fail closed and prevents accidental dispatch if a worker were ever misconfigured.
 
-## 5. Assumed Core Workflow (validate before Phase 4)
+## 5. Non-goals at the current milestone
 
-1. Call arrives → resolve `tenant_id` (which company was called)
-2. Agent greets caller in Hindi or English (auto-detected)
-3. `lookup_supplier` by phone number
-4. For sensitive actions, `verify_caller` (city or GSTIN challenge)
-5. Classify intent: stock check / place PO / shipment status / schedule
-   appointment / other
-6. Slot-fill required details conversationally
-7. Execute: `check_stock`, `create_po`, `get_shipment_status`, or
-   `schedule_appointment`
-8. Read back result verbally, confirm before any write
-9. Log full transcript + structured actions to `calls` table
-10. If confidence is low at any point, `escalate_to_human` — never guess
-    on a data write
+The following are deliberately out of scope for the current Day 30 production posture:
 
-## 6. Out of Scope for v1
+- Outbound cold calling, sales prospecting, payment collection, or campaign dispatch without recorded permission.
+- Activating a production worker for an unapproved tenant.
+- Enabling a provider request from an HTTP campaign route.
+- Treating missing consent or policy as permission.
+- Reopening a terminal cancellation automatically.
+- A broad multi-tenant pilot before provider callback lifecycle, RBAC, observability, and release-readiness gates are completed.
 
-- Outbound/cold calling
-- Languages beyond Hindi + English (Hinglish code-switching should be
-  handled within these two, not additional languages)
-- Payment processing over the phone
-- Full ERP/CRM replacement
-- Multi-warehouse routing logic beyond what `stock.warehouse` already
-  supports
+## 6. Pilot requirements
 
-## 7. Success Metrics for First Real Pilot
+A live operational canary can be considered only after the following evidence exists.
 
-- % of calls fully resolved without human intervention
-- % of calls correctly escalated (not wrongly auto-handled)
-- Data entry accuracy vs. the manual Excel process it replaces
-- Staff time saved per day
-- Zero cross-tenant data leakage — tested explicitly, not assumed
+| Gate | Evidence |
+|---|---|
+| Worker safety | Global enablement is separately approved; worker process, tenant allow-list, and rollback are documented. |
+| Tenant permission | Explicit policy, valid IANA timezone/window, daily limit, capacity, and enabled setting exist. |
+| Recipient permission | Approved E.164 target has recorded consent and no opt-out. |
+| Provider safety | Dry run, no-redial, reconciliation, duplicate callback, and crash/restart tests pass. |
+| Operator safety | Job health, policy reason, cancellation, and escalation/read-only support paths are visible. |
+| Security | Signed callback validation, tenant-safe APIs, and least-privilege access are verified. |
 
-## 8. Commercial Model (draft — do not finalize before a pilot)
+## 7. Success metrics
 
-- Per-tenant monthly subscription tiered by call volume, not per-seat
-- Pilot phase: free or heavily discounted for a real design partner in
-  exchange for usage data and a testimonial
-- `apps/web/src/app/pricing/page.tsx` already exists as a scaffold —
-  populate it with real tiers only after pilot data exists, not before
+| Metric | Early target |
+|---|---|
+| Policy-blocked dispatches that reach a provider | 0 |
+| Duplicate provider operations per durable job | 0 |
+| Cross-tenant campaign/job/audit reads | 0 |
+| Campaign target outcome traceability | 100% decision and job state evidence |
+| Time to identify a deferred/cancelled target | Operator can locate reason without database shell access |
+| Pilot call volume | Intentionally zero until all release gates are met |
 
-## 9. Immediate Next Step
+## 8. Near-term roadmap
 
-Have the real conversation with the friend at Varun Beverages about the
-actual workflow before Phase 4 (multi-tenancy hardening / real caller
-auth) locks in assumptions that may not match reality.
+Day 31 focuses on signed provider lifecycle callbacks, duplicate/out-of-order event handling, and a normalized accepted/connected/ended/outcome state machine. Subsequent work covers typed background jobs for integration tasks, internal test-tenant canary execution, metrics/tracing, role controls, security hardening, evaluation quality, and pilot rehearsal.
+
+## References
+
+- [Architecture](ARCHITECTURE.md)
+- [Roadmap](PHASES.md)
+- [Live status](MEMORY.md)
+- [Day 30 learning guide](.learning/day-30-tenant-policy-controls-and-auditable-cancellation.md)

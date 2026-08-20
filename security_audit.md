@@ -1,123 +1,111 @@
-# VoxFlow — Security Audit
+# VoxFlow Security and Safety Audit
 
-**Date:** 2026-08-13  
-**Auditor:** Senior AI Engineer (automated + manual review)  
-**Status:** ✅ Production-ready for pilot
+**Last updated:** 2026-08-20
+**Scope:** Current repository controls through Day 30.
+**Status:** Inbound/dashboard deployment is operational; outbound campaign execution is intentionally safe-staged and is **not approved for general live activation**.
 
----
+## 1. Security posture summary
 
-## 1. Authentication & Authorisation
+VoxFlow applies layered controls to tenant-aware voice and campaign operations. Traditional authentication, tenant scoping, signed inbound telephony handling, secret isolation, and rate controls protect the existing application surface. Days 25–30 add a distinct safety layer for outbound side effects: durable intent, leases, provider-operation idempotency, global worker gating, tenant policy, recipient permission, quota/capacity controls, and immutable policy evidence.
 
-| Control | Status | Notes |
-|---|---|---|
-| Staff dashboard auth | ✅ Real | Supabase Auth (`@supabase/ssr`) — email/password. JWT validated on every backend request. No `localStorage` bypass. |
-| Backend JWT middleware | ✅ Active | `AuthMiddleware` in `auth.py` validates Supabase JWTs using JWKS. Rejects expired/invalid tokens with 401. |
-| Twilio webhook signature | ✅ Enforced | `TWILIO_VALIDATE_SIGNATURE=true`. `RequestValidator` checks `X-Twilio-Signature` on every POST `/twilio/voice`. |
-| Caller identity verification | ✅ Two-factor | Factor 1: inbound phone number matched against `tenant_phone_numbers`. Factor 2: city/GSTIN cross-check. `verify_caller` tool. |
-| Tier 2 PIN for write actions | ✅ Active | `verify_pin` required before `create_po`. `pin_verified` flag on `CallSession`. Blocked and logged on failure. |
-| Public `/api/active-calls` | ⚠️ Auth-aware | Returns only tenant-scoped data. Requires valid Supabase JWT in production (AuthMiddleware). Demo mode (no JWT) returns default tenant only. |
+> The absence of a global worker enablement, tenant policy, recipient consent, or approved canary is a deliberate prohibition on outbound provider action—not a degraded mode that can fall open.
 
----
-
-## 2. Database & Row-Level Security
+## 2. Authentication and tenant isolation
 
 | Control | Status | Notes |
 |---|---|---|
-| RLS enabled | ✅ Yes | Enabled on all 11 core tables in the production Supabase project. |
-| Cross-tenant isolation | ✅ Verified | Deliberate cross-tenant query was blocked at RLS layer in Day 12 test. Application code defensively filters by `tenant_id` too. |
-| Service role key scope | ✅ Backend only | `SUPABASE_SERVICE_ROLE_KEY` is only in `.env` (never shipped to frontend). Frontend uses `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` only. |
-| SQLite dev database | ✅ No RLS risk | Dev uses SQLite (no network). Production switches to Supabase via `DATABASE_URL`. |
+| Dashboard authentication | Implemented | Protected dashboard routes redirect session-free requests to sign-in. |
+| Tenant-aware API access | Implemented | Campaign, queue, job-health, job list, policy, preference, and audit reads use tenant scoping. |
+| Application tenant filters | Required | Every business/job/policy query must be filtered by owning tenant. |
+| Database RLS | Production requirement | Maintain PostgreSQL RLS as a second boundary where the deployment access model supports it. |
+| Twilio webhook validation | Implemented for inbound voice | Incoming telephony webhook signature validation remains required. |
+| Provider callback trust | Incomplete | Day 31 must add signed, deduplicated provider-event callback handling. |
 
----
+## 3. Campaign side-effect controls
 
-## 3. Rate Limiting
-
-| Endpoint | Limit | Implementation |
+| Control | Status | Security/safety effect |
 |---|---|---|
-| `POST /twilio/voice` | 30 requests/60s per IP | Sliding window, in-process dict. Returns HTTP 429. |
-| `WS /twilio/media` | 10 connections/60s per IP | Sliding window, separate dict. Closes WS with code 1008. **Added Day 18.** |
-| `GET /api/*` | None explicit | Protected by Supabase Auth JWT — requires valid session. |
-| Browser WebSocket `/ws` | None explicit | Authenticated session required (Supabase JWT). |
+| API request vs. provider separation | Implemented | Campaign routes persist intent; no inline provider call. |
+| Transactional outbox | Implemented | Domain change and future durable work commit together. |
+| Lease-protected worker transition | Implemented | A stale worker cannot complete/cancel/retry a job after losing lease ownership. |
+| Provider operation idempotency | Implemented | One stable tenant/idempotency key owns one external provider request. |
+| Reconciliation/no-redial | Implemented foundation | Ambiguous/accepted provider state is reconciled rather than blindly re-dialed. |
+| Global campaign-worker gate | Enforced in production | `DURABLE_CAMPAIGN_WORKER_ENABLED=false`. |
+| Tenant canary restriction | Implemented | No deployed tenant is currently admitted. |
+| Dry-run path | Implemented | Provider-free worker execution path supports controlled evidence. |
+| Explicit tenant policy | Implemented | Missing/disabled/invalid policy cancels the target. |
+| Consent and opt-out | Implemented | Missing consent, withdrawn consent, purpose mismatch, or opt-out blocks provider access. |
+| Time/budget/capacity | Implemented | Tenant-local calling window, daily limit, and active-capacity reservation are enforced. |
+| Immutable policy audit | Implemented | Each allowed/deferred/cancelled evaluation is recorded. |
 
----
+## 4. Input and data controls
 
-## 4. Secret Management
-
-| Secret | Location | Exposed in git? |
+| Surface | Control | Notes |
 |---|---|---|
-| `GROQ_API_KEY` | `.env` (gitignored) | ❌ Never |
-| `TWILIO_ACCOUNT_SID` | `.env` (gitignored) | ❌ Never |
-| `TWILIO_AUTH_TOKEN` | `.env` (gitignored) | ❌ Never |
-| `TWILIO_API_KEY` / `TWILIO_API_SECRET` | `.env` (gitignored) | ❌ Never |
-| `SUPABASE_SERVICE_ROLE_KEY` | `.env` (gitignored) | ❌ Never |
-| `SUPABASE_URL` | `.env` + `.env.local` (gitignored) | ❌ Never in git |
-| `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` | `.env.local` (gitignored) | ❌ Never in git |
-| `DATABASE_URL` (Postgres with password) | `.env` (gitignored) | ❌ Never |
-| Admin name/email/password | Not in any env file | N/A |
+| Campaign target phone | E.164-style `+` validation | Invalid recipient number is a permanent non-provider failure. |
+| Tenant policy | Valid IANA timezone, 24-hour window syntax, positive daily/capacity limits | Invalid policy fails closed. |
+| Recipient preference | Tenant + recipient unique record with consent, purpose, opt-out, and source | A missing preference is not consent. |
+| Policy audit read | Redacted operator response | Raw evidence JSON is not returned by the campaign policy-decision endpoint. |
+| Provider callbacks | Pending Day 31 | Signature/timestamp and event deduplication must precede state mutation. |
+| SQL | SQLAlchemy parameterized queries | Raw interpolated SQL is prohibited. |
 
-**`.gitignore` covers:** `.env`, `.env.local`, `.env.*.local`, `*.pem`, `*.key`  
-**Verify with:** `git log --all --full-history -- .env` — no commits.
+## 5. Secrets and deployment configuration
 
----
+| Requirement | Status |
+|---|---|
+| `.env` and local environment files excluded from Git | Required and verified by repository ignore rules. |
+| Provider/LLM/database credentials stored in deployment secret managers | Required. |
+| Frontend uses only public configuration values | Required; no service-role key in browser environment. |
+| Render campaign global flag remains false | Required until approved canary. |
+| Canary tenant list remains empty/unapproved | Required until approved canary. |
+| Learning journals contain no credentials | Required; `.learning/` is local and gitignored. |
 
-## 5. Network & TLS
+## 6. Network and browser boundary
 
-| Control | Status | Notes |
+| Control | Current expectation |
+|---|---|
+| API CORS | Restrict to local development and approved Vercel origins. |
+| Public frontend | Landing/about/pricing are public. |
+| Dashboard | Session-free request must redirect to sign-in. |
+| Inbound voice transport | Use HTTPS/WSS and provider signature validation. |
+| Outbound campaign verification | Never press launch or enable a worker during ordinary deployment checks. |
+
+## 7. Known gaps and required next controls
+
+| Gap | Risk | Required next action |
 |---|---|---|
-| TLS on public endpoint | ✅ Let's Encrypt | Caddy handles HTTPS at `voxflow.duckdns.org`. Auto-renews. |
-| HTTP→HTTPS redirect | ✅ Caddy default | Port 80 redirects to 443. |
-| CORS | ✅ Restricted | `API_CORS_ORIGINS` env var. Default: `http://localhost:3000`. Production: Vercel domain only. |
-| WebSocket over TLS | ✅ `wss://` | Twilio Media Streams connect over `wss://`. |
+| Signed provider callback event contract | A spoofed/replayed/out-of-order callback could corrupt reconciliation if accepted without verification. | Day 31 signed validation, immutable provider events, deduplication, and transition matrix. |
+| RBAC for policy/replay/config mutation | Broad access could alter policy or worker configuration. | Add platform/tenant admin/operator/read-only authorization matrix. |
+| Metrics/alerts/runbooks | Operators may detect backlog/callback lag too late. | Add queue age, failure, callback lag, worker heartbeat, and lease recovery observability. |
+| Internal canary evidence | Live provider behavior is intentionally not verified. | Use provider sandbox or approved single-target internal canary only after prerequisite gates. |
+| Full security-header coverage | API response headers are not yet uniformly hardened. | Add/test a FastAPI security-header policy in later hardening work. |
 
----
-
-## 6. Input Validation
-
-| Control | Status | Notes |
-|---|---|---|
-| Host header injection in TwiML | ✅ Sanitised | Regex `^[\w\.\-]+(:\d+)?$` validates `Host` before embedding in `<Stream url>`. |
-| Twilio form fields | ✅ String cast | All form values cast to `str` before use. No SQL injection path (SQLAlchemy ORM with parameterised queries). |
-| LLM-generated SQL | ✅ N/A | Agent uses ORM calls only, never raw SQL. No injection surface. |
-| Caller-supplied phone number | ✅ Normalised | Stripped to digits only, length-checked (≥7 digits) before DB lookup. |
-
----
-
-## 7. Security Headers
-
-| Header | Applied to | Status |
-|---|---|---|
-| `X-Content-Type-Options: nosniff` | `POST /twilio/voice` TwiML response | ✅ Added Day 18 |
-| `X-Frame-Options: DENY` | `POST /twilio/voice` TwiML response | ✅ Added Day 18 |
-| `Cache-Control: no-store` | `POST /twilio/voice` TwiML response | ✅ Added Day 18 |
-| Security headers on API | Vercel/Caddy level | ⚠️ Not yet added to FastAPI middleware |
-
----
-
-## 8. Known Gaps (Explicitly Noted, Not Silently Assumed Fixed)
-
-| Gap | Risk | Mitigation |
-|---|---|---|
-| No API-level rate limit on `/api/*` GET routes | Low — requires valid Supabase JWT | Acceptable for pilot (single-tenant, small team) |
-| No security headers FastAPI middleware | Low — API responses are JSON/XML, not rendered HTML | Add `starlette.middleware.httpsredirect` + headers middleware post-pilot |
-| VAD thresholds uncalibrated on real callers | Medium — could cause partial utterances | Tune Day 10 once backend back online |
-| `ACME_EMAIL` in `.env` exposed to logs | Low — email only, not a credential | Non-sensitive; no action needed |
-| Groq free tier (no SLA, rate-limited) | Medium — pilot outages possible | Upgrade to paid tier before production |
-
----
-
-## 9. Verification Commands
+## 8. Verification commands
 
 ```bash
-# Confirm no secrets in git history
-git log --all --full-history -- .env
-git log --all --full-history -- .env.local
+# Backend quality
+cd apps/api
+.venv/bin/ruff check voxflow_api tests
+.venv/bin/pytest -q
 
-# Confirm .gitignore covers env files
-grep -E "^\.env" .gitignore
+# Frontend quality
+cd ../..
+npm run lint --workspace=apps/web
+npm run build --workspace=apps/web
 
-# Run full test suite
-python3 -m pytest apps/api/tests/ -q
-
-# Build frontend (0 errors required)
-cd apps/web && npm run build
+# Safe deployment checks
+curl -fsS https://voxflow-voice-agent.onrender.com/api/health
+curl -fsS 'https://voxflow-voice-agent.onrender.com/api/jobs/health?tenant_id=varun'
+curl -fsS https://voxflow-voice-agent.onrender.com/api/campaign-policies/varun
+curl -I https://voxflow-voice-agent.vercel.app/dashboard/campaigns
 ```
+
+Expected Day 30 live result is staged rollout with the campaign worker disabled. Do not treat a passing dashboard load or job-health read as authorization to enable outbound dispatch.
+
+## References
+
+- [Architecture](ARCHITECTURE.md)
+- [Schema reference](schema.md)
+- [Delivery phases](PHASES.md)
+- `apps/api/voxflow_api/jobs/`
+- `migrations/005_campaign_policy_controls.sql`

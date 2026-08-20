@@ -1,8 +1,8 @@
-# VoxFlow — web dashboard
+# VoxFlow Web Dashboard
 
-Next.js 14 dashboard + browser phone simulator.
+Next.js **16.3.1** dashboard for VoxFlow voice operations. The application uses TypeScript, Tailwind CSS, and SWR, and is deployed at <https://voxflow-voice-agent.vercel.app>.
 
-## Run
+## Run locally
 
 ```bash
 npm install
@@ -10,15 +10,54 @@ cp .env.example .env.local
 npm run dev
 ```
 
-App on <http://localhost:3000>. Expects the API on <http://localhost:8000>.
+The app runs at <http://localhost:3000>. Set `NEXT_PUBLIC_API_URL=http://localhost:8000` when using the local FastAPI backend.
 
-## Pages
+## Quality checks
 
-- `/` — landing
-- `/dashboard` — overview
-- `/dashboard/simulator` — phone simulator (mic + text input)
-- `/dashboard/calls` — call log + transcripts
-- `/dashboard/orders` — order list
-- `/dashboard/shipments` — shipment timeline
-- `/dashboard/stock` — stock by warehouse
-- `/dashboard/suppliers` — supplier directory
+```bash
+npm run lint
+npm run build
+```
+
+The Day 30 production build generates 20 routes without TypeScript/build errors.
+
+## Main pages
+
+| Route | Purpose |
+|---|---|
+| `/` | Public product landing page. |
+| `/dashboard` | Operations overview. |
+| `/dashboard/simulator` | Browser phone simulator. |
+| `/dashboard/calls` | Tenant-scoped call history and transcripts. |
+| `/dashboard/orders` | Purchase-order operations. |
+| `/dashboard/shipments` | Shipment tracking. |
+| `/dashboard/stock` | Stock and warehouse views. |
+| `/dashboard/suppliers` | Supplier/customer directory. |
+| `/dashboard/appointments` | Dock/meeting scheduling. |
+| `/dashboard/communications` | Outbound communication history. |
+| `/dashboard/escalations` | Escalation review and resolution workflow. |
+| `/dashboard/campaigns` | Campaign staging, target queue, durable job health, and policy-stop visibility. |
+| `/dashboard/settings` | Agent, telephony, and operations settings. |
+
+## Campaign dashboard safety behavior
+
+The campaigns page is an operator read/control surface; it is not permission to place a real call. It passes the active tenant on campaign queue and stage/run requests, reads tenant-safe durable job health, and displays the rollout mode, outbox state, queue status, cancelled targets, and policy-stop total.
+
+In the current production environment the expected panel state is:
+
+```text
+SAFE STAGING
+NO INLINE DIALLING
+```
+
+The API worker is globally disabled in production. Do not use browser verification to press `Launch Campaign` or trigger a provider action. The dashboard cannot bypass the backend worker gate or tenant policy/consent controls.
+
+## Production environment
+
+| Variable | Value |
+|---|---|
+| `NEXT_PUBLIC_API_URL` | `https://voxflow-voice-agent.onrender.com` |
+| `NEXT_PUBLIC_WS_URL` | Approved WebSocket base for the deployed backend if configured |
+| Supabase public values | Public browser configuration only; never a service role secret |
+
+After a Vercel deployment, verify public routes return `200`, a session-free dashboard route redirects to sign-in, and an authenticated dashboard render displays staged durable health. See the root [README](../../README.md) and [SETUP.md](../../SETUP.md) for the complete deployment procedure.
