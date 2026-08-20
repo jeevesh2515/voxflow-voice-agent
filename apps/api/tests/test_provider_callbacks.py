@@ -130,20 +130,18 @@ def _event(event_id: str, event_type: str, occurred_at: datetime, outcome: str |
     }
 
 
-def test_callback_fails_closed_when_signature_secret_is_not_configured(monkeypatch):
+def test_callback_fails_closed_before_payload_validation_when_secret_is_not_configured(monkeypatch):
     monkeypatch.delenv("PROVIDER_CALLBACK_SHARED_SECRET", raising=False)
     monkeypatch.setenv("PROVIDER_CALLBACK_VALIDATE_SIGNATURE", "true")
     reset_db()
     seed(reset=True)
     _seed_callback_operation()
-    payload = _event("event-unconfigured-1", "connected", NOW)
-    body = json.dumps(payload, separators=(",", ":"), sort_keys=True).encode("utf-8")
 
     with TestClient(create_app()) as client:
         response = client.post(
             "/api/provider-callbacks/events",
-            content=body,
-            headers={"Content-Type": "application/json", "X-VoxFlow-Timestamp": str(int(datetime.now(timezone.utc).timestamp())), "X-VoxFlow-Signature": "irrelevant"},
+            content=b"{}",
+            headers={"Content-Type": "application/json"},
         )
 
     assert response.status_code == 503
