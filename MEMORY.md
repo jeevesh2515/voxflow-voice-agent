@@ -5,23 +5,23 @@
 ## Current position
 
 **Last updated:** 2026-08-20
-**Current milestone:** **Day 32 locally complete — Provider Lifecycle and Idempotent Callback Reconciliation.**
+**Current milestone:** **Day 32 complete, deployed, and browser-verified — Provider Lifecycle and Idempotent Callback Reconciliation.**
 **Next implementation:** **Day 33 — Provider Adapter Sandbox Certification and Callback Rollout.**
-**Main branch:** `181acac` — Day 31 analytics delivery and verified-status documentation. Day 32 functional delivery is locally verified and pending its delivery commit.
+**Main branch:** `8f1b167` — Day 32 signed provider callback lifecycle (`b02c76f`) plus fail-closed-before-payload-validation correction (`8f1b167`).
 
-The durable campaign and observability programme for Days 25–31 is implemented, committed, and deployed. Day 32 callback lifecycle code is locally verified; no real outbound provider call has been performed during any milestone.
+The durable campaign and observability programme for Days 25–32 is implemented, committed, deployed, and verified. No real outbound provider call has been performed during any milestone or production verification.
 
 ## Verified delivery state
 
 | Area | Verified state |
 |---|---|
-| Backend quality | `ruff check voxflow_api tests` clean; **188 tests passing**. |
+| Backend quality | `ruff check .` clean; **188 tests passing**, including the four Day 32 callback lifecycle tests. |
 | Frontend quality | ESLint clean; Next.js 16.3.1 production build completed with **20 routes**. |
-| CI | Day 32 delivery CI is pending its `main` commit; prior Day 31 CI run `32334939519` passed. |
-| GitHub | `main` is synchronized at `181acac`; Day 32 functional delivery is locally verified and pending push. |
-| Vercel | Day 31 production deployment succeeded at <https://voxflow-voice-agent.vercel.app>; Day 32 deployment is pending. |
-| Render | API responds at <https://voxflow-voice-agent.onrender.com>; Day 32 callback fail-closed verification is pending deployment. |
-| Dashboard | Day 32 analytics lifecycle panel is locally production-built; deployed browser verification is pending. |
+| CI | Day 32 implementation CI [#101](https://github.com/jeevesh2515/voxflow-voice-agent/actions/runs/32380869101) passed. Regression-correction CI **#102** for `8f1b167` also passed in 1 minute 3 seconds. |
+| GitHub | `main` is synchronized at `8f1b167d906d43d3908815c551c5de7c3b13f7c2`; Day 32 is fully pushed. |
+| Vercel | <https://voxflow-voice-agent.vercel.app/dashboard/analytics> loaded successfully in the authenticated browser and rendered the Day 32 Provider Lifecycle panel. |
+| Render | `POST /api/provider-callbacks/events` with `{}` returned **503** and `provider_callback_not_configured`; `GET /api/analytics/overview?tenant_id=varun&days=7` returned **200** with the Day 32 `provider_lifecycle` aggregate. |
+| Dashboard | Browser verification showed the tenant-local Provider Lifecycle panel with **0 events**, **0 anomalies**, and `Applied: 0 · Terminal ignored: 0`. |
 | Session-free boundary | `/dashboard/campaigns` redirects to `/sign-in` without a session. |
 
 ## Durable campaign and monitoring system: completed Days 25–32
@@ -62,7 +62,7 @@ The deployed `GET /api/jobs/health?tenant_id=varun` response reported zero ready
 6. Each policy evaluation is stored as an immutable `CampaignPolicyDecision`.
 7. One `ProviderOperation` idempotency key owns one external request; retries reconcile ambiguous/accepted operations rather than re-dial.
 8. A callback resolves its tenant only from an existing stored provider operation; it never trusts callback tenant, campaign, queue, or job input.
-9. Invalid, stale, unconfigured, duplicate, unknown, and late callbacks cannot create a provider request or reopen terminal campaign state.
+9. Invalid, stale, unconfigured, duplicate, unknown, and late callbacks cannot create a provider request or reopen terminal campaign state. An unset callback secret returns `503` before malformed or incomplete payloads are schema-validated.
 10. Analytics aggregates only persisted tenant facts and do not expose transcripts, phone numbers, raw job payloads, policy evidence, or raw callback payloads.
 11. No real outbound call is allowed during local or browser verification.
 
