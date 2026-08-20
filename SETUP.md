@@ -2,7 +2,7 @@
 
 **Last updated:** 2026-08-20
 **Current deployment:** FastAPI API on Render and Next.js dashboard on Vercel.
-**Campaign safety:** `DURABLE_CAMPAIGN_WORKER_ENABLED=false` must remain set in production unless a separately approved internal canary is being operated.
+**Campaign and side-effect safety:** `DURABLE_CAMPAIGN_WORKER_ENABLED=false` and `DURABLE_SIDE_EFFECTS_WORKER_ENABLED=false` must remain set in production unless a separately approved controlled pilot is being operated.
 
 ## 1. Deployment topology
 
@@ -14,6 +14,7 @@ flowchart LR
     A --> P[(PostgreSQL / Supabase-compatible DB)]
     A --> J[Durable job/outbox/event tables]
     J --> CW[Campaign worker\ncurrently disabled]
+    J --> SW[Side-effect worker\ncurrently disabled]
     PC[Provider callback ingress\nsecret intentionally unset] --> A
 
 ```
@@ -66,6 +67,7 @@ migrations/004_outbox_relay_state.sql
 migrations/005_campaign_policy_controls.sql
 migrations/006_provider_callback_lifecycle.sql
 migrations/007_dial_sandbox_callback_adapter.sql
+migrations/008_typed_durable_side_effect_jobs.sql
 ```
 
 Run migrations through an approved PostgreSQL migration procedure. Do not run a campaign worker merely to validate migration success. Use API health, test suites, and safe job-health reads instead.
@@ -91,6 +93,10 @@ Render is the backend runtime because the API hosts HTTP routes, WebSocket/inbou
 | `DIAL_CALLBACK_ALLOWED_TENANTS` | Stored-operation tenant application allow-list | Keep empty. A verified adapter event cannot apply without a deliberate sandbox tenant admission. |
 | `DIAL_CALLBACK_SIGNING_SECRETS` | Current/previous Dial webhook HMAC secret overlap | **Leave unset.** Never place secrets in logs, documents, browser configuration, or version control. |
 | `DIAL_CALLBACK_MAX_AGE_SECONDS` | Dial webhook replay-age bound | Retain `300` unless a reviewed provider contract requires another bounded value. |
+| `DURABLE_SIDE_EFFECTS_WORKER_ENABLED` | Independent operational side-effect worker hard stop | **Keep `false` in production.** The API must never claim Sheets/email/CRM/notification/recording jobs. |
+| `DURABLE_SIDE_EFFECTS_DRY_RUN` | Provider/integration-free side-effect worker path | **Keep `true`** until a tenant-specific approval and dry-run evidence exist. |
+| `DURABLE_SIDE_EFFECTS_ALLOWED_TENANTS` | Future side-effect worker admission list | Keep empty. A worker cannot build without an explicit tenant. |
+| `DURABLE_SIDE_EFFECTS_MAX_CONCURRENCY` | Maximum concurrent operational side effects per worker | Retain `1` for staged/dry-run validation. |
 
 After deployment, verify only safe endpoints:
 
@@ -101,9 +107,11 @@ curl -fsS 'https://voxflow-voice-agent.onrender.com/api/campaign-policies/varun'
 curl -sS -o /dev/null -w '%{http_code}\n' -X POST 'https://voxflow-voice-agent.onrender.com/api/provider-callbacks/events' -H 'Content-Type: application/json' -d '{}'
 curl -sS -o /dev/null -w '%{http_code}\n' -X POST 'https://voxflow-voice-agent.onrender.com/api/provider-callbacks/dial/events' -H 'Content-Type: application/json' -d '{}'
 curl -fsS 'https://voxflow-voice-agent.onrender.com/api/analytics/overview?tenant_id=varun&days=7'
+# Confirm the JSON contains durable_side_effects with activation_mode=staged,
+# dry_run=true, tenant_allowed=false, and no unplanned intents/errors.
 ```
 
-Expected Day 33 posture is `activation_mode: "staged"`, `canary_allowed: false`, `dry_run: true`, an unconfigured tenant policy, generic normalized callback ingress returning `503`, and Dial ingress returning `503 dial_callback_adapter_disabled` before body parsing. The analytics response must include `dial_sandbox_adapter` with `adapter_enabled=false`, `sandbox_mode=true`, and no tenant audit receipts in an untouched deployment. These checks are intentionally malformed/read-only; they must never be replaced with a live Dial callback, configured secret, or provider ping during deployment verification.
+Expected Day 34 posture is `activation_mode: "staged"`, `canary_allowed: false`, campaign dry-run true, an unconfigured tenant policy, generic normalized callback ingress returning `503`, and Dial ingress returning `503 dial_callback_adapter_disabled` before body parsing. The analytics response must include `dial_sandbox_adapter` and `durable_side_effects`; the latter must show `activation_mode="staged"`, `dry_run=true`, `tenant_allowed=false`, and zero unplanned intent/error counts in an untouched deployment. These checks are intentionally malformed/read-only; they must never be replaced with a live Dial callback, configured secret, provider ping, Sheets write, Gmail fetch, CRM post, notification, recording retrieval, or side-effect-worker enablement during deployment verification.
 
 ## 5. Vercel frontend deployment
 
@@ -125,7 +133,7 @@ curl -I https://voxflow-voice-agent.vercel.app/dashboard/campaigns
 curl -I https://voxflow-voice-agent.vercel.app/dashboard/analytics
 ```
 
-Public routes should return `200`. A session-free dashboard request should redirect to `/sign-in`. In an authenticated browser, verify the campaign page renders **Safe Staging** and **No Inline Dialling**, then verify the analytics page renders the read-only **Provider Lifecycle** and **Dial Sandbox Adapter** panels. In the safe default deployment the adapter panel must display **STAGED**, **BLOCKED**, and zero audit/failure totals; it cannot expose a provider configuration or trigger an action.
+Public routes should return `200`. A session-free dashboard request should redirect to `/sign-in`. In an authenticated browser, verify the campaign page renders **Safe Staging** and **No Inline Dialling**, then verify the analytics page renders the read-only **Provider Lifecycle**, **Dial Sandbox Adapter**, and **Durable Side Effects** panels. In the safe default deployment the adapter panel must display **STAGED**, **BLOCKED**, and zero audit/failure totals; the Day 34 panel must show **STAGED**, zero intents/errors, tenant **BLOCKED**, and dry-run protection. Neither panel can expose a provider/integration configuration or trigger an action.
 
 ## 6. Quality gate before a delivery
 
@@ -142,9 +150,9 @@ npm run build --workspace=apps/web
 
 A delivery is not complete until the relevant GitHub CI workflow succeeds and the Vercel deployment status for the same commit succeeds.
 
-## 7. Campaign worker operating rule
+## 7. Campaign and side-effect worker operating rule
 
-The worker is intentionally separated from the API request path. It must not be started manually on a developer machine against production credentials, and it must not be enabled merely because the dashboard exposes campaign controls.
+Workers are intentionally separated from the API request path. Neither worker may be started manually on a developer machine against production credentials, and neither may be enabled merely because the dashboard exposes a campaign or side-effect read model. FastAPI must not start the legacy Sheets retry or email scan loops.
 
 Before a future internal canary, confirm all of the following:
 
@@ -155,6 +163,8 @@ Before a future internal canary, confirm all of the following:
 5. Daily limit and in-flight capacity are one.
 6. Provider sandbox or dry-run has passed, including signed callback duplicate/reorder/unknown-call drills.
 7. An operator can monitor jobs, policy decisions, provider operations, and rollback.
+
+Before a controlled pilot, apply the same rule to operational side effects: a worker must have a written tenant approval, an explicit tenant allow-list, dry-run evidence, a named operator, integration-specific credential review, and rollback ownership. Day 35 adds the final one-tenant/fixed-cohort/operating-hours/human-escalation/scorecard gate; readiness is not activation.
 
 ## 8. Historical self-hosted instructions
 

@@ -249,7 +249,7 @@ export default function AnalyticsPage() {
             </div>
           </section>
 
-          <section className="grid grid-cols-1 gap-6 lg:grid-cols-2 xl:grid-cols-5">
+          <section className="grid grid-cols-1 gap-6 lg:grid-cols-2 xl:grid-cols-3">
             <DistributionList title="Top Intents" values={data.distribution.intents} emptyLabel="No call intents in this period." />
             <DistributionList title="Call Outcomes" values={data.distribution.outcomes} emptyLabel="No call outcomes in this period." />
             <DistributionList title="Policy Decisions" values={data.campaigns.policy_decision_counts} emptyLabel="No durable policy decisions in this period." />
@@ -271,6 +271,17 @@ export default function AnalyticsPage() {
                 <div className="rounded-xl border border-[#2c2c40] bg-[#181826] p-3"><p className="text-[10px] font-mono text-[#94a3b8]">AUDITS</p><p className="mt-1 text-xl font-bold text-white">{data.dial_sandbox_adapter.audit_count}</p></div>
               </div>
               <div className="mt-4 text-xs text-[#cbd5e1]">Tenant gate: <span className={`font-mono font-bold ${data.dial_sandbox_adapter.tenant_allowed ? "text-[#00ffcc]" : "text-[#ffe04a]"}`}>{data.dial_sandbox_adapter.tenant_allowed ? "ALLOWED" : "BLOCKED"}</span> · Verification failures: <span className="font-mono font-bold text-white">{data.dial_sandbox_adapter.verification_failure_count}</span></div>
+            </div>
+
+            <div className="rounded-2xl border border-[#28283c] bg-[#141422] p-5">
+              <div className="flex items-center gap-2"><Activity size={18} className="text-blue-400" /><h3 className="font-headline text-sm font-bold text-white">Durable Side Effects</h3></div>
+              <p className="mt-2 text-xs text-[#94a3b8]">Sheets, email, CRM, notification, and recording work are read-only operational signals here.</p>
+              <div className="mt-5 grid grid-cols-3 gap-3">
+                <div className="rounded-xl border border-[#2c2c40] bg-[#181826] p-3"><p className="text-[10px] font-mono text-[#94a3b8]">MODE</p><p className={`mt-1 text-sm font-bold ${data.durable_side_effects.activation_mode === "staged" ? "text-[#ffe04a]" : "text-[#00ffcc]"}`}>{data.durable_side_effects.activation_mode.toUpperCase()}</p></div>
+                <div className="rounded-xl border border-[#2c2c40] bg-[#181826] p-3"><p className="text-[10px] font-mono text-[#94a3b8]">INTENTS</p><p className="mt-1 text-xl font-bold text-white">{data.durable_side_effects.intent_count}</p></div>
+                <div className="rounded-xl border border-[#2c2c40] bg-[#181826] p-3"><p className="text-[10px] font-mono text-[#94a3b8]">ERRORS</p><p className={`mt-1 text-xl font-bold ${data.durable_side_effects.error_count ? "text-[#ffe04a]" : "text-[#00ffcc]"}`}>{data.durable_side_effects.error_count}</p></div>
+              </div>
+              <div className="mt-4 text-xs text-[#cbd5e1]">Pending: <span className="font-mono font-bold text-white">{data.durable_side_effects.pending_count}</span> · Tenant gate: <span className={`font-mono font-bold ${data.durable_side_effects.tenant_allowed ? "text-[#00ffcc]" : "text-[#ffe04a]"}`}>{data.durable_side_effects.tenant_allowed ? "ALLOWED" : "BLOCKED"}</span> · {data.durable_side_effects.dry_run ? "Dry-run protected" : "Execution gate required"}</div>
             </div>
           </section>
 

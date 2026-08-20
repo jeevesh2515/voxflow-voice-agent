@@ -130,6 +130,16 @@ class Settings(BaseSettings):
     dial_callback_signing_secrets: str = ""
     dial_callback_max_age_seconds: int = 300
 
+    # ----- Day 34 durable operational side-effect worker -----
+    # Separate from the campaign worker. It remains disabled and dry-run by
+    # default so a deployment cannot send messages, post webhooks, write sheets,
+    # fetch recordings, or invoke Gmail as an implicit API-process task.
+    durable_side_effects_worker_enabled: bool = False
+    durable_side_effects_dry_run: bool = True
+    durable_side_effects_allowed_tenants: str = ""
+    durable_side_effects_max_concurrency: int = 1
+    durable_side_effects_poll_interval_seconds: float = 2.0
+
     # ----- Google Sheets (call-outcome log) -----
     # Paste the full service-account JSON as a single-line env var, OR set
     # google_service_account_file to a path on disk. JSON wins if both are set.
@@ -169,6 +179,16 @@ class Settings(BaseSettings):
     # ----- Business -----
     business_name: str = "VoxFlow"
     business_timezone: str = "Asia/Kolkata"
+
+    @property
+    def durable_side_effects_allowed_tenant_ids(self) -> tuple[str, ...]:
+        """Parse the explicit tenant allow-list for the Day 34 worker pool."""
+
+        return tuple(
+            tenant_id.strip()
+            for tenant_id in self.durable_side_effects_allowed_tenants.split(",")
+            if tenant_id.strip()
+        )
 
     @property
     def durable_campaign_canary_tenant_ids(self) -> tuple[str, ...]:

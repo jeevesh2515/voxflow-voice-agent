@@ -544,6 +544,38 @@ class JobOutbox(Base):
     last_error_json: Mapped[str | None] = mapped_column(Text, nullable=True)
 
 
+class SideEffectIntent(Base):
+    """Immutable Day 34 external-operation intent, owned by one durable job.
+
+    The row contains only a payload hash and trusted aggregate identifiers. Raw
+    message bodies, sheet rows, recording bytes, secrets, signatures, and phone
+    numbers stay in their existing business tables and never enter the job or
+    side-effect ledger.
+    """
+
+    __tablename__ = "side_effect_intents"
+    __table_args__ = (
+        UniqueConstraint("tenant_id", "idempotency_key", name="uq_side_effect_intent_idempotency"),
+        UniqueConstraint("job_id", name="uq_side_effect_intent_job"),
+        Index("ix_side_effect_intent_tenant_type_status", "tenant_id", "effect_type", "status", "created_at"),
+    )
+
+    id: Mapped[str] = mapped_column(String(64), primary_key=True)
+    tenant_id: Mapped[str] = mapped_column(String(64), ForeignKey("tenants.id"), index=True)
+    job_id: Mapped[str] = mapped_column(String(64), ForeignKey("job_runs.id"), index=True)
+    effect_type: Mapped[str] = mapped_column(String(128), index=True)
+    aggregate_type: Mapped[str] = mapped_column(String(128))
+    aggregate_id: Mapped[str] = mapped_column(String(64), index=True)
+    idempotency_key: Mapped[str] = mapped_column(String(255))
+    payload_hash: Mapped[str] = mapped_column(String(64))
+    status: Mapped[str] = mapped_column(String(32), default="queued", index=True)
+    result_code: Mapped[str | None] = mapped_column(String(128), nullable=True)
+    result_json: Mapped[str | None] = mapped_column(Text, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_utcnow)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_utcnow, onupdate=_utcnow)
+    completed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+
+
 class JobAttempt(Base):
     """Immutable execution history for a durable job."""
 

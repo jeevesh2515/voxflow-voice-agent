@@ -49,6 +49,13 @@ services:
       # until Day 29 canary verification and explicit operator activation.
       - key: DURABLE_CAMPAIGN_WORKER_ENABLED
         value: "false"
+      # Day 34: typed operational side-effect jobs are deployed but their worker
+      # remains independently disabled and dry-run protected. No integration
+      # request can originate from the Render API service.
+      - key: DURABLE_SIDE_EFFECTS_WORKER_ENABLED
+        value: "false"
+      - key: DURABLE_SIDE_EFFECTS_DRY_RUN
+        value: "true"
       # Day 33: Dial callback code is deployed for fixture certification only.
       # No webhook subscription or signing secret is configured in production.
       - key: DIAL_CALLBACK_ADAPTER_ENABLED

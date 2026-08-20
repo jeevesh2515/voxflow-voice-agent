@@ -15,9 +15,12 @@ from voxflow_api.db import (
     OutboundCampaign,
     ProviderCallbackAdapterAudit,
     SessionLocal,
+    SideEffectIntent,
+    WorksheetLog,
     Tenant,
     reset_db,
 )
+from voxflow_api.jobs.side_effects import NOTIFICATION_DISPATCH, SHEETS_CALL_OUTCOME, enqueue_side_effect
 from voxflow_api.main import create_app
 from voxflow_api.seed import seed
 
@@ -268,6 +271,79 @@ def test_day33_adapter_analytics_is_tenant_scoped_and_redacted():
     assert "Dial adapter verification failures,1" in report.text
     assert "evt-varun-rejected" not in report.text
     assert "hash-varun-rejected" not in report.text
+
+
+def test_day34_side_effect_analytics_is_tenant_scoped_and_redacted():
+    reset_db()
+    seed(reset=True)
+    _seed_analytics_rows()
+    db = SessionLocal()
+    try:
+        worksheet = WorksheetLog(
+            tenant_id="varun",
+            worksheet_name="Call Log",
+            action_type="append",
+            row_data_json='{"phone":"+919999999999","secret":"not-in-analytics"}',
+        )
+        other_worksheet = WorksheetLog(
+            tenant_id="tenant-analytics-other",
+            worksheet_name="Call Log",
+            action_type="append",
+            row_data_json='{"phone":"+911111111111","secret":"other-private"}',
+        )
+        db.add_all([worksheet, other_worksheet])
+        db.flush()
+        varun = enqueue_side_effect(
+            db,
+            tenant_id="varun",
+            effect_type=SHEETS_CALL_OUTCOME,
+            aggregate_type="worksheet_log",
+            aggregate_id=str(worksheet.id),
+            idempotency_key="analytics-side-effect-varun",
+        )
+        enqueue_side_effect(
+            db,
+            tenant_id="tenant-analytics-other",
+            effect_type=NOTIFICATION_DISPATCH,
+            aggregate_type="communication_log",
+            aggregate_id="private-comm-id",
+            idempotency_key="analytics-side-effect-other",
+        )
+        intent = db.get(SideEffectIntent, varun.intent_id)
+        assert intent is not None
+        intent.status = "retry_scheduled"
+        intent.result_code = "http_503"
+        db.commit()
+    finally:
+        db.close()
+
+    with TestClient(create_app()) as client:
+        response = client.get("/api/analytics/overview?tenant_id=varun&days=7")
+        other_response = client.get("/api/analytics/overview?tenant_id=tenant-analytics-other&days=7")
+        report = client.get("/api/analytics/report.csv?tenant_id=varun&days=7")
+
+    assert response.status_code == 200
+    side_effects = response.json()["durable_side_effects"]
+    assert side_effects["activation_mode"] == "staged"
+    assert side_effects["dry_run"] is True
+    assert side_effects["tenant_allowed"] is False
+    assert side_effects["intent_count"] == 1
+    assert side_effects["pending_count"] == 1
+    assert side_effects["error_count"] == 1
+    assert side_effects["type_counts"] == {"sheets.call_outcome.append": 1}
+    assert side_effects["status_counts"] == {"retry_scheduled": 1}
+    alert_codes = {alert["code"] for alert in response.json()["monitoring"]["alerts"]}
+    assert {"side_effect_error_evidence", "side_effects_staged"} <= alert_codes
+    assert "+919999999999" not in str(response.json())
+    assert "not-in-analytics" not in str(response.json())
+
+    assert other_response.status_code == 200
+    assert other_response.json()["durable_side_effects"]["intent_count"] == 1
+    assert other_response.json()["durable_side_effects"]["type_counts"] == {"notification.dispatch": 1}
+    assert report.status_code == 200
+    assert "Durable side-effect intents,1" in report.text
+    assert "not-in-analytics" not in report.text
+    assert "+919999999999" not in report.text
 
 
 def test_analytics_csv_report_is_tenant_safe_and_excludes_sensitive_payloads():

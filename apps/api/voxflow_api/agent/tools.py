@@ -4,7 +4,6 @@ backed by the SQLite/Postgres database. Multi-tenant aware via `session.tenant_i
 
 from __future__ import annotations
 
-import asyncio
 import json
 import time
 import uuid
@@ -25,11 +24,18 @@ from ..db import (
     Shipment,
     Stock,
     Supplier,
+    Tenant,
     WorksheetLog,
     async_session_scope,
 )
+from ..jobs.side_effects import (
+    CRM_WEBHOOK_SYNC,
+    NOTIFICATION_DISPATCH,
+    SHEETS_CALL_OUTCOME,
+    SHEETS_WORKSHEET_APPEND,
+    enqueue_side_effect_async,
+)
 from ..integrations.gsheets import get_sheets_client
-from ..integrations.webhooks import dispatch_webhook_background
 from ..logging import get_logger
 
 
@@ -395,18 +401,19 @@ async def create_po(
         )
         db.add(order)
         await db.flush()
-
-    dispatch_webhook_background(
-        session.tenant_id,
-        "order_created",
-        {
-            "order_id": order_id,
-            "supplier_id": supplier_id,
-            "items": validated,
-            "total_qty": total_qty,
-            "call_id": session.call_id,
-        },
-    )
+        tenant = await db.get(Tenant, session.tenant_id)
+        crm_job_id: str | None = None
+        if tenant is not None and tenant.webhook_url:
+            crm_result = await enqueue_side_effect_async(
+                db,
+                tenant_id=session.tenant_id,
+                effect_type=CRM_WEBHOOK_SYNC,
+                aggregate_type="order",
+                aggregate_id=order_id,
+                idempotency_key=f"crm-order:{order_id}",
+                trace_id=f"call:{session.call_id}",
+            )
+            crm_job_id = crm_result.job_id
 
     return {
         "ok": True,
@@ -416,6 +423,7 @@ async def create_po(
         "items": validated,
         "total_qty": total_qty,
         "status": "pending",
+        "crm_job_id": crm_job_id,
     }
 
 
@@ -614,61 +622,55 @@ async def log_call_outcome(
         "related_order": session.related_order,
     }
 
-    # Fire the Sheets write in the BACKGROUND. This tool runs while the caller
-    # is still on the line, and a slow Google response would otherwise be heard
-    # as dead air — the worst failure mode this product has. The task is handed
-    # to the session so end_session() can drain it after the caller hangs up,
-    # which keeps `sheet_synced` accurate without costing the caller anything.
-    #
-    # If the process dies before the task completes, the row is still safe in
-    # Postgres with sheet_synced=0, so it is recoverable and visible.
-    sheet_pending = False
-    if get_sheets_client().is_configured():
-        try:
-            session.sheet_task = asyncio.create_task(
-                get_sheets_client().append_call_outcome(row)
-            )
-            sheet_pending = True
-        except RuntimeError:
-            # No running loop (direct/synchronous invocation, e.g. a test).
-            result = await get_sheets_client().append_call_outcome(row)
-            session.sheet_synced = bool(result.get("ok"))
-    else:
-        session.sheet_synced = False
-
-    # Always keep a local audit row, even when Sheets is off or failing.
+    # Day 34 persists the local audit and typed durable intent in the same
+    # transaction. The voice path never starts a Sheets task or waits on Google.
+    # The separate worker can retry a committed intent after an API restart.
+    sheet_job_id: str | None = None
+    crm_job_id: str | None = None
     async with async_session_scope() as db:
-        db.add(
-            WorksheetLog(
-                tenant_id=session.tenant_id,
-                worksheet_name=get_settings().google_sheet_tab,
-                action_type="append",
-                row_data_json=json.dumps(row, default=str),
-            )
+        worksheet_log = WorksheetLog(
+            tenant_id=session.tenant_id,
+            worksheet_name=get_settings().google_sheet_tab,
+            action_type="append",
+            row_data_json=json.dumps(row, default=str),
         )
+        db.add(worksheet_log)
+        await db.flush()
+        if get_sheets_client().is_configured():
+            sheet_result = await enqueue_side_effect_async(
+                db,
+                tenant_id=session.tenant_id,
+                effect_type=SHEETS_CALL_OUTCOME,
+                aggregate_type="worksheet_log",
+                aggregate_id=str(worksheet_log.id),
+                idempotency_key=f"sheets-call:{worksheet_log.id}",
+                trace_id=f"call:{session.call_id}",
+            )
+            sheet_job_id = sheet_result.job_id
+
+        tenant = await db.get(Tenant, session.tenant_id)
+        if tenant is not None and tenant.webhook_url:
+            crm_result = await enqueue_side_effect_async(
+                db,
+                tenant_id=session.tenant_id,
+                effect_type=CRM_WEBHOOK_SYNC,
+                aggregate_type="worksheet_log",
+                aggregate_id=str(worksheet_log.id),
+                idempotency_key=f"crm-call-outcome:{worksheet_log.id}",
+                trace_id=f"call:{session.call_id}",
+            )
+            crm_job_id = crm_result.job_id
+
+    session.sheet_task = None
+    session.sheet_synced = False
 
     log.info(
         "call.outcome_logged",
         call_id=session.call_id,
         resolution=resolution_status,
         satisfaction=satisfaction,
-        sheet="pending" if sheet_pending else ("ok" if session.sheet_synced else "off"),
-    )
-
-    dispatch_webhook_background(
-        session.tenant_id,
-        "call_outcome",
-        {
-            "call_id": session.call_id,
-            "caller_phone": session.caller_phone,
-            "caller_name": session.caller_name,
-            "company": session.company_name,
-            "reason": reason,
-            "solution": solution,
-            "resolution_status": resolution_status,
-            "satisfaction": satisfaction,
-            "related_order": related_order,
-        },
+        sheet="queued" if sheet_job_id else "off",
+        crm="queued" if crm_job_id else "off",
     )
 
     return {
@@ -676,9 +678,11 @@ async def log_call_outcome(
         "logged": True,
         "resolution_status": resolution_status,
         "satisfaction": satisfaction,
-        # "pending" tells the model the write is in flight so it doesn't claim
-        # to the caller that the record is definitely filed.
-        "sheet_synced": "pending" if sheet_pending else session.sheet_synced,
+        # "queued" tells the model a durable worker owns the mirror; it must
+        # not claim Sheets has already accepted the row.
+        "sheet_synced": "queued" if sheet_job_id else session.sheet_synced,
+        "sheet_job_id": sheet_job_id,
+        "crm_job_id": crm_job_id,
     }
 
 
@@ -690,6 +694,7 @@ async def schedule_appointment(session: CallSession, datetime_str: str, purpose:
     except Exception:
         return {"ok": False, "error": "invalid_datetime", "appointment_id": None}
 
+    crm_job_id: str | None = None
     async with async_session_scope() as db:
         app = Appointment(
             id=app_id,
@@ -700,39 +705,82 @@ async def schedule_appointment(session: CallSession, datetime_str: str, purpose:
             status="confirmed",
         )
         db.add(app)
+        await db.flush()
+        tenant = await db.get(Tenant, session.tenant_id)
+        if tenant is not None and tenant.webhook_url:
+            crm_result = await enqueue_side_effect_async(
+                db,
+                tenant_id=session.tenant_id,
+                effect_type=CRM_WEBHOOK_SYNC,
+                aggregate_type="appointment",
+                aggregate_id=app_id,
+                idempotency_key=f"crm-appointment:{app_id}",
+                trace_id=f"call:{session.call_id}",
+            )
+            crm_job_id = crm_result.job_id
 
-    dispatch_webhook_background(
-        session.tenant_id,
-        "appointment_booked",
-        {
-            "appointment_id": app_id,
-            "supplier_id": session.supplier_id,
-            "datetime": dt.isoformat(),
-            "purpose": purpose,
-            "call_id": session.call_id,
-        },
-    )
+    return {
+        "ok": True,
+        "appointment_id": app_id,
+        "datetime": dt.isoformat(),
+        "purpose": purpose,
+        "crm_job_id": crm_job_id,
+    }
 
-    return {"ok": True, "appointment_id": app_id, "datetime": dt.isoformat(), "purpose": purpose}
+
+async def _queue_notification(
+    session: CallSession,
+    *,
+    channel: str,
+    recipient: str,
+    subject: str | None,
+    body: str,
+) -> dict[str, Any]:
+    """Persist notification intent and its worker-owned job in one transaction."""
+
+    comm_id = f"comm-{channel}-{uuid.uuid4().hex[:20]}"
+    async with async_session_scope() as db:
+        db.add(
+            CommunicationLog(
+                id=comm_id,
+                tenant_id=session.tenant_id,
+                channel=channel,
+                recipient=recipient,
+                subject=subject,
+                body=body,
+                status="queued",
+            )
+        )
+        enqueue_result = await enqueue_side_effect_async(
+            db,
+            tenant_id=session.tenant_id,
+            effect_type=NOTIFICATION_DISPATCH,
+            aggregate_type="communication_log",
+            aggregate_id=comm_id,
+            idempotency_key=f"notification:{comm_id}",
+            trace_id=f"call:{session.call_id}",
+        )
+    log.info("notification.queued", channel=channel, comm_id=comm_id)
+    return {
+        "ok": True,
+        "comm_id": comm_id,
+        "channel": channel,
+        "recipient": recipient,
+        "status": "queued",
+        "job_id": enqueue_result.job_id,
+    }
 
 
 async def send_email(session: CallSession, to_address: str, subject: str, body: str) -> dict[str, Any]:
-    """Send an email notification."""
-    comm_id = f"comm-email-{uuid.uuid4().hex[:6]}"
-    async with async_session_scope() as db:
-        comm = CommunicationLog(
-            id=comm_id,
-            tenant_id=session.tenant_id,
-            channel="email",
-            recipient=to_address,
-            subject=subject,
-            body=body,
-            status="sent",
-        )
-        db.add(comm)
+    """Queue an email notification; a Day 34 worker owns any future transport."""
 
-    log.info("email.sent", to=to_address, subject=subject)
-    return {"ok": True, "comm_id": comm_id, "channel": "email", "recipient": to_address}
+    return await _queue_notification(
+        session,
+        channel="email",
+        recipient=to_address.strip(),
+        subject=subject,
+        body=body,
+    )
 
 
 def _get_twilio_client():
@@ -752,103 +800,35 @@ def _get_twilio_client():
 
 
 async def send_whatsapp_message(session: CallSession, to_phone: str, message: str) -> dict[str, Any]:
-    """Send a WhatsApp message notification via Twilio."""
-    comm_id = f"comm-wa-{uuid.uuid4().hex[:6]}"
-    settings = get_settings()
-    
-    # Format recipient phone for WhatsApp (must start with whatsapp:+...)
+    """Queue a WhatsApp notification; no Twilio request happens in a voice turn."""
+
     target = to_phone.strip()
     if not target.startswith("whatsapp:"):
         if not target.startswith("+"):
             target = f"+{target}"
         target = f"whatsapp:{target}"
-
-    from_number = settings.twilio_whatsapp_number or "whatsapp:+14155238886"
-    status = "sent"
-    error_detail = None
-
-    # Attempt real Twilio WhatsApp dispatch
-    client = _get_twilio_client()
-    if client:
-        try:
-            msg_res = client.messages.create(
-                from_=from_number,
-                to=target,
-                body=message,
-            )
-            log.info("whatsapp.dispatched", sid=msg_res.sid, to=target)
-        except Exception as e:
-            status = "failed"
-            error_detail = str(e)
-            log.warning("whatsapp.dispatch_failed", to=target, error=str(e))
-    else:
-        log.info("whatsapp.logged_only", to=target, reason="no_twilio_credentials")
-
-    async with async_session_scope() as db:
-        comm = CommunicationLog(
-            id=comm_id,
-            tenant_id=session.tenant_id,
-            channel="whatsapp",
-            recipient=target,
-            subject=None,
-            body=message,
-            status=status,
-        )
-        db.add(comm)
-
-    res = {"ok": status == "sent", "comm_id": comm_id, "channel": "whatsapp", "recipient": target}
-    if error_detail:
-        res["error"] = error_detail
-    return res
+    return await _queue_notification(
+        session,
+        channel="whatsapp",
+        recipient=target,
+        subject=None,
+        body=message,
+    )
 
 
 async def send_sms(session: CallSession, to_phone: str, message: str) -> dict[str, Any]:
-    """Send an SMS text message notification via Twilio Programmable SMS."""
-    comm_id = f"comm-sms-{uuid.uuid4().hex[:6]}"
-    settings = get_settings()
+    """Queue an SMS notification; no Twilio request happens in a voice turn."""
 
-    # Format recipient phone (E.164 standard)
     target = to_phone.strip()
     if not target.startswith("+"):
         target = f"+{target}"
-
-    from_number = settings.twilio_phone_number or ""
-    status = "sent"
-    error_detail = None
-
-    # Attempt real Twilio SMS dispatch
-    client = _get_twilio_client()
-    if client and from_number:
-        try:
-            msg_res = client.messages.create(
-                from_=from_number,
-                to=target,
-                body=message,
-            )
-            log.info("sms.dispatched", sid=msg_res.sid, to=target)
-        except Exception as e:
-            status = "failed"
-            error_detail = str(e)
-            log.warning("sms.dispatch_failed", to=target, error=str(e))
-    else:
-        log.info("sms.logged_only", to=target, reason="no_twilio_credentials_or_from_number")
-
-    async with async_session_scope() as db:
-        comm = CommunicationLog(
-            id=comm_id,
-            tenant_id=session.tenant_id,
-            channel="sms",
-            recipient=target,
-            subject=None,
-            body=message,
-            status=status,
-        )
-        db.add(comm)
-
-    res = {"ok": status == "sent", "comm_id": comm_id, "channel": "sms", "recipient": target}
-    if error_detail:
-        res["error"] = error_detail
-    return res
+    return await _queue_notification(
+        session,
+        channel="sms",
+        recipient=target,
+        subject=None,
+        body=message,
+    )
 
 
 async def update_worksheet(session: CallSession, worksheet_name: str, action: str, row_data: dict[str, Any]) -> dict[str, Any]:
@@ -858,31 +838,34 @@ async def update_worksheet(session: CallSession, worksheet_name: str, action: st
     the canonical column order. This tool is the escape hatch for anything else
     the ops team wants captured on a sheet.
     """
+    job_id: str | None = None
     async with async_session_scope() as db:
-        db.add(
-            WorksheetLog(
+        worksheet_log = WorksheetLog(
+            tenant_id=session.tenant_id,
+            worksheet_name=worksheet_name,
+            action_type=action,
+            row_data_json=json.dumps(row_data, default=str),
+        )
+        db.add(worksheet_log)
+        await db.flush()
+        if action == "append" and row_data and get_sheets_client().is_configured():
+            enqueue_result = await enqueue_side_effect_async(
+                db,
                 tenant_id=session.tenant_id,
-                worksheet_name=worksheet_name,
-                action_type=action,
-                row_data_json=json.dumps(row_data, default=str),
+                effect_type=SHEETS_WORKSHEET_APPEND,
+                aggregate_type="worksheet_log",
+                aggregate_id=str(worksheet_log.id),
+                idempotency_key=f"sheets-worksheet:{worksheet_log.id}",
+                trace_id=f"call:{session.call_id}",
             )
-        )
-
-    sheet_result: dict[str, Any] = {"ok": False, "reason": "skipped"}
-    if action == "append" and row_data:
-        # Stable column order: sorted keys, so repeated calls line up.
-        keys = sorted(row_data.keys())
-        sheet_result = await get_sheets_client().append_row(
-            [row_data[k] for k in keys],
-            tab=worksheet_name,
-            headers=keys,
-        )
+            job_id = enqueue_result.job_id
 
     return {
         "ok": True,
         "worksheet": worksheet_name,
         "action": action,
-        "sheet_synced": bool(sheet_result.get("ok")),
+        "sheet_synced": "queued" if job_id else False,
+        "job_id": job_id,
     }
 
 
@@ -893,42 +876,58 @@ async def type_notes(session: CallSession, text: str) -> dict[str, Any]:
 
 
 async def escalate_to_human(session: CallSession, reason: str = "", summary: str = "") -> dict[str, Any]:
-    """Flag the call as needing a human follow-up."""
+    """Flag a follow-up and durably queue any configured CRM escalation sync."""
+
     session.escalated = True
     session.intent = session.intent or "escalation"
-    log.info("agent.escalate", call_id=session.call_id, reason=reason, summary=summary)
-
-    dispatch_webhook_background(
-        session.tenant_id,
-        "call_escalated",
-        {
-            "call_id": session.call_id,
-            "caller_phone": session.caller_phone,
-            "caller_name": session.caller_name,
-            "company": session.company_name,
-            "reason": reason,
-            "summary": summary,
-        },
-    )
-
-    return {"ok": True, "call_id": session.call_id, "reason": reason, "summary": summary}
+    crm_job_id: str | None = None
+    async with async_session_scope() as db:
+        escalation_log = WorksheetLog(
+            tenant_id=session.tenant_id,
+            worksheet_name="Escalations",
+            action_type="escalation",
+            row_data_json=json.dumps(
+                {
+                    "call_id": session.call_id,
+                    "reason": reason,
+                    "summary": summary,
+                },
+                default=str,
+            ),
+        )
+        db.add(escalation_log)
+        await db.flush()
+        tenant = await db.get(Tenant, session.tenant_id)
+        if tenant is not None and tenant.webhook_url:
+            crm_result = await enqueue_side_effect_async(
+                db,
+                tenant_id=session.tenant_id,
+                effect_type=CRM_WEBHOOK_SYNC,
+                aggregate_type="worksheet_log",
+                aggregate_id=str(escalation_log.id),
+                idempotency_key=f"crm-escalation:{escalation_log.id}",
+                trace_id=f"call:{session.call_id}",
+            )
+            crm_job_id = crm_result.job_id
+    log.info("agent.escalate", call_id=session.call_id, reason=reason, crm="queued" if crm_job_id else "off")
+    return {
+        "ok": True,
+        "call_id": session.call_id,
+        "reason": reason,
+        "summary": summary,
+        "crm_job_id": crm_job_id,
+    }
 
 
 async def place_outbound_call(session: CallSession, to_phone: str, instruction: str) -> dict[str, Any]:
-    """Place a proactive outbound AI voice call to a supplier, distributor, or customer."""
-    from ..integrations.dial import get_dial_client
-    dial = get_dial_client()
-    if not dial.is_configured():
-        return {"ok": False, "error": "dial_not_configured", "message": "Dial outbound voice API is not configured."}
+    """Reject direct provider calls; campaign jobs are the only durable path."""
 
-    full_instruction = (
-        f"You are Vaani, the AI Operations Assistant for VoxFlow. "
-        f"You are placing an outbound call to the client regarding: {instruction}. "
-        f"Speak naturally in Hindi and English, explain the update clearly, answer any questions, "
-        f"and politely close the call."
-    )
-    res = await dial.place_outbound_call(to_number=to_phone, instruction=full_instruction)
-    return res
+    log.warning("outbound_call.rejected_direct_tool", tenant_id=session.tenant_id, call_id=session.call_id)
+    return {
+        "ok": False,
+        "error": "direct_outbound_calls_disabled",
+        "message": "Use an approved durable campaign target; this tool never invokes a provider directly.",
+    }
 
 
 # ---------- Dispatcher ----------

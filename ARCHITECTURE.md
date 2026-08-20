@@ -1,8 +1,8 @@
 # VoxFlow Architecture
 
 **Last updated:** 2026-08-20
-**Current milestone:** Day 33 — Dial sandbox callback adapter certification and controlled rollout gate complete.
-**Operating mode:** Inbound voice and dashboard functions are deployed. Campaign dispatch is implemented but globally safe-staged in production.
+**Current milestone:** Day 34 — typed durable operational-side-effect jobs complete locally; release verification pending.
+**Operating mode:** Inbound voice and dashboard functions are deployed. Campaign dispatch and operational side-effect workers are independently safe-staged in production.
 
 ## 1. System boundaries
 
@@ -16,10 +16,13 @@ flowchart TB
     API --> DB[(PostgreSQL production\nSQLite local tests)]
     API --> Outbox[JobOutbox]
     Outbox --> Ledger[JobRun + JobAttempt]
-    Ledger --> Worker[WorkerRuntime\nindependent process]
+    Ledger --> Worker[Campaign WorkerRuntime\nindependent process]
     Worker --> Gate[Campaign policy gate]
     Gate --> Audit[CampaignPolicyDecision]
     Gate --> ProviderOp[ProviderOperation]
+    Ledger --> SideWorker[Side-effect WorkerRuntime\nseparate gated process]
+    SideWorker --> Intent[SideEffectIntent\ntrusted aggregate references]
+    Intent --> Integrations[Sheets / CRM / notification / recording]
     ProviderOp --> Dial[Dial outbound client]
     Dial --> Callback[Dial sandbox adapter\nraw-body HMAC + normalizer + tenant gate]
     Callback --> Audit[Redacted adapter-audit ledger]
@@ -37,7 +40,8 @@ flowchart TB
 | Normalized provider callback | `provider_callbacks.py` + `provider_events.py` | Verify generic timestamp/signature, derive tenant from stored operation, deduplicate immutable events, and quarantine unknown IDs. |
 | Dial sandbox callback | `dial_callbacks.py` + `integrations/dial_callbacks.py` | Fail closed unless sandbox adapter/secret/allow-list are explicit; verify Dial raw-body HMAC, normalize documented outbound call events, audit safely, then hand off to Day 32. |
 | Campaign permission | `campaign_policy.py` | Fail closed before provider intent: policy, consent, opt-out, timing, budget, and capacity. |
-| Operator visibility | Job health and campaign dashboard | Show tenant-owned counts and redacted audit/read models only. |
+| Operational side effects | `side_effects.py` + `side_effect_worker_service.py` | Persist intent/outbox with a trusted aggregate; execute only from a separate feature-gated, tenant-scoped worker. |
+| Operator visibility | Job health and analytics dashboard | Show tenant-owned counts and redacted audit/read models only; no activation control. |
 
 ## 2. Runtime components
 
@@ -51,7 +55,7 @@ flowchart TB
 
 ### Durable job subsystem
 
-The Day 25–33 subsystem lives in `apps/api/voxflow_api/jobs/`.
+The Day 25–34 subsystem lives in `apps/api/voxflow_api/jobs/`.
 
 | Component | Responsibility |
 |---|---|
@@ -66,6 +70,8 @@ The Day 25–33 subsystem lives in `apps/api/voxflow_api/jobs/`.
 | `provider_events.py` | Applies already-authenticated provider events, preserves event history, prevents terminal regression, and quarantines unknown provider call IDs. |
 | `provider_adapter_audits.py` | Stores redacted, idempotent verification/normalization/rollout receipts for provider-specific adapters. |
 | `campaign_policy.py` | Tenant policy evaluation, consent/opt-out enforcement, reservations, and immutable audit records. |
+| `side_effects.py` | Typed effect constants plus sync/async transactional enqueue and redacted intent transitions. |
+| `side_effect_worker_service.py` | Standalone Sheets/email/CRM/notification/recording handler registry with independent feature, tenant, and dry-run gates. |
 
 ## 3. Campaign dispatch lifecycle
 
@@ -117,7 +123,21 @@ Day 32 exposes `POST /api/provider-callbacks/events`, a normalized callback ingr
 
 Day 33 adds the Dial-specific adapter at `POST /api/provider-callbacks/dial/events`, but it is deployed in a certification-only posture. It parses `X-Dial-Signature: t=<unix-seconds>,v1=<hex-hmac>`, verifies HMAC-SHA256 over `timestamp + "." + raw body`, accepts only a configured current/previous secret overlap, and bounds replay age. It maps only documented outbound `call.status_changed` and `call.ended` events into the Day 32 neutral lifecycle; signed `webhook.ping` is acknowledged without creating a business event. The route cannot apply an event unless `DIAL_CALLBACK_ADAPTER_ENABLED=true`, sandbox mode remains true, a secret exists, and the resolved tenant is explicitly allow-listed. No raw provider callback payload, signature, secret, transcript, phone number, or job payload is rendered in analytics or stored in the adapter audit ledger. [1] [2] [3]
 
-## 5. Tenant policy and auditable cancellation
+## 5. Operational side-effect lifecycle
+
+Day 34 moves API-process Sheets retry, periodic email scheduling, direct agent notification delivery, fire-and-forget CRM posting, generic worksheet writes, and recording follow-up into the durable job contract. `SideEffectIntent` stores only a type, trusted aggregate reference, idempotency key, hash, and bounded result state. It never stores a raw external payload.
+
+| Source path | Atomic write | Typed job | Worker-owned behavior |
+|---|---|---|---|
+| Call outcome | `WorksheetLog` + intent/outbox | `sheets.call_outcome.append` | Reads the stored canonical row and mirrors it only after approval. |
+| Email summary | `CommunicationLog` + `WorksheetLog` + intent/outbox | `email.summarization.scan`, `sheets.email_summary.append` | Fetches/summarizes only in the worker and mirrors stored summary rows. |
+| CRM event | Order, appointment, or worksheet escalation/outcome + intent/outbox | `crm.webhook.sync` | Derives event payload from the trusted aggregate. |
+| Notification | `CommunicationLog(status=queued)` + intent/outbox | `notification.dispatch` | Reads a stored communication record; voice/API code never calls Twilio inline. |
+| Recording callback | `Call.recording_url` + intent/outbox | `recording.retrieve` | Performs no media request until a future separately approved non-dry-run storage design exists. |
+
+The worker builds only if `DURABLE_SIDE_EFFECTS_WORKER_ENABLED=true` **and** an explicit tenant allow-list exists. In Day 34 production defaults it is disabled. If it is later admitted in dry-run, a claimed intent receives a bounded `dry_run` result and no integration client is invoked. Retryable transport faults retain `retry_scheduled`; malformed aggregate, missing configuration, or unsupported channels retain bounded terminal evidence. The existing `WorkerRuntime` owns lease renewal, retries, stale-worker recovery, and attempt history.
+
+## 6. Tenant policy and auditable cancellation
 
 The policy gate runs before `ProviderOperation` reservation. A dispatch target must satisfy all conditions below.
 
@@ -134,7 +154,7 @@ The policy gate runs before `ProviderOperation` reservation. A dispatch target m
 
 Every policy evaluation appends a `campaign_policy_decisions` record. The operator endpoint returns decision, reason code, timestamp, and next eligible time, but does not expose raw evidence JSON. Policy cancellations map to terminal durable `cancelled` jobs rather than dead letters.
 
-## 6. Data model
+## 7. Data model
 
 The core business schema remains tenant scoped. Durable dispatch adds the following tables.
 
@@ -152,10 +172,11 @@ The core business schema remains tenant scoped. Durable dispatch adds the follow
 | `tenant_daily_dispatch_usage` | Tenant-local daily reservation and active-dispatch counters. |
 | `campaign_dispatch_reservations` | One capacity reservation per job with active/released/settled lifecycle. |
 | `campaign_policy_decisions` | Immutable Day 30 policy audit evidence. |
+| `side_effect_intents` | Day 34 append-only tenant effect owner with a one-to-one durable job, aggregate reference, idempotency key, hash, redacted result, and status. |
 
-Production migrations are ordered as `003_durable_job_ledger.sql`, `004_outbox_relay_state.sql`, `005_campaign_policy_controls.sql`, `006_provider_callback_lifecycle.sql`, then `007_dial_sandbox_callback_adapter.sql`.
+Production migrations are ordered as `003_durable_job_ledger.sql`, `004_outbox_relay_state.sql`, `005_campaign_policy_controls.sql`, `006_provider_callback_lifecycle.sql`, `007_dial_sandbox_callback_adapter.sql`, then `008_typed_durable_side_effect_jobs.sql`.
 
-## 7. Production safety and rollout
+## 8. Production safety and rollout
 
 The deployed backend remains in a non-executing campaign posture:
 
@@ -167,6 +188,9 @@ DIAL_CALLBACK_ADAPTER_ENABLED=false
 DIAL_CALLBACK_SANDBOX_MODE=true
 DIAL_CALLBACK_ALLOWED_TENANTS=(intentionally empty)
 DIAL_CALLBACK_SIGNING_SECRETS=(intentionally unset)
+DURABLE_SIDE_EFFECTS_WORKER_ENABLED=false
+DURABLE_SIDE_EFFECTS_DRY_RUN=true
+DURABLE_SIDE_EFFECTS_ALLOWED_TENANTS=(intentionally empty)
 activation_mode=staged
 canary_allowed=false
 dry_run=true
@@ -174,7 +198,7 @@ dry_run=true
 
 These settings are a deliberate layered control, not a missing feature. An internal canary must use a dedicated worker process, explicit tenant allow-list, dry-run evidence, tenant policy configuration, consented test target, concurrency one, monitoring, and a rollback owner. The dashboard’s `Launch Campaign` control does not bypass the worker gate or invoke the provider inline.
 
-## 8. Engineering quality gates
+## 9. Engineering quality gates
 
 | Surface | Command |
 |---|---|
@@ -184,7 +208,7 @@ These settings are a deliberate layered control, not a missing feature. An inter
 | Frontend production build | `npm run build --workspace=apps/web` |
 | Live job posture | `GET /api/jobs/health?tenant_id=varun` |
 
-At the Day 33 local delivery point, the backend suite has **195 passing tests** and GitHub CI validates API lint, API test, and web lint/build on every `main` delivery.
+At the Day 34 local delivery point, the backend suite has **204 passing tests**, API lint is clean, and the frontend production build generates 20 routes. GitHub CI validates API lint, API test, and web lint/build on every `main` delivery.
 
 ## References
 
@@ -195,6 +219,9 @@ At the Day 33 local delivery point, the backend suite has **195 passing tests** 
 - `migrations/005_campaign_policy_controls.sql`
 - `migrations/006_provider_callback_lifecycle.sql`
 - `migrations/007_dial_sandbox_callback_adapter.sql`
+- `migrations/008_typed_durable_side_effect_jobs.sql`
+- `apps/api/voxflow_api/jobs/side_effects.py`
+- `apps/api/voxflow_api/jobs/side_effect_worker_service.py`
 - `apps/api/voxflow_api/integrations/dial_callbacks.py`
 - `apps/api/voxflow_api/routes/dial_callbacks.py`
 - `apps/web/src/app/dashboard/analytics/page.tsx`
