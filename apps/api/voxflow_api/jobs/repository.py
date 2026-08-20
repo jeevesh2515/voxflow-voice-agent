@@ -46,6 +46,7 @@ def _claim_query(
     *,
     now: datetime,
     job_types: Iterable[str] | None,
+    tenant_ids: Iterable[str] | None,
 ):
     query = (
         db.query(JobRun)
@@ -59,6 +60,8 @@ def _claim_query(
     )
     if job_types:
         query = query.filter(JobRun.job_type.in_(tuple(job_types)))
+    if tenant_ids:
+        query = query.filter(JobRun.tenant_id.in_(tuple(tenant_ids)))
 
     # PostgreSQL workers use SKIP LOCKED so concurrently polling workers do not
     # block each other. SQLite lacks row-level locking; tests still verify the
@@ -75,6 +78,7 @@ def claim_jobs(
     batch_size: int,
     lease_seconds: int = 90,
     job_types: Iterable[str] | None = None,
+    tenant_ids: Iterable[str] | None = None,
     now: datetime | None = None,
 ) -> list[JobRun]:
     """Atomically claim a bounded batch of eligible jobs for one worker.
@@ -93,7 +97,12 @@ def claim_jobs(
 
     claimed_at = now or utcnow()
     lease_expires_at = claimed_at + timedelta(seconds=lease_seconds)
-    jobs = _claim_query(db, now=claimed_at, job_types=job_types).limit(batch_size).all()
+    jobs = _claim_query(
+        db,
+        now=claimed_at,
+        job_types=job_types,
+        tenant_ids=tenant_ids,
+    ).limit(batch_size).all()
 
     for job in jobs:
         job.status = RUNNING

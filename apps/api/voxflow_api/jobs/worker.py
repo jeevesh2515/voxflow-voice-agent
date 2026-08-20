@@ -48,6 +48,7 @@ class JobContext:
     attempt: int
     trace_id: str | None
     worker_id: str
+    idempotency_key: str
     payload: dict[str, Any]
     renew_lease: Callable[[], bool]
 
@@ -84,6 +85,7 @@ class WorkerRuntime:
         pool_name: str = "default",
         worker_id: str | None = None,
         job_types: tuple[str, ...] | None = None,
+        tenant_ids: tuple[str, ...] | None = None,
         batch_size: int = 5,
         max_concurrency: int = 1,
         lease_seconds: int = 90,
@@ -108,6 +110,7 @@ class WorkerRuntime:
         self.pool_name = pool_name
         self.worker_id = worker_id or build_worker_id(pool_name)
         self.job_types = job_types
+        self.tenant_ids = tenant_ids
         self.batch_size = batch_size
         self.max_concurrency = max_concurrency
         self.lease_seconds = lease_seconds
@@ -175,6 +178,7 @@ class WorkerRuntime:
             attempt=job.attempt,
             trace_id=job.trace_id,
             worker_id=self.worker_id,
+            idempotency_key=job.idempotency_key,
             payload=payload,
             renew_lease=lambda: self._renew_lease(job.id),
         )
@@ -279,6 +283,7 @@ class WorkerRuntime:
                 batch_size=self.batch_size,
                 lease_seconds=self.lease_seconds,
                 job_types=self.job_types,
+                tenant_ids=self.tenant_ids,
                 now=self.now(),
             )
             db.commit()

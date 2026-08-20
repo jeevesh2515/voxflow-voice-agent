@@ -104,6 +104,13 @@ class Settings(BaseSettings):
     dial_api_key: str = ""
     dial_phone_number: str = "+14845499931"
 
+    # ----- Durable campaign worker rollout (Day 29) -----
+    # Global kill switch stays false until the canary process is independently deployed.
+    durable_campaign_worker_enabled: bool = False
+    durable_campaign_canary_tenants: str = ""
+    durable_campaign_dry_run: bool = True
+    durable_campaign_max_in_flight_per_tenant: int = 1
+
     # ----- Google Sheets (call-outcome log) -----
     # Paste the full service-account JSON as a single-line env var, OR set
     # google_service_account_file to a path on disk. JSON wins if both are set.
@@ -143,6 +150,16 @@ class Settings(BaseSettings):
     # ----- Business -----
     business_name: str = "VoxFlow"
     business_timezone: str = "Asia/Kolkata"
+
+    @property
+    def durable_campaign_canary_tenant_ids(self) -> tuple[str, ...]:
+        """Parse the explicit tenant allow-list used by the campaign worker."""
+
+        return tuple(
+            tenant_id.strip()
+            for tenant_id in self.durable_campaign_canary_tenants.split(",")
+            if tenant_id.strip()
+        )
 
     @property
     def cors_origins_list(self) -> list[str]:

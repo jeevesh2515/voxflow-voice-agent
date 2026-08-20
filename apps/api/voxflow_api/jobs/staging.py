@@ -2,21 +2,30 @@
 
 from __future__ import annotations
 
-import os
+from ..config import get_settings
 
 
 def durable_campaign_worker_enabled() -> bool:
-    """Return whether the independently deployed campaign worker is enabled.
+    """Return whether the independently deployed campaign worker is globally enabled."""
 
-    The default is deliberately false. Day 28 stages campaign intent and
-    operator visibility only; Day 29 will enable the worker after its deployment
-    and callback reconciliation path have passed a controlled rollout.
-    """
+    return get_settings().durable_campaign_worker_enabled
 
-    return os.getenv("DURABLE_CAMPAIGN_WORKER_ENABLED", "false").strip().lower() in {"1", "true", "yes"}
+
+def canary_tenant_ids() -> tuple[str, ...]:
+    """Return the explicit tenant allow-list permitted to receive worker claims."""
+
+    return get_settings().durable_campaign_canary_tenant_ids
+
+
+def durable_campaign_dry_run() -> bool:
+    """Return whether provider calls are simulated while recording full intent."""
+
+    return get_settings().durable_campaign_dry_run
 
 
 def campaign_activation_mode() -> str:
     """Expose a non-sensitive rollout state for the operator dashboard."""
 
-    return "enabled" if durable_campaign_worker_enabled() else "staged"
+    if not durable_campaign_worker_enabled():
+        return "staged"
+    return "dry_run" if durable_campaign_dry_run() else "canary"

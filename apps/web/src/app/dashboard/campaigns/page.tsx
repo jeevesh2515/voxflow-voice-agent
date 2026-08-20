@@ -391,10 +391,10 @@ export default function CampaignsPage() {
               return (
                 <>
                   <div className="flex items-center gap-2 text-[10px] font-mono uppercase">
-                    <span className={`px-2 py-1 rounded border ${health.activation_mode === "enabled" ? "text-emerald-400 border-emerald-500/30 bg-emerald-500/10" : "text-amber-400 border-amber-500/30 bg-amber-500/10"}`}>
-                      {health.activation_mode === "enabled" ? "Worker enabled" : "Safe staging"}
+                    <span className={`px-2 py-1 rounded border ${health.activation_mode === "canary" ? "text-emerald-400 border-emerald-500/30 bg-emerald-500/10" : health.activation_mode === "dry_run" ? "text-blue-400 border-blue-500/30 bg-blue-500/10" : "text-amber-400 border-amber-500/30 bg-amber-500/10"}`}>
+                      {health.activation_mode === "canary" ? "Canary enabled" : health.activation_mode === "dry_run" ? "Canary dry run" : "Safe staging"}
                     </span>
-                    <span className="text-[#94a3b8]">No inline dialling</span>
+                    <span className="text-[#94a3b8]">{health.rollout?.canary_allowed ? "Tenant approved" : "No inline dialling"}</span>
                   </div>
                   <div className="grid grid-cols-2 gap-2 text-xs">
                     <div className="rounded-lg bg-[#10101a] p-2.5 border border-[#28283c]"><span className="text-[#94a3b8] block text-[10px] font-mono uppercase">Ready</span><strong className="text-white text-base">{health.status_counts.ready || 0}</strong></div>
