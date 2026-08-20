@@ -3,336 +3,295 @@
 import { useMemo, useState } from "react";
 import useSWR from "swr";
 import {
-  TrendingUp,
-  Clock,
-  CheckCircle2,
-  AlertTriangle,
-  Smile,
-  Meh,
-  Frown,
   Activity,
+  AlertTriangle,
   BarChart3,
-  ExternalLink,
-  Flame,
-  Zap,
-  IndianRupee,
-  Layers,
-  Sparkles,
-  Cpu,
-  Radio,
+  CheckCircle2,
+  Clock3,
   Download,
+  FileBarChart,
+  Gauge,
+  RefreshCw,
+  ShieldCheck,
+  Siren,
+  UsersRound,
 } from "lucide-react";
 import { api } from "@/lib/api";
 import { useTenant } from "@/lib/tenant-context";
-import type { Call } from "@/lib/types";
+import type { AnalyticsOverview } from "@/lib/types";
+
+const PERIODS = [7, 30, 90] as const;
+
+function durationLabel(seconds: number) {
+  const minutes = Math.floor(seconds / 60);
+  const remainder = seconds % 60;
+  return minutes ? `${minutes}m ${remainder}s` : `${remainder}s`;
+}
+
+function ageLabel(seconds: number | null) {
+  if (seconds === null) return "—";
+  if (seconds < 60) return `${seconds}s`;
+  if (seconds < 3600) return `${Math.floor(seconds / 60)}m`;
+  return `${Math.floor(seconds / 3600)}h ${Math.floor((seconds % 3600) / 60)}m`;
+}
+
+function titleCase(value: string) {
+  return value.replace(/_/g, " ").replace(/\b\w/g, (character) => character.toUpperCase());
+}
+
+function MetricCard({
+  label,
+  value,
+  caption,
+  tone = "teal",
+  icon,
+}: {
+  label: string;
+  value: string | number;
+  caption: string;
+  tone?: "teal" | "amber" | "rose" | "blue";
+  icon: React.ReactNode;
+}) {
+  const tones = {
+    teal: "text-[#00ffcc] bg-[#00ffcc]/10 border-[#00ffcc]/25",
+    amber: "text-[#ffe04a] bg-[#ffe04a]/10 border-[#ffe04a]/25",
+    rose: "text-[#ff2d78] bg-[#ff2d78]/10 border-[#ff2d78]/25",
+    blue: "text-blue-400 bg-blue-400/10 border-blue-400/25",
+  };
+  return (
+    <div className="rounded-2xl border border-[#28283c] bg-[#141422] p-5 shadow-sm">
+      <div className="mb-3 flex items-center justify-between text-xs font-mono text-[#94a3b8]">
+        <span>{label}</span>
+        <span className={`flex h-8 w-8 items-center justify-center rounded-xl border ${tones[tone]}`}>{icon}</span>
+      </div>
+      <div className="text-3xl font-black tracking-tight text-white">{value}</div>
+      <p className="mt-1 text-[11px] text-[#64748b]">{caption}</p>
+    </div>
+  );
+}
+
+function DistributionList({ title, values, emptyLabel }: { title: string; values: Record<string, number>; emptyLabel: string }) {
+  const entries = Object.entries(values).sort((a, b) => b[1] - a[1]);
+  const max = Math.max(...entries.map(([, value]) => value), 1);
+  return (
+    <div className="rounded-2xl border border-[#28283c] bg-[#141422] p-5">
+      <h3 className="font-headline text-sm font-bold text-white">{title}</h3>
+      <div className="mt-4 space-y-3">
+        {entries.length ? entries.slice(0, 5).map(([label, value]) => (
+          <div key={label}>
+            <div className="mb-1 flex items-center justify-between gap-3 text-xs">
+              <span className="truncate text-[#cbd5e1]">{titleCase(label)}</span>
+              <span className="font-mono font-bold text-white">{value}</span>
+            </div>
+            <div className="h-1.5 overflow-hidden rounded-full bg-[#181826]">
+              <div className="h-full rounded-full bg-[#00ffcc]" style={{ width: `${(value / max) * 100}%` }} />
+            </div>
+          </div>
+        )) : <p className="text-xs text-[#64748b]">{emptyLabel}</p>}
+      </div>
+    </div>
+  );
+}
+
+function MonitoringBadge({ state }: { state: AnalyticsOverview["monitoring"]["state"] }) {
+  const styles = {
+    healthy: "border-[#00ffcc]/35 bg-[#00ffcc]/10 text-[#00ffcc]",
+    attention: "border-[#ffe04a]/35 bg-[#ffe04a]/10 text-[#ffe04a]",
+    critical: "border-[#ff2d78]/35 bg-[#ff2d78]/10 text-[#ff2d78]",
+  };
+  return <span className={`rounded-lg border px-2.5 py-1 text-xs font-mono font-bold uppercase ${styles[state]}`}>{state}</span>;
+}
 
 export default function AnalyticsPage() {
   const { activeTenantId, activeTenant } = useTenant();
-  const { data: calls, error, isLoading } = useSWR(
-    ["calls-analytics", activeTenantId],
-    () => api.calls(200, activeTenantId),
-  );
-  const { data: usage } = useSWR(["usage", activeTenantId], () =>
-    api.getUsage(activeTenantId),
+  const [days, setDays] = useState<(typeof PERIODS)[number]>(30);
+  const [exporting, setExporting] = useState(false);
+  const [actionError, setActionError] = useState<string | null>(null);
+  const { data, error, isLoading, mutate } = useSWR(
+    ["analytics-overview", activeTenantId, days],
+    () => api.analyticsOverview(activeTenantId, days),
+    { refreshInterval: 30_000, revalidateOnFocus: true },
   );
 
-  const [activeTab, setActiveTab] = useState<"overview" | "latency" | "intents">("overview");
+  const chartPoints = useMemo(() => data?.trends.slice(-14) || [], [data]);
+  const chartMax = Math.max(...chartPoints.map((point) => point.calls), 1);
 
-  const metrics = useMemo(() => {
-    const list = (calls as Call[]) || [];
-    const total = list.length;
-    if (total === 0) {
-      return {
-        total: 0,
-        avgDuration: 0,
-        fcrRate: 100,
-        escalationRate: 0,
-        happy: 0,
-        neutral: 0,
-        unhappy: 0,
-        intents: { order: 0, stock_check: 0, shipment_status: 0, general: 0 },
-      };
+  async function exportReport() {
+    setActionError(null);
+    setExporting(true);
+    try {
+      await api.downloadAnalyticsReport(activeTenantId, days);
+    } catch (err) {
+      setActionError(err instanceof Error ? err.message : "Unable to export the enterprise report.");
+    } finally {
+      setExporting(false);
     }
+  }
 
-    const totalDuration = list.reduce((sum, c) => sum + (c.duration_sec || 0), 0);
-    const resolved = list.filter((c) => c.outcome === "completed" || c.resolution_status === "resolved").length;
-    const escalated = list.filter((c) => c.escalated || c.outcome === "escalated").length;
-
-    const happy = list.filter((c) => c.satisfaction === "happy" || !c.escalated).length;
-    const neutral = list.filter((c) => c.satisfaction === "neutral").length;
-    const unhappy = list.filter((c) => c.satisfaction === "unhappy" || c.escalated).length;
-
-    const intents = {
-      order: list.filter((c) => c.intent === "order" || c.intent?.toLowerCase().includes("order")).length,
-      stock_check: list.filter((c) => c.intent === "stock_check" || c.intent?.toLowerCase().includes("stock")).length,
-      shipment_status: list.filter((c) => c.intent === "shipment_status" || c.intent?.toLowerCase().includes("shipment")).length,
-      general: list.filter((c) => !c.intent || c.intent === "general" || c.intent === "other").length,
-    };
-
-    return {
-      total,
-      avgDuration: Math.round(totalDuration / total) || 45,
-      fcrRate: Math.round((resolved / total) * 100) || 100,
-      escalationRate: Math.round((escalated / total) * 100) || 0,
-      happy: happy || total,
-      neutral,
-      unhappy,
-      intents,
-    };
-  }, [calls]);
+  const loadingShell = isLoading && !data;
+  const currentError = error instanceof Error ? error.message : actionError;
 
   return (
-    <div className="space-y-8 max-w-7xl mx-auto pb-16">
-      {/* ==================== PAGE HEADER ==================== */}
-      <header className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 bg-[#12121e] p-6 rounded-2xl border border-[#242436] shadow-sm">
-        <div className="space-y-1">
+    <div className="mx-auto max-w-7xl space-y-6 pb-16">
+      <header className="flex flex-col gap-4 rounded-2xl border border-[#242436] bg-[#12121e] p-6 shadow-sm lg:flex-row lg:items-center lg:justify-between">
+        <div>
           <div className="flex items-center gap-2 text-xs font-mono text-[#94a3b8]">
-            <span>Observability & Evals</span>
+            <span>Enterprise Operations Intelligence</span>
             <span>/</span>
-            <span className="text-[#00ffcc] font-bold">{activeTenant.name}</span>
+            <span className="font-bold text-[#00ffcc]">{activeTenant.name}</span>
           </div>
-          <h1 className="text-xl sm:text-2xl font-headline font-bold text-white tracking-tight">
-            Voice AI Analytics & Telephony Observability
-          </h1>
-          <p className="text-xs sm:text-sm text-[#94a3b8]">
-            First Call Resolution (FCR), caller sentiment, latency benchmarks, and LLM grounding metrics.
+          <h1 className="mt-2 text-2xl font-bold tracking-tight text-white">Advanced Analytics & Monitoring</h1>
+          <p className="mt-1 max-w-2xl text-sm text-[#94a3b8]">
+            Tenant-safe operational KPIs, durable-work health, campaign policy trends, and exportable reporting from persisted VoxFlow data.
           </p>
         </div>
-
-        <div className="flex items-center gap-3">
-          <a
-            href="https://smith.langchain.com"
-            target="_blank"
-            rel="noreferrer"
-            className="flex items-center gap-2 bg-[#181826] hover:bg-[#202034] text-[#cbd5e1] hover:text-white px-4 py-2 rounded-xl text-xs font-medium border border-[#2c2c40] transition-colors"
+        <div className="flex flex-wrap items-center gap-2">
+          <div className="flex rounded-xl border border-[#2c2c40] bg-[#181826] p-1">
+            {PERIODS.map((option) => (
+              <button
+                key={option}
+                type="button"
+                onClick={() => setDays(option)}
+                className={`rounded-lg px-3 py-1.5 text-xs font-mono font-bold transition-colors ${days === option ? "bg-[#00ffcc] text-[#061313]" : "text-[#94a3b8] hover:text-white"}`}
+              >
+                {option}D
+              </button>
+            ))}
+          </div>
+          <button
+            type="button"
+            onClick={() => void mutate()}
+            className="inline-flex items-center gap-2 rounded-xl border border-[#2c2c40] bg-[#181826] px-3 py-2 text-xs font-medium text-[#cbd5e1] transition-colors hover:bg-[#202034] hover:text-white"
           >
-            <Sparkles size={14} className="text-[#00ffcc]" />
-            <span>LangSmith Evals</span>
-            <ExternalLink size={12} />
-          </a>
+            <RefreshCw size={14} /> Refresh
+          </button>
+          <button
+            type="button"
+            onClick={() => void exportReport()}
+            disabled={exporting || loadingShell}
+            className="inline-flex items-center gap-2 rounded-xl bg-[#00ffcc] px-3 py-2 text-xs font-bold text-[#061313] transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            <Download size={14} /> {exporting ? "Preparing…" : "Export CSV"}
+          </button>
         </div>
       </header>
 
-      {/* ==================== KPI STAT CARDS ==================== */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
-        <div className="bg-[#141422] p-5 rounded-2xl border border-[#28283c] shadow-sm">
-          <div className="flex items-center justify-between text-[#94a3b8] text-xs font-mono mb-2">
-            <span>First Call Resolution</span>
-            <CheckCircle2 size={16} className="text-[#00ffcc]" />
-          </div>
-          <div className="text-3xl font-headline font-black text-[#00ffcc]">{metrics.fcrRate}%</div>
-          <div className="text-[11px] text-[#64748b] mt-1">Autonomous agent resolution</div>
+      {currentError && (
+        <div className="rounded-xl border border-[#ff2d78]/40 bg-[#ff2d78]/10 px-4 py-3 text-sm text-[#fecdd3]">
+          Analytics data could not be loaded: {currentError}
         </div>
+      )}
 
-        <div className="bg-[#141422] p-5 rounded-2xl border border-[#28283c] shadow-sm">
-          <div className="flex items-center justify-between text-[#94a3b8] text-xs font-mono mb-2">
-            <span>Avg Handle Time</span>
-            <Clock size={16} className="text-[#ffe04a]" />
-          </div>
-          <div className="text-3xl font-headline font-black text-[#ffe04a]">
-            {Math.floor(metrics.avgDuration / 60)}m {metrics.avgDuration % 60}s
-          </div>
-          <div className="text-[11px] text-[#64748b] mt-1">Average call conversation</div>
-        </div>
+      {loadingShell ? (
+        <div className="rounded-2xl border border-[#28283c] bg-[#141422] p-12 text-center text-sm text-[#94a3b8]">Loading tenant analytics…</div>
+      ) : data ? (
+        <>
+          <section className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
+            <MetricCard label="Resolution Rate" value={`${data.kpis.resolution_rate}%`} caption={`${data.kpis.resolved_calls} resolved calls`} icon={<CheckCircle2 size={16} />} />
+            <MetricCard label="Avg Handle Time" value={durationLabel(data.kpis.average_handle_time_sec)} caption={`${data.kpis.total_minutes} voice minutes in period`} tone="amber" icon={<Clock3 size={16} />} />
+            <MetricCard label="Escalation Rate" value={`${data.kpis.escalation_rate}%`} caption={`${data.kpis.escalated_calls} calls referred to staff`} tone="rose" icon={<UsersRound size={16} />} />
+            <MetricCard label="Verified Calls" value={`${data.kpis.verified_call_rate}%`} caption={`${data.kpis.open_follow_ups} open follow-up items`} tone="blue" icon={<ShieldCheck size={16} />} />
+          </section>
 
-        <div className="bg-[#141422] p-5 rounded-2xl border border-[#28283c] shadow-sm">
-          <div className="flex items-center justify-between text-[#94a3b8] text-xs font-mono mb-2">
-            <span>Total Calls Evaluated</span>
-            <Activity size={16} className="text-[#00ffcc]" />
-          </div>
-          <div className="text-3xl font-headline font-black text-white">{metrics.total}</div>
-          <div className="text-[11px] text-[#64748b] mt-1">PostgreSQL/SQLite logged</div>
-        </div>
-
-        <div className="bg-[#141422] p-5 rounded-2xl border border-[#28283c] shadow-sm">
-          <div className="flex items-center justify-between text-[#94a3b8] text-xs font-mono mb-2">
-            <span>Escalation Rate</span>
-            <AlertTriangle size={16} className="text-[#ff2d78]" />
-          </div>
-          <div className="text-3xl font-headline font-black text-[#ff2d78]">{metrics.escalationRate}%</div>
-          <div className="text-[11px] text-[#64748b] mt-1">Referred to human staff</div>
-        </div>
-      </div>
-
-      {/* ==================== LATENCY BENCHMARK & SENTIMENT GRID ==================== */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Real-time Turn Latency Breakdown */}
-        <div className="bg-[#141422] p-6 rounded-2xl border border-[#28283c] shadow-sm space-y-5">
-          <div className="flex items-center justify-between pb-3 border-b border-[#242436]">
-            <div className="flex items-center gap-2.5">
-              <div className="w-8 h-8 rounded-xl bg-[#00ffcc]/10 text-[#00ffcc] flex items-center justify-center">
-                <Cpu size={18} />
-              </div>
-              <div>
-                <h3 className="font-headline font-bold text-sm text-white">Turn Latency Telemetry</h3>
-                <p className="text-[11px] text-[#94a3b8]">Live breakdown from Audio In to Speech Out</p>
-              </div>
-            </div>
-            <span className="font-mono text-xs font-bold text-[#00ffcc] bg-[#00ffcc]/10 px-2.5 py-1 rounded-md border border-[#00ffcc]/30">
-              ~380ms Total
-            </span>
-          </div>
-
-          <div className="space-y-3.5 pt-1 text-xs">
-            <div className="space-y-1">
-              <div className="flex justify-between font-mono">
-                <span className="text-[#cbd5e1]">1. Silero VAD Speech Segmentation</span>
-                <span className="text-[#00ffcc] font-bold">~45ms</span>
-              </div>
-              <div className="h-2 rounded-full bg-[#181826] overflow-hidden">
-                <div className="h-full bg-[#00ffcc] rounded-full w-[12%]" />
-              </div>
-            </div>
-
-            <div className="space-y-1">
-              <div className="flex justify-between font-mono">
-                <span className="text-[#cbd5e1]">2. Groq Whisper-Large-v3-Turbo STT</span>
-                <span className="text-[#ff2d78] font-bold">~120ms</span>
-              </div>
-              <div className="h-2 rounded-full bg-[#181826] overflow-hidden">
-                <div className="h-full bg-[#ff2d78] rounded-full w-[32%]" />
-              </div>
-            </div>
-
-            <div className="space-y-1">
-              <div className="flex justify-between font-mono">
-                <span className="text-[#cbd5e1]">3. Llama-3.3-70B Function Calling (TTFT)</span>
-                <span className="text-[#ffe04a] font-bold">~140ms</span>
-              </div>
-              <div className="h-2 rounded-full bg-[#181826] overflow-hidden">
-                <div className="h-full bg-[#ffe04a] rounded-full w-[38%]" />
-              </div>
-            </div>
-
-            <div className="space-y-1">
-              <div className="flex justify-between font-mono">
-                <span className="text-[#cbd5e1]">4. Edge-TTS Audio Chunk Generation</span>
-                <span className="text-blue-400 font-bold">~75ms</span>
-              </div>
-              <div className="h-2 rounded-full bg-[#181826] overflow-hidden">
-                <div className="h-full bg-blue-400 rounded-full w-[18%]" />
-              </div>
-            </div>
-          </div>
-        </div>
-
-        {/* Sentiment Analysis */}
-        <div className="bg-[#141422] p-6 rounded-2xl border border-[#28283c] shadow-sm space-y-5">
-          <div className="flex items-center justify-between pb-3 border-b border-[#242436]">
-            <div className="flex items-center gap-2.5">
-              <div className="w-8 h-8 rounded-xl bg-[#ff2d78]/10 text-[#ff2d78] flex items-center justify-center">
-                <Smile size={18} />
-              </div>
-              <div>
-                <h3 className="font-headline font-bold text-sm text-white">Caller Sentiment & CSAT</h3>
-                <p className="text-[11px] text-[#94a3b8]">Automated acoustic & lexical evaluation</p>
-              </div>
-            </div>
-            <span className="text-xs font-mono text-[#94a3b8]">Evaluated by LLM</span>
-          </div>
-
-          <div className="space-y-4 pt-1">
-            <div>
-              <div className="flex justify-between text-xs mb-1.5 font-medium">
-                <span className="text-[#00ffcc] flex items-center gap-1.5">
-                  <Smile size={14} /> Satisfied / Order Confirmed
-                </span>
-                <span className="text-white font-mono font-bold">
-                  {metrics.happy} ({metrics.total ? Math.round((metrics.happy / metrics.total) * 100) : 100}%)
+          <section className="grid grid-cols-1 gap-6 xl:grid-cols-3">
+            <div className="rounded-2xl border border-[#28283c] bg-[#141422] p-6 xl:col-span-2">
+              <div className="flex flex-wrap items-start justify-between gap-3 border-b border-[#242436] pb-4">
+                <div>
+                  <div className="flex items-center gap-2">
+                    <BarChart3 size={18} className="text-[#00ffcc]" />
+                    <h2 className="font-headline text-base font-bold text-white">Call Activity Trend</h2>
+                  </div>
+                  <p className="mt-1 text-xs text-[#94a3b8]">Daily persisted call volume over the selected reporting period.</p>
+                </div>
+                <span className="rounded-lg border border-[#2c2c40] bg-[#181826] px-2.5 py-1 text-xs font-mono text-[#94a3b8]">
+                  {data.period.from} — {data.period.to}
                 </span>
               </div>
-              <div className="h-2.5 rounded-full bg-[#181826] overflow-hidden">
-                <div
-                  className="h-full bg-[#00ffcc] rounded-full"
-                  style={{ width: `${metrics.total ? (metrics.happy / metrics.total) * 100 : 100}%` }}
-                />
+              <div className="mt-6 flex h-48 items-end gap-2">
+                {chartPoints.map((point) => (
+                  <div key={point.date} className="group flex min-w-0 flex-1 flex-col items-center gap-2">
+                    <div className="relative flex h-36 w-full items-end rounded-t-md bg-[#181826]">
+                      <div
+                        className="w-full rounded-t-md bg-gradient-to-t from-[#00cfa8] to-[#00ffcc] transition-opacity group-hover:opacity-80"
+                        style={{ height: `${Math.max((point.calls / chartMax) * 100, point.calls ? 8 : 2)}%` }}
+                        title={`${point.date}: ${point.calls} calls, ${point.resolved} resolved, ${point.escalated} escalated`}
+                      />
+                    </div>
+                    <span className="text-[9px] font-mono text-[#64748b]">{point.date.slice(5)}</span>
+                  </div>
+                ))}
+              </div>
+              <div className="mt-4 grid grid-cols-3 gap-3 border-t border-[#242436] pt-4 text-xs">
+                <div><span className="text-[#64748b]">Total calls</span><p className="mt-1 font-mono text-lg font-bold text-white">{data.kpis.total_calls}</p></div>
+                <div><span className="text-[#64748b]">Resolved</span><p className="mt-1 font-mono text-lg font-bold text-[#00ffcc]">{data.kpis.resolved_calls}</p></div>
+                <div><span className="text-[#64748b]">Open follow-ups</span><p className="mt-1 font-mono text-lg font-bold text-[#ffe04a]">{data.kpis.open_follow_ups}</p></div>
               </div>
             </div>
 
-            <div>
-              <div className="flex justify-between text-xs mb-1.5 font-medium">
-                <span className="text-[#ffe04a] flex items-center gap-1.5">
-                  <Meh size={14} /> Neutral / Information Inquiries
-                </span>
-                <span className="text-white font-mono font-bold">
-                  {metrics.neutral} ({metrics.total ? Math.round((metrics.neutral / metrics.total) * 100) : 0}%)
-                </span>
+            <div className="rounded-2xl border border-[#28283c] bg-[#141422] p-6">
+              <div className="flex items-center justify-between border-b border-[#242436] pb-4">
+                <div className="flex items-center gap-2">
+                  <Gauge size={18} className="text-[#00ffcc]" />
+                  <h2 className="font-headline text-base font-bold text-white">Monitoring State</h2>
+                </div>
+                <MonitoringBadge state={data.monitoring.state} />
               </div>
-              <div className="h-2.5 rounded-full bg-[#181826] overflow-hidden">
-                <div
-                  className="h-full bg-[#ffe04a] rounded-full"
-                  style={{ width: `${metrics.total ? (metrics.neutral / metrics.total) * 100 : 0}%` }}
-                />
+              <div className="mt-5 grid grid-cols-2 gap-3">
+                <div className="rounded-xl border border-[#2c2c40] bg-[#181826] p-3"><p className="text-[10px] font-mono text-[#94a3b8]">READY AGE</p><p className="mt-1 text-xl font-bold text-white">{ageLabel(data.monitoring.oldest_ready_age_sec)}</p></div>
+                <div className="rounded-xl border border-[#2c2c40] bg-[#181826] p-3"><p className="text-[10px] font-mono text-[#94a3b8]">OUTBOX AGE</p><p className="mt-1 text-xl font-bold text-white">{ageLabel(data.monitoring.oldest_outbox_age_sec)}</p></div>
+                <div className="rounded-xl border border-[#2c2c40] bg-[#181826] p-3"><p className="text-[10px] font-mono text-[#94a3b8]">ACTIVE JOBS</p><p className="mt-1 text-xl font-bold text-white">{data.monitoring.active_jobs}</p></div>
+                <div className="rounded-xl border border-[#2c2c40] bg-[#181826] p-3"><p className="text-[10px] font-mono text-[#94a3b8]">DEAD LETTERS</p><p className="mt-1 text-xl font-bold text-[#ff2d78]">{data.monitoring.dead_lettered_jobs}</p></div>
               </div>
-            </div>
-
-            <div>
-              <div className="flex justify-between text-xs mb-1.5 font-medium">
-                <span className="text-[#ff2d78] flex items-center gap-1.5">
-                  <Frown size={14} /> Escalated / Unhappy
-                </span>
-                <span className="text-white font-mono font-bold">
-                  {metrics.unhappy} ({metrics.total ? Math.round((metrics.unhappy / metrics.total) * 100) : 0}%)
-                </span>
-              </div>
-              <div className="h-2.5 rounded-full bg-[#181826] overflow-hidden">
-                <div
-                  className="h-full bg-[#ff2d78] rounded-full"
-                  style={{ width: `${metrics.total ? (metrics.unhappy / metrics.total) * 100 : 0}%` }}
-                />
+              <div className="mt-5 rounded-xl border border-[#00ffcc]/20 bg-[#00ffcc]/5 p-3 text-xs text-[#cbd5e1]">
+                <span className="font-mono font-bold text-[#00ffcc]">{data.monitoring.rollout.activation_mode.toUpperCase()}</span>
+                <span className="ml-2">Campaign dispatch remains {data.monitoring.rollout.dry_run ? "dry-run protected" : "feature-gated"}; analytics never invokes a provider.</span>
               </div>
             </div>
-          </div>
-        </div>
-      </div>
+          </section>
 
-      {/* ==================== SAAS BILLING USAGE METER ==================== */}
-      <div className="bg-[#141422] p-6 rounded-2xl border border-[#28283c] shadow-sm space-y-5">
-        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2 pb-3 border-b border-[#242436]">
-          <div className="flex items-center gap-3">
-            <div className="w-9 h-9 rounded-xl bg-purple-500/15 text-purple-400 flex items-center justify-center">
-              <IndianRupee size={18} />
-            </div>
-            <div>
-              <h3 className="font-headline font-bold text-sm text-white">
-                SaaS Usage & Voice Minute Metering
-              </h3>
-              <p className="text-xs text-[#94a3b8]">
-                Real-time billing telemetry for <strong className="text-white">{activeTenant.name}</strong>
-              </p>
-            </div>
-          </div>
-          <span className="text-xs font-mono uppercase px-3 py-1 rounded-lg bg-purple-500/10 text-purple-300 border border-purple-500/30 font-bold">
-            Plan: {usage?.plan?.toUpperCase() || "PRO OPERATIONS"}
-          </span>
-        </div>
+          <section className="grid grid-cols-1 gap-6 lg:grid-cols-3">
+            <DistributionList title="Top Intents" values={data.distribution.intents} emptyLabel="No call intents in this period." />
+            <DistributionList title="Call Outcomes" values={data.distribution.outcomes} emptyLabel="No call outcomes in this period." />
+            <DistributionList title="Policy Decisions" values={data.campaigns.policy_decision_counts} emptyLabel="No durable policy decisions in this period." />
+          </section>
 
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 pt-1">
-          <div className="bg-[#181826] p-4 rounded-xl border border-[#28283c] space-y-1">
-            <span className="text-[11px] font-mono text-[#94a3b8]">Total Telephony Minutes</span>
-            <div className="text-2xl font-headline font-bold text-[#00ffcc]">
-              {usage?.total_minutes || (metrics.total * 1.5).toFixed(1)} mins
+          <section className="grid grid-cols-1 gap-6 xl:grid-cols-5">
+            <div className="rounded-2xl border border-[#28283c] bg-[#141422] p-6 xl:col-span-3">
+              <div className="flex items-center justify-between border-b border-[#242436] pb-4">
+                <div className="flex items-center gap-2">
+                  <Siren size={18} className="text-[#ffe04a]" />
+                  <div>
+                    <h2 className="font-headline text-base font-bold text-white">Operational Attention Queue</h2>
+                    <p className="mt-1 text-xs text-[#94a3b8]">Pull-based monitoring signals from persisted job, outbox, and call state.</p>
+                  </div>
+                </div>
+                <span className="text-xs font-mono text-[#94a3b8]">Auto-refresh: 30s</span>
+              </div>
+              <div className="mt-4 space-y-2">
+                {data.monitoring.alerts.length ? data.monitoring.alerts.map((alert) => (
+                  <div key={`${alert.level}-${alert.code}`} className={`flex gap-3 rounded-xl border p-3 text-sm ${alert.level === "critical" ? "border-[#ff2d78]/30 bg-[#ff2d78]/10" : alert.level === "warning" ? "border-[#ffe04a]/30 bg-[#ffe04a]/10" : "border-blue-400/25 bg-blue-400/10"}`}>
+                    <AlertTriangle size={16} className={alert.level === "critical" ? "mt-0.5 shrink-0 text-[#ff2d78]" : alert.level === "warning" ? "mt-0.5 shrink-0 text-[#ffe04a]" : "mt-0.5 shrink-0 text-blue-400"} />
+                    <div><p className="font-mono text-[11px] font-bold uppercase text-white">{titleCase(alert.code)}</p><p className="mt-1 text-xs text-[#cbd5e1]">{alert.message}</p></div>
+                  </div>
+                )) : <div className="rounded-xl border border-[#00ffcc]/25 bg-[#00ffcc]/5 p-4 text-sm text-[#bfffee]"><CheckCircle2 size={16} className="mr-2 inline" />No current tenant-scoped operational attention signals.</div>}
+              </div>
             </div>
-            <div className="text-[10px] text-[#64748b]">Billed per 15s increment</div>
-          </div>
 
-          <div className="bg-[#181826] p-4 rounded-xl border border-[#28283c] space-y-1">
-            <span className="text-[11px] font-mono text-[#94a3b8]">Rate Per Minute</span>
-            <div className="text-2xl font-headline font-bold text-[#ffe04a]">
-              ${usage?.rate_per_minute_usd || 0.15}/min
+            <div className="rounded-2xl border border-[#28283c] bg-[#141422] p-6 xl:col-span-2">
+              <div className="flex items-center gap-2 border-b border-[#242436] pb-4">
+                <FileBarChart size={18} className="text-[#00ffcc]" />
+                <div><h2 className="font-headline text-base font-bold text-white">Enterprise Report</h2><p className="mt-1 text-xs text-[#94a3b8]">CSV is safe for spreadsheet export and excludes transcripts, raw job payloads, and policy evidence.</p></div>
+              </div>
+              <div className="mt-5 space-y-3 text-sm text-[#cbd5e1]">
+                <p><span className="font-mono text-[#94a3b8]">TENANT</span><br />{data.tenant.name} · {data.tenant.plan.toUpperCase()}</p>
+                <p><span className="font-mono text-[#94a3b8]">INCLUDED</span><br />KPIs, daily call trend, campaign policy totals, and monitoring alerts.</p>
+                <p><span className="font-mono text-[#94a3b8]">EXCLUDED</span><br />Call transcript content, phone numbers, raw job payloads, and policy evidence JSON.</p>
+                <button type="button" onClick={() => void exportReport()} disabled={exporting} className="mt-2 inline-flex w-full items-center justify-center gap-2 rounded-xl border border-[#00ffcc]/35 bg-[#00ffcc]/10 px-4 py-3 text-sm font-bold text-[#00ffcc] hover:bg-[#00ffcc]/20 disabled:opacity-50"><Download size={16} />{exporting ? "Preparing export…" : "Download Enterprise CSV"}</button>
+              </div>
             </div>
-            <div className="text-[10px] text-[#64748b]">Includes STT, Llama-3 & Edge TTS</div>
-          </div>
-
-          <div className="bg-[#181826] p-4 rounded-xl border border-[#28283c] space-y-1">
-            <span className="text-[11px] font-mono text-[#94a3b8]">Current Cycle Invoice</span>
-            <div className="text-2xl font-headline font-bold text-[#ff2d78]">
-              ${usage?.estimated_bill_usd || ((metrics.total * 1.5) * 0.15).toFixed(2)} USD
-            </div>
-            <div className="text-[10px] text-[#64748b]">Auto-settled at month end</div>
-          </div>
-        </div>
-      </div>
+          </section>
+        </>
+      ) : null}
     </div>
   );
 }

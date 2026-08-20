@@ -1,5 +1,7 @@
 // Lightweight API client with multi-tenant filtering and auth.
 
+import type { AnalyticsOverview } from "./types";
+
 function getApiUrl(): string {
   if (typeof window !== "undefined") {
     if (window.location.hostname !== "localhost" && window.location.hostname !== "127.0.0.1") {
@@ -67,6 +69,28 @@ async function http<T>(path: string, init?: RequestInit): Promise<T> {
   }
 }
 
+async function downloadAnalyticsReport(tenantId: string, days: number): Promise<void> {
+  const params = new URLSearchParams({ tenant_id: tenantId, days: String(days) });
+  const response = await fetch(`${getApiUrl()}/api/analytics/report.csv?${params}`, {
+    headers: getAuthHeader(),
+  });
+  if (!response.ok) {
+    throw new Error(`${response.status} ${response.statusText}: unable to export analytics report`);
+  }
+
+  const blob = await response.blob();
+  const contentDisposition = response.headers.get("Content-Disposition") || "";
+  const filenameMatch = contentDisposition.match(/filename="?([^";]+)"?/i);
+  const objectUrl = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = objectUrl;
+  link.download = filenameMatch?.[1] || "voxflow-enterprise-report.csv";
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  URL.revokeObjectURL(objectUrl);
+}
+
 export const api = {
   tenants: () => http<any[]>("/api/tenants"),
   provisionWorkspace: (payload: {
@@ -89,6 +113,9 @@ export const api = {
       body: JSON.stringify(payload),
     }),
   getUsage: (tenant_id: string) => http<any>(`/api/admin/tenants/${tenant_id}/usage`),
+  analyticsOverview: (tenant_id: string, days: number = 30) =>
+    http<AnalyticsOverview>(`/api/analytics/overview?tenant_id=${tenant_id}&days=${days}`),
+  downloadAnalyticsReport,
   mapPhone: (tenant_id: string, phone_number: string, label?: string) =>
     http<any>(`/api/admin/tenants/${tenant_id}/phone-numbers`, {
       method: "POST",
