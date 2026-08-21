@@ -45,31 +45,9 @@ function getApiUrl(): string {
 function getAuthHeader(): Record<string, string> {
   if (typeof window === "undefined") return {};
   try {
-    // 1. Check custom voxflow_session
-    const raw = localStorage.getItem("voxflow_session");
-    if (raw) {
-      const session = JSON.parse(raw);
-      if (session?.token) {
-        return { Authorization: `Bearer ${session.token}` };
-      }
-    }
-
-    // 2. Check Supabase Auth session token (sb-*-auth-token)
-    for (let i = 0; i < localStorage.length; i++) {
-      const key = localStorage.key(i);
-      if (key && (key.startsWith("sb-") && key.endsWith("-auth-token"))) {
-        const item = localStorage.getItem(key);
-        if (item) {
-          const parsed = JSON.parse(item);
-          const token = parsed?.access_token || parsed?.token;
-          if (token) {
-            return { Authorization: `Bearer ${token}` };
-          }
-        }
-      }
-    }
-    // 3. Demo sessions are explicitly marked for the backend's fixed,
-    // read-only demonstration tenant. They never carry write authority.
+    // A user explicitly selecting the quick demo must not inherit an unrelated
+    // stale Supabase token from the same browser. The demo marker always maps
+    // to the fixed read-only tenant and is checked first by the backend.
     const demoRaw = localStorage.getItem("voxflow_demo_user");
     if (demoRaw) {
       const demo = JSON.parse(demoRaw);
@@ -77,6 +55,26 @@ function getAuthHeader(): Record<string, string> {
         "X-VoxFlow-Demo": "enabled",
         "X-VoxFlow-Demo-Tenant": String(demo?.tenant_id || "varun"),
       };
+    }
+
+    // Check custom voxflow_session.
+    const raw = localStorage.getItem("voxflow_session");
+    if (raw) {
+      const session = JSON.parse(raw);
+      if (session?.token) return { Authorization: `Bearer ${session.token}` };
+    }
+
+    // Check Supabase Auth session token (sb-*-auth-token).
+    for (let i = 0; i < localStorage.length; i++) {
+      const key = localStorage.key(i);
+      if (key && (key.startsWith("sb-") && key.endsWith("-auth-token"))) {
+        const item = localStorage.getItem(key);
+        if (item) {
+          const parsed = JSON.parse(item);
+          const token = parsed?.access_token || parsed?.token;
+          if (token) return { Authorization: `Bearer ${token}` };
+        }
+      }
     }
   } catch {
     // ignore parse errors
