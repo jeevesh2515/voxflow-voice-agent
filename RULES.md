@@ -115,3 +115,18 @@ is a one-line env change.
 
 **Constraint that drove this:** the project owner requires everything to run
 server-side with nothing depending on a local machine.
+
+**2026-08-21 — Free-tier demonstration hosting for initial stages.**
+
+The project owner has specified that the initial stages must remain on free-tier
+infrastructure. Fly is therefore configured for automatic stop and automatic
+wake-up (`auto_stop_machines = 'stop'`, `min_machines_running = 0`) rather than
+persistent availability. This allows safe dashboard and simulator demonstrations
+following a warm-up request, but it is not suitable for real inbound telephony,
+continuous worker operation, or a production pilot SLA. Those workloads remain
+disabled until the owner explicitly chooses a paid, always-on deployment.
+
+This supersedes the earlier server-only hosting constraint **only for the
+initial, demonstration stage**. It does not weaken tenant isolation, callback
+verification, campaign gates, provider safeguards, or the production kill
+switch.

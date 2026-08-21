@@ -11,11 +11,12 @@ primary_region = 'ams'
 [http_service]
   internal_port = 8000
   force_https = true
-  # Approved persistent API availability: do not stop the only live backend.
-  # This does not start any campaign, provider, callback, or side-effect worker.
-  auto_stop_machines = 'off'
+  # Free-tier demonstration posture: allow the platform to stop idle API
+  # machines, then automatically wake them for a safe dashboard request.
+  # This does not start campaign, provider, callback, or side-effect workers.
+  auto_stop_machines = 'stop'
   auto_start_machines = true
-  min_machines_running = 1
+  min_machines_running = 0
   processes = ['app']
 
 [[vm]]
