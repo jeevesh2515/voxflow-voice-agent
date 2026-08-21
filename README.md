@@ -1,81 +1,130 @@
 # VoxFlow
 
-**Voice operations for supply-chain teams.**
+> **Voice operations, built for the movement of goods.**
 
-VoxFlow helps supply-chain organisations manage high-volume operational conversations across suppliers, distributors, warehouses, and internal teams. It combines a Hindi-English voice experience with a unified operations workspace, turning routine coordination into structured, measurable workflows.
+![Product Status](https://img.shields.io/badge/Product-Launch%20Ready-0F766E?style=for-the-badge&labelColor=111827)
+![Domain](https://img.shields.io/badge/Domain-Supply%20Chain%20Operations-2563EB?style=for-the-badge&labelColor=111827)
+![Languages](https://img.shields.io/badge/Voice-Hindi%20%2B%20English-F97316?style=for-the-badge&labelColor=111827)
+![License](https://img.shields.io/badge/License-MIT-A855F7?style=for-the-badge&labelColor=111827)
 
-[Explore the product](https://voxflow-voice-agent.vercel.app)
+VoxFlow is a voice-first operations platform for supply-chain teams. It helps organisations coordinate supplier, distributor, warehouse, and customer conversations with a shared workspace for calls, follow-ups, operational context, and reporting.
 
-## Why VoxFlow
+[**Explore VoxFlow**](https://voxflow-voice-agent.vercel.app) · [**See capabilities**](#capabilities) · [**Plan an integration**](#integration) · [**Understand the workflow**](#how-voxflow-works)
 
-Supply-chain teams often coordinate purchase orders, shipment updates, dock appointments, stock exceptions, and follow-ups across calls, spreadsheets, inboxes, and multiple systems. VoxFlow provides a single operational layer for those interactions, helping teams respond faster, maintain context, and keep important work visible.
+---
 
-> VoxFlow is designed to support controlled, auditable operational communication. Each organisation can introduce workflows gradually and retain human oversight where it matters.
+## Overview
 
-## What teams can do with VoxFlow
+Supply-chain operations depend on thousands of time-sensitive conversations: confirming purchase orders, resolving shipment exceptions, arranging appointments, following up on stock availability, and escalating problems before they become delays. VoxFlow turns those fragmented interactions into clear, structured operational workflows.
 
-| Capability | How it helps operations teams |
+> **One workspace for the conversations that keep supply chains moving.**
+
+| For teams that need to… | VoxFlow helps them… |
 |---|---|
-| **Hindi-English voice interactions** | Support natural conversations in the languages commonly used across Indian supply-chain operations. |
-| **Inbound support workspace** | Capture and organise operational calls, follow-ups, escalations, and service context in one place. |
-| **Supplier and distributor coordination** | Manage purchase-order confirmations, delivery updates, appointment reminders, and exception follow-up. |
-| **Operations visibility** | Monitor calls, orders, shipments, stock, appointments, and escalations from a shared workspace. |
-| **Campaign orchestration** | Prepare targeted operational outreach workflows with approval, policy, and capacity controls. |
-| **Analytics and reporting** | Review operational trends, resolution activity, escalation patterns, and follow-up workload. |
-| **Enterprise integration readiness** | Connect voice operations to the systems where teams already manage customers, orders, inventory, and logistics. |
+| Keep operational conversations visible | Bring calls, follow-ups, escalations, and business context into one shared view. |
+| Serve a multilingual ecosystem | Support natural Hindi-English voice experiences for frontline operations. |
+| Coordinate across partners | Organise supplier, distributor, warehouse, and customer communication around real operational events. |
+| Improve accountability | Give teams a clear view of open work, ownership, outcomes, and next steps. |
+| Scale responsibly | Introduce approved communication workflows gradually with human oversight. |
 
-## How it works
+---
+
+## Capabilities
+
+| Capability | What it means for your organisation |
+|---|---|
+| **Voice operations** | Handle and organise operational conversations with a Hindi-English experience designed for supply-chain contexts. |
+| **Inbound support workspace** | Capture incoming requests and connect them with relevant operational context and follow-up activity. |
+| **Supplier & distributor coordination** | Support purchase-order confirmation, delivery updates, appointment reminders, and exception management. |
+| **Operational command centre** | Track calls, orders, shipments, stock, appointments, and escalations from a unified workspace. |
+| **Workflow orchestration** | Prepare targeted communication workflows around business events, priorities, and operational rules. |
+| **Analytics & reporting** | Understand activity, follow-up workload, escalation patterns, and service performance. |
+| **Enterprise connectivity** | Fit alongside existing ERP, WMS, TMS, CRM, telephony, and reporting systems. |
+
+---
+
+## How VoxFlow Works
 
 ```mermaid
 flowchart LR
-    A[Operational event or request] --> B[VoxFlow workspace]
-    B --> C[Voice and workflow intelligence]
-    C --> D[Structured operational outcome]
-    D --> E[Team visibility, follow-up, and reporting]
+    A[Operational event] --> B[Context from your systems]
+    B --> C[VoxFlow workspace]
+    C --> D[Voice interaction & team workflow]
+    D --> E[Clear outcome]
+    E --> F[Follow-up, escalation & reporting]
+
+    style A fill:#E0F2FE,stroke:#0284C7,color:#0C4A6E
+    style B fill:#EEF2FF,stroke:#4F46E5,color:#312E81
+    style C fill:#ECFDF5,stroke:#059669,color:#064E3B
+    style D fill:#FFF7ED,stroke:#EA580C,color:#7C2D12
+    style E fill:#FDF2F8,stroke:#DB2777,color:#831843
+    style F fill:#F5F3FF,stroke:#7C3AED,color:#4C1D95
 ```
 
-VoxFlow brings together operational context and voice interaction. A team can begin with inbound support and shared visibility, then introduce approved workflows for supplier coordination, escalation handling, and proactive communication. Outcomes remain available to authorised operators through the workspace and reporting views.
+VoxFlow connects operational context with the people and conversations responsible for moving work forward. When an operational event requires attention, teams can understand the context, coordinate the right response, and keep the resulting follow-up visible through to resolution.
 
-## Built for supply-chain operations
+---
 
-| Team | Typical uses |
+## Use Cases
+
+| Function | High-value VoxFlow workflows |
 |---|---|
-| **Procurement** | Confirm purchase orders, resolve supplier queries, and manage acknowledgement follow-up. |
-| **Logistics** | Communicate shipment changes, coordinate delivery exceptions, and prepare dock reminders. |
-| **Warehouse operations** | Coordinate appointments, stock-related follow-ups, and operational handoffs. |
-| **Customer operations** | Handle inbound calls, identify issues quickly, and route escalations with the right context. |
-| **Leadership** | Understand activity, follow-up workload, escalation trends, and service performance. |
+| **Procurement** | Purchase-order acknowledgements, supplier follow-up, query handling, and exception resolution. |
+| **Logistics** | Delivery updates, shipment exceptions, transporter coordination, and appointment preparation. |
+| **Warehouse operations** | Dock coordination, stock-related follow-up, handoffs, and scheduling support. |
+| **Customer operations** | Inbound support, issue routing, escalation visibility, and service follow-through. |
+| **Business leadership** | Operational activity, workload, trend, and service-performance visibility. |
 
-## Integration approach
+---
 
-VoxFlow is intended to fit alongside an organisation’s existing operating systems rather than replace them. Typical integration points include ERP, WMS, TMS, CRM, telephony, and internal reporting platforms.
+## Integration
 
-A successful rollout typically follows four steps:
+VoxFlow is designed to complement—not replace—the operating systems your teams already rely on. It can be aligned with the business context held in your ERP, WMS, TMS, CRM, telephony, and reporting platforms.
 
-1. **Discover the workflow.** Identify the operational conversations, source data, outcomes, and owners that matter most.
-2. **Connect the context.** Map approved data from the systems that hold order, shipment, inventory, supplier, or customer information.
-3. **Configure the workspace.** Define teams, operational views, escalation paths, and reporting needs.
-4. **Introduce workflows in stages.** Begin with a limited, reviewed use case, evaluate operational evidence, and expand only when the team is ready.
-
-## Platform overview
-
-VoxFlow is a modern web platform with a responsive operations dashboard and an API-based application layer. Its architecture supports multi-tenant operations, role-aware workflows, extensible integrations, and reliable handling of business-process events.
-
-| Layer | Role |
+| Integration area | Example business context |
 |---|---|
-| **Operations workspace** | Provides the web experience for teams to manage calls, operations, and reporting. |
-| **Voice and workflow services** | Coordinate voice interactions, operational workflows, and business-process outcomes. |
-| **Data layer** | Maintains the operational records needed for visibility, reporting, and continuity. |
-| **Integration layer** | Connects approved telephony and enterprise systems through controlled interfaces. |
+| **ERP & procurement systems** | Purchase orders, supplier records, approval status, and material requirements. |
+| **Warehouse & inventory systems** | Stock availability, warehouse tasks, dock schedules, and movement status. |
+| **Transport & logistics systems** | Shipment milestones, carrier details, delivery exceptions, and route events. |
+| **Customer & partner platforms** | Account details, service history, contacts, and case context. |
+| **Telephony & communications** | Approved voice channels and communication workflows for operational teams. |
 
-## Security and operational responsibility
+### A practical rollout path
 
-VoxFlow is built for business operations where trust, traceability, and human accountability matter. The platform is designed to minimise unnecessary exposure of operational data, support tenant-aware workflows, and keep operational actions reviewable. Organisations remain responsible for their own consent, communications, access-control, retention, and regulatory requirements.
+1. **Choose the operational moment.** Start with a clear, high-value workflow such as purchase-order confirmation, shipment exception follow-up, or appointment coordination.
+2. **Connect the required context.** Identify the approved operational data and systems that should inform the conversation.
+3. **Shape the team experience.** Configure the views, responsibilities, escalation paths, and reporting that fit the operating model.
+4. **Learn and expand.** Start with a measured use case, review evidence with the team, and grow the workflow when it delivers value.
 
-## Product access
+---
 
-The current product experience is available at [voxflow-voice-agent.vercel.app](https://voxflow-voice-agent.vercel.app). For an implementation discussion, prepare the operational use case, source systems, desired user groups, language requirements, and success measures so the rollout can be tailored to your team.
+## Built for Stakeholders
+
+VoxFlow gives every stakeholder a useful perspective on operations without forcing every team into the same workflow.
+
+| Stakeholder | What they gain |
+|---|---|
+| **Operations leaders** | A clear operating view of workload, exceptions, follow-up, and service performance. |
+| **Frontline teams** | Context-rich workspaces that reduce switching between calls, spreadsheets, inboxes, and systems. |
+| **IT & transformation teams** | A flexible operational layer that can work with existing enterprise systems and governance practices. |
+| **Partners & suppliers** | More consistent, timely, and understandable operational communication. |
+
+---
+
+## Responsible Operations
+
+VoxFlow is designed for business environments where trust, accountability, and data stewardship are essential. Organisations remain in control of their workflows, communication policies, user access, retention requirements, and regulatory responsibilities. The platform is intended to support measured adoption, reviewable outcomes, and human oversight in operationally significant moments.
+
+---
+
+## Product Access
+
+Explore the current VoxFlow product experience at [**voxflow-voice-agent.vercel.app**](https://voxflow-voice-agent.vercel.app).
+
+For an implementation conversation, it is helpful to bring a target workflow, the relevant source systems, intended users, language needs, and the operational outcomes your team wants to improve.
+
+---
 
 ## License
 
-Distributed under the MIT License. See [LICENSE](LICENSE).
+Distributed under the [MIT License](LICENSE).
