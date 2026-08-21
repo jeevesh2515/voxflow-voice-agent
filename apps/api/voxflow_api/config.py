@@ -32,7 +32,9 @@ class Settings(BaseSettings):
     ollama_model: str = "llama3.1:8b"
 
     groq_api_key: str = ""
-    groq_model: str = "llama-3.3-70b-versatile"
+    # `openai/gpt-oss-20b` is the account-available, tool-capable Groq model
+    # verified for the production credential. Override with GROQ_MODEL when needed.
+    groq_model: str = "openai/gpt-oss-20b"
 
     openrouter_api_key: str = ""
     openrouter_model: str = "meta-llama/llama-3.1-8b-instruct:free"
