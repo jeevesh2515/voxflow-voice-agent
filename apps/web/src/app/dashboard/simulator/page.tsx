@@ -7,7 +7,7 @@ import { useTenant } from "@/lib/tenant-context";
 type Turn = { role: "caller" | "agent"; text: string; at: number };
 
 const LOCAL_WS_URL = "ws://localhost:8000";
-const STAGED_PRODUCTION_WS_URL = "wss://voxflow-voice-agent.fly.dev";
+const PRODUCTION_WS_URL = "wss://voxflow-voice-agent.onrender.com";
 // A sleeping free-tier API can need tens of seconds to wake and accept a WebSocket.
 // This wait only governs browser-session establishment; it does not activate workers or providers.
 const WS_OPEN_TIMEOUT_MS = 90_000;
@@ -27,8 +27,8 @@ function getWsUrl(): string {
     return LOCAL_WS_URL;
   }
 
-  // Keep the simulator on the same temporary production backend as the REST client.
-  return STAGED_PRODUCTION_WS_URL;
+  // Keep the simulator on the same request-driven Render backend as the REST client.
+  return PRODUCTION_WS_URL;
 }
 
 function speakWithBrowserFallback(text: string, language?: string): void {

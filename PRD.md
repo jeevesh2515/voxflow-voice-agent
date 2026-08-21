@@ -1,6 +1,6 @@
 # VoxFlow Product Requirements Document
 
-**Status:** Living product document; Day 36 reliability evidence is CI- and production-verified through the staged Fly temporary backend and the authenticated Vercel dashboard. Human authority and live activation remain deliberately blocked.
+**Status:** Living product document; Day 36 reliability evidence is CI- and production-verified through the Render Free backend and the authenticated Vercel dashboard/Phone Simulator. Human authority and live activation remain deliberately blocked.
 **Last updated:** 2026-08-21
 **Repository:** <https://github.com/jeevesh2515/voxflow-voice-agent>
 
@@ -59,7 +59,7 @@ Day 30 adds central dispatch permission controls.
 
 ## 4. Current availability and safety boundary
 
-The Vercel dashboard and temporary Fly API are live while Render remains outage-blocked. The durable campaign system is implemented but **not enabled for live outbound traffic**.
+The Vercel dashboard and Render Free API are live. The service is request-driven and may cold-start after idle time, so it is used only for the safe demonstration workflow. The durable campaign system is implemented but **not enabled for live outbound traffic**.
 
 ```text
 DURABLE_CAMPAIGN_WORKER_ENABLED=false
