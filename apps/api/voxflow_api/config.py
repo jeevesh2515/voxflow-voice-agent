@@ -137,6 +137,13 @@ class Settings(BaseSettings):
     pilot_readiness_enforced: bool = True
     pilot_readiness_approved_tenants: str = ""
 
+    # ----- Day 36 evidence-led pilot operations -----
+    # A ready Day 35 configuration is not enough to dispatch. This default-on
+    # hold-point gate requires a fresh persisted decision for the current pilot
+    # version and same approved micro-cohort. It never enables a worker or
+    # approves a tenant by itself.
+    pilot_operations_evidence_enforced: bool = True
+
     # ----- Day 34 durable operational side-effect worker -----
     # Separate from the campaign worker. It remains disabled and dry-run by
     # default so a deployment cannot send messages, post webhooks, write sheets,

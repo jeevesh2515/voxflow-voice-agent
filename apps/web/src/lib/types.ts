@@ -310,3 +310,71 @@ export interface PilotReadiness {
     reason?: string;
   };
 }
+
+export interface PilotOperationsEvidence {
+  evidence_kind: "preflight" | "hold_point" | "pause" | "rollback";
+  evidence_key: string;
+  decision: "continue_same_cohort" | "pause" | "rollback_requested" | "blocked";
+  reason_code: string;
+  recorded_by: string;
+  created_at: string;
+}
+
+export interface PilotOperations {
+  tenant_id: string;
+  configured: boolean;
+  pilot?: {
+    pilot_id: string;
+    version: number;
+    status: string;
+    cohort_id: string;
+    cohort_size: number;
+    timezone_name: string;
+    calling_window_start: string;
+    calling_window_end: string;
+    expires_at: string;
+    metric_contract_version: string;
+  };
+  preflight: {
+    state: "blocked" | "review_required";
+    blocking_reasons: string[];
+    no_auto_expansion: boolean;
+    requires_human_hold_point: boolean;
+    current_local_operating_day?: string;
+  };
+  workers?: {
+    campaign_worker_enabled: boolean;
+    campaign_dry_run: boolean;
+    side_effect_worker_enabled: boolean;
+    side_effect_dry_run: boolean;
+  };
+  queue: {
+    campaign_ready_or_retrying: number;
+    campaign_running: number;
+    campaign_dead_lettered: number;
+    campaign_expired_leases: number;
+    all_tenant_running: number;
+  };
+  callbacks: {
+    signed_callback_events: number;
+    callback_anomalies: number;
+    adapter_audits: number;
+    adapter_verification_failures: number;
+    adapter_blocked_applications: number;
+  };
+  side_effects: {
+    intent_count: number;
+    pending_count: number;
+    error_count: number;
+  };
+  latest_evidence: PilotOperationsEvidence | null;
+  hold_point?: {
+    state: "blocked" | "reviewed_same_cohort";
+    decision: PilotOperationsEvidence["decision"] | null;
+    reason: string;
+    fresh_for_current_operating_day: boolean;
+    expansion_permitted: false;
+    same_cohort_only: true;
+    latest_evidence: PilotOperationsEvidence | null;
+  };
+}

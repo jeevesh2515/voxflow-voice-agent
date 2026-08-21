@@ -147,6 +147,20 @@ def evaluate_pilot_admission(
     recipient_hash = hash_recipient(recipient_phone)
     if recipient_hash not in {member.recipient_hash for member in approved_members}:
         return PilotAdmission("cancelled", "pilot_cohort_mismatch", {"pilot_id": config.pilot_id})
+
+    # Day 36 adds an independent final hold point. A green readiness scorecard
+    # never authorises a dispatch: the current pilot version needs a fresh,
+    # trusted same-cohort review decision. The helper only reads persisted
+    # evidence; it cannot enable a worker, change a tenant, or expand capacity.
+    from .pilot_operations import pilot_operations_hold_allows_dispatch
+
+    hold_allowed, hold_reason, hold_evidence = pilot_operations_hold_allows_dispatch(
+        db,
+        config=config,
+        now=now,
+    )
+    if not hold_allowed:
+        return PilotAdmission("cancelled", hold_reason, hold_evidence)
     return PilotAdmission(
         "allowed",
         "pilot_admission_allowed",

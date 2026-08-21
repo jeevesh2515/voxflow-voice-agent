@@ -1,12 +1,12 @@
 # VoxFlow Security and Safety Audit
 
-**Last updated:** 2026-08-20
-**Scope:** Current repository controls through Day 35.
+**Last updated:** 2026-08-21
+**Scope:** Current repository controls through Day 36.
 **Status:** The temporary Fly backend and Vercel dashboard are operational; outbound campaign execution and operational side-effect execution are intentionally safe-staged and are **not approved for general live activation**. Render remains outage-blocked and is not the current browser API origin.
 
 ## 1. Security posture summary
 
-VoxFlow applies layered controls to tenant-aware voice and campaign operations. Traditional authentication, tenant scoping, signed inbound telephony handling, secret isolation, and rate controls protect the existing application surface. Days 25–30 add a distinct safety layer for outbound side effects: durable intent, leases, provider-operation idempotency, global worker gating, tenant policy, recipient permission, quota/capacity controls, and immutable policy evidence. Day 32 adds a fail-closed signed callback ingress, immutable provider-event evidence, terminal-state guards, and unknown-call quarantine. Day 34 extends the durable boundary to application-side Sheets, email, CRM, notification, worksheet, and recording work through typed intent rows and a separately gated worker. Day 35 adds an independent fail-closed pilot admission boundary, hash-only cohort evidence, frozen success metrics, read-only readiness visibility, and a database-only rollback drill that refuses live worker/lease conditions.
+VoxFlow applies layered controls to tenant-aware voice and campaign operations. Traditional authentication, tenant scoping, signed inbound telephony handling, secret isolation, and rate controls protect the existing application surface. Days 25–30 add a distinct safety layer for outbound side effects: durable intent, leases, provider-operation idempotency, global worker gating, tenant policy, recipient permission, quota/capacity controls, and immutable policy evidence. Day 32 adds a fail-closed signed callback ingress, immutable provider-event evidence, terminal-state guards, and unknown-call quarantine. Day 34 extends the durable boundary to application-side Sheets, email, CRM, notification, worksheet, and recording work through typed intent rows and a separately gated worker. Day 35 adds an independent fail-closed pilot admission boundary, hash-only cohort evidence, frozen success metrics, read-only readiness visibility, and a database-only rollback drill that refuses live worker/lease conditions. Day 36 adds immutable aggregate-only preflight/hold-point evidence, a fresh same-cohort/current-version admission requirement, queue/callback/side-effect observability, and explicit no-auto-expansion semantics.
 
 > The absence of a global worker enablement, tenant policy, recipient consent, or approved canary is a deliberate prohibition on outbound provider action—not a degraded mode that can fall open.
 
@@ -52,6 +52,9 @@ VoxFlow applies layered controls to tenant-aware voice and campaign operations. 
 | Pilot cohort minimisation | Implemented | Cohort ledger stores SHA-256 recipient hashes and consent-evidence references, not raw E.164 values. |
 | Pilot scorecard API | Read-only | No HTTP route can approve a pilot, enable a worker, add a cohort member, execute rollback, or contact a supplier. |
 | Rollback drill guard | Implemented | Database-only cancellation refuses while the worker is enabled or any pilot job has an active lease; it emits no provider request. |
+| Pilot operations evidence gate | Enforced by default | `PILOT_OPERATIONS_EVIDENCE_ENFORCED=true` denies admission unless fresh current-day same-cohort evidence exists for the exact pilot version; pause, stale, blocked, rollback-requested, and version-mismatched evidence fail closed. |
+| Pilot operations APIs | Read-only | Preflight and hold-point routes expose aggregate health only; no HTTP route can record evidence, activate/pause/expand a pilot, start a worker, run rollback, or contact a supplier. |
+| No-auto-expansion | Enforced by contract | Day 36 scorecards always report `expansion_permitted=false`; a review receipt is not a traffic-growth permission. |
 
 ## 4. Input and data controls
 
@@ -65,6 +68,7 @@ VoxFlow applies layered controls to tenant-aware voice and campaign operations. 
 | Durable side-effect intent | Typed allow-list, trusted aggregate ID, tenant idempotency, payload hash, bounded outcome code | Raw email/message/body, phone number, recording bytes, CRM webhook payload, signature, and provider secret are excluded from the intent/job ledger and analytics export. |
 | Pilot cohort member | Tenant/cohort-scoped SHA-256 recipient hash plus bounded consent evidence reference | Raw E.164 data is never returned from pilot readiness endpoints or dashboard panels. |
 | Pilot configuration | Bounded names/roles, capacity, expiry, metric version, cohort count | No escalation contact channel, provider secret, recipient number, or activation control is stored or returned. |
+| Pilot operational evidence | Pilot/version/evidence kind/key, bounded decision/reason, aggregate snapshot, recorder/time | Never store E.164 values, transcripts, raw callbacks, signatures, secrets, job payloads, or external request bodies. |
 | SQL | SQLAlchemy parameterized queries | Raw interpolated SQL is prohibited. |
 
 ## 5. Secrets and deployment configuration
@@ -80,6 +84,7 @@ VoxFlow applies layered controls to tenant-aware voice and campaign operations. 
 | Active backend side-effect worker flag remains false | Required until the Day 35 controlled-pilot approval, on both temporary Fly and future restored Render deployments. |
 | Side-effect dry-run remains true and allow-list empty | Required until a tenant-specific operational authorization has passed every preflight gate. |
 | Pilot admission remains enforced with empty tenant list | Required until the signed, one-tenant operating package is independently reviewed and deployed. |
+| Day 36 hold-point evidence gate remains enabled | Required in Fly and any restored Render deployment; missing/stale/pause/version-drift evidence must remain fail-closed. |
 | Learning journals contain no credentials | Required; `.learning/` is local and gitignored. |
 
 ## 6. Network and browser boundary
@@ -100,7 +105,7 @@ VoxFlow applies layered controls to tenant-aware voice and campaign operations. 
 | Provider-specific callback adapter certification | **Day 33 local implementation complete.** An uncontrolled live subscription would still risk an unintended callback rollout. | Keep `DIAL_CALLBACK_ADAPTER_ENABLED=false` in production. The Dial adapter now verifies raw-body HMAC/freshness, normalizes outbound events only, audits redacted dispositions, and requires a stored-operation tenant allow-list before application. |
 | RBAC for policy/replay/config mutation | Broad access could alter policy or worker configuration. | Add platform/tenant admin/operator/read-only authorization matrix. |
 | Callback and side-effect alert routing/runbooks | Day 35 exposes readiness evidence and frozen scorecards but cannot invent real alert recipients or operate external alert delivery. | Obtain named callback/side-effect alert owners and response windows in the signed tenant package before any future activation. |
-| Controlled-pilot authorization | Day 35 code is complete but no real human approval, cohort, or provider/integration behavior is deployed. | Obtain one approved tenant, consent evidence processed into a fixed hash cohort, explicit hours/expiry, named escalation coverage, metric approval, and a written go/no-go decision before a micro-cohort can be authorized. |
+| Controlled-pilot authorization | Days 35–36 code is complete but no real human approval, cohort, or provider/integration behavior is deployed. | Obtain one approved tenant, consent evidence processed into a fixed hash cohort, explicit hours/expiry, named escalation coverage, metric approval, fresh same-cohort hold-point ownership, and a written go/no-go decision before a micro-cohort can be authorized. |
 | Full security-header coverage | API response headers are not yet uniformly hardened. | Add/test a FastAPI security-header policy in later hardening work. |
 
 ## 8. Verification commands
@@ -126,12 +131,14 @@ curl -sS -o /dev/null -w '%{http_code}\n' -X POST "$API_ORIGIN/api/provider-call
 curl -fsS "$API_ORIGIN/api/analytics/overview?tenant_id=varun&days=7"
 curl -fsS "$API_ORIGIN/api/pilot-readiness/varun"
 curl -fsS "$API_ORIGIN/api/pilot-readiness/varun/rollback-preview"
+curl -fsS "$API_ORIGIN/api/pilot-operations/varun/preflight"
+curl -fsS "$API_ORIGIN/api/pilot-operations/varun/hold-point"
 # Confirm the delivered aggregate includes durable_side_effects with staged mode;
 # do not invoke an endpoint that creates a side-effect intent or external request.
 curl -I https://voxflow-voice-agent.vercel.app/dashboard/analytics
 ```
 
-Expected Day 35 live result is staged rollout with campaign and side-effect workers disabled, empty pilot/worker/adapter allow-lists, normalized callback ingress returning `503` while its secret is intentionally absent, and Dial sandbox ingress returning `503 dial_callback_adapter_disabled` before body parsing. Analytics should include `dial_sandbox_adapter` and `durable_side_effects`; pilot readiness should return a **blocked** scorecard with no configuration until a human-owned package exists. The current Fly/Vercel verification has met those read-only expectations. Do not treat a passing dashboard load, job-health read, analytics response, pilot scorecard, or callback rejection as authorization to enable outbound dispatch, configure a Dial secret, fire a provider ping, register a live callback URL, send an integration request, or create a live side-effect intent. Restore Render only after rerunning these checks and the dashboard verification, then retire Fly under recorded operator ownership.
+Expected Day 36 live result is staged rollout with campaign and side-effect workers disabled, empty pilot/worker/adapter allow-lists, normalized callback ingress returning `503` while its secret is intentionally absent, and Dial sandbox ingress returning `503 dial_callback_adapter_disabled` before body parsing. Analytics should include `dial_sandbox_adapter` and `durable_side_effects`; pilot readiness and Day 36 preflight/hold-point should return **blocked** evidence with no configuration until a human-owned package exists. Do not treat a passing dashboard load, job-health read, analytics response, pilot scorecard, preflight/hold-point response, or callback rejection as authorization to enable outbound dispatch, configure a Dial secret, fire a provider ping, register a live callback URL, send an integration request, or create a live side-effect intent. Restore Render only after rerunning these checks and the dashboard verification, then retire Fly under recorded operator ownership.
 
 ## References
 
@@ -144,7 +151,9 @@ Expected Day 35 live result is staged rollout with campaign and side-effect work
 - `migrations/007_dial_sandbox_callback_adapter.sql`
 - `migrations/008_typed_durable_side_effect_jobs.sql`
 - `migrations/009_controlled_pilot_readiness.sql`
+- `migrations/010_pilot_operations_evidence.sql`
 - `apps/api/voxflow_api/pilot_readiness.py`
+- `apps/api/voxflow_api/pilot_operations.py`
 - `apps/api/voxflow_api/jobs/side_effects.py`
 - `apps/api/voxflow_api/jobs/side_effect_worker_service.py`
 - `apps/api/voxflow_api/integrations/dial_callbacks.py`
