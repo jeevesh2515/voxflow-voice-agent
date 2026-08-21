@@ -8,7 +8,9 @@ type Turn = { role: "caller" | "agent"; text: string; at: number };
 
 const LOCAL_WS_URL = "ws://localhost:8000";
 const STAGED_PRODUCTION_WS_URL = "wss://voxflow-voice-agent.fly.dev";
-const WS_OPEN_TIMEOUT_MS = 15_000;
+// A sleeping free-tier API can need tens of seconds to wake and accept a WebSocket.
+// This wait only governs browser-session establishment; it does not activate workers or providers.
+const WS_OPEN_TIMEOUT_MS = 90_000;
 
 function normalizeWsUrl(value: string): string {
   return value.replace(/\/+$/, "");
