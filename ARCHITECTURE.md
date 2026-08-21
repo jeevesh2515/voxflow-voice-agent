@@ -1,7 +1,7 @@
 # VoxFlow Architecture
 
 **Last updated:** 2026-08-21
-**Current milestone:** Day 36 — evidence-led pilot operations source-complete; immutable redacted evidence, read-only preflight/hold-point scorecards, and same-cohort enforcement await release verification.
+**Current milestone:** Day 36 — evidence-led pilot operations is CI- and production-verified; immutable redacted evidence, read-only preflight/hold-point scorecards, and same-cohort enforcement remain fail-closed in the staged Fly runtime.
 **Operating mode:** Inbound voice and dashboard functions are deployed. Campaign dispatch and operational side-effect workers are independently safe-staged; Day 35 admission and Day 36 current-version evidence are both fail-closed with an empty tenant allow-list.
 
 ## 1. System boundaries

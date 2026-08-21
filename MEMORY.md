@@ -5,11 +5,11 @@
 ## Current position
 
 **Last updated:** 2026-08-21
-**Current milestone:** **Day 36 source implementation complete — immutable redacted pilot-operational evidence, read-only preflight/hold-point APIs, same-cohort evidence admission gate, queue/callback observability, pause evidence, and no-auto-expansion governance. Release deployment and browser verification remain pending.**
+**Current milestone:** **Day 36 complete and production-verified — immutable redacted pilot-operational evidence, read-only preflight/hold-point APIs, same-cohort evidence admission gate, queue/callback observability, pause evidence, and no-auto-expansion governance.**
 **Next implementation:** **Day 37 — Reliability SLOs, deterministic fault-injection drills, and recovery evidence.**
 **Verified Day 33 runtime revision:** `0a52152` — Dial sandbox adapter, rollout audit ledger, analytics visibility, migration `007`, and signed fixture certification. The subsequent `main` commit records final delivery evidence only.
 
-The durable campaign, observability, callback-certification, typed side-effect, and pilot-readiness programme for Days 25–35 is implemented, CI-validated, and browser-verified. Render remains blocked by its documented free-service deployment outage, so the same `main` revision runs temporarily at `https://voxflow-voice-agent.fly.dev`; Vercel Production has been rebuilt to use that origin. No real outbound provider call, notification, provider subscription, signing-secret configuration, provider ping, CRM webhook, Sheets write, Gmail fetch, or recording download has been performed during any milestone or verification.
+The durable campaign, observability, callback-certification, typed side-effect, pilot-readiness, and evidence-led pilot-operations programme for Days 25–36 is implemented, CI-validated, and browser-verified. Render remains blocked by its documented free-service deployment outage, so `main` revision `0047c93` (including Day 36 code commit `93c5a40`) runs temporarily at `https://voxflow-voice-agent.fly.dev`; Vercel Production uses that origin. No real outbound provider call, notification, provider subscription, signing-secret configuration, provider ping, CRM webhook, Sheets write, Gmail fetch, or recording download has been performed during any milestone or verification.
 
 ## Verified delivery state
 
@@ -21,10 +21,13 @@ The durable campaign, observability, callback-certification, typed side-effect, 
 | Day 34 release gates | Commit `9e8c809` and GitHub CI #107 passed. Render remains outage-blocked, but Fly API safe analytics verification and the Vercel Durable Side Effects panel are now verified. |
 | Day 35 local scope | `PilotConfiguration`, `PilotCohortMember`, and `PilotSecurityIncident` models; migration `009`; fail-closed campaign admission; frozen scorecard; read-only pilot and rollback-preview APIs; dashboard panel; database-only rollback drill; `railway.json` temporary-host manifest. |
 | Day 35 GitHub/CI | Commit [`8f14f1b`](https://github.com/jeevesh2515/voxflow-voice-agent/commit/8f14f1b3aa8608441eb8f81ac2cd90b42ee940a5) is pushed to `main`. GitHub Actions [run #108](https://github.com/jeevesh2515/voxflow-voice-agent/actions/runs/32396910278) passed `api-lint`, `api-test`, and `web-lint`. |
-| Fly temporary API | Fly deployment `1918958` is running at `https://voxflow-voice-agent.fly.dev`, sourced from `8f14f1b`. Safe health, analytics, pilot-readiness, rollback-preview, and both callback 503 checks passed. |
-| Day 35/Vercel release gates | Vercel production deployment `56QMWDU6A` is **Ready** on `8f14f1b`; Production `NEXT_PUBLIC_API_URL` points only to Fly. The live authenticated analytics page rendered all Day 33–35 staged panels. |
+| Fly temporary API | Fly deployment [`1920953`](https://fly.io/apps/voxflow-voice-agent/deployments/1920953/deploy) completed successfully on `0047c93`, which includes Day 36 commit `93c5a40`. Safe health, analytics, pilot-readiness, preflight, hold-point, and both callback 503 checks passed. |
+| Day 35/Vercel release gates | Vercel Production uses the Fly API origin. The live authenticated analytics page rendered all Day 33–35 staged panels and remains session-protected. |
 | Day 36 local scope | `PilotOperationalEvidence` model and migration `010`; trusted-service idempotent evidence recording; same-day same-cohort hold-point gate; read-only preflight/hold-point APIs; aggregate queue/callback/side-effect observability; pause evidence; and a non-activating dashboard panel. |
 | Day 36 local verification | Focused Day 35/36 tests: **18 passed**; full API suite: **222 passed**; API lint, frontend lint, and production build with 20 routes passed. No worker, provider, callback, or integration was enabled. |
+| Day 36 GitHub CI | Day 36 code commit [`93c5a40`](https://github.com/jeevesh2515/voxflow-voice-agent/commit/93c5a409ebba5dcb3e2da39991a6d89fecf58845) passed GitHub Actions [run #32438697291](https://github.com/jeevesh2515/voxflow-voice-agent/actions/runs/32438697291): `api-lint`, `api-test`, and `web-lint`. Follow-on Fly configuration commit [`0047c93`](https://github.com/jeevesh2515/voxflow-voice-agent/commit/0047c93715a5f1e5a44ef9dea6a263f8c982e4b7) also passed CI [run #32439031863](https://github.com/jeevesh2515/voxflow-voice-agent/actions/runs/32439031863). |
+| Day 36 production/API | `GET /api/health` returned **200**. Analytics returned **200** with staged dry-run side effects and zero intent/error counts. Day 35 readiness returned **200** and **BLOCKED**. Day 36 preflight returned **200**, `configured=false`, `state=blocked`, `no_auto_expansion=true`, `requires_human_hold_point=true`, zero running jobs, and zero callback anomalies; hold-point returned **200**, `state=blocked`, and `expansion_permitted=false`. Both deliberately malformed callback requests returned **503** before any provider action. |
+| Day 36 Vercel/dashboard | The authenticated [analytics dashboard](https://voxflow-voice-agent.vercel.app/dashboard/analytics) rendered **Pilot Operations Evidence** with **HOLD POINT BLOCKED**, **RUNNING 0**, **CALLBACK FLAGS 0**, `Queue: 0 ready/retrying · 0 dead letters`, and **NO AUTO-EXPANSION · HUMAN HOLD POINT REQUIRED**. |
 | Day 32 CI/deployment | Day 32 implementation CI [#101](https://github.com/jeevesh2515/voxflow-voice-agent/actions/runs/32380869101) and correction CI #102 passed; Render/Vercel Day 32 browser evidence remains recorded below. |
 | Day 33 GitHub/CI | Commit [`0a52152`](https://github.com/jeevesh2515/voxflow-voice-agent/commit/0a5215275ff51d0b31b3bbadee825322cb30f429) is pushed to `main`. GitHub Actions [run #105](https://github.com/jeevesh2515/voxflow-voice-agent/actions/runs/32387989478) passed all `api-lint`, `api-test`, and `web-lint` jobs. |
 | Day 33 Render | `POST /api/provider-callbacks/dial/events` with `{}` returned **503** and `dial_callback_adapter_disabled`. Analytics returned **200** and included `dial_sandbox_adapter` with `adapter_enabled=false`, `sandbox_mode=true`, `tenant_allowed=false`, `audit_count=0`, and empty status counts. |
@@ -73,7 +76,7 @@ canary_allowed=false
 dry_run=true
 ```
 
-The temporary deployed API returned analytics with `durable_side_effects.activation_mode=staged`, `dry_run=true`, `tenant_allowed=false`, and zero intent/error counts. Its Day 35 scorecard returned `state=blocked`, `pilot_configuration_missing`, and a non-executable rollback preview; both callback paths returned 503 before payload actions. A missing policy or pilot configuration is not permission to call.
+The temporary deployed API returned analytics with `durable_side_effects.activation_mode=staged`, `dry_run=true`, `tenant_allowed=false`, and zero intent/error counts. Its Day 35 scorecard returned `state=blocked`, `pilot_configuration_missing`, and a non-executable rollback preview. Day 36 preflight and hold-point independently returned `state=blocked`, zero running/callback-anomaly signals, and `no_auto_expansion=true` / `expansion_permitted=false`; both callback paths returned 503 before payload actions. A missing policy, pilot configuration, or evidence package is not permission to call.
 
 ## Day 30–34 invariants
 
@@ -110,17 +113,17 @@ The temporary deployed API returned analytics with `durable_side_effects.activat
 | Live provider sandbox canary | Not authorized or executed. | Do not register a provider subscription or enable the campaign worker; Day 35 requires separate written pilot approval and runbook evidence. |
 | Operational side-effect worker | Day 34 implementation complete locally; production worker remains disabled and dry-run protected. | Do not configure an allow-list or enable it until Day 35 has a written tenant approval, integration review, named operator, and rollback proof. |
 | Pilot scorecard and human operations | Day 35 implementation complete; production remains intentionally blocked with no real named cohort or approver record. | Obtain written one-tenant authority, consent-evidence references, E.164 cohort through the protected data steward, named primary/backup responders, hours, expiry, and go/no-go owner before any future activation decision. |
-| Evidence-led pilot operations | Day 36 source implementation complete; production remains blocked until release verification and a future human-owned operating package. | Deploy migration `010`; verify preflight/hold-point read-only responses and Pilot Operations Evidence panel; preserve no-auto-expansion and empty allow-lists. |
+| Evidence-led pilot operations | **Day 36 complete and production-verified.** The production tenant remains blocked with no configuration or evidence record. | Preserve no-auto-expansion and empty allow-lists. Day 37 adds only reliability SLOs, deterministic drills, and recovery evidence. |
 | Temporary backend workaround | Render and Railway were both deployment-blocked; Koyeb is unavailable; Fly temporary API is live and Vercel Production now uses it. | Retain Fly only while Render is unavailable; when Render recovers, repeat safe API/browser checks before restoring the original API origin and retiring Fly. |
 
 ## Immediate next session
 
-1. Preserve the Fly temporary backend and Vercel Production API origin only while Render remains unavailable; collect Fly deployment/trial operational ownership and retirement date.
+1. Begin **Day 37**: add tenant-scoped reliability SLO scorecards, deterministic database-only fault drills, read-only drill-result APIs/dashboard evidence, and a recovery-plan preview; do not change activation posture.
 2. Preserve the hard safety boundary: both workers disabled; campaign and side-effect dry run; empty pilot/worker/adapter allow-lists; no callback signing secret; no provider/integration action.
-3. On Render recovery, safely re-verify health, analytics, callback 503 responses, pilot scorecard/rollback-preview, and live Vercel panels before restoring the Render origin and retiring Fly.
-4. Collect the human-owned operating package before any go/no-go: written tenant authorization, consent evidence, a fixed E.164 cohort processed into hashes, explicit hours/expiry, named primary/backup coverage, alert owners, frozen metric approval, and a rollback owner.
-5. Verify the Day 36 Fly/Vercel release with only safe `GET` requests and browser rendering; do not enable a worker, add an allow-list, configure a callback secret, or record an operational decision through an untrusted route.
-6. Do not promise business KPIs or zero incidents before the controlled pilot measures them. Days 35–36 make them observable, bounded, reviewable, and reversible.
+3. Preserve the Fly temporary backend and Vercel Production API origin only while Render remains unavailable; collect Fly deployment/trial operational ownership and retirement date.
+4. On Render recovery, safely re-verify health, analytics, callback 503 responses, pilot scorecard/rollback-preview, Day 36 evidence APIs, and live Vercel panels before restoring the Render origin and retiring Fly.
+5. Collect the human-owned operating package before any go/no-go: written tenant authorization, consent evidence, a fixed E.164 cohort processed into hashes, explicit hours/expiry, named primary/backup coverage, alert owners, frozen metric approval, and a rollback owner.
+6. Do not promise business KPIs or zero incidents before the controlled pilot measures them. Days 35–37 make them observable, bounded, reviewable, and reversible.
 
 ## References
 
