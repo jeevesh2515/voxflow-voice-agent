@@ -77,7 +77,7 @@ Run migrations through an approved PostgreSQL migration procedure. Do not run a 
 
 ## 4. Backend deployment and outage fallback
 
-Render remains the canonical backend runtime because the API hosts HTTP routes, WebSocket/inbound voice behavior, and future separately deployed workers. While Render free-service builds/deploys/spin-up are blocked, the same root Dockerfile and `main` revision run temporarily on Fly.io. Configure either provider with its secret manager; never commit production values.
+Render remains the canonical backend runtime because the API hosts HTTP routes, WebSocket/inbound voice behavior, and future separately deployed workers. While Render free-service builds/deploys/spin-up are blocked, the same root Dockerfile and `main` revision run temporarily on Fly.io. The reviewed root [`fly.toml`](fly.toml) declares the temporary app, `ams` primary region, HTTPS service on internal port `8000`, and request-driven machine start/stop only; it does not contain secrets, enable a worker, register a callback, or grant tenant activation. Configure either provider with its secret manager; never commit production values.
 
 | Environment variable | Purpose | Production guidance |
 |---|---|---|
