@@ -7,10 +7,11 @@ import uuid
 from datetime import datetime, timezone
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Request
 from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 
+from ..auth import ROLE_OPERATOR, ROLE_OWNER, ROLE_VIEWER, require_tenant_role
 from ..db import RecipientCampaignPreference, Tenant, TenantCampaignPolicy, get_session
 
 router = APIRouter(prefix="/api/campaign-policies", tags=["campaign-policies"])
@@ -34,9 +35,16 @@ class RecipientPreferenceIn(BaseModel):
     source: str = Field("operator", min_length=1, max_length=128)
 
 
-def _require_tenant(db: Session, tenant_id: str) -> None:
+def _require_tenant(request: Request, db: Session, tenant_id: str, *, write: bool = False, allow_demo: bool = True) -> None:
     if db.get(Tenant, tenant_id) is None:
         raise HTTPException(status_code=404, detail="Tenant not found")
+    require_tenant_role(
+        request,
+        db,
+        tenant_id=tenant_id,
+        allowed_roles={ROLE_OWNER, ROLE_OPERATOR} if write else {ROLE_OWNER, ROLE_OPERATOR, ROLE_VIEWER},
+        allow_demo=allow_demo and not write,
+    )
 
 
 def _validate_policy(value: CampaignPolicyIn) -> None:
@@ -67,10 +75,10 @@ def _policy_payload(policy: TenantCampaignPolicy | None, tenant_id: str) -> dict
 
 
 @router.get("/{tenant_id}")
-def get_campaign_policy(tenant_id: str, db: Session = Depends(get_session)) -> dict[str, object]:
+def get_campaign_policy(tenant_id: str, request: Request, db: Session = Depends(get_session)) -> dict[str, object]:
     """Read one tenant's policy configuration without exposing recipient data."""
 
-    _require_tenant(db, tenant_id)
+    _require_tenant(request, db, tenant_id)
     return _policy_payload(db.get(TenantCampaignPolicy, tenant_id), tenant_id)
 
 
@@ -78,11 +86,12 @@ def get_campaign_policy(tenant_id: str, db: Session = Depends(get_session)) -> d
 def upsert_campaign_policy(
     tenant_id: str,
     payload: CampaignPolicyIn,
+    request: Request,
     db: Session = Depends(get_session),
 ) -> dict[str, object]:
     """Create or replace an explicit policy gate for a single tenant."""
 
-    _require_tenant(db, tenant_id)
+    _require_tenant(request, db, tenant_id, write=True)
     _validate_policy(payload)
     policy = db.get(TenantCampaignPolicy, tenant_id)
     if policy is None:
@@ -105,11 +114,12 @@ def upsert_recipient_preference(
     tenant_id: str,
     recipient_phone: str,
     payload: RecipientPreferenceIn,
+    request: Request,
     db: Session = Depends(get_session),
 ) -> dict[str, object]:
     """Persist tenant-owned outbound-call consent and opt-out state for one recipient."""
 
-    _require_tenant(db, tenant_id)
+    _require_tenant(request, db, tenant_id, write=True, allow_demo=False)
     if not recipient_phone.startswith("+"):
         raise HTTPException(status_code=422, detail="recipient_phone must use E.164 format")
     preference = (
@@ -148,11 +158,12 @@ def upsert_recipient_preference(
 def get_recipient_preference(
     tenant_id: str,
     recipient_phone: str,
+    request: Request,
     db: Session = Depends(get_session),
 ) -> dict[str, object]:
     """Read a single tenant-owned recipient preference record."""
 
-    _require_tenant(db, tenant_id)
+    _require_tenant(request, db, tenant_id, allow_demo=False)
     preference = (
         db.query(RecipientCampaignPreference)
         .filter(

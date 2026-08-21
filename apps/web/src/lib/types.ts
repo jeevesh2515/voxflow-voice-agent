@@ -378,3 +378,196 @@ export interface PilotOperations {
     latest_evidence: PilotOperationsEvidence | null;
   };
 }
+
+export interface ReliabilitySLO {
+  id: string | null;
+  metric_type: string;
+  label: string;
+  target_percent: number;
+  window_hours: number;
+  comparison: "minimum" | "maximum" | string;
+  source: "built_in_contract" | "tenant_configuration" | string;
+  actual_percent: number | null;
+  sample_size: number;
+  status: "passing" | "failing" | "insufficient_evidence";
+  evidence: Record<string, unknown>;
+}
+
+export interface ReliabilityScorecard {
+  tenant_id: string;
+  generated_at: string;
+  read_only: true;
+  summary: {
+    state: "healthy" | "attention" | "blocked";
+    passing_count: number;
+    failing_count: number;
+    insufficient_evidence_count: number;
+  };
+  slos: ReliabilitySLO[];
+  safety_guardrails: {
+    campaign_worker_enabled: boolean;
+    campaign_dry_run: boolean;
+    side_effect_worker_enabled: boolean;
+    side_effect_dry_run: boolean;
+    safe: boolean;
+    external_actions: 0;
+    worker_activation_available: false;
+    provider_access_available: false;
+  };
+}
+
+export interface DrillResult {
+  id: string;
+  fixture_type: "expired_lease" | "dead_letter" | "callback_anomaly" | "pause" | "stale_evidence" | "version_drift" | string;
+  fixture_version: string;
+  outcome: "passed" | "failed" | "blocked";
+  recovery_summary: string;
+  created_at: string;
+  evidence: {
+    expected_blocking_reason?: string;
+    observed_signals?: Record<string, unknown>;
+    detected?: boolean;
+    external_actions?: 0;
+    created_job_rows?: 0;
+    created_provider_operations?: 0;
+    provider_requests?: 0;
+  };
+}
+
+export interface DrillResultsResponse {
+  tenant_id: string;
+  read_only: true;
+  results: DrillResult[];
+}
+
+export interface RecoveryPreview {
+  tenant_id: string;
+  generated_at: string;
+  read_only: true;
+  can_execute_from_browser: false;
+  external_actions: 0;
+  worker_activation_available: false;
+  provider_access_available: false;
+  safety_posture: {
+    campaign_worker_enabled: boolean;
+    campaign_dry_run: boolean;
+    side_effect_worker_enabled: boolean;
+    side_effect_dry_run: boolean;
+    safe: boolean;
+  };
+  preflight_state: "blocked" | "review_required" | string;
+  hold_point_state: "blocked" | "reviewed_same_cohort" | string;
+  rollback: {
+    configured: boolean;
+    can_execute: false;
+    would_cancel_job_count: number;
+    active_claim_count: number;
+    execution_guard: string;
+  };
+  recommended_actions: Array<{
+    priority: number;
+    condition: string;
+    action: string;
+    execution: "human_review_only" | string;
+  }>;
+}
+
+export type TenantRole = "owner" | "operator" | "viewer";
+export type TenantMembershipStatus = "invited" | "active" | "revoked";
+
+export interface TenantMembership {
+  id: string;
+  tenant_id: string;
+  user_id: string | null;
+  role: TenantRole;
+  status: TenantMembershipStatus;
+  invited_by?: string;
+  activated_at?: string | null;
+  revoked_at?: string | null;
+  created_at?: string | null;
+  updated_at?: string | null;
+  tenant?: {
+    id: string;
+    name: string;
+    logo_url?: string | null;
+    agent_name?: string | null;
+    plan?: string | null;
+  };
+}
+
+export interface TenantMembershipsResponse {
+  memberships: TenantMembership[];
+  demo_mode: boolean;
+}
+
+export type PrivacyRequestType = "access_export" | "deletion" | "demo_reset";
+export type PrivacyRequestStatus = "pending_human_review" | "human_verification_required" | "approved_for_manual_export" | "blocked" | "cancelled";
+
+export interface PrivacyPolicy {
+  tenant_id: string;
+  call_transcript_retention_days: number;
+  communication_retention_days: number;
+  recording_retention_days: number;
+  recording_retrieval_enabled: false;
+  updated_at: string | null;
+}
+
+export interface PrivacyRequest {
+  id: string;
+  tenant_id: string;
+  request_type: PrivacyRequestType;
+  status: PrivacyRequestStatus;
+  requested_by: string;
+  review_note: string;
+  created_at: string | null;
+  reviewed_at: string | null;
+  reviewed_by: string | null;
+}
+
+export interface PrivacyOverview {
+  tenant_id: string;
+  policy: PrivacyPolicy;
+  preview: {
+    call_records_scanned: number;
+    transcript_records_eligible_for_review: number;
+    communication_records_scanned: number;
+    communication_records_eligible_for_review: number;
+    recording_reference_count: number;
+    recording_retrieval_enabled: false;
+  };
+  execution: {
+    mode: "preview_only";
+    purge_job_enqueued: false;
+    provider_accessed: false;
+    raw_record_exported: false;
+  };
+  required_gate: string;
+}
+
+export interface DemoResetPreview {
+  tenant_id: string;
+  operation: "sanitized_demo_reset";
+  execution: "blocked_preview_only";
+  eligible_for_request: boolean;
+  all_gates_met: boolean;
+  gates: Array<{ code: string; met: boolean; detail: string }>;
+  provider_accessed: false;
+  data_deleted: false;
+}
+
+export interface DesignPartnerReadiness {
+  tenant_id: string;
+  status: "blocked" | "attention" | "ready_for_human_review";
+  summary: {
+    active_membership_count: number;
+    active_owner_count: number;
+    reliability_status: string;
+    pilot_admission_status: string;
+    campaign_worker_enabled: boolean;
+    side_effect_worker_enabled: boolean;
+    provider_activity_enabled: false;
+  };
+  gates: Array<{ code: string; category: string; status: "ready" | "attention" | "blocked"; owner: string; detail: string }>;
+  automatic_activation: false;
+  next_step: string;
+}

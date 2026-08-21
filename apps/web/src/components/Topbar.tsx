@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import {
@@ -8,7 +8,6 @@ import {
   Menu,
   CheckCircle2,
   ChevronDown,
-  Plus,
   LogOut,
   User,
   Sun,
@@ -24,21 +23,10 @@ import { createClient } from "@/lib/supabase/client";
 
 export default function Topbar({ title, subtitle, onToggleSidebar }: { title?: string; subtitle?: string; onToggleSidebar?: () => void }) {
   const router = useRouter();
-  const { activeTenantId, activeTenant, tenants, setActiveTenantId, addTenant } = useTenant();
+  const { activeTenantId, activeTenant, tenants, loading: tenantLoading, demoMode, setActiveTenantId } = useTenant();
   const { theme, toggleTheme } = useTheme();
 
-  const [isAddingTenant, setIsAddingTenant] = useState(false);
-  const [newCompanyName, setNewCompanyName] = useState("");
   const [searchQuery, setSearchQuery] = useState("");
-
-  const handleAddCompanySubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!newCompanyName.trim()) return;
-    const created = addTenant(newCompanyName);
-    setNewCompanyName("");
-    setIsAddingTenant(false);
-    setActiveTenantId(created.id);
-  };
 
   const handleLogout = async () => {
     try {
@@ -76,69 +64,36 @@ export default function Topbar({ title, subtitle, onToggleSidebar }: { title?: s
           </div>
         </Link>
 
-        {/* Company Selector Dropdown & Add Action */}
+        {/* Server-authorized workspace selector */}
         <div className="hidden sm:flex items-center gap-3">
-          {isAddingTenant ? (
-            <form onSubmit={handleAddCompanySubmit} className="flex items-center gap-2 bg-[#181826] border border-[#ff2d78] rounded-xl px-3 py-1.5 shadow-sm">
-              <input
-                type="text"
-                autoFocus
-                value={newCompanyName}
-                onChange={(e) => setNewCompanyName(e.target.value)}
-                placeholder="Company Name..."
-                className="bg-transparent text-xs text-[#f1f5f9] placeholder:text-[#64748b] focus:outline-none w-40 font-body"
-              />
-              <button
-                type="submit"
-                className="bg-[#ff2d78] text-white font-headline font-bold text-[10px] uppercase px-2.5 py-1 rounded-lg hover:bg-[#ff2d78]/90 transition-colors"
-              >
-                Add
-              </button>
-              <button
-                type="button"
-                onClick={() => setIsAddingTenant(false)}
-                className="text-[#94a3b8] hover:text-white text-xs px-1"
-              >
-                ✕
-              </button>
-            </form>
-          ) : (
-            <div className="flex items-center gap-3 bg-[#141422] px-3.5 py-1.5 rounded-xl border border-[#28283c] hover:border-[#ff2d78]/50 transition-all shadow-sm">
-              <div className="w-7 h-7 rounded-lg bg-[#ff2d78]/20 flex items-center justify-center text-[#ff2d78] font-bold text-xs border border-[#ff2d78]/30 shrink-0">
-                {activeTenant?.name ? activeTenant.name.charAt(0).toUpperCase() : "W"}
-              </div>
-              <div className="flex flex-col">
-                <div className="flex items-center gap-1.5">
-                  <select
-                    value={activeTenantId}
-                    onChange={(e) => setActiveTenantId(e.target.value)}
-                    className="bg-transparent text-xs font-headline font-bold text-[#f1f5f9] focus:outline-none cursor-pointer pr-1 max-w-[180px] truncate"
-                  >
-                    {tenants.map((t) => (
-                      <option key={t.id} value={t.id} className="bg-[#141422] text-[#f1f5f9]">
-                        {t.name}
-                      </option>
-                    ))}
-                  </select>
-                  <CheckCircle2 size={13} className="text-[#00ffcc] shrink-0" />
-                </div>
-                <div className="flex items-center gap-1.5 text-[9px] font-label text-[#94a3b8] uppercase tracking-wider font-semibold">
-                  <span className="flex items-center gap-1 text-[#00ffcc] font-bold">
-                    <span className="w-1.5 h-1.5 rounded-full bg-[#00ffcc] animate-pulse" />
-                    Live Workspace
-                  </span>
-                </div>
-              </div>
-              <button
-                type="button"
-                onClick={() => setIsAddingTenant(true)}
-                title="Add New Workspace"
-                className="text-[#94a3b8] hover:text-[#ff2d78] p-1 rounded-lg hover:bg-[#1e1e30] ml-1 transition-colors"
-              >
-                <Plus size={14} />
-              </button>
+          <div className="flex items-center gap-3 bg-[#141422] px-3.5 py-1.5 rounded-xl border border-[#28283c] shadow-sm">
+            <div className="w-7 h-7 rounded-lg bg-[#ff2d78]/20 flex items-center justify-center text-[#ff2d78] font-bold text-xs border border-[#ff2d78]/30 shrink-0">
+              {activeTenant?.name ? activeTenant.name.charAt(0).toUpperCase() : "W"}
             </div>
-          )}
+            <div className="flex flex-col">
+              <div className="flex items-center gap-1.5">
+                <select
+                  value={activeTenantId}
+                  onChange={(e) => setActiveTenantId(e.target.value)}
+                  disabled={tenantLoading || !tenants.length}
+                  className="bg-transparent text-xs font-headline font-bold text-[#f1f5f9] focus:outline-none cursor-pointer pr-1 max-w-[180px] truncate disabled:cursor-not-allowed"
+                >
+                  {tenants.length ? tenants.map((tenant) => (
+                    <option key={tenant.id} value={tenant.id} className="bg-[#141422] text-[#f1f5f9]">
+                      {tenant.name}
+                    </option>
+                  )) : <option value="">{tenantLoading ? "Loading workspaces…" : "No authorized workspace"}</option>}
+                </select>
+                {tenants.length > 0 && <CheckCircle2 size={13} className="text-[#00ffcc] shrink-0" />}
+              </div>
+              <div className="flex items-center gap-1.5 text-[9px] font-label text-[#94a3b8] uppercase tracking-wider font-semibold">
+                <span className={`flex items-center gap-1 font-bold ${demoMode ? "text-[#ffe04a]" : "text-[#00ffcc]"}`}>
+                  <span className={`w-1.5 h-1.5 rounded-full ${demoMode ? "bg-[#ffe04a]" : "bg-[#00ffcc]"}`} />
+                  {demoMode ? "Read-only demo" : `${activeTenant.role} access`}
+                </span>
+              </div>
+            </div>
+          </div>
         </div>
       </div>
 

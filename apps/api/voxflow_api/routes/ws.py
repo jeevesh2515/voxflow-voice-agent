@@ -7,6 +7,7 @@ import json
 
 from fastapi import APIRouter, WebSocket, WebSocketDisconnect
 
+from ..config import get_settings
 from ..logging import get_logger
 from ..voice.pipeline import CallSession, VoicePipeline
 
@@ -58,11 +59,20 @@ async def call_socket(ws: WebSocket) -> None:
 
             t = msg.get("type")
             if t == "start":
+                # Browser WebSockets cannot safely attach the application-owned
+                # bearer identity used by REST. Until an authenticated WS
+                # handshake is introduced, this surface is deliberately limited
+                # to the fixed non-sensitive demonstration tenant. It cannot be
+                # used to select or inspect a customer tenant by message data.
+                requested_tenant = str(msg.get("tenant_id") or get_settings().demo_tenant_id)
+                if requested_tenant != get_settings().demo_tenant_id:
+                    await ws.send_json({"type": "error", "message": "simulator_tenant_authorization_required"})
+                    continue
                 session = pipeline.start_session(
                     caller_phone=msg.get("caller_phone", ""),
                     caller_name=msg.get("caller_name", ""),
                     language=msg.get("language"),
-                    tenant_id=msg.get("tenant_id"),
+                    tenant_id=get_settings().demo_tenant_id,
                 )
                 await ws.send_json({"type": "ready", "call_id": session.call_id})
 

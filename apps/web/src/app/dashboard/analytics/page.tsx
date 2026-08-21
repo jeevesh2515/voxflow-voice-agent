@@ -18,7 +18,14 @@ import {
 } from "lucide-react";
 import { api } from "@/lib/api";
 import { useTenant } from "@/lib/tenant-context";
-import type { AnalyticsOverview, PilotOperations, PilotReadiness } from "@/lib/types";
+import type {
+  AnalyticsOverview,
+  DrillResultsResponse,
+  PilotOperations,
+  PilotReadiness,
+  RecoveryPreview,
+  ReliabilityScorecard,
+} from "@/lib/types";
 
 const PERIODS = [7, 30, 90] as const;
 
@@ -121,6 +128,21 @@ export default function AnalyticsPage() {
   const { data: pilotOperations, error: pilotOperationsError } = useSWR<PilotOperations>(
     ["pilot-operations-hold-point", activeTenantId],
     () => api.pilotOperationsHoldPoint(activeTenantId),
+    { refreshInterval: 30_000, revalidateOnFocus: true },
+  );
+  const { data: reliability, error: reliabilityError } = useSWR<ReliabilityScorecard>(
+    ["reliability-slos", activeTenantId],
+    () => api.reliabilitySLOs(activeTenantId),
+    { refreshInterval: 30_000, revalidateOnFocus: true },
+  );
+  const { data: drills, error: drillsError } = useSWR<DrillResultsResponse>(
+    ["reliability-drills", activeTenantId],
+    () => api.reliabilityDrills(activeTenantId),
+    { refreshInterval: 30_000, revalidateOnFocus: true },
+  );
+  const { data: recovery, error: recoveryError } = useSWR<RecoveryPreview>(
+    ["reliability-recovery", activeTenantId],
+    () => api.reliabilityRecoveryPreview(activeTenantId),
     { refreshInterval: 30_000, revalidateOnFocus: true },
   );
 
@@ -318,13 +340,49 @@ export default function AnalyticsPage() {
                 <>
                   <div className="mt-5 grid grid-cols-3 gap-3">
                     <div className="rounded-xl border border-[#2c2c40] bg-[#181826] p-3"><p className="text-[10px] font-mono text-[#94a3b8]">HOLD POINT</p><p className={`mt-1 text-sm font-bold ${pilotOperations.hold_point?.state === "reviewed_same_cohort" ? "text-[#00ffcc]" : "text-[#ffe04a]"}`}>{pilotOperations.hold_point?.state === "reviewed_same_cohort" ? "REVIEWED" : "BLOCKED"}</p></div>
-                    <div className="rounded-xl border border-[#2c2c40] bg-[#181826] p-3"><p className="text-[10px] font-mono text-[#94a3b8]">RUNNING</p><p className={`mt-1 text-xl font-bold ${pilotOperations.queue.campaign_running ? "text-[#ff2d78]" : "text-white"}`}>{pilotOperations.queue.campaign_running}</p></div>
+                    <div className="rounded-xl border border-[#2c2c40] bg-[#181826] p-3"><p className={`text-[10px] font-mono text-[#94a3b8]`}>RUNNING</p><p className={`mt-1 text-xl font-bold ${pilotOperations.queue.campaign_running ? "text-[#ff2d78]" : "text-white"}`}>{pilotOperations.queue.campaign_running}</p></div>
                     <div className="rounded-xl border border-[#2c2c40] bg-[#181826] p-3"><p className="text-[10px] font-mono text-[#94a3b8]">CALLBACK FLAGS</p><p className={`mt-1 text-xl font-bold ${pilotOperations.callbacks.callback_anomalies ? "text-[#ff2d78]" : "text-white"}`}>{pilotOperations.callbacks.callback_anomalies}</p></div>
                   </div>
                   <div className="mt-4 text-xs text-[#cbd5e1]">Queue: <span className="font-mono font-bold text-white">{pilotOperations.queue.campaign_ready_or_retrying}</span> ready/retrying · <span className="font-mono font-bold text-white">{pilotOperations.queue.campaign_dead_lettered}</span> dead letters · Hold: <span className="font-mono font-bold text-white">{pilotOperations.hold_point?.reason ? titleCase(pilotOperations.hold_point.reason) : "Evidence pending"}</span></div>
                   <div className="mt-3 text-[11px] text-[#94a3b8]">{pilotOperations.preflight.no_auto_expansion ? "NO AUTO-EXPANSION · HUMAN HOLD POINT REQUIRED" : "Human review required"} · {pilotOperations.preflight.blocking_reasons.length ? pilotOperations.preflight.blocking_reasons.map(titleCase).join(" · ") : "Preflight ready for operator review."}</div>
                 </>
               ) : <p className="mt-4 text-xs text-[#64748b]">Loading pilot operations evidence…</p>}
+            </div>
+
+            <div className="rounded-2xl border border-[#28283c] bg-[#141422] p-5">
+              <div className="flex items-center gap-2"><Gauge size={18} className="text-blue-400" /><h3 className="font-headline text-sm font-bold text-white">Reliability SLOs</h3></div>
+              <p className="mt-2 text-xs text-[#94a3b8]">Tenant-scoped aggregate objectives. Values are observational and cannot change workers, queues, callbacks, or providers.</p>
+              {reliabilityError ? <p className="mt-4 text-xs text-[#ff9bbd]">Reliability scorecard could not be loaded.</p> : reliability ? (
+                <>
+                  <div className="mt-5 grid grid-cols-3 gap-3">
+                    <div className="rounded-xl border border-[#2c2c40] bg-[#181826] p-3"><p className="text-[10px] font-mono text-[#94a3b8]">STATE</p><p className={`mt-1 text-sm font-bold ${reliability.summary.state === "healthy" ? "text-[#00ffcc]" : reliability.summary.state === "blocked" ? "text-[#ff2d78]" : "text-[#ffe04a]"}`}>{reliability.summary.state.toUpperCase()}</p></div>
+                    <div className="rounded-xl border border-[#2c2c40] bg-[#181826] p-3"><p className="text-[10px] font-mono text-[#94a3b8]">PASSING</p><p className="mt-1 text-xl font-bold text-[#00ffcc]">{reliability.summary.passing_count}</p></div>
+                    <div className="rounded-xl border border-[#2c2c40] bg-[#181826] p-3"><p className="text-[10px] font-mono text-[#94a3b8]">GAPS</p><p className={`mt-1 text-xl font-bold ${reliability.summary.failing_count ? "text-[#ff2d78]" : "text-white"}`}>{reliability.summary.failing_count + reliability.summary.insufficient_evidence_count}</p></div>
+                  </div>
+                  <div className="mt-4 space-y-2 text-xs">{reliability.slos.map((slo) => <div key={slo.metric_type} className="flex items-center justify-between gap-3 rounded-lg border border-[#2c2c40] bg-[#181826] px-3 py-2"><span className="truncate text-[#cbd5e1]">{slo.label}</span><span className={`shrink-0 font-mono font-bold ${slo.status === "passing" ? "text-[#00ffcc]" : slo.status === "failing" ? "text-[#ff2d78]" : "text-[#ffe04a]"}`}>{slo.actual_percent === null ? "PENDING" : `${slo.actual_percent}% / ${slo.target_percent}%`}</span></div>)}</div>
+                  <div className="mt-3 text-[11px] text-[#94a3b8]">Safety guard: workers {reliability.safety_guardrails.safe ? "remain disabled with dry-run enabled" : "require immediate configuration review"} · external actions: {reliability.safety_guardrails.external_actions}</div>
+                </>
+              ) : <p className="mt-4 text-xs text-[#64748b]">Loading reliability scorecard…</p>}
+            </div>
+
+            <div className="rounded-2xl border border-[#28283c] bg-[#141422] p-5">
+              <div className="flex items-center gap-2"><ShieldCheck size={18} className="text-[#00ffcc]" /><h3 className="font-headline text-sm font-bold text-white">Drill Evidence</h3></div>
+              <p className="mt-2 text-xs text-[#94a3b8]">Immutable receipts from trusted database-only fault fixtures. There is intentionally no browser control to run a drill.</p>
+              {drillsError ? <p className="mt-4 text-xs text-[#ff9bbd]">Drill evidence could not be loaded.</p> : drills ? (
+                drills.results.length ? <div className="mt-5 space-y-2">{drills.results.slice(0, 3).map((drill) => <div key={drill.id} className="rounded-xl border border-[#2c2c40] bg-[#181826] p-3"><div className="flex items-center justify-between gap-3"><span className="text-xs font-bold text-white">{titleCase(drill.fixture_type)}</span><span className={`font-mono text-[11px] font-bold ${drill.outcome === "passed" ? "text-[#00ffcc]" : "text-[#ff2d78]"}`}>{drill.outcome.toUpperCase()}</span></div><p className="mt-1 text-[11px] text-[#94a3b8]">{drill.recovery_summary}</p></div>)}</div> : <p className="mt-4 text-xs text-[#64748b]">No trusted drill evidence has been recorded for this tenant yet.</p>
+              ) : <p className="mt-4 text-xs text-[#64748b]">Loading drill evidence…</p>}
+            </div>
+
+            <div className="rounded-2xl border border-[#28283c] bg-[#141422] p-5">
+              <div className="flex items-center gap-2"><Siren size={18} className="text-[#ffe04a]" /><h3 className="font-headline text-sm font-bold text-white">Recovery Preview</h3></div>
+              <p className="mt-2 text-xs text-[#94a3b8]">A non-executable human-review sequence. Browsers cannot run recovery, rollback, queue changes, or provider actions.</p>
+              {recoveryError ? <p className="mt-4 text-xs text-[#ff9bbd]">Recovery preview could not be loaded.</p> : recovery ? (
+                <>
+                  <div className="mt-5 grid grid-cols-2 gap-3"><div className="rounded-xl border border-[#2c2c40] bg-[#181826] p-3"><p className="text-[10px] font-mono text-[#94a3b8]">PREFLIGHT</p><p className="mt-1 text-sm font-bold text-[#ffe04a]">{recovery.preflight_state.toUpperCase()}</p></div><div className="rounded-xl border border-[#2c2c40] bg-[#181826] p-3"><p className="text-[10px] font-mono text-[#94a3b8]">BROWSER EXECUTION</p><p className="mt-1 text-sm font-bold text-[#ff2d78]">DISABLED</p></div></div>
+                  <div className="mt-4 space-y-2">{recovery.recommended_actions.slice(0, 3).map((item) => <div key={`${item.priority}-${item.condition}`} className="rounded-lg border border-[#2c2c40] bg-[#181826] px-3 py-2 text-[11px] text-[#cbd5e1]">{item.action}</div>)}</div>
+                  <div className="mt-3 text-[11px] text-[#94a3b8]">Potential rollback items: {recovery.rollback.would_cancel_job_count} · external actions: {recovery.external_actions} · worker activation: unavailable</div>
+                </>
+              ) : <p className="mt-4 text-xs text-[#64748b]">Loading recovery preview…</p>}
             </div>
           </section>
 

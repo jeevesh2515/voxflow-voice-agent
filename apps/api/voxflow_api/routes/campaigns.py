@@ -6,18 +6,25 @@ import json
 import uuid
 from typing import Any
 
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 
+from ..auth import ROLE_OPERATOR, ROLE_OWNER, ROLE_VIEWER, require_tenant_role
 from ..db import CampaignPolicyDecision, CampaignQueue, OutboundCampaign, get_session
 from ..jobs.enqueue import enqueue_campaign_target
 from ..jobs.staging import campaign_activation_mode
-from ..logging import get_logger
-
-log = get_logger(__name__)
-
 router = APIRouter(prefix="/api/campaigns", tags=["campaigns"])
+
+
+def _authorize_tenant(request: Request, db: Session, tenant_id: str, *, write: bool = False) -> None:
+    require_tenant_role(
+        request,
+        db,
+        tenant_id=tenant_id,
+        allowed_roles={ROLE_OWNER, ROLE_OPERATOR} if write else {ROLE_OWNER, ROLE_OPERATOR, ROLE_VIEWER},
+        allow_demo=not write,
+    )
 
 
 class TargetItem(BaseModel):
@@ -35,10 +42,12 @@ class CreateCampaignRequest(BaseModel):
 
 @router.get("")
 def list_campaigns(
+    request: Request,
     tenant_id: str = Query("varun"),
     db: Session = Depends(get_session),
 ) -> list[dict[str, Any]]:
-    """List all outbound voice campaigns for a tenant."""
+    """List all outbound voice campaigns for an authorized tenant only."""
+    _authorize_tenant(request, db, tenant_id)
     rows = (
         db.query(OutboundCampaign)
         .filter(OutboundCampaign.tenant_id == tenant_id)
@@ -65,12 +74,19 @@ def list_campaigns(
 @router.post("")
 async def create_campaign(
     req: CreateCampaignRequest,
+    request: Request,
     tenant_id: str = Query("varun"),
     db: Session = Depends(get_session),
 ) -> dict[str, Any]:
-    """Create a new outbound voice campaign and populate its call queue."""
+    """Record durable campaign intent without dispatching a worker or provider.
+
+    The campaign worker remains disabled and dry-run by configuration. This
+    handler performs database-only staging; it never places a call, registers a
+    callback, sends a message, or starts a background worker.
+    """
+
+    _authorize_tenant(request, db, tenant_id, write=True)
     campaign_id = f"cmp-{uuid.uuid4().hex[:10]}"
-    
     campaign = OutboundCampaign(
         id=campaign_id,
         tenant_id=tenant_id,
@@ -82,7 +98,6 @@ async def create_campaign(
         failed_calls=0,
     )
     db.add(campaign)
-
     for target in req.targets:
         queue_item = CampaignQueue(
             id=f"cq-{uuid.uuid4().hex[:12]}",
@@ -101,13 +116,7 @@ async def create_campaign(
             campaign_id=campaign_id,
             campaign_queue_id=queue_item.id,
         )
-
     db.commit()
-
-    # Day 28 safety boundary: intent is durable and observable, but calls are
-    # never made inline from an HTTP command. Day 29 activates a separately
-    # deployed worker only after controlled staging verification.
-
     return {
         "ok": True,
         "id": campaign_id,
@@ -116,17 +125,19 @@ async def create_campaign(
         "status": campaign.status,
         "total_targets": len(req.targets),
         "execution_mode": campaign_activation_mode(),
-        "message": "Campaign targets are durably staged for worker dispatch.",
+        "message": "Campaign intent is database-staged only; worker and provider dispatch remain disabled.",
     }
 
 
 @router.get("/{campaign_id}")
 def get_campaign_detail(
     campaign_id: str,
+    request: Request,
     tenant_id: str = Query("varun", min_length=1),
     db: Session = Depends(get_session),
 ) -> dict[str, Any]:
     """Retrieve tenant-owned campaign details, statistics, and progress."""
+    _authorize_tenant(request, db, tenant_id)
     campaign = (
         db.query(OutboundCampaign)
         .filter(OutboundCampaign.id == campaign_id, OutboundCampaign.tenant_id == tenant_id)
@@ -161,11 +172,13 @@ def get_campaign_detail(
 @router.post("/{campaign_id}/run")
 def stage_campaign_run(
     campaign_id: str,
+    request: Request,
     tenant_id: str = Query("varun"),
     db: Session = Depends(get_session),
 ) -> dict[str, Any]:
-    """Confirm safe durable staging without invoking a telephony provider inline."""
+    """Change staged intent state without dispatching calls or starting work."""
 
+    _authorize_tenant(request, db, tenant_id, write=True)
     campaign = (
         db.query(OutboundCampaign)
         .filter(OutboundCampaign.id == campaign_id, OutboundCampaign.tenant_id == tenant_id)
@@ -176,26 +189,27 @@ def stage_campaign_run(
     if campaign.status == "draft":
         campaign.status = "active"
         db.commit()
-
     return {
         "ok": True,
         "id": campaign_id,
         "processed": 0,
         "successful": 0,
         "execution_mode": campaign_activation_mode(),
-        "message": "Campaign is staged. Durable worker activation is intentionally disabled pending Day 29 rollout verification.",
+        "message": "Campaign intent is staged only; worker and provider dispatch remain disabled.",
     }
 
 
 @router.get("/{campaign_id}/policy-decisions")
 def get_campaign_policy_decisions(
     campaign_id: str,
+    request: Request,
     tenant_id: str = Query("varun", min_length=1),
     limit: int = Query(50, ge=1, le=200),
     db: Session = Depends(get_session),
 ) -> list[dict[str, Any]]:
     """Return tenant-owned immutable policy decisions without provider payloads."""
 
+    _authorize_tenant(request, db, tenant_id)
     campaign = (
         db.query(OutboundCampaign)
         .filter(OutboundCampaign.id == campaign_id, OutboundCampaign.tenant_id == tenant_id)
@@ -230,10 +244,12 @@ def get_campaign_policy_decisions(
 @router.get("/{campaign_id}/queue")
 def get_campaign_queue(
     campaign_id: str,
+    request: Request,
     tenant_id: str = Query("varun", min_length=1),
     db: Session = Depends(get_session),
 ) -> list[dict[str, Any]]:
     """List tenant-owned queue targets and individual call results for a campaign."""
+    _authorize_tenant(request, db, tenant_id)
     campaign = (
         db.query(OutboundCampaign)
         .filter(OutboundCampaign.id == campaign_id, OutboundCampaign.tenant_id == tenant_id)

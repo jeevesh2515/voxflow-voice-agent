@@ -74,6 +74,25 @@ class Settings(BaseSettings):
     # bootstrap, or ``skip`` after an explicit migration-managed confirmation.
     db_schema_bootstrap_mode: Literal["auto", "always", "skip"] = "auto"
 
+    # ----- Tenant identity and authorization -----
+    # Supabase proves identity, while the tenant_members table controls access.
+    # Platform-admin IDs are intentionally empty by default, so tenant creation
+    # is fail-closed until an operator explicitly configures an owner identity.
+    tenant_authorization_enforced: bool = True
+    platform_admin_user_ids: str = ""
+    demo_mode_enabled: bool = True
+    demo_tenant_id: str = "varun"
+
+    # ----- Public form protection and optional monitoring -----
+    # When no Turnstile secret exists, the local/demo form path explicitly
+    # reports protection as unavailable. When configured, invalid or missing
+    # tokens fail closed at the backend verification endpoint.
+    turnstile_secret_key: str = ""
+    turnstile_expected_hostname: str = ""
+    sentry_dsn: str = ""
+    sentry_environment: str = "development"
+    sentry_traces_sample_rate: float = 0.0
+
     @field_validator("database_url", mode="before")
     @classmethod
     def sanitize_database_url(cls, v: str | None) -> str:
@@ -231,6 +250,16 @@ class Settings(BaseSettings):
             tenant_id.strip()
             for tenant_id in self.pilot_readiness_approved_tenants.split(",")
             if tenant_id.strip()
+        )
+
+    @property
+    def platform_admin_user_id_set(self) -> tuple[str, ...]:
+        """Parse the explicit Supabase subject allow-list for platform admins."""
+
+        return tuple(
+            user_id.strip()
+            for user_id in self.platform_admin_user_ids.split(",")
+            if user_id.strip()
         )
 
     @property
