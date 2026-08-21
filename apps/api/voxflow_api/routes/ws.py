@@ -106,9 +106,13 @@ async def call_socket(ws: WebSocket) -> None:
                     session.actions.append(a)
                     if a.get("name") == "escalate_to_human":
                         session.escalated = True
-                # TTS
-                tts = pipeline.tts
-                tts_res = await tts.synth(agent_result.reply, lang_hint=session.language)
+                # Hosted TTS must not make a completed agent turn disappear.
+                # The browser uses native speech synthesis when this enhancement is unavailable.
+                tts_res = None
+                try:
+                    tts_res = await pipeline.tts.synth(agent_result.reply, lang_hint=session.language)
+                except Exception as exc:
+                    log.warning("tts.browser_fallback", error=str(exc), text_len=len(agent_result.reply))
                 await ws.send_json(
                     {
                         "type": "turn",
@@ -116,8 +120,9 @@ async def call_socket(ws: WebSocket) -> None:
                         "user_language": session.language,
                         "user_confidence": 1.0,
                         "agent_text": agent_result.reply,
-                        "agent_audio_b64": base64.b64encode(tts_res.audio_bytes).decode("ascii"),
-                        "agent_audio_mime": tts_res.mime,
+                        "agent_audio_b64": base64.b64encode(tts_res.audio_bytes).decode("ascii") if tts_res else None,
+                        "agent_audio_mime": tts_res.mime if tts_res else None,
+                        "audio_fallback": tts_res is None,
                         "actions": agent_result.actions,
                     }
                 )

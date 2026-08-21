@@ -236,10 +236,16 @@ class VoicePipeline:
         # Snapshot updated state
         _snapshot_session(session)
 
-        # TTS
+        # TTS is an enhancement for the browser simulator, not a reason to lose
+        # a completed agent turn. The client can safely use browser speech when
+        # a hosted TTS response is unavailable.
+        tts_result = None
         t0 = time.time()
-        tts_result = await self.tts.synth(agent_text, lang_hint=session.language)
-        log.info("timing.tts", ms=int((time.time() - t0) * 1000), text_len=len(agent_text))
+        try:
+            tts_result = await self.tts.synth(agent_text, lang_hint=session.language)
+            log.info("timing.tts", ms=int((time.time() - t0) * 1000), text_len=len(agent_text))
+        except Exception as exc:
+            log.warning("tts.browser_fallback", error=str(exc), text_len=len(agent_text))
 
         return {
             "type": "turn",
@@ -247,8 +253,9 @@ class VoicePipeline:
             "user_language": transcription.language,
             "user_confidence": transcription.confidence,
             "agent_text": agent_text,
-            "agent_audio_b64": _b64(tts_result.audio_bytes),
-            "agent_audio_mime": tts_result.mime,
+            "agent_audio_b64": _b64(tts_result.audio_bytes) if tts_result else None,
+            "agent_audio_mime": tts_result.mime if tts_result else None,
+            "audio_fallback": tts_result is None,
             "actions": agent_result.actions,
         }
 

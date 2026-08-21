@@ -29,6 +29,15 @@ function getWsUrl(): string {
   return STAGED_PRODUCTION_WS_URL;
 }
 
+function speakWithBrowserFallback(text: string, language?: string): void {
+  if (typeof window === "undefined" || !("speechSynthesis" in window) || !text.trim()) return;
+  window.speechSynthesis.cancel();
+  const utterance = new SpeechSynthesisUtterance(text);
+  utterance.lang = language === "hi" ? "hi-IN" : "en-IN";
+  utterance.rate = 1;
+  window.speechSynthesis.speak(utterance);
+}
+
 function waitForOpenSocket(ws: WebSocket): Promise<WebSocket> {
   if (ws.readyState === WebSocket.OPEN) return Promise.resolve(ws);
   if (ws.readyState !== WebSocket.CONNECTING) {
@@ -131,8 +140,10 @@ export default function PhoneSimulator() {
             const url = URL.createObjectURL(blob);
             const audio = new Audio(url);
             lastAudioRef.current = audio;
-            audio.play().catch(() => {});
+            audio.play().catch(() => speakWithBrowserFallback(msg.agent_text, msg.user_language));
             audio.onended = () => URL.revokeObjectURL(url);
+          } else if (msg.agent_text) {
+            speakWithBrowserFallback(msg.agent_text, msg.user_language);
           }
         } else if (msg.type === "info") {
           // ignore
