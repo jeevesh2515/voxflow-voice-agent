@@ -36,8 +36,13 @@ class GroqProvider(LLMProvider):
             "model": self.model,
             "messages": [self._turn_to_dict(m) for m in messages],
             "temperature": temperature if temperature is not None else self.temperature,
-            "max_tokens": max_tokens or self.max_tokens,
+            "max_completion_tokens": max_tokens or self.max_tokens,
         }
+        # GPT-OSS consumes completion tokens for reasoning before producing its
+        # customer-facing answer. Keep reasoning fast and private for voice turns.
+        if self.model.startswith("openai/gpt-oss-"):
+            payload["reasoning_effort"] = "low"
+            payload["include_reasoning"] = False
         if tools:
             payload["tools"] = tools
             payload["tool_choice"] = "auto"
@@ -57,7 +62,13 @@ class GroqProvider(LLMProvider):
                     await asyncio.sleep(wait_time)
                     continue
                 if r.status_code != 200:
-                    log.error("groq.error_response", status=r.status_code, body=r.text, payload_messages=payload.get("messages"))
+                    log.error(
+                        "groq.error_response",
+                        status=r.status_code,
+                        model=self.model,
+                        message_count=len(messages),
+                        tool_count=len(tools or []),
+                    )
                 r.raise_for_status()
                 data = r.json()
                 break
