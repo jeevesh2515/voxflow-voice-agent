@@ -32,6 +32,13 @@ from ..schemas import CallTurn
 log = get_logger(__name__)
 
 
+def _json_default(value: Any) -> str:
+    """Serialize timestamps and other non-JSON runtime values in session evidence."""
+    if isinstance(value, datetime):
+        return value.isoformat()
+    return str(value)
+
+
 def _sessions_dir() -> str:
     s = get_settings()
     d = os.path.join(s.resolved_data_dir, "sessions")
@@ -69,7 +76,7 @@ def _snapshot_session(session: CallSession) -> None:
             "actions": session.actions,
         }
         with open(fpath, "w", encoding="utf-8") as f:
-            json.dump(data, f)
+            json.dump(data, f, default=_json_default)
     except Exception as e:
         log.warning("session.snapshot_failed", call_id=session.call_id, error=str(e))
 
@@ -353,9 +360,10 @@ class VoicePipeline:
                         [
                             {"role": t.role, "text": t.text, "at": t.at}
                             for t in session.transcript
-                        ]
+                        ],
+                        default=_json_default,
                     ),
-                    actions_json=json.dumps(session.actions),
+                    actions_json=json.dumps(session.actions, default=_json_default),
                 )
                 await db.merge(row)
             log.info("timing.persist", call_id=session.call_id, ms=int((time.time() - t0) * 1000))
