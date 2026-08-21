@@ -1,8 +1,8 @@
 # VoxFlow Database Schema Reference
 
-**Last updated:** 2026-08-20
+**Last updated:** 2026-08-21
 **Authoritative implementation:** `apps/api/voxflow_api/db.py` and the ordered SQL files in `migrations/`.
-**Purpose of this document:** Explain tenant boundaries, durable execution, policy controls, provider callback evidence, typed side-effect intent evidence, and Day 35 controlled-pilot readiness evidence. It is not a substitute for applying production migrations.
+**Purpose of this document:** Explain tenant boundaries, durable execution, policy controls, provider callback evidence, typed side-effect intent evidence, Day 35 controlled-pilot readiness, and Day 36 operational-evidence records. It is not a substitute for applying production migrations.
 
 ## 1. Schema and migration authority
 
@@ -16,6 +16,7 @@ Local SQLite development/tests create the SQLAlchemy metadata. Production Postgr
 007_dial_sandbox_callback_adapter.sql
 008_typed_durable_side_effect_jobs.sql
 009_controlled_pilot_readiness.sql
+010_pilot_operations_evidence.sql
 ```
 
 The initial tenant/core schema and prior feature migrations must already be present. Do not copy partial DDL from this document into a production database; use the migration files so indexes and constraints remain aligned with code.
@@ -133,7 +134,15 @@ The `side_effect_intents` table does not authorize execution by itself. `DURABLE
 
 The Day 35 policy gate requires an explicit environment tenant allow-list, `PilotConfiguration.status=approved`, an unexpired configuration, named primary/backup coverage and approver, micro-capacity, a fully reviewed cohort count, and an exact recipient hash match. Its scorecard and rollback-preview routes are read-only. The database-only rollback utility refuses while the campaign worker is enabled or any scoped job has a live lease.
 
-## 10. Relationship map
+## 10. Day 36 pilot-operational evidence
+
+| Table | Key fields | Data-handling and operational role |
+|---|---|---|
+| `pilot_operational_evidence` | Tenant, pilot ID/version, evidence kind/key, bounded decision/reason, aggregate snapshot, recorder, timestamp; unique `(tenant_id, pilot_id, pilot_version, evidence_kind, evidence_key)` | Immutable redacted receipt for preflight, hold-point, pause, or rollback review. The JSON snapshot contains only aggregate counts, booleans, state labels, timestamps, and trusted configuration facts—never recipient numbers, transcripts, raw callbacks, signatures, credentials, or job payloads. |
+
+When `PILOT_OPERATIONS_EVIDENCE_ENFORCED=true`, the Day 35 policy gate also requires fresh current-tenant-local-day evidence for the exact pilot version with decision `continue_same_cohort`. Missing, stale, paused, blocked, rollback-requested, or version-mismatched evidence cancels admission. A receipt never enables a worker and `expansion_permitted` is always false.
+
+## 11. Relationship map
 
 ```mermaid
 erDiagram
@@ -147,6 +156,7 @@ erDiagram
     TENANTS ||--|| PILOT_CONFIGURATIONS : owns
     TENANTS ||--o{ PILOT_COHORT_MEMBERS : owns
     TENANTS ||--o{ PILOT_SECURITY_INCIDENTS : owns
+    TENANTS ||--o{ PILOT_OPERATIONAL_EVIDENCE : owns
     TENANTS ||--|| TENANT_CAMPAIGN_POLICIES : configures
     TENANTS ||--o{ RECIPIENT_CAMPAIGN_PREFERENCES : owns
     TENANTS ||--o{ TENANT_DAILY_DISPATCH_USAGE : tracks
@@ -159,7 +169,7 @@ erDiagram
     CAMPAIGN_QUEUE ||--o{ CAMPAIGN_POLICY_DECISIONS : evaluated
 ```
 
-## 11. Data-handling requirements
+## 12. Data-handling requirements
 
 1. New operational tables must remain tenant scoped and have production migration coverage.
 2. Tenant policy/audit endpoint responses must redact raw evidence data unless a scoped administrator workflow explicitly needs it.
@@ -174,7 +184,8 @@ erDiagram
 11. A request, voice tool, callback, dashboard, or FastAPI lifespan process may persist a side-effect intent but must not execute the effect inline; only an independently feature-gated worker may do so.
 12. Pilot cohort records must use stable recipient hashes and consent-evidence references; no dashboard/read-only API may return raw E.164 data from the cohort ledger.
 13. A Day 35 readiness scorecard reports fixed formulas and observed values only; it must not imply an approval or activation.
-14. Schema changes that affect policy, consent, jobs, provider operations, provider events, side-effect intents, or pilot readiness require migration review, targeted tests, and a `schema.md` update.
+14. Day 36 operational evidence must contain only aggregate/redacted state, be unique per pilot version/evidence key, and never itself grant expansion or execution permission.
+15. Schema changes that affect policy, consent, jobs, provider operations, provider events, side-effect intents, pilot readiness, or pilot operations require migration review, targeted tests, and a `schema.md` update.
 
 ## References
 
@@ -188,5 +199,7 @@ erDiagram
 - `migrations/007_dial_sandbox_callback_adapter.sql`
 - `migrations/008_typed_durable_side_effect_jobs.sql`
 - `migrations/009_controlled_pilot_readiness.sql`
+- `migrations/010_pilot_operations_evidence.sql`
 - `apps/api/voxflow_api/pilot_readiness.py`
+- `apps/api/voxflow_api/pilot_operations.py`
 - `apps/api/voxflow_api/jobs/side_effects.py`

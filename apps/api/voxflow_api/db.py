@@ -493,6 +493,42 @@ class PilotSecurityIncident(Base):
     resolved_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
 
 
+class PilotOperationalEvidence(Base):
+    """Redacted immutable Day 36 evidence for a pilot preflight or hold point.
+
+    Evidence rows never contain phone numbers, transcripts, webhook bodies,
+    provider credentials, or raw durable-job payloads. The table supports an
+    auditable same-cohort decision trail but does not start, pause, or expand a
+    campaign by itself.
+    """
+
+    __tablename__ = "pilot_operational_evidence"
+    __table_args__ = (
+        UniqueConstraint(
+            "tenant_id",
+            "pilot_id",
+            "pilot_version",
+            "evidence_kind",
+            "evidence_key",
+            name="uq_pilot_operational_evidence_key",
+        ),
+        Index("ix_pilot_operational_evidence_tenant_created", "tenant_id", "created_at"),
+        Index("ix_pilot_operational_evidence_pilot_kind_created", "pilot_id", "evidence_kind", "created_at"),
+    )
+
+    id: Mapped[str] = mapped_column(String(64), primary_key=True)
+    tenant_id: Mapped[str] = mapped_column(String(64), ForeignKey("tenants.id"), index=True)
+    pilot_id: Mapped[str] = mapped_column(String(96), index=True)
+    pilot_version: Mapped[int] = mapped_column(Integer, default=1)
+    evidence_kind: Mapped[str] = mapped_column(String(32), index=True)  # preflight | hold_point | pause | rollback
+    evidence_key: Mapped[str] = mapped_column(String(128))
+    decision: Mapped[str] = mapped_column(String(48), index=True)  # continue_same_cohort | pause | rollback_requested | blocked
+    reason_code: Mapped[str] = mapped_column(String(128), default="")
+    snapshot_json: Mapped[str] = mapped_column(Text, default="{}")
+    recorded_by: Mapped[str] = mapped_column(String(128), default="trusted_operator_service")
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_utcnow)
+
+
 class RecipientCampaignPreference(Base):
     """Current recipient consent and opt-out state, isolated by tenant and phone."""
 

@@ -41,12 +41,16 @@ def fresh_database():
 def production_pilot_gate(monkeypatch):
     monkeypatch.setenv("PILOT_READINESS_ENFORCED", "true")
     monkeypatch.setenv("PILOT_READINESS_APPROVED_TENANTS", "varun")
+    # Day 35 verifies its original admission contract in isolation. Day 36 has
+    # dedicated tests for the default-on same-cohort evidence hold point.
+    monkeypatch.setenv("PILOT_OPERATIONS_EVIDENCE_ENFORCED", "false")
     get_settings.cache_clear()
     try:
         yield
     finally:
         monkeypatch.setenv("PILOT_READINESS_ENFORCED", "false")
         monkeypatch.delenv("PILOT_READINESS_APPROVED_TENANTS", raising=False)
+        monkeypatch.delenv("PILOT_OPERATIONS_EVIDENCE_ENFORCED", raising=False)
         get_settings.cache_clear()
 
 

@@ -18,7 +18,7 @@ import {
 } from "lucide-react";
 import { api } from "@/lib/api";
 import { useTenant } from "@/lib/tenant-context";
-import type { AnalyticsOverview, PilotReadiness } from "@/lib/types";
+import type { AnalyticsOverview, PilotOperations, PilotReadiness } from "@/lib/types";
 
 const PERIODS = [7, 30, 90] as const;
 
@@ -116,6 +116,11 @@ export default function AnalyticsPage() {
   const { data: pilotReadiness, error: pilotError } = useSWR<PilotReadiness>(
     ["pilot-readiness", activeTenantId],
     () => api.pilotReadiness(activeTenantId),
+    { refreshInterval: 30_000, revalidateOnFocus: true },
+  );
+  const { data: pilotOperations, error: pilotOperationsError } = useSWR<PilotOperations>(
+    ["pilot-operations-hold-point", activeTenantId],
+    () => api.pilotOperationsHoldPoint(activeTenantId),
     { refreshInterval: 30_000, revalidateOnFocus: true },
   );
 
@@ -304,6 +309,22 @@ export default function AnalyticsPage() {
                   <div className="mt-3 text-[11px] text-[#94a3b8]">{pilotReadiness.readiness.blocking_reasons.length ? pilotReadiness.readiness.blocking_reasons.map(titleCase).join(" · ") : "All persisted controls are ready for an authorized human review."}</div>
                 </>
               ) : <p className="mt-4 text-xs text-[#64748b]">Loading pilot scorecard…</p>}
+            </div>
+
+            <div className="rounded-2xl border border-[#28283c] bg-[#141422] p-5">
+              <div className="flex items-center gap-2"><Siren size={18} className="text-[#ffe04a]" /><h3 className="font-headline text-sm font-bold text-white">Pilot Operations Evidence</h3></div>
+              <p className="mt-2 text-xs text-[#94a3b8]">Preflight, callback, queue, and hold-point evidence only. Expansion is never automatic and this panel has no execution controls.</p>
+              {pilotOperationsError ? <p className="mt-4 text-xs text-[#ff9bbd]">Pilot operations evidence could not be loaded.</p> : pilotOperations ? (
+                <>
+                  <div className="mt-5 grid grid-cols-3 gap-3">
+                    <div className="rounded-xl border border-[#2c2c40] bg-[#181826] p-3"><p className="text-[10px] font-mono text-[#94a3b8]">HOLD POINT</p><p className={`mt-1 text-sm font-bold ${pilotOperations.hold_point?.state === "reviewed_same_cohort" ? "text-[#00ffcc]" : "text-[#ffe04a]"}`}>{pilotOperations.hold_point?.state === "reviewed_same_cohort" ? "REVIEWED" : "BLOCKED"}</p></div>
+                    <div className="rounded-xl border border-[#2c2c40] bg-[#181826] p-3"><p className="text-[10px] font-mono text-[#94a3b8]">RUNNING</p><p className={`mt-1 text-xl font-bold ${pilotOperations.queue.campaign_running ? "text-[#ff2d78]" : "text-white"}`}>{pilotOperations.queue.campaign_running}</p></div>
+                    <div className="rounded-xl border border-[#2c2c40] bg-[#181826] p-3"><p className="text-[10px] font-mono text-[#94a3b8]">CALLBACK FLAGS</p><p className={`mt-1 text-xl font-bold ${pilotOperations.callbacks.callback_anomalies ? "text-[#ff2d78]" : "text-white"}`}>{pilotOperations.callbacks.callback_anomalies}</p></div>
+                  </div>
+                  <div className="mt-4 text-xs text-[#cbd5e1]">Queue: <span className="font-mono font-bold text-white">{pilotOperations.queue.campaign_ready_or_retrying}</span> ready/retrying · <span className="font-mono font-bold text-white">{pilotOperations.queue.campaign_dead_lettered}</span> dead letters · Hold: <span className="font-mono font-bold text-white">{pilotOperations.hold_point?.reason ? titleCase(pilotOperations.hold_point.reason) : "Evidence pending"}</span></div>
+                  <div className="mt-3 text-[11px] text-[#94a3b8]">{pilotOperations.preflight.no_auto_expansion ? "NO AUTO-EXPANSION · HUMAN HOLD POINT REQUIRED" : "Human review required"} · {pilotOperations.preflight.blocking_reasons.length ? pilotOperations.preflight.blocking_reasons.map(titleCase).join(" · ") : "Preflight ready for operator review."}</div>
+                </>
+              ) : <p className="mt-4 text-xs text-[#64748b]">Loading pilot operations evidence…</p>}
             </div>
           </section>
 

@@ -13,6 +13,7 @@ FastAPI backend for VoxFlow voice operations, tenant-scoped operational APIs, in
 | Auditability | Job attempts, provider operations, policy decisions, immutable provider events, quarantined unknown callbacks, redacted provider-adapter audit receipts, health/read models, and cancellation reason codes. |
 | Provider callbacks | Fail-closed normalized ingress plus disabled-by-default Dial sandbox HMAC adapter, tenant-derived lookup, event deduplication, terminal reconciliation, rollout gate, and lifecycle aggregates. |
 | Operational side effects | Separate Day 34 worker service for Sheets, email scans, CRM sync, notifications, worksheet writes, and recording retrieval; all request paths persist intent only. |
+| Pilot operations evidence | Day 36 aggregate-only preflight/hold-point service and read-only routes; fresh same-cohort evidence is required by the policy gate and no route can activate, pause, roll back, or expand a pilot. |
 
 ## Local run
 
@@ -33,7 +34,7 @@ The default local database is SQLite. Production uses a PostgreSQL-compatible da
 .venv/bin/pytest -q
 ```
 
-At the Day 34 local milestone, the full backend suite has **204 passing tests** and API lint is clean.
+At the Day 36 local milestone, the full backend suite has **222 passing tests** and API lint is clean.
 
 ## Durable campaign migration sequence
 
@@ -44,6 +45,8 @@ At the Day 34 local milestone, the full backend suite has **204 passing tests** 
 006_provider_callback_lifecycle.sql
 007_dial_sandbox_callback_adapter.sql
 008_typed_durable_side_effect_jobs.sql
+009_controlled_pilot_readiness.sql
+010_pilot_operations_evidence.sql
 ```
 
 Use the migration files for production schema changes. Local test setup creates current SQLAlchemy metadata automatically.
@@ -56,6 +59,9 @@ Production must retain:
 
 ```text
 DURABLE_CAMPAIGN_WORKER_ENABLED=false
+PILOT_READINESS_ENFORCED=true
+PILOT_READINESS_APPROVED_TENANTS=(intentionally empty)
+PILOT_OPERATIONS_EVIDENCE_ENFORCED=true
 PROVIDER_CALLBACK_VALIDATE_SIGNATURE=true
 PROVIDER_CALLBACK_SHARED_SECRET=(intentionally unset)
 DIAL_CALLBACK_ADAPTER_ENABLED=false
@@ -75,6 +81,8 @@ Day 33 adds `POST /api/provider-callbacks/dial/events`. It rejects with `503` be
 
 Day 34 adds `SideEffectIntent` plus `enqueue_side_effect` / `enqueue_side_effect_async`. A trusted business or audit row, durable intent, `JobRun`, and `JobOutbox` commit together; the job payload exposes only an intent ID. `side_effect_worker_service.py` owns an explicit handler allow-list and builds only when its own global gate and tenant allow-list are present. FastAPI starts neither the old Sheets retry loop nor the email scan scheduler. In the deployed default, the worker is off; in future dry-run admission it records `dry_run` intent evidence and must not call Sheets, Gmail, CRM, Twilio, Dial, or recording endpoints. `POST /api/admin/email-summarizer/run` now queues an email scan job rather than fetching mail in an HTTP request.
 
+Day 36 adds `GET /api/pilot-operations/{tenant_id}/preflight` and `GET /api/pilot-operations/{tenant_id}/hold-point`. These routes return aggregate queue, lease, callback, side-effect, worker, pilot, and evidence facts only. They never create an evidence record or issue a provider/integration request. `PILOT_OPERATIONS_EVIDENCE_ENFORCED=true` requires a fresh current-day `continue_same_cohort` preflight/hold-point receipt for the exact pilot version after the earlier Day 35 checks pass. Missing, stale, paused, blocked, rollback-requested, or version-mismatched evidence cancels admission; `expansion_permitted` is always false.
+
 ## Key paths
 
 | Path | Purpose |
@@ -91,7 +99,10 @@ Day 34 adds `SideEffectIntent` plus `enqueue_side_effect` / `enqueue_side_effect
 | `voxflow_api/jobs/provider_adapter_audits.py` | Redacted adapter verification/normalization/rollout audit receipts. |
 | `voxflow_api/jobs/side_effects.py` | Typed side-effect constants and atomic sync/async intent/outbox enqueue helpers. |
 | `voxflow_api/jobs/side_effect_worker_service.py` | Isolated staged worker and Sheets/email/CRM/notification/recording handlers. |
+| `voxflow_api/pilot_operations.py` | Day 36 aggregate preflight/hold-point evidence, idempotent trusted-service receipts, and same-cohort evidence gate helper. |
+| `voxflow_api/routes/pilot_operations.py` | Read-only Day 36 preflight and hold-point API routes. |
 | `tests/test_side_effect_jobs.py` | Day 34 atomicity, idempotency, dry-run, retry, tenant isolation, and no-direct-call regression tests. |
+| `tests/test_pilot_operations.py` | Day 36 hold-point, pause, redaction, queue, tenant-isolation, and read-only-route tests. |
 | `tests/` | Deterministic unit/API/integration coverage; providers are mocked. |
 
 See the root [README](../../README.md), [architecture](../../ARCHITECTURE.md), [schema reference](../../schema.md), and [security audit](../../security_audit.md) for project-wide guidance.

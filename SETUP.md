@@ -1,6 +1,6 @@
 # VoxFlow Setup and Deployment Guide
 
-**Last updated:** 2026-08-20
+**Last updated:** 2026-08-21
 **Current deployment:** FastAPI API temporarily on Fly.io and Next.js dashboard on Vercel. Render remains the canonical backend target but is outage-blocked; the Vercel Production API origin is temporarily Fly.
 **Campaign and side-effect safety:** `DURABLE_CAMPAIGN_WORKER_ENABLED=false` and `DURABLE_SIDE_EFFECTS_WORKER_ENABLED=false` must remain set in production unless a separately approved controlled pilot is being operated.
 
@@ -70,6 +70,7 @@ migrations/006_provider_callback_lifecycle.sql
 migrations/007_dial_sandbox_callback_adapter.sql
 migrations/008_typed_durable_side_effect_jobs.sql
 migrations/009_controlled_pilot_readiness.sql
+migrations/010_pilot_operations_evidence.sql
 ```
 
 Run migrations through an approved PostgreSQL migration procedure. Do not run a campaign worker merely to validate migration success. Use API health, test suites, and safe job-health reads instead.
@@ -99,6 +100,8 @@ Render remains the canonical backend runtime because the API hosts HTTP routes, 
 | `DURABLE_SIDE_EFFECTS_DRY_RUN` | Provider/integration-free side-effect worker path | **Keep `true`** until a tenant-specific approval and dry-run evidence exist. |
 | `DURABLE_SIDE_EFFECTS_ALLOWED_TENANTS` | Future side-effect worker admission list | Keep empty. A worker cannot build without an explicit tenant. |
 | `DURABLE_SIDE_EFFECTS_MAX_CONCURRENCY` | Maximum concurrent operational side effects per worker | Retain `1` for staged/dry-run validation. |
+| `PILOT_READINESS_ENFORCED` | Day 35 approval gate | **Keep `true`** with an empty approved-tenant list until human authorization is released. |
+| `PILOT_OPERATIONS_EVIDENCE_ENFORCED` | Day 36 fresh same-cohort hold-point gate | **Keep `true`.** Missing, stale, paused, blocked, rollback-requested, or version-mismatched evidence must remain fail closed. |
 
 After deployment, verify only safe endpoints. Set `API_ORIGIN` to the active runtime; it is currently Fly.
 
@@ -112,11 +115,14 @@ curl -sS -o /dev/null -w '%{http_code}\n' -X POST "$API_ORIGIN/api/provider-call
 curl -fsS "$API_ORIGIN/api/analytics/overview?tenant_id=varun&days=7"
 curl -fsS "$API_ORIGIN/api/pilot-readiness/varun"
 curl -fsS "$API_ORIGIN/api/pilot-readiness/varun/rollback-preview"
+curl -fsS "$API_ORIGIN/api/pilot-operations/varun/preflight"
+curl -fsS "$API_ORIGIN/api/pilot-operations/varun/hold-point"
 # Confirm durable_side_effects is staged/dry-run/tenant-blocked with no intents/errors;
-# pilot readiness is blocked without configuration; both callback requests return 503.
+# pilot readiness and Day 36 preflight/hold-point are blocked without configuration;
+# both callback requests return 503.
 ```
 
-Expected Day 34 posture is `activation_mode: "staged"`, `canary_allowed: false`, campaign dry-run true, an unconfigured tenant policy, generic normalized callback ingress returning `503`, and Dial ingress returning `503 dial_callback_adapter_disabled` before body parsing. The analytics response must include `dial_sandbox_adapter` and `durable_side_effects`; the latter must show `activation_mode="staged"`, `dry_run=true`, `tenant_allowed=false`, and zero unplanned intent/error counts in an untouched deployment. These checks are intentionally malformed/read-only; they must never be replaced with a live Dial callback, configured secret, provider ping, Sheets write, Gmail fetch, CRM post, notification, recording retrieval, or side-effect-worker enablement during deployment verification.
+Expected Day 36 posture is `activation_mode: "staged"`, `canary_allowed: false`, campaign dry-run true, an unconfigured tenant policy, generic normalized callback ingress returning `503`, and Dial ingress returning `503 dial_callback_adapter_disabled` before body parsing. The analytics response must include `dial_sandbox_adapter` and `durable_side_effects`; the latter must show `activation_mode="staged"`, `dry_run=true`, `tenant_allowed=false`, and zero unplanned intent/error counts in an untouched deployment. Day 36 preflight and hold-point responses must be **blocked** for a tenant without configuration, show `no_auto_expansion=true`, `expansion_permitted=false`, and perform no mutation. These checks are intentionally malformed/read-only; they must never be replaced with a live Dial callback, configured secret, provider ping, Sheets write, Gmail fetch, CRM post, notification, recording retrieval, or side-effect-worker enablement during deployment verification.
 
 ## 5. Vercel frontend deployment
 
@@ -138,7 +144,7 @@ curl -I https://voxflow-voice-agent.vercel.app/dashboard/campaigns
 curl -I https://voxflow-voice-agent.vercel.app/dashboard/analytics
 ```
 
-Public routes should return `200`. A session-free dashboard request should redirect to `/sign-in`. In an authenticated browser, verify the campaign page renders **Safe Staging** and **No Inline Dialling**, then verify the analytics page renders the read-only **Provider Lifecycle**, **Dial Sandbox Adapter**, **Durable Side Effects**, and **Controlled Pilot Readiness** panels. In the safe default deployment the adapter panel must display **STAGED**, **BLOCKED**, and zero audit/failure totals; the Day 34 panel must show **STAGED**, zero intents/errors, tenant **BLOCKED**, and dry-run protection; Day 35 must show **BLOCKED**, cohort `0/0`, zero rollback actions, and `Pilot Configuration Missing`. Neither panel can expose a provider/integration configuration or trigger an action.
+Public routes should return `200`. A session-free dashboard request should redirect to `/sign-in`. In an authenticated browser, verify the campaign page renders **Safe Staging** and **No Inline Dialling**, then verify the analytics page renders the read-only **Provider Lifecycle**, **Dial Sandbox Adapter**, **Durable Side Effects**, **Controlled Pilot Readiness**, and **Pilot Operations Evidence** panels. In the safe default deployment the adapter panel must display **STAGED**, **BLOCKED**, and zero audit/failure totals; the Day 34 panel must show **STAGED**, zero intents/errors, tenant **BLOCKED**, and dry-run protection; Day 35 must show **BLOCKED**, cohort `0/0`, zero rollback actions, and `Pilot Configuration Missing`; Day 36 must show **BLOCKED**, zero running/callback flags, and **NO AUTO-EXPANSION · HUMAN HOLD POINT REQUIRED**. No panel can expose a provider/integration configuration or trigger an action.
 
 ## 6. Render restoration and Fly retirement
 
@@ -173,7 +179,7 @@ Before a future internal canary, confirm all of the following:
 6. Provider sandbox or dry-run has passed, including signed callback duplicate/reorder/unknown-call drills.
 7. An operator can monitor jobs, policy decisions, provider operations, and rollback.
 
-Before a controlled pilot, apply the same rule to operational side effects: a worker must have a written tenant approval, an explicit tenant allow-list, dry-run evidence, a named operator, integration-specific credential review, and rollback ownership. Day 35 adds the final one-tenant/fixed-cohort/operating-hours/human-escalation/scorecard gate; readiness is not activation.
+Before a controlled pilot, apply the same rule to operational side effects: a worker must have a written tenant approval, an explicit tenant allow-list, dry-run evidence, a named operator, integration-specific credential review, and rollback ownership. Day 35 adds the final one-tenant/fixed-cohort/operating-hours/human-escalation/scorecard gate; Day 36 additionally requires a fresh current-version same-cohort preflight/hold-point record. Readiness and evidence are not activation or automatic expansion.
 
 ## 9. Historical self-hosted instructions
 

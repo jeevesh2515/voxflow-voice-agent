@@ -1,7 +1,7 @@
 # VoxFlow Product Requirements Document
 
-**Status:** Living product document; Day 35 controlled-pilot readiness is source-complete and locally verified. Deployment verification is pending a staged temporary backend while the Render outage persists; human authority and live activation remain deliberately blocked.
-**Last updated:** 2026-08-20
+**Status:** Living product document; Day 36 reliability evidence is source-complete and locally verified. Deployment verification follows the staged Fly temporary backend path; human authority and live activation remain deliberately blocked.
+**Last updated:** 2026-08-21
 **Repository:** <https://github.com/jeevesh2515/voxflow-voice-agent>
 
 ## 1. Product statement
@@ -53,15 +53,19 @@ Day 30 adds central dispatch permission controls.
 | Pilot admission | A second pre-provider gate requires an environment-approved tenant plus an approved, unexpired pilot record with hashed reviewed cohort membership, named primary/backup coverage, micro-capacity, and frozen metric-contract version. |
 | Pilot scorecard | Read-only API/dashboard reports fixed formulas, denominators, exclusions, completion, escalation, FCR, confirmed security incidents, and rollback readiness; it has no activation control. |
 | Pilot rollback drill | Database-only cancellation refuses if a campaign worker is enabled or a scoped job is actively leased and never contacts a provider. |
+| Pilot operations preflight | Read-only tenant-safe evidence reports aggregate queue/lease, callback/adapter, side-effect, worker, configuration, and coverage facts before a human review. |
+| Same-cohort hold point | A default-on Day 36 gate requires fresh current-day `continue_same_cohort` evidence for the exact pilot version; missing, stale, pause, rollback, blocked, or version-mismatched evidence cancels admission. |
+| No automatic expansion | A dashboard state and an evidence receipt cannot grow cohort capacity; every scorecard reports `expansion_permitted=false`. |
 
 ## 4. Current availability and safety boundary
 
-The Vercel dashboard and Render API are live. The durable campaign system is implemented but **not enabled for live outbound traffic**.
+The Vercel dashboard and temporary Fly API are live while Render remains outage-blocked. The durable campaign system is implemented but **not enabled for live outbound traffic**.
 
 ```text
 DURABLE_CAMPAIGN_WORKER_ENABLED=false
 PILOT_READINESS_ENFORCED=true
 PILOT_READINESS_APPROVED_TENANTS=(intentionally empty)
+PILOT_OPERATIONS_EVIDENCE_ENFORCED=true
 PROVIDER_CALLBACK_VALIDATE_SIGNATURE=true
 PROVIDER_CALLBACK_SHARED_SECRET=(intentionally unset)
 DIAL_CALLBACK_ADAPTER_ENABLED=false
@@ -80,7 +84,7 @@ This is the planned current state. The campaign UI does not bypass the worker gl
 
 ## 5. Non-goals at the current milestone
 
-The following are deliberately out of scope for the current Day 35 non-activating production posture:
+The following are deliberately out of scope for the current Day 36 non-activating production posture:
 
 - Outbound cold calling, sales prospecting, payment collection, or campaign dispatch without recorded permission.
 - Activating a production worker for an unapproved tenant.
@@ -91,7 +95,8 @@ The following are deliberately out of scope for the current Day 35 non-activatin
 - Enabling the Dial sandbox adapter, campaign worker, or Day 34 side-effect worker merely because fixture/local certification is implemented.
 - Calling Twilio, Dial, Sheets, Gmail, a CRM endpoint, a notification service, or recording URL inline from an API request, voice turn, callback, dashboard, or FastAPI lifespan loop.
 - A broad multi-tenant pilot before provider adapter release verification, RBAC, observability, and release-readiness gates are completed.
-- Treating a `ready_for_review` scorecard state as authorization to enable a worker, configure a callback secret, contact a supplier, or expand capacity.
+- Treating a `ready_for_review` scorecard state or `reviewed_same_cohort` hold point as authorization to enable a worker, configure a callback secret, contact a supplier, or expand capacity.
+- Writing a preflight, hold-point, pause, or rollback decision from the browser or an untrusted HTTP path.
 
 ## 6. Pilot requirements
 
@@ -108,6 +113,7 @@ A live operational canary can be considered only after the following evidence ex
 | Side-effect safety | Side-effect worker is separately disabled/dry-run/allow-listed, every integration operation has typed durable evidence, and rollback cannot leave unaccounted queued work. |
 | Human operating coverage | Named primary/backup escalation responders, explicit operating hours, alert owners, and a tested pause/rollback procedure are approved. |
 | Pilot scope | One named tenant, a fixed consented supplier cohort, capacity cap, expiry, and frozen metric definitions are approved in writing. |
+| Reliability evidence | Fresh same-cohort hold-point ownership, aggregate preflight packet, queue/callback review, pause/rollback evidence, and explicit no-auto-expansion are recorded before each future window. |
 
 ## 7. Success metrics
 
@@ -126,7 +132,7 @@ A live operational canary can be considered only after the following evidence ex
 
 ## 8. Near-term roadmap
 
-Day 32 completed a generic signed, tenant-derived callback lifecycle with immutable event evidence, duplicate/terminal guards, quarantine, and operator lifecycle aggregates. Day 33 implemented Dial-specific sandbox verification, outbound-event normalization, secret-overlap support, redacted adapter auditing, tenant rollout gating, and operator visibility; its production route remains disabled. Day 34 migrated Sheets, email scans, recording follow-up, CRM synchronization, notifications, and worksheet side effects into typed durable jobs, with a separate disabled/dry-run worker and aggregate-only dashboard evidence. Day 35 now delivers the final readiness controls: fail-closed tenant admission, hashed fixed cohort, expiry/capacity/coverage contract, frozen scorecard, confirmed-incident count, read-only APIs/dashboard, and a zero-provider-call rollback drill. The remaining go/no-go is human-owned and requires written one-tenant authorization plus deployed verification; no business KPI or zero-incident outcome is promised in advance.
+Day 32 completed a generic signed, tenant-derived callback lifecycle with immutable event evidence, duplicate/terminal guards, quarantine, and operator lifecycle aggregates. Day 33 implemented Dial-specific sandbox verification, outbound-event normalization, secret-overlap support, redacted adapter auditing, tenant rollout gating, and operator visibility; its production route remains disabled. Day 34 migrated Sheets, email scans, recording follow-up, CRM synchronization, notifications, and worksheet side effects into typed durable jobs, with a separate disabled/dry-run worker and aggregate-only dashboard evidence. Day 35 delivers fail-closed tenant admission, a hashed fixed cohort, expiry/capacity/coverage contract, frozen scorecard, confirmed-incident count, read-only APIs/dashboard, and a zero-provider-call rollback drill. Day 36 adds immutable aggregate preflight/hold-point evidence, queue/callback/side-effect observability, pause fail-close, and no-auto-expansion. Day 37 will focus on reliability SLOs, deterministic drills, and recovery evidence. The remaining go/no-go is human-owned and requires written one-tenant authorization plus deployed verification; no business KPI or zero-incident outcome is promised in advance.
 
 ## References
 
@@ -137,3 +143,4 @@ Day 32 completed a generic signed, tenant-derived callback lifecycle with immuta
 - [Day 33 learning guide](.learning/day-33-provider-adapter-sandbox-certification-and-callback-rollout.md)
 - [Day 34 learning guide](.learning/day-34-provider-callback-operational-readiness-and-canary-governance.md)
 - [Day 35 learning guide](.learning/day-35-controlled-pilot-readiness-and-operational-gates.md)
+- [Day 36 learning guide](.learning/day-36-pilot-operations-observability-and-evidence-review.md)
