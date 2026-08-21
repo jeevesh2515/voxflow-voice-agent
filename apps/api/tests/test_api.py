@@ -55,6 +55,7 @@ def test_health(client):
     r = client.get("/api/health")
     assert r.status_code == 200
     assert r.json()["ok"] is True
+    assert r.json()["db_schema_bootstrap_mode"] == "auto"
 
 
 def test_summary(client):

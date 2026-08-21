@@ -15,6 +15,10 @@ services:
     envVars:
       - key: DATABASE_URL
         sync: false # Set to your Supabase Session Pooler URI (port 5432)
+      # Postgres is migration-managed: verify tables during a cold start but do
+      # not repeat create_all/ALTER TABLE work on every Render Free wake-up.
+      - key: DB_SCHEMA_BOOTSTRAP_MODE
+        value: "auto"
       - key: GROQ_API_KEY
         sync: false # Groq API Key for LLM + Whisper STT
       - key: TWILIO_ACCOUNT_SID

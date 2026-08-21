@@ -68,6 +68,11 @@ class Settings(BaseSettings):
     supabase_service_role_key: str = ""
     supabase_jwks_url: str = ""
     supabase_use_pooler: bool = False
+    # Production Postgres is migration-managed. In ``auto`` mode only SQLite
+    # bootstraps tables at process start, keeping cold starts free of recurring
+    # create_all/compatibility DDL. Use ``always`` only for controlled legacy
+    # bootstrap, or ``skip`` after an explicit migration-managed confirmation.
+    db_schema_bootstrap_mode: Literal["auto", "always", "skip"] = "auto"
 
     @field_validator("database_url", mode="before")
     @classmethod

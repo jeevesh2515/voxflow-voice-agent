@@ -842,6 +842,7 @@ def health() -> dict[str, Any]:
         "service": "voxflow-api",
         "version": "0.1.0",
         "llm_provider": s.llm_provider,
+        "db_schema_bootstrap_mode": s.db_schema_bootstrap_mode,
     }
 
 
