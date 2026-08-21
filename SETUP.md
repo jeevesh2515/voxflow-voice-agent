@@ -1,7 +1,7 @@
 # VoxFlow Setup and Deployment Guide
 
 **Last updated:** 2026-08-21
-**Current deployment:** FastAPI API temporarily on Fly.io and Next.js dashboard on Vercel. Render remains the canonical backend target but is outage-blocked; the Vercel Production API origin is temporarily Fly.
+**Current deployment:** FastAPI API on the Render Free Web Service and Next.js dashboard on Vercel. Vercel Production REST and WebSocket origins both target Render. Render is request-driven and may take about a minute to wake after idle time; this posture is for safe demonstrations, not a continuous telephony SLA.
 **Campaign and side-effect safety:** `DURABLE_CAMPAIGN_WORKER_ENABLED=false` and `DURABLE_SIDE_EFFECTS_WORKER_ENABLED=false` must remain set in production unless a separately approved controlled pilot is being operated.
 
 ## 1. Deployment topology
@@ -9,7 +9,7 @@
 ```mermaid
 flowchart LR
     U[Operators] --> W[Next.js dashboard\nVercel]
-    W --> A[FastAPI API\nFly temporary fallback]
+    W --> A[FastAPI API\nRender Free Web Service]
     T[Twilio inbound media streams] --> A
     A --> P[(PostgreSQL / Supabase-compatible DB)]
     A --> J[Durable job/outbox/event tables]
@@ -22,10 +22,10 @@ flowchart LR
 | Component | Production URL | Role |
 |---|---|---|
 | Web dashboard | <https://voxflow-voice-agent.vercel.app> | Next.js operator UI. |
-| API | <https://voxflow-voice-agent.fly.dev> | Temporary FastAPI control plane, inbound voice, jobs read models; deployed safely from `8f14f1b`. |
-| API health | <https://voxflow-voice-agent.fly.dev/api/health> | General API availability. |
-| Job health | <https://voxflow-voice-agent.fly.dev/api/jobs/health?tenant_id=varun> | Staged rollout/job visibility verification. |
-| Original API | <https://voxflow-voice-agent.onrender.com> | Canonical Render target, unavailable during the documented incident. |
+| API | <https://voxflow-voice-agent.onrender.com> | Request-driven FastAPI control plane, browser simulator, inbound voice, and jobs read models. |
+| API health | <https://voxflow-voice-agent.onrender.com/api/health> | General API availability and free-service warm-up target. |
+| Job health | <https://voxflow-voice-agent.onrender.com/api/jobs/health?tenant_id=varun> | Staged rollout/job visibility verification. |
+| WebSocket | <wss://voxflow-voice-agent.onrender.com/ws/call> | Browser-only simulator transport; no outbound call is initiated by this endpoint. |
 
 ## 2. Local development
 
@@ -75,9 +75,9 @@ migrations/010_pilot_operations_evidence.sql
 
 Run migrations through an approved PostgreSQL migration procedure. Do not run a campaign worker merely to validate migration success. Use API health, test suites, and safe job-health reads instead.
 
-## 4. Backend deployment and outage fallback
+## 4. Backend deployment and free-tier operation
 
-Render remains the canonical backend runtime because the API hosts HTTP routes, WebSocket/inbound voice behavior, and future separately deployed workers. While Render free-service builds/deploys/spin-up are blocked, the same root Dockerfile and `main` revision run temporarily on Fly.io. The reviewed root [`fly.toml`](fly.toml) declares the temporary app, `ams` primary region, HTTPS service on internal port `8000`, and request-driven machine start/stop only; it does not contain secrets, enable a worker, register a callback, or grant tenant activation. Configure either provider with its secret manager; never commit production values.
+Render is the active backend runtime because the API hosts HTTP routes, WebSocket/inbound voice behavior, and future separately deployed workers. The existing `render.yaml` declares a `plan: free` Docker web service and preserves the project’s fail-closed settings. Its request-driven Free Web Service sleeps after idle time, so warm `/api/health` immediately before a stakeholder simulator demonstration. The retained [`fly.toml`](fly.toml) is a rollback/reference artifact only; it must not be deployed with a paid or always-on setting. Configure provider secrets only in the active provider’s secret manager; never commit production values.
 
 | Environment variable | Purpose | Production guidance |
 |---|---|---|
@@ -103,10 +103,10 @@ Render remains the canonical backend runtime because the API hosts HTTP routes, 
 | `PILOT_READINESS_ENFORCED` | Day 35 approval gate | **Keep `true`** with an empty approved-tenant list until human authorization is released. |
 | `PILOT_OPERATIONS_EVIDENCE_ENFORCED` | Day 36 fresh same-cohort hold-point gate | **Keep `true`.** Missing, stale, paused, blocked, rollback-requested, or version-mismatched evidence must remain fail closed. |
 
-After deployment, verify only safe endpoints. Set `API_ORIGIN` to the active runtime; it is currently Fly.
+After deployment, verify only safe endpoints. Set `API_ORIGIN` to the active Render runtime.
 
 ```bash
-API_ORIGIN=https://voxflow-voice-agent.fly.dev
+API_ORIGIN=https://voxflow-voice-agent.onrender.com
 curl -fsS "$API_ORIGIN/api/health"
 curl -fsS "$API_ORIGIN/api/jobs/health?tenant_id=varun"
 curl -fsS "$API_ORIGIN/api/campaign-policies/varun"
@@ -126,12 +126,12 @@ Expected Day 36 posture is `activation_mode: "staged"`, `canary_allowed: false`,
 
 ## 5. Vercel frontend deployment
 
-Deploy `apps/web` as the Next.js project root. The current Production frontend uses the safe temporary Fly API endpoint; Development and Preview remain independently configured.
+Deploy `apps/web` as the Next.js project root. The current Production frontend uses the reviewed Render Free endpoints; Development and Preview remain independently configured.
 
 | Variable | Current Production value |
 |---|---|
-| `NEXT_PUBLIC_API_URL` | `https://voxflow-voice-agent.fly.dev` |
-| `NEXT_PUBLIC_WS_URL` | Keep the separately reviewed WebSocket origin; do not change it as an outage workaround unless verified for the active backend. |
+| `NEXT_PUBLIC_API_URL` | `https://voxflow-voice-agent.onrender.com` |
+| `NEXT_PUBLIC_WS_URL` | `wss://voxflow-voice-agent.onrender.com` |
 | Supabase public settings | Use approved public client values only; never a service-role key |
 
 After Vercel reports success, verify the public and protected routes without invoking campaign actions:
@@ -146,9 +146,9 @@ curl -I https://voxflow-voice-agent.vercel.app/dashboard/analytics
 
 Public routes should return `200`. A session-free dashboard request should redirect to `/sign-in`. In an authenticated browser, verify the campaign page renders **Safe Staging** and **No Inline Dialling**, then verify the analytics page renders the read-only **Provider Lifecycle**, **Dial Sandbox Adapter**, **Durable Side Effects**, **Controlled Pilot Readiness**, and **Pilot Operations Evidence** panels. In the safe default deployment the adapter panel must display **STAGED**, **BLOCKED**, and zero audit/failure totals; the Day 34 panel must show **STAGED**, zero intents/errors, tenant **BLOCKED**, and dry-run protection; Day 35 must show **BLOCKED**, cohort `0/0`, zero rollback actions, and `Pilot Configuration Missing`; Day 36 must show **BLOCKED**, zero running/callback flags, and **NO AUTO-EXPANSION · HUMAN HOLD POINT REQUIRED**. No panel can expose a provider/integration configuration or trigger an action.
 
-## 6. Render restoration and Fly retirement
+## 6. Free-tier demonstration workflow and Fly standby
 
-When Render’s incident resolves, do not switch origins based only on provider status. First deploy the same verified main revision, repeat every safe command in section 4 against Render, then update only Vercel Production `NEXT_PUBLIC_API_URL`, redeploy Vercel, and repeat the authenticated dashboard checks. Retire the Fly app only after those checks pass and an owner records the rollback point. Never transfer a provider secret, worker allow-list, or activation setting as part of this restoration.
+Before a demonstration, warm Render with `curl -fsS https://voxflow-voice-agent.onrender.com/api/health`, then promptly open the Vercel Phone Simulator and use a text-only quick prompt. Both Vercel production origins must remain on Render; update `NEXT_PUBLIC_API_URL` and `NEXT_PUBLIC_WS_URL` together and redeploy Vercel after any backend-origin change. Keep Fly stopped unless an owner explicitly approves a separate rollback; never transfer a provider secret, worker allow-list, or activation setting as part of a provider change.
 
 ## 7. Quality gate before a delivery
 

@@ -121,8 +121,8 @@ cd ../..
 npm run lint --workspace=apps/web
 npm run build --workspace=apps/web
 
-# Safe deployment checks (Fly is current; substitute Render only after its recovery deployment)
-API_ORIGIN=https://voxflow-voice-agent.fly.dev
+# Safe deployment checks (Render Free is current; warm health before a browser demo)
+API_ORIGIN=https://voxflow-voice-agent.onrender.com
 curl -fsS "$API_ORIGIN/api/health"
 curl -fsS "$API_ORIGIN/api/jobs/health?tenant_id=varun"
 curl -fsS "$API_ORIGIN/api/campaign-policies/varun"

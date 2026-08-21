@@ -3,7 +3,7 @@
 import type { AnalyticsOverview, PilotOperations, PilotReadiness } from "./types";
 
 const LOCAL_API_URL = "http://localhost:8000";
-const STAGED_PRODUCTION_API_URL = "https://voxflow-voice-agent.fly.dev";
+const PRODUCTION_API_URL = "https://voxflow-voice-agent.onrender.com";
 
 function normalizeApiUrl(value: string): string {
   return value.replace(/\/+$/, "");
@@ -20,9 +20,9 @@ function getApiUrl(): string {
     return LOCAL_API_URL;
   }
 
-  // Production must retain a healthy default while Render is outage-blocked.
-  // Explicit deployment configuration always takes precedence over this bridge.
-  return STAGED_PRODUCTION_API_URL;
+  // Explicit deployment configuration always takes precedence over this safe,
+  // request-driven Render Free fallback.
+  return PRODUCTION_API_URL;
 }
 
 function getAuthHeader(): Record<string, string> {

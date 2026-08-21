@@ -119,12 +119,14 @@ server-side with nothing depending on a local machine.
 **2026-08-21 — Free-tier demonstration hosting for initial stages.**
 
 The project owner has specified that the initial stages must remain on free-tier
-infrastructure. Fly is therefore configured for automatic stop and automatic
-wake-up (`auto_stop_machines = 'stop'`, `min_machines_running = 0`) rather than
-persistent availability. This allows safe dashboard and simulator demonstrations
-following a warm-up request, but it is not suitable for real inbound telephony,
-continuous worker operation, or a production pilot SLA. Those workloads remain
-disabled until the owner explicitly chooses a paid, always-on deployment.
+infrastructure. The active backend is a request-driven **Render Free Web Service**
+with Vercel production REST and WebSocket origins aligned to Render. Render may
+sleep while idle, so safe dashboard and text-only simulator demonstrations begin
+with a health-request warm-up; this is not suitable for real inbound telephony,
+continuous worker operation, or a production pilot SLA. The retained Fly
+configuration remains automatic-stop / automatic-wake-up rollback reference only
+(`auto_stop_machines = 'stop'`, `min_machines_running = 0`) and must not be
+converted to paid or always-on capacity without explicit owner approval.
 
 This supersedes the earlier server-only hosting constraint **only for the
 initial, demonstration stage**. It does not weaken tenant isolation, callback
