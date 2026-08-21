@@ -2,16 +2,28 @@
 
 import type { AnalyticsOverview, PilotOperations, PilotReadiness } from "./types";
 
-function getApiUrl(): string {
-  if (typeof window !== "undefined") {
-    if (window.location.hostname !== "localhost" && window.location.hostname !== "127.0.0.1") {
-      return process.env.NEXT_PUBLIC_API_URL || "https://voxflow-voice-agent.onrender.com";
-    }
-  }
-  return process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+const LOCAL_API_URL = "http://localhost:8000";
+const STAGED_PRODUCTION_API_URL = "https://voxflow-voice-agent.fly.dev";
+
+function normalizeApiUrl(value: string): string {
+  return value.replace(/\/+$/, "");
 }
 
-const API = getApiUrl();
+function getApiUrl(): string {
+  const configured = process.env.NEXT_PUBLIC_API_URL?.trim();
+  if (configured) return normalizeApiUrl(configured);
+
+  if (
+    typeof window !== "undefined" &&
+    (window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1")
+  ) {
+    return LOCAL_API_URL;
+  }
+
+  // Production must retain a healthy default while Render is outage-blocked.
+  // Explicit deployment configuration always takes precedence over this bridge.
+  return STAGED_PRODUCTION_API_URL;
+}
 
 function getAuthHeader(): Record<string, string> {
   if (typeof window === "undefined") return {};
