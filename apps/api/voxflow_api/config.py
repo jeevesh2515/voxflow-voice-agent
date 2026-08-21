@@ -26,7 +26,9 @@ class Settings(BaseSettings):
     # Default to "groq" for cloud production and sub-200ms voice turns.
     llm_provider: LLMProvider = "groq"
     llm_temperature: float = 0.2
-    llm_max_tokens: int = 512
+    # GPT-OSS reasoning requires room for both low-effort reasoning and the
+    # customer-facing final answer. Override with LLM_MAX_TOKENS if needed.
+    llm_max_tokens: int = 4096
 
     ollama_base_url: str = "http://localhost:11434"
     ollama_model: str = "llama3.1:8b"
