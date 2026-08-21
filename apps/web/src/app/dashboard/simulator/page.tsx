@@ -6,14 +6,64 @@ import { useTenant } from "@/lib/tenant-context";
 
 type Turn = { role: "caller" | "agent"; text: string; at: number };
 
+const LOCAL_WS_URL = "ws://localhost:8000";
+const STAGED_PRODUCTION_WS_URL = "wss://voxflow-voice-agent.fly.dev";
+const WS_OPEN_TIMEOUT_MS = 15_000;
+
+function normalizeWsUrl(value: string): string {
+  return value.replace(/\/+$/, "");
+}
+
 function getWsUrl(): string {
-  if (process.env.NEXT_PUBLIC_WS_URL) return process.env.NEXT_PUBLIC_WS_URL;
-  if (typeof window !== "undefined") {
-    if (window.location.hostname !== "localhost" && window.location.hostname !== "127.0.0.1") {
-      return "wss://voxflow-voice-agent.onrender.com";
-    }
+  const configured = process.env.NEXT_PUBLIC_WS_URL?.trim();
+  if (configured) return normalizeWsUrl(configured);
+
+  if (
+    typeof window !== "undefined" &&
+    (window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1")
+  ) {
+    return LOCAL_WS_URL;
   }
-  return "ws://localhost:8000";
+
+  // Keep the simulator on the same temporary production backend as the REST client.
+  return STAGED_PRODUCTION_WS_URL;
+}
+
+function waitForOpenSocket(ws: WebSocket): Promise<WebSocket> {
+  if (ws.readyState === WebSocket.OPEN) return Promise.resolve(ws);
+  if (ws.readyState !== WebSocket.CONNECTING) {
+    return Promise.reject(new Error("WebSocket is not available for a new simulator session."));
+  }
+
+  return new Promise((resolve, reject) => {
+    const timeout = window.setTimeout(() => {
+      cleanup();
+      reject(new Error("WebSocket connection timed out. Please try again after the API is ready."));
+    }, WS_OPEN_TIMEOUT_MS);
+
+    const cleanup = () => {
+      window.clearTimeout(timeout);
+      ws.removeEventListener("open", onOpen);
+      ws.removeEventListener("error", onError);
+      ws.removeEventListener("close", onClose);
+    };
+    const onOpen = () => {
+      cleanup();
+      resolve(ws);
+    };
+    const onError = () => {
+      cleanup();
+      reject(new Error("WebSocket connection failed — is the API running?"));
+    };
+    const onClose = () => {
+      cleanup();
+      reject(new Error("WebSocket closed before the simulator session was ready."));
+    };
+
+    ws.addEventListener("open", onOpen, { once: true });
+    ws.addEventListener("error", onError, { once: true });
+    ws.addEventListener("close", onClose, { once: true });
+  });
 }
 
 export default function PhoneSimulator() {
@@ -44,8 +94,11 @@ export default function PhoneSimulator() {
 
   // ---------- WebSocket lifecycle ----------
 
-  const connect = useCallback(() => {
-    if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) return;
+  const connect = useCallback(async (): Promise<WebSocket> => {
+    const existing = wsRef.current;
+    if (existing?.readyState === WebSocket.OPEN) return existing;
+    if (existing?.readyState === WebSocket.CONNECTING) return waitForOpenSocket(existing);
+
     setError(null);
     const targetWs = getWsUrl();
     const ws = new WebSocket(`${targetWs}/ws/call`);
@@ -99,6 +152,8 @@ export default function PhoneSimulator() {
       setConnected(false);
       setCallId(null);
     };
+
+    return waitForOpenSocket(ws);
   }, [language, activeTenantId, activeTenant.name]);
 
   const disconnect = useCallback(() => {
@@ -192,12 +247,8 @@ export default function PhoneSimulator() {
     setBusy(true);
     setTextInput("");
     try {
-      if (!wsRef.current || wsRef.current.readyState !== WebSocket.OPEN) {
-        connect();
-        // small wait for handshake
-        await new Promise((r) => setTimeout(r, 250));
-      }
-      wsRef.current?.send(JSON.stringify({ type: "text", text }));
+      const ws = await connect();
+      ws.send(JSON.stringify({ type: "text", text }));
     } catch (e: any) {
       setError(e.message);
     } finally {
@@ -294,7 +345,9 @@ export default function PhoneSimulator() {
             <div className="flex items-center justify-center gap-4 py-2">
               {!connected ? (
                 <button
-                  onClick={() => connect()}
+                  onClick={() => {
+                    void connect().catch((e: Error) => setError(e.message));
+                  }}
                   className="h-14 w-14 rounded-2xl bg-[#00ffcc] hover:bg-[#00e6b8] flex items-center justify-center text-[#0a0a12] shadow-lg active:scale-95 transition-all"
                   aria-label="Start call"
                   title="Start Voice Session"
