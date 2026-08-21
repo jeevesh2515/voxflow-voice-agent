@@ -77,11 +77,12 @@ Run migrations through an approved PostgreSQL migration procedure. Do not run a 
 
 ## 4. Backend deployment and free-tier operation
 
-Render is the active backend runtime because the API hosts HTTP routes, WebSocket/inbound voice behavior, and future separately deployed workers. The existing `render.yaml` declares a `plan: free` Docker web service and preserves the project’s fail-closed settings. Its request-driven Free Web Service sleeps after idle time, so warm `/api/health` immediately before a stakeholder simulator demonstration. The retained [`fly.toml`](fly.toml) is a rollback/reference artifact only; it must not be deployed with a paid or always-on setting. Configure provider secrets only in the active provider’s secret manager; never commit production values.
+Render is the active backend runtime because the API hosts HTTP routes, WebSocket/inbound voice behavior, and future separately deployed workers. The existing `render.yaml` declares a `plan: free` Docker web service and preserves the project’s fail-closed settings. Its request-driven Free Web Service sleeps after idle time. In the Vercel Phone Simulator, select **Prepare Simulator** before a browser-only session: it calls only the read-only `/api/health` endpoint, shows readiness and elapsed warm-up time, then enables the microphone and text controls. The retained [`fly.toml`](fly.toml) is a rollback/reference artifact only; it must not be deployed with a paid or always-on setting. Configure provider secrets only in the active provider’s secret manager; never commit production values.
 
 | Environment variable | Purpose | Production guidance |
 |---|---|---|
 | `DATABASE_URL` | PostgreSQL connection string | Use a managed production database secret. |
+| `DB_SCHEMA_BOOTSTRAP_MODE` | Startup schema policy: `auto`, `always`, or `skip` | **Use `auto` in Render production.** SQLite self-initializes; PostgreSQL verifies reviewed migration tables without repeating normal-boot DDL. |
 | `API_CORS_ORIGINS` | Allowed browser origins | Include the Vercel production origin. |
 | `PUBLIC_BASE_URL` | Public API base URL used by telephony/webhook paths | Use the Render API base URL or approved public ingress. |
 | Telephony/LLM credentials | Provider integrations | Store only in Render secrets; never commit them. |
@@ -121,6 +122,8 @@ curl -fsS "$API_ORIGIN/api/pilot-operations/varun/hold-point"
 # pilot readiness and Day 36 preflight/hold-point are blocked without configuration;
 # both callback requests return 503.
 ```
+
+The health response also reports `db_schema_bootstrap_mode: "auto"` on the active Render deployment. Its startup log should report `db.schema_verified dialect=postgresql`; this is a read-only migration check, not table creation or compatibility DDL.
 
 Expected Day 36 posture is `activation_mode: "staged"`, `canary_allowed: false`, campaign dry-run true, an unconfigured tenant policy, generic normalized callback ingress returning `503`, and Dial ingress returning `503 dial_callback_adapter_disabled` before body parsing. The analytics response must include `dial_sandbox_adapter` and `durable_side_effects`; the latter must show `activation_mode="staged"`, `dry_run=true`, `tenant_allowed=false`, and zero unplanned intent/error counts in an untouched deployment. Day 36 preflight and hold-point responses must be **blocked** for a tenant without configuration, show `no_auto_expansion=true`, `expansion_permitted=false`, and perform no mutation. These checks are intentionally malformed/read-only; they must never be replaced with a live Dial callback, configured secret, provider ping, Sheets write, Gmail fetch, CRM post, notification, recording retrieval, or side-effect-worker enablement during deployment verification.
 
