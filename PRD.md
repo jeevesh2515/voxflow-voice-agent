@@ -1,6 +1,6 @@
 # VoxFlow Product Requirements Document
 
-**Status:** Living product document; Day 36 reliability evidence is source-complete and locally verified. Deployment verification follows the staged Fly temporary backend path; human authority and live activation remain deliberately blocked.
+**Status:** Living product document; Day 36 reliability evidence is CI- and production-verified through the staged Fly temporary backend and the authenticated Vercel dashboard. Human authority and live activation remain deliberately blocked.
 **Last updated:** 2026-08-21
 **Repository:** <https://github.com/jeevesh2515/voxflow-voice-agent>
 
