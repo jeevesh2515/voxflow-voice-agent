@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import Script from "next/script";
 
 type TurnstileApi = {
   render: (container: HTMLElement, options: Record<string, unknown>) => string;
@@ -30,6 +29,23 @@ export default function TurnstileWidget({ action, onToken, resetCounter = 0 }: P
   const siteKey = process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY;
 
   useEffect(() => {
+    if (!siteKey || scriptLoaded) return;
+    const existing = document.getElementById("voxflow-turnstile-script") as HTMLScriptElement | null;
+    if (existing) {
+      if (window.turnstile) setScriptLoaded(true);
+      else existing.addEventListener("load", () => setScriptLoaded(true), { once: true });
+      return;
+    }
+    const script = document.createElement("script");
+    script.id = "voxflow-turnstile-script";
+    script.src = "https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit";
+    script.async = true;
+    script.defer = true;
+    script.addEventListener("load", () => setScriptLoaded(true), { once: true });
+    document.head.appendChild(script);
+  }, [scriptLoaded, siteKey]);
+
+  useEffect(() => {
     if (!siteKey || !scriptLoaded || !container.current || !window.turnstile || widgetId.current) return;
     widgetId.current = window.turnstile.render(container.current, {
       sitekey: siteKey,
@@ -55,7 +71,6 @@ export default function TurnstileWidget({ action, onToken, resetCounter = 0 }: P
   if (!siteKey) return null;
   return (
     <div className="space-y-2">
-      <Script src="https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit" strategy="afterInteractive" onLoad={() => setScriptLoaded(true)} />
       <div ref={container} className="min-h-[65px]" />
       <p className="text-[10px] text-[#94a3b8]">Verification is checked server-side before this form submits.</p>
     </div>
