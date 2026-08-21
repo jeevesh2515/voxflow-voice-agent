@@ -12,6 +12,13 @@ export async function proxy(request: NextRequest) {
 
   const isApiRequest = request.nextUrl.pathname.startsWith("/api/") || request.headers.get("accept") === "application/json";
   const demoCookie = request.cookies.get("voxflow_demo_user");
+  let hasScopedDemoSession = false;
+  try {
+    const demo = demoCookie?.value ? JSON.parse(decodeURIComponent(demoCookie.value)) : null;
+    hasScopedDemoSession = demo?.tenant_id === "varun" && demo?.email === "demo@voxflow.invalid";
+  } catch {
+    hasScopedDemoSession = false;
+  }
 
   try {
     const supabase = await createClient();
@@ -19,7 +26,10 @@ export async function proxy(request: NextRequest) {
       data: { session },
     } = await supabase.auth.getSession();
 
-    const isAuthenticated = !!session || !!demoCookie;
+    // The cookie is only a UX gate for the explicitly fixed demo tenant. The
+    // backend independently limits it to read-only APIs and never accepts it as
+    // authority for a Next.js API route or a real customer workspace.
+    const isAuthenticated = !!session || (hasScopedDemoSession && !isApiRequest);
 
     if (!isAuthenticated && !isPublicRoute) {
       if (isApiRequest) {
@@ -36,7 +46,7 @@ export async function proxy(request: NextRequest) {
       return NextResponse.redirect(url);
     }
   } catch {
-    if (!demoCookie && !isPublicRoute) {
+    if (!hasScopedDemoSession && !isPublicRoute) {
       const url = request.nextUrl.clone();
       url.pathname = "/sign-in";
       return NextResponse.redirect(url);

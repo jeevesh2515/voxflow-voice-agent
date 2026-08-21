@@ -60,3 +60,6 @@ pytest==8.3.4
 pytest-asyncio==0.25.0
 pytest-timeout==2.3.1
 ruff==0.8.4
+
+# Optional error monitoring — inert unless SENTRY_DSN is explicitly configured.
+sentry-sdk[fastapi]==2.43.0

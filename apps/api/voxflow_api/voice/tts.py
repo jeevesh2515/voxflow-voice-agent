@@ -6,7 +6,10 @@ import asyncio
 import io
 from dataclasses import dataclass
 
-import edge_tts
+try:
+    import edge_tts
+except ModuleNotFoundError:  # optional browser-audio enhancement
+    edge_tts = None
 
 from ..config import get_settings
 from ..logging import get_logger
@@ -41,6 +44,8 @@ class TextToSpeech:
         return self.voice_hi if devanagari > max(3, len(text) // 10) else self.voice_en
 
     async def synth(self, text: str, lang_hint: str | None = None) -> TTSResult:
+        if edge_tts is None:
+            raise RuntimeError("edge-tts is unavailable; browser speech fallback is required")
         voice = self.pick_voice(text, lang_hint)
         communicate = edge_tts.Communicate(text=text, voice=voice, rate="+0%", pitch="+0Hz")
         buf = io.BytesIO()

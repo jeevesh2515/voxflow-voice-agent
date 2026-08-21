@@ -6,23 +6,15 @@ import { useTenant } from "@/lib/tenant-context";
 import { useTheme } from "@/lib/theme-context";
 
 export default function SettingsPage() {
-  const { activeTenant, tenants, setActiveTenantId, addTenant } = useTenant();
+  const { activeTenant, tenants, setActiveTenantId } = useTenant();
   const { theme, setTheme } = useTheme();
   const [saving, setSaving] = useState(false);
-  const [newCompanyName, setNewCompanyName] = useState("");
   const [notifications, setNotifications] = useState({
     email: true,
     whatsapp: true,
     escalation: true,
     daily: false,
   });
-
-  const handleAddCompany = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!newCompanyName.trim()) return;
-    addTenant(newCompanyName);
-    setNewCompanyName("");
-  };
 
   const handleSave = () => {
     setSaving(true);
@@ -63,21 +55,7 @@ export default function SettingsPage() {
                   </button>
                 ))}
               </div>
-              <form onSubmit={handleAddCompany} className="flex gap-2">
-                <input
-                  type="text"
-                  value={newCompanyName}
-                  onChange={(e) => setNewCompanyName(e.target.value)}
-                  placeholder="Add new workspace..."
-                  className="flex-1 bg-[#0a0a12] border border-[#302840] rounded-lg px-3 py-2 text-xs text-[#e8e0f0] placeholder-[#5a5068] focus:outline-none focus:border-[#ff2d78]/50"
-                />
-                <button
-                  type="submit"
-                  className="px-4 py-2 rounded-lg bg-[#ff2d78] text-[#1a0010] text-xs font-bold hover:scale-105 transition-all"
-                >
-                  Add
-                </button>
-              </form>
+              <p className="rounded-lg border border-[#00ffcc]/20 bg-[#00ffcc]/5 px-3 py-2 text-xs text-[#a098b0]">Workspaces are granted through server-authorized memberships. An owner can invite approved users from Workspace Access.</p>
             </div>
           </div>
 

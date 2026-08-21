@@ -18,16 +18,22 @@ from .db import close_db_engines, init_db
 from .llm import get_llm
 from .llm.base import ChatTurn
 from .logging import get_logger, setup_logging
+from .monitoring import init_error_monitoring
 from .routes import admin as admin_routes
 from .routes import analytics as analytics_routes
 from .routes import campaign_policies as campaign_policy_routes
 from .routes import campaigns as campaign_routes
 from .routes import data as data_routes
+from .routes import design_partner as design_partner_routes
 from .routes import dial_callbacks as dial_callback_routes
 from .routes import jobs as job_routes
+from .routes import memberships as membership_routes
 from .routes import provider_callbacks as provider_callback_routes
 from .routes import pilot_operations as pilot_operations_routes
 from .routes import pilot_readiness as pilot_readiness_routes
+from .routes import privacy as privacy_routes
+from .routes import public_auth as public_auth_routes
+from .routes import reliability as reliability_routes
 from .routes import twilio as twilio_routes
 from .routes import ws as ws_routes
 from .routes.ws import get_pipeline
@@ -78,6 +84,7 @@ async def lifespan(app: FastAPI):
 
 def create_app() -> FastAPI:
     settings = get_settings()
+    init_error_monitoring()
     app = FastAPI(
         title="VoxFlow Voice Agent",
         version="0.1.0",
@@ -111,8 +118,13 @@ def create_app() -> FastAPI:
     app.include_router(campaign_routes.router)
     app.include_router(campaign_policy_routes.router)
     app.include_router(job_routes.router)
+    app.include_router(design_partner_routes.router)
+    app.include_router(membership_routes.router)
     app.include_router(pilot_readiness_routes.router)
+    app.include_router(privacy_routes.router)
+    app.include_router(public_auth_routes.router)
     app.include_router(pilot_operations_routes.router)
+    app.include_router(reliability_routes.router)
     app.include_router(provider_callback_routes.router)
     app.include_router(dial_callback_routes.router)
     app.include_router(ws_routes.router, tags=["ws"])

@@ -1,169 +1,125 @@
 "use client";
 
-import { createContext, useContext, useEffect, useState, ReactNode, useCallback } from "react";
-import { createClient } from "@/lib/supabase/client";
+import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
 import { api } from "@/lib/api";
+import { useAuth } from "@/lib/auth-context";
+import type { TenantMembership, TenantRole } from "@/lib/types";
 
 export type Tenant = {
   id: string;
   name: string;
-  logo_url?: string;
-  agent_name?: string;
-  plan?: string;
-  custom?: boolean;
+  logo_url?: string | null;
+  agent_name?: string | null;
+  plan?: string | null;
+  role: TenantRole;
 };
 
-const DEFAULT_TENANTS: Tenant[] = [
-  { id: "varun", name: "Varun Beverages (PepsiCo)" },
-  { id: "amul", name: "Amul Dairy Products" },
-  { id: "haldirams", name: "Haldirams Snacks & Sweets" },
-  { id: "britannia", name: "Britannia Foods" },
-];
+const DEMO_TENANT: Tenant = {
+  id: "varun",
+  name: "VoxFlow Demonstration Workspace",
+  role: "viewer",
+};
+
+const EMPTY_TENANT: Tenant = {
+  id: "",
+  name: "No authorized workspace",
+  role: "viewer",
+};
 
 type TenantContextType = {
   activeTenantId: string;
   activeTenant: Tenant;
   tenants: Tenant[];
+  loading: boolean;
+  demoMode: boolean;
   setActiveTenantId: (id: string) => void;
-  addTenant: (name: string) => Tenant;
   refreshTenants: () => Promise<void>;
 };
 
 const TenantContext = createContext<TenantContextType>({
-  activeTenantId: "varun",
-  activeTenant: DEFAULT_TENANTS[0],
-  tenants: DEFAULT_TENANTS,
+  activeTenantId: "",
+  activeTenant: EMPTY_TENANT,
+  tenants: [],
+  loading: true,
+  demoMode: false,
   setActiveTenantId: () => {},
-  addTenant: () => DEFAULT_TENANTS[0],
   refreshTenants: async () => {},
 });
 
+function membershipToTenant(membership: TenantMembership): Tenant | null {
+  if (membership.status !== "active" || !membership.tenant) return null;
+  return {
+    id: membership.tenant.id,
+    name: membership.tenant.name,
+    logo_url: membership.tenant.logo_url,
+    agent_name: membership.tenant.agent_name,
+    plan: membership.tenant.plan,
+    role: membership.role,
+  };
+}
+
 export function TenantProvider({ children }: { children: ReactNode }) {
-  const [tenants, setTenants] = useState<Tenant[]>(DEFAULT_TENANTS);
-  const [activeTenantId, setActiveTenantIdState] = useState<string>("varun");
+  const { user, loading: authLoading } = useAuth();
+  const [tenants, setTenants] = useState<Tenant[]>([]);
+  const [activeTenantId, setActiveTenantIdState] = useState<string>("");
+  const [loading, setLoading] = useState(true);
+  const [demoMode, setDemoMode] = useState(false);
 
   const refreshTenants = useCallback(async () => {
-    try {
-      const backendTenants = await api.tenants();
-      if (Array.isArray(backendTenants) && backendTenants.length > 0) {
-        const mergedMap = new Map<string, Tenant>();
-        // Add defaults first
-        DEFAULT_TENANTS.forEach((t) => mergedMap.set(t.id, t));
-        // Add custom from localStorage
-        try {
-          const customStr = localStorage.getItem("voxflow_custom_tenants");
-          if (customStr) {
-            const customTenants: Tenant[] = JSON.parse(customStr);
-            customTenants.forEach((t) => mergedMap.set(t.id, { ...t, custom: true }));
-          }
-        } catch {}
-        // Overlay backend database tenants
-        backendTenants.forEach((t) => {
-          mergedMap.set(t.id, {
-            id: t.id,
-            name: t.name || t.id,
-            logo_url: t.logo_url,
-            agent_name: t.agent_name,
-            plan: t.plan,
-            custom: !DEFAULT_TENANTS.some((dt) => dt.id === t.id),
-          });
-        });
-        setTenants(Array.from(mergedMap.values()));
-      }
-    } catch (e) {
-      // Offline fallback: keep local tenants
+    if (!user) {
+      setTenants([]);
+      setActiveTenantIdState("");
+      setDemoMode(false);
+      setLoading(false);
+      return;
     }
-  }, []);
+
+    setLoading(true);
+    try {
+      const response = await api.myMemberships();
+      const authorized = response.memberships
+        .map(membershipToTenant)
+        .filter((tenant): tenant is Tenant => tenant !== null);
+      const resolved = response.demo_mode && !authorized.length ? [DEMO_TENANT] : authorized;
+      setTenants(resolved);
+      setDemoMode(response.demo_mode);
+      const saved = typeof window !== "undefined" ? localStorage.getItem("voxflow_active_tenant") : null;
+      const nextActive = resolved.some((tenant) => tenant.id === saved)
+        ? saved!
+        : resolved[0]?.id || "";
+      setActiveTenantIdState(nextActive);
+      if (nextActive && typeof window !== "undefined") {
+        localStorage.setItem("voxflow_active_tenant", nextActive);
+      }
+    } catch {
+      // A cold backend must not silently make a real browser-selected tenant
+      // authoritative. Keep an empty list until the membership service responds.
+      setTenants([]);
+      setActiveTenantIdState("");
+      setDemoMode(false);
+    } finally {
+      setLoading(false);
+    }
+  }, [user]);
 
   useEffect(() => {
-    // Load custom tenants from localStorage
-    try {
-      const customStr = localStorage.getItem("voxflow_custom_tenants");
-      if (customStr) {
-        const customTenants: Tenant[] = JSON.parse(customStr);
-        setTenants((prev) => {
-          const map = new Map(prev.map((t) => [t.id, t]));
-          customTenants.forEach((ct) => map.set(ct.id, ct));
-          return Array.from(map.values());
-        });
-      }
-    } catch (e) {
-      console.error("Error loading custom tenants", e);
-    }
+    if (authLoading) return;
+    void refreshTenants();
+  }, [authLoading, refreshTenants]);
 
-    const savedActive = localStorage.getItem("voxflow_active_tenant");
-    if (savedActive) setActiveTenantIdState(savedActive);
-
-    // Initial backend fetch
-    refreshTenants();
-
-    // Subscribe to Supabase Auth session changes
-    try {
-      const supabase = createClient();
-      supabase.auth.getSession().then(({ data: { session } }) => {
-        const tenantId = session?.user?.user_metadata?.tenant_id;
-        if (tenantId) {
-          setActiveTenantIdState(tenantId);
-        }
-      });
-
-      const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
-        const tenantId = session?.user?.user_metadata?.tenant_id;
-        if (tenantId) {
-          setActiveTenantIdState(tenantId);
-        }
-      });
-
-      return () => {
-        subscription?.unsubscribe();
-      };
-    } catch (e) {
-      console.warn("Supabase auth context init:", e);
-    }
-  }, [refreshTenants]);
-
-  const setActiveTenantId = (id: string) => {
+  const setActiveTenantId = useCallback((id: string) => {
+    if (!tenants.some((tenant) => tenant.id === id)) return;
     setActiveTenantIdState(id);
     localStorage.setItem("voxflow_active_tenant", id);
-  };
+  }, [tenants]);
 
-  const addTenant = (name: string): Tenant => {
-    const slug = name
-      .toLowerCase()
-      .trim()
-      .replace(/[^a-z0-9]+/g, "-")
-      .replace(/^-+|-+$/g, "") || `tenant-${Date.now()}`;
-
-    const existing = tenants.find((t) => t.id === slug);
-    if (existing) {
-      setActiveTenantId(existing.id);
-      return existing;
-    }
-
-    const newTenant: Tenant = {
-      id: slug,
-      name: name.trim() || "New Company",
-      custom: true,
-    };
-
-    const updated = [...tenants, newTenant];
-    setTenants(updated);
-    setActiveTenantId(newTenant.id);
-
-    try {
-      const customOnly = updated.filter((t) => t.custom);
-      localStorage.setItem("voxflow_custom_tenants", JSON.stringify(customOnly));
-    } catch (e) {
-      console.error("Error saving custom tenant", e);
-    }
-
-    return newTenant;
-  };
-
-  const activeTenant = tenants.find((t) => t.id === activeTenantId) || tenants[0] || DEFAULT_TENANTS[0];
+  const activeTenant = useMemo(
+    () => tenants.find((tenant) => tenant.id === activeTenantId) || tenants[0] || EMPTY_TENANT,
+    [activeTenantId, tenants],
+  );
 
   return (
-    <TenantContext.Provider value={{ activeTenantId, activeTenant, tenants, setActiveTenantId, addTenant, refreshTenants }}>
+    <TenantContext.Provider value={{ activeTenantId, activeTenant, tenants, loading, demoMode, setActiveTenantId, refreshTenants }}>
       {children}
     </TenantContext.Provider>
   );

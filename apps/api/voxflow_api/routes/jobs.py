@@ -5,10 +5,11 @@ from __future__ import annotations
 from datetime import datetime, timezone
 from typing import Any
 
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends, Query, Request
 from sqlalchemy import func
 from sqlalchemy.orm import Session
 
+from ..auth import ROLE_OPERATOR, ROLE_OWNER, ROLE_VIEWER, require_tenant_role
 from ..db import JobOutbox, JobRun, get_session
 from ..jobs.staging import campaign_activation_mode, canary_tenant_ids, durable_campaign_dry_run
 
@@ -21,11 +22,19 @@ def _iso(value: datetime | None) -> str | None:
 
 @router.get("/health")
 def get_job_health(
+    request: Request,
     tenant_id: str = Query("varun", min_length=1),
     db: Session = Depends(get_session),
 ) -> dict[str, Any]:
     """Return tenant-scoped queue, lease, and outbox health without job payloads."""
 
+    require_tenant_role(
+        request,
+        db,
+        tenant_id=tenant_id,
+        allowed_roles={ROLE_OWNER, ROLE_OPERATOR, ROLE_VIEWER},
+        allow_demo=True,
+    )
     now = datetime.now(timezone.utc)
     status_rows = (
         db.query(JobRun.status, func.count(JobRun.id))
@@ -98,12 +107,20 @@ def get_job_health(
 
 @router.get("")
 def list_recent_jobs(
+    request: Request,
     tenant_id: str = Query("varun", min_length=1),
     limit: int = Query(20, ge=1, le=100),
     db: Session = Depends(get_session),
 ) -> list[dict[str, Any]]:
     """List safe job metadata for operators; raw payloads are deliberately omitted."""
 
+    require_tenant_role(
+        request,
+        db,
+        tenant_id=tenant_id,
+        allowed_roles={ROLE_OWNER, ROLE_OPERATOR, ROLE_VIEWER},
+        allow_demo=True,
+    )
     jobs = (
         db.query(JobRun)
         .filter(JobRun.tenant_id == tenant_id)

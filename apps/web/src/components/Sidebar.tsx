@@ -17,6 +17,9 @@ import {
   X,
   AlertTriangle,
   ChevronRight,
+  ShieldCheck,
+  LockKeyhole,
+  ClipboardCheck,
 } from "lucide-react";
 import clsx from "clsx";
 
@@ -27,6 +30,9 @@ const NAV_GROUPS = [
       { href: "/dashboard", label: "Overview", icon: LayoutDashboard },
       { href: "/dashboard/simulator", label: "Phone Simulator", icon: Phone },
       { href: "/dashboard/calls", label: "Calls", icon: PhoneCall },
+      { href: "/dashboard/workspace", label: "Workspace Access", icon: ShieldCheck },
+      { href: "/dashboard/privacy", label: "Privacy Controls", icon: LockKeyhole },
+      { href: "/dashboard/readiness", label: "Pilot Readiness", icon: ClipboardCheck },
     ],
   },
   {

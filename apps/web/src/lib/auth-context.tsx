@@ -151,12 +151,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return { error: "Failed to create user." };
   };
 
-  const demoSignIn = (tenantId = "varun") => {
+  const demoSignIn = (_tenantId = "varun") => {
     const demoUser: User = {
       id: "demo-user-" + Date.now(),
-      email: "ops.admin@varunbeverages.com",
-      name: "Operations Admin",
-      tenant_id: tenantId,
+      email: "demo@voxflow.invalid",
+      name: "Read-Only Demo Viewer",
+      tenant_id: "varun",
     };
     setUser(demoUser);
     try {

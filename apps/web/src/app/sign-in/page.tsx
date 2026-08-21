@@ -4,34 +4,48 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { FadeUp } from "@/components/ScrollAnimations";
-import { useTenant } from "@/lib/tenant-context";
 import { useAuth } from "@/lib/auth-context";
+import { api } from "@/lib/api";
+import TurnstileWidget, { turnstileEnabled } from "@/components/TurnstileWidget";
 
 export default function SignInPage() {
   const router = useRouter();
-  const { tenants, setActiveTenantId } = useTenant();
   const { signIn, demoSignIn, loading: authLoading } = useAuth();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [selectedTenant, setSelectedTenant] = useState(tenants[0]?.id || "varun");
   const [loading, setLoading] = useState(false);
   const [signInError, setSignInError] = useState("");
+  const [turnstileToken, setTurnstileToken] = useState<string | null>(null);
+  const [turnstileReset, setTurnstileReset] = useState(0);
 
   const handleSignIn = async (e: React.FormEvent) => {
     e.preventDefault();
     setSignInError("");
     if (!email.trim()) { setSignInError("Email is required"); return; }
     if (!password.trim()) { setSignInError("Password is required"); return; }
-    setLoading(true);
+    if (turnstileEnabled()) {
+      if (!turnstileToken) {
+        setSignInError("Please complete the verification challenge before signing in.");
+        return;
+      }
+      try {
+        await api.verifyTurnstile(turnstileToken, "sign_in");
+      } catch {
+        setSignInError("Verification could not be confirmed. Please try the challenge again.");
+        setTurnstileReset((value) => value + 1);
+        return;
+      }
+    }
 
+    setLoading(true);
     const result = await signIn(email.trim(), password.trim());
     if (result.error) {
       setSignInError(result.error);
       setLoading(false);
+      if (turnstileEnabled()) setTurnstileReset((value) => value + 1);
       return;
     }
 
-    setActiveTenantId(selectedTenant);
     router.push("/dashboard");
   };
 
@@ -49,22 +63,8 @@ export default function SignInPage() {
           </div>
 
           <form className="space-y-4" onSubmit={handleSignIn}>
-            <div>
-              <label htmlFor="tenant" className="text-xs font-label uppercase tracking-widest text-[#e8e0f0] block mb-1.5">
-                Select Company Workspace
-              </label>
-              <select
-                id="tenant"
-                value={selectedTenant}
-                onChange={(e) => setSelectedTenant(e.target.value)}
-                className="w-full px-4 py-3 rounded-xl bg-[#141422] border border-[#302840]/60 text-[#e8e0f0] text-sm focus:outline-none focus:border-[#ff2d78] transition-all font-body"
-              >
-                {tenants.map((t) => (
-                  <option key={t.id} value={t.id} className="bg-[#141422] text-[#e8e0f0]">
-                    {t.name} ({t.id})
-                  </option>
-                ))}
-              </select>
+            <div className="rounded-xl border border-[#302840]/60 bg-[#141422] px-4 py-3 text-xs text-[#a098b0]">
+              Your workspaces are loaded from your server-authorized membership after sign-in. A company selector cannot grant access.
             </div>
 
             <div>
@@ -94,6 +94,7 @@ export default function SignInPage() {
                 className="w-full px-4 py-3 rounded-xl bg-[#141422] border border-[#302840]/60 text-[#e8e0f0] text-sm placeholder:text-[#a098b0]/40 focus:outline-none focus:border-[#ff2d78] focus:ring-1 focus:ring-[#ff2d78]/40 transition-all font-body"
               />
             </div>
+            {turnstileEnabled() && <TurnstileWidget action="sign_in" onToken={setTurnstileToken} resetCounter={turnstileReset} />}
             {signInError && <div className="text-xs text-danger-500 bg-danger-500/10 border border-danger-500/30 rounded-md p-2">{signInError}</div>}
             <button
               type="submit"
@@ -112,13 +113,12 @@ export default function SignInPage() {
             <button
               type="button"
               onClick={() => {
-                setActiveTenantId(selectedTenant);
-                demoSignIn(selectedTenant);
+                demoSignIn("varun");
                 router.push("/dashboard");
               }}
               className="w-full py-2.5 rounded-xl bg-[#1a1829] hover:bg-[#252038] border border-[#ff2d78]/40 text-[#e8e0f0] font-headline font-semibold text-xs flex items-center justify-center gap-2 hover:shadow-[0_0_20px_rgba(255,45,120,0.2)] transition-all duration-200"
             >
-              <span>⚡</span> Quick Demo Sign In ({selectedTenant.toUpperCase()})
+              <span>⚡</span> Open Read-Only Demo Workspace
             </button>
           </form>
 

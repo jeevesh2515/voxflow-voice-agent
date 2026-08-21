@@ -9,7 +9,15 @@ from typing import Any
 from fastapi import APIRouter, HTTPException, Query, Request
 from sqlalchemy import desc, select
 
-from ..auth import get_auth
+from ..auth import (
+    ROLE_OPERATOR,
+    ROLE_OWNER,
+    ROLE_VIEWER,
+    normalized_email_hash,
+    require_authenticated_user,
+    require_platform_admin,
+    require_tenant_role,
+)
 from ..config import get_settings
 from ..db import (
     Appointment,
@@ -21,6 +29,7 @@ from ..db import (
     Stock,
     Supplier,
     Tenant,
+    TenantMember,
     TenantPhoneNumber,
     session_scope,
 )
@@ -48,39 +57,86 @@ from ..schemas import (
 router = APIRouter()
 
 
-def _tenant_id(request: Request, query_tenant: str | None = None) -> str:
-    """Prefer the authenticated tenant; fall back to the query param for compatibility."""
-    auth = get_auth(request)
-    if auth.tenant_id:
-        return auth.tenant_id
-    if query_tenant:
-        return query_tenant
-    return get_settings().default_tenant_id
+def _tenant_id(
+    request: Request,
+    query_tenant: str | None = None,
+    *,
+    write: bool = False,
+) -> str:
+    """Resolve and authorize a tenant without trusting mutable JWT metadata.
+
+    Every data route calls this resolver before reading or writing tenant state.
+    The demo receives only the fixed configured demonstration tenant, while real
+    users require an active application-owned membership. The compatibility mode
+    is restricted to the deterministic offline test configuration.
+    """
+
+    tenant_id = (query_tenant or get_settings().default_tenant_id).strip()
+    if not tenant_id:
+        raise HTTPException(status_code=422, detail="tenant_id_required")
+    with session_scope() as authorization_db:
+        require_tenant_role(
+            request,
+            authorization_db,
+            tenant_id=tenant_id,
+            allowed_roles={ROLE_OWNER, ROLE_OPERATOR} if write else {ROLE_OWNER, ROLE_OPERATOR, ROLE_VIEWER},
+            allow_demo=not write,
+        )
+    return tenant_id
 
 
 # ---------- Tenants & Workspaces ----------
 
 
 @router.get("/tenants")
-def list_tenants() -> list[dict[str, Any]]:
+def list_tenants(request: Request) -> list[dict[str, Any]]:
+    """Return only workspaces the caller is authorized to access.
+
+    The historical global tenant directory is available only in the explicit
+    offline compatibility mode used by legacy deterministic tests. Production
+    callers use the tenant-membership ledger, and the demo sees its fixed tenant.
+    """
+
+    settings = get_settings()
     with session_scope() as db:
-        rows = db.execute(select(Tenant).where(Tenant.active == 1)).scalars().all()
+        if not settings.tenant_authorization_enforced:
+            rows = db.execute(select(Tenant).where(Tenant.active == 1)).scalars().all()
+        else:
+            auth = require_authenticated_user(request, allow_demo=True)
+            if auth.is_demo:
+                tenant = db.get(Tenant, settings.demo_tenant_id)
+                rows = [tenant] if tenant and tenant.active else []
+            else:
+                rows = [
+                    tenant
+                    for _, tenant in db.execute(
+                        select(TenantMember, Tenant)
+                        .join(Tenant, Tenant.id == TenantMember.tenant_id)
+                        .where(
+                            TenantMember.user_id == auth.user_id,
+                            TenantMember.status == "active",
+                            Tenant.active == 1,
+                        )
+                    ).all()
+                ]
         return [
             {
-                "id": t.id,
-                "name": t.name,
-                "logo_url": t.logo_url,
-                "agent_name": t.agent_name,
-                "plan": t.plan,
-                "default_language": t.default_language,
+                "id": tenant.id,
+                "name": tenant.name,
+                "logo_url": tenant.logo_url,
+                "agent_name": tenant.agent_name,
+                "plan": tenant.plan,
+                "default_language": tenant.default_language,
             }
-            for t in rows
+            for tenant in rows
         ]
 
 
 @router.post("/workspaces/provision", response_model=WorkspaceProvisionOut)
-def provision_workspace(payload: WorkspaceProvisionIn) -> WorkspaceProvisionOut:
-    """Provision a brand new tenant workspace in the backend database with starter seed data."""
+def provision_workspace(payload: WorkspaceProvisionIn, request: Request) -> WorkspaceProvisionOut:
+    """Provision a workspace only from the explicit platform-admin control plane."""
+
+    actor = require_platform_admin(request)
     slug = (
         payload.tenant_id.lower()
         .strip()
@@ -108,6 +164,18 @@ def provision_workspace(payload: WorkspaceProvisionIn) -> WorkspaceProvisionOut:
             )
             db.add(tenant)
             db.flush()
+            db.add(
+                TenantMember(
+                    id=f"tm-{slug[:24]}-{int(datetime.now(timezone.utc).timestamp())}",
+                    tenant_id=slug,
+                    user_id=actor.user_id,
+                    subject_email_hash=normalized_email_hash(actor.email, fallback_subject=actor.user_id),
+                    role=ROLE_OWNER,
+                    status="active",
+                    invited_by="platform_admin_workspace_provisioning",
+                    activated_at=datetime.now(timezone.utc),
+                )
+            )
         else:
             tenant.active = 1
             if payload.name:
@@ -312,7 +380,7 @@ def provision_workspace(payload: WorkspaceProvisionIn) -> WorkspaceProvisionOut:
         tenant_id=slug,
         name=company_name,
         plan=payload.plan or "pro",
-        message=f"Workspace '{company_name}' ({slug}) successfully provisioned and ready for live voice operations.",
+        message=f"Workspace '{company_name}' ({slug}) was provisioned in simulation-safe mode; no worker, provider, callback, or outbound operation was activated.",
         stats=stats,
     )
 
@@ -382,7 +450,7 @@ def create_supplier(
     payload: SupplierCreate,
     tenant_id: str | None = Query(default=None),
 ) -> dict[str, Any]:
-    tenant = _tenant_id(request, tenant_id)
+    tenant = _tenant_id(request, tenant_id, write=True)
     clean_phone = payload.phone.strip().replace(" ", "")
     sup_id = f"sup-{tenant}-{int(datetime.now(timezone.utc).timestamp()) % 100000}"
     with session_scope() as db:
@@ -469,7 +537,7 @@ def list_orders(
 
 @router.post("/orders", response_model=OrderOut)
 def create_order(request: Request, payload: OrderCreate, tenant_id: str | None = Query(default=None)) -> dict[str, Any]:
-    tenant = _tenant_id(request, tenant_id)
+    tenant = _tenant_id(request, tenant_id, write=True)
     order_id = f"PO-{int(datetime.now(timezone.utc).timestamp())}-MAN"
     items = [{"sku": i.sku, "quantity": i.quantity} for i in payload.items]
     if not items:
@@ -618,7 +686,7 @@ def patch_call_resolution(
     payload: ResolutionIn,
     tenant_id: str | None = Query(default=None),
 ) -> dict[str, Any]:
-    tenant = _tenant_id(request, tenant_id)
+    tenant = _tenant_id(request, tenant_id, write=True)
     with session_scope() as db:
         c = db.get(Call, call_id)
         if not c or c.tenant_id != tenant:
@@ -631,53 +699,27 @@ def patch_call_resolution(
 
 @router.get("/calls/{call_id}/recording")
 def get_call_recording_link(request: Request, call_id: str) -> dict[str, Any]:
-    """Get the direct recording URL for a call."""
+    """Report recording availability without exposing a provider URL."""
+
     tenant = _tenant_id(request)
     with session_scope() as db:
-        c = db.get(Call, call_id)
-        if not c or c.tenant_id != tenant:
+        call = db.get(Call, call_id)
+        if not call or call.tenant_id != tenant:
             raise HTTPException(status_code=404, detail="call_not_found")
-        if not c.recording_url:
-            raise HTTPException(status_code=404, detail="no_recording_available")
-        return {"call_id": call_id, "recording_url": c.recording_url}
+        return {
+            "call_id": call_id,
+            "recording_available": bool(call.recording_url),
+            "retrieval_enabled": False,
+            "reason": "recording_retrieval_disabled_by_safety_posture",
+        }
 
 
 @router.get("/calls/{call_id}/recording/download")
 async def download_call_recording(request: Request, call_id: str):
-    """Proxy and download the call recording locally on-demand."""
-    import httpx
-    from fastapi.responses import StreamingResponse
+    """Reject browser-triggered provider recording retrieval in the MVP posture."""
 
-    tenant = _tenant_id(request)
-    recording_url = None
-    with session_scope() as db:
-        c = db.get(Call, call_id)
-        if not c or c.tenant_id != tenant:
-            raise HTTPException(status_code=404, detail="call_not_found")
-        recording_url = c.recording_url
-
-    if not recording_url:
-        raise HTTPException(status_code=404, detail="no_recording_available")
-
-    settings = get_settings()
-    auth = None
-    if settings.twilio_account_sid and settings.twilio_auth_token:
-        auth = (settings.twilio_account_sid, settings.twilio_auth_token)
-
-    fetch_url = recording_url
-    if not fetch_url.endswith(".wav") and not fetch_url.endswith(".mp3"):
-        fetch_url = f"{fetch_url}.wav"
-
-    async with httpx.AsyncClient(timeout=30.0) as client:
-        r = await client.get(fetch_url, auth=auth, follow_redirects=True)
-        if r.status_code != 200:
-            raise HTTPException(status_code=r.status_code, detail="failed_to_fetch_recording")
-
-        return StreamingResponse(
-        r.aiter_bytes(),
-        media_type=r.headers.get("content-type", "audio/wav"),
-        headers={"Content-Disposition": f'attachment; filename="call-{call_id}.wav"'},
-    )
+    _tenant_id(request)
+    raise HTTPException(status_code=409, detail="recording_retrieval_disabled_by_safety_posture")
 
 
 @router.post("/calls/outbound")
@@ -686,33 +728,16 @@ async def trigger_outbound_call(
     payload: OutboundCallIn,
     tenant_id: str | None = Query(default=None),
 ) -> dict[str, Any]:
-    """Place a proactive outbound AI voice call using Dial."""
-    from ..integrations.dial import get_dial_client
-    tenant = _tenant_id(request, tenant_id)
-    dial = get_dial_client()
-    if not dial.is_configured():
-        raise HTTPException(
-            status_code=503,
-            detail="Dial API is not configured. Please verify your DIAL_API_KEY.",
-        )
+    """Hard-disable legacy direct provider dispatch in the free-tier MVP.
 
-    res = await dial.place_outbound_call(
-        to_number=payload.to_phone,
-        instruction=payload.instruction,
-        voice_gender=payload.voice_gender,
-        language=payload.language,
-        max_duration_seconds=payload.max_duration_seconds,
-    )
-    if not res.get("ok"):
-        raise HTTPException(
-            status_code=400,
-            detail=f"Outbound call placement failed: {res.get('detail') or res.get('error')}",
-        )
-    return {
-        "ok": True,
-        "tenant_id": tenant,
-        "call": res.get("call", {}),
-    }
+    This explicit safe failure prevents a browser request from reaching Dial or
+    any other telephony provider. Future controlled-pilot dispatch remains gated
+    through the durable policy path, explicit human authorization, and separate
+    provider configuration; none of those controls are enabled by this release.
+    """
+
+    _tenant_id(request, tenant_id, write=True)
+    raise HTTPException(status_code=409, detail="outbound_calls_disabled_by_safety_posture")
 
 
 # ---------- Appointments ----------
@@ -744,7 +769,7 @@ def create_appointment(
     payload: AppointmentCreate,
     tenant_id: str | None = Query(default=None),
 ) -> dict[str, Any]:
-    tenant = _tenant_id(request, tenant_id)
+    tenant = _tenant_id(request, tenant_id, write=True)
     app_id = f"app-{tenant}-{int(datetime.now(timezone.utc).timestamp()) % 100000}"
     try:
         dt = datetime.fromisoformat(payload.datetime.replace("Z", "+00:00"))
@@ -803,7 +828,7 @@ def create_communication(
     payload: CommunicationCreate,
     tenant_id: str | None = Query(default=None),
 ) -> dict[str, Any]:
-    tenant = _tenant_id(request, tenant_id)
+    tenant = _tenant_id(request, tenant_id, write=True)
     comm_id = f"msg-{int(datetime.now(timezone.utc).timestamp()) % 1000000}"
     with session_scope() as db:
         comm = CommunicationLog(

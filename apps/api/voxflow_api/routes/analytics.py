@@ -12,7 +12,7 @@ from fastapi import APIRouter, HTTPException, Query, Request
 from fastapi.responses import StreamingResponse
 from sqlalchemy import select
 
-from ..auth import get_auth
+from ..auth import ROLE_OPERATOR, ROLE_OWNER, ROLE_VIEWER, require_tenant_role
 from ..config import get_settings
 from ..db import (
     Call,
@@ -44,13 +44,18 @@ MAX_REPORT_DAYS = 90
 
 
 def _tenant_id(request: Request, query_tenant: str | None = None) -> str:
-    """Prefer authenticated tenant identity while preserving development compatibility."""
-    auth = get_auth(request)
-    if auth.tenant_id:
-        return auth.tenant_id
-    if query_tenant:
-        return query_tenant
-    return get_settings().default_tenant_id
+    """Resolve a reporting tenant only after an active membership check."""
+
+    tenant_id = (query_tenant or get_settings().default_tenant_id).strip()
+    with session_scope() as authorization_db:
+        require_tenant_role(
+            request,
+            authorization_db,
+            tenant_id=tenant_id,
+            allowed_roles={ROLE_OWNER, ROLE_OPERATOR, ROLE_VIEWER},
+            allow_demo=True,
+        )
+    return tenant_id
 
 
 def _utcnow() -> datetime:

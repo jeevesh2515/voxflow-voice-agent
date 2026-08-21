@@ -37,3 +37,8 @@ os.environ.setdefault("SHEETS_ENABLED", "false")
 # Day 25–34 fixtures intentionally exercise their historical policy contracts,
 # so dedicated Day 35 tests toggle this back on with an isolated Settings cache.
 os.environ.setdefault("PILOT_READINESS_ENFORCED", "false")
+
+# Legacy endpoint tests predate the tenant_members ledger. New authorization
+# tests explicitly enable the production-default fail-closed gate and supply a
+# verified identity plus active membership fixture.
+os.environ.setdefault("TENANT_AUTHORIZATION_ENFORCED", "false")

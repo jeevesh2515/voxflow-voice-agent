@@ -184,6 +184,37 @@ class Tenant(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_utcnow)
 
 
+class TenantMember(Base):
+    """Tenant-scoped application membership linked to an external identity.
+
+    The platform never trusts a browser-selected tenant or mutable Supabase user
+    metadata for authorization. A real bearer-token subject must have one active
+    row in this ledger for the requested tenant. Pending invitations retain only
+    a normalized email hash until the authenticated recipient accepts them.
+    """
+
+    __tablename__ = "tenant_members"
+    __table_args__ = (
+        UniqueConstraint("tenant_id", "user_id", name="uq_tenant_member_user"),
+        UniqueConstraint("tenant_id", "subject_email_hash", name="uq_tenant_member_email_hash"),
+        Index("ix_tenant_member_user_status", "user_id", "status"),
+        Index("ix_tenant_member_tenant_status", "tenant_id", "status"),
+    )
+
+    id: Mapped[str] = mapped_column(String(64), primary_key=True)
+    tenant_id: Mapped[str] = mapped_column(String(64), ForeignKey("tenants.id"), index=True)
+    user_id: Mapped[str | None] = mapped_column(String(128), nullable=True, index=True)
+    subject_email_hash: Mapped[str] = mapped_column(String(64), index=True)
+    role: Mapped[str] = mapped_column(String(16), default="viewer", index=True)  # owner | operator | viewer
+    status: Mapped[str] = mapped_column(String(16), default="invited", index=True)  # invited | active | revoked
+    invited_by: Mapped[str] = mapped_column(String(128), default="")
+    activated_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    revoked_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    revoked_by: Mapped[str | None] = mapped_column(String(128), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_utcnow)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_utcnow, onupdate=_utcnow)
+
+
 class Supplier(Base):
     __tablename__ = "suppliers"
 
@@ -416,6 +447,52 @@ class TenantCampaignPolicy(Base):
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_utcnow, onupdate=_utcnow)
 
 
+# ---------- Privacy lifecycle controls ----------
+
+
+class TenantPrivacyPolicy(Base):
+    """Tenant-owned retention policy with privacy-preserving defaults.
+
+    The policy drives previews and future reviewed purge jobs. It never enables
+    provider recording retrieval or external disclosure on its own.
+    """
+
+    __tablename__ = "tenant_privacy_policies"
+
+    tenant_id: Mapped[str] = mapped_column(String(64), ForeignKey("tenants.id"), primary_key=True)
+    call_transcript_retention_days: Mapped[int] = mapped_column(Integer, default=30)
+    communication_retention_days: Mapped[int] = mapped_column(Integer, default=30)
+    recording_retention_days: Mapped[int] = mapped_column(Integer, default=0)
+    updated_by: Mapped[str] = mapped_column(String(128), default="")
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_utcnow, onupdate=_utcnow)
+
+
+class PrivacyRequest(Base):
+    """Redacted request ledger for access exports, deletion review, and demo reset.
+
+    ``subject_hash`` is a one-way digest of the supplied subject reference. Raw
+    phone numbers, email addresses, transcripts, and customer account data are
+    deliberately excluded from this workflow record.
+    """
+
+    __tablename__ = "privacy_requests"
+    __table_args__ = (
+        Index("ix_privacy_request_tenant_status", "tenant_id", "status"),
+        Index("ix_privacy_request_subject_hash", "tenant_id", "subject_hash"),
+    )
+
+    id: Mapped[str] = mapped_column(String(64), primary_key=True)
+    tenant_id: Mapped[str] = mapped_column(String(64), ForeignKey("tenants.id"), index=True)
+    request_type: Mapped[str] = mapped_column(String(32), index=True)  # access_export | deletion | demo_reset
+    subject_hash: Mapped[str] = mapped_column(String(64), default="")
+    status: Mapped[str] = mapped_column(String(32), default="pending_human_review", index=True)
+    requested_by: Mapped[str] = mapped_column(String(128), default="")
+    review_note: Mapped[str] = mapped_column(String(512), default="")
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_utcnow)
+    reviewed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    reviewed_by: Mapped[str | None] = mapped_column(String(128), nullable=True)
+
+
 # ---------- Day 35 controlled pilot readiness ----------
 
 
@@ -527,6 +604,57 @@ class PilotOperationalEvidence(Base):
     reason_code: Mapped[str] = mapped_column(String(128), default="")
     snapshot_json: Mapped[str] = mapped_column(Text, default="{}")
     recorded_by: Mapped[str] = mapped_column(String(128), default="trusted_operator_service")
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_utcnow)
+
+
+class ReliabilitySLO(Base):
+    """A tenant-scoped reliability objective used only for read-only scorecards.
+
+    SLO definitions contain aggregate thresholds and never include recipient
+    identifiers, transcript data, callback bodies, provider credentials, or a
+    control that can activate any worker.
+    """
+
+    __tablename__ = "reliability_slos"
+    __table_args__ = (
+        UniqueConstraint("tenant_id", "metric_type", name="uq_reliability_slo_tenant_metric"),
+        Index("ix_reliability_slo_tenant_active", "tenant_id", "active"),
+    )
+
+    id: Mapped[str] = mapped_column(String(64), primary_key=True)
+    tenant_id: Mapped[str] = mapped_column(String(64), ForeignKey("tenants.id"), index=True)
+    metric_type: Mapped[str] = mapped_column(String(64), index=True)
+    target_percent: Mapped[float] = mapped_column(Float, default=100.0)
+    window_hours: Mapped[int] = mapped_column(Integer, default=24)
+    comparison: Mapped[str] = mapped_column(String(16), default="minimum")  # minimum | maximum
+    active: Mapped[int] = mapped_column(Integer, default=1)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_utcnow)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_utcnow, onupdate=_utcnow)
+
+
+class DrillResult(Base):
+    """Immutable aggregate-only receipt from a deterministic safety drill.
+
+    Drill results document an in-memory, database-only fault fixture. They do
+    not enqueue work, claim leases, enable workers, contact providers, or store
+    raw payloads, phone numbers, transcripts, secrets, or callback content.
+    """
+
+    __tablename__ = "drill_results"
+    __table_args__ = (
+        UniqueConstraint("tenant_id", "fixture_type", "execution_key", name="uq_drill_result_execution"),
+        Index("ix_drill_result_tenant_created", "tenant_id", "created_at"),
+        Index("ix_drill_result_tenant_fixture", "tenant_id", "fixture_type", "created_at"),
+    )
+
+    id: Mapped[str] = mapped_column(String(64), primary_key=True)
+    tenant_id: Mapped[str] = mapped_column(String(64), ForeignKey("tenants.id"), index=True)
+    fixture_type: Mapped[str] = mapped_column(String(64), index=True)
+    fixture_version: Mapped[str] = mapped_column(String(32), default="day37-v1")
+    execution_key: Mapped[str] = mapped_column(String(128))
+    outcome: Mapped[str] = mapped_column(String(32), index=True)  # passed | failed | blocked
+    evidence_json: Mapped[str] = mapped_column(Text, default="{}")
+    recovery_summary: Mapped[str] = mapped_column(String(512), default="")
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_utcnow)
 
 

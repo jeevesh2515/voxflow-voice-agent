@@ -1,6 +1,23 @@
 // Lightweight API client with multi-tenant filtering and auth.
 
-import type { AnalyticsOverview, PilotOperations, PilotReadiness } from "./types";
+import type {
+  AnalyticsOverview,
+  DrillResultsResponse,
+  PilotOperations,
+  PilotReadiness,
+  RecoveryPreview,
+  ReliabilityScorecard,
+  TenantMembership,
+  TenantMembershipsResponse,
+  TenantRole,
+  DemoResetPreview,
+  PrivacyOverview,
+  PrivacyPolicy,
+  PrivacyRequest,
+  PrivacyRequestStatus,
+  PrivacyRequestType,
+  DesignPartnerReadiness,
+} from "./types";
 
 const LOCAL_API_URL = "http://localhost:8000";
 const PRODUCTION_API_URL = "https://voxflow-voice-agent.onrender.com";
@@ -50,6 +67,16 @@ function getAuthHeader(): Record<string, string> {
           }
         }
       }
+    }
+    // 3. Demo sessions are explicitly marked for the backend's fixed,
+    // read-only demonstration tenant. They never carry write authority.
+    const demoRaw = localStorage.getItem("voxflow_demo_user");
+    if (demoRaw) {
+      const demo = JSON.parse(demoRaw);
+      return {
+        "X-VoxFlow-Demo": "enabled",
+        "X-VoxFlow-Demo-Tenant": String(demo?.tenant_id || "varun"),
+      };
     }
   } catch {
     // ignore parse errors
@@ -105,6 +132,52 @@ async function downloadAnalyticsReport(tenantId: string, days: number): Promise<
 
 export const api = {
   tenants: () => http<any[]>("/api/tenants"),
+  verifyTurnstile: (token: string, action: "sign_in" | "sign_up") =>
+    http<{ ok: boolean; action: string; verification: "server_validated" }>("/api/auth/verify-turnstile", {
+      method: "POST",
+      body: JSON.stringify({ token, action }),
+    }),
+  myMemberships: () => http<TenantMembershipsResponse>("/api/tenants/memberships"),
+  acceptMembership: (tenant_id: string) =>
+    http<{ ok: boolean; created: boolean; membership: TenantMembership }>("/api/tenants/memberships/accept", {
+      method: "POST",
+      body: JSON.stringify({ tenant_id }),
+    }),
+  tenantMembers: (tenant_id: string) =>
+    http<{ tenant_id: string; members: TenantMembership[] }>(`/api/tenants/${tenant_id}/members`),
+  inviteTenantMember: (tenant_id: string, payload: { email: string; role: TenantRole; user_id?: string }) =>
+    http<{ ok: boolean; created: boolean; delivery: string; membership: TenantMembership }>(`/api/tenants/${tenant_id}/members/invite`, {
+      method: "POST",
+      body: JSON.stringify(payload),
+    }),
+  revokeTenantMember: (tenant_id: string, user_id: string) =>
+    http<{ ok: boolean; membership: TenantMembership }>(`/api/tenants/${tenant_id}/members/${user_id}`, {
+      method: "DELETE",
+    }),
+  privacyOverview: (tenant_id: string) => http<PrivacyOverview>(`/api/privacy/${tenant_id}/overview`),
+  privacyPolicy: (tenant_id: string) => http<PrivacyPolicy>(`/api/privacy/${tenant_id}/policy`),
+  updatePrivacyPolicy: (tenant_id: string, payload: Pick<PrivacyPolicy, "call_transcript_retention_days" | "communication_retention_days" | "recording_retention_days">) =>
+    http<{ ok: boolean; policy: PrivacyPolicy; execution: string }>(`/api/privacy/${tenant_id}/policy`, {
+      method: "PUT",
+      body: JSON.stringify(payload),
+    }),
+  privacyRequests: (tenant_id: string) => http<{ tenant_id: string; requests: PrivacyRequest[] }>(`/api/privacy/${tenant_id}/requests`),
+  createPrivacyRequest: (tenant_id: string, payload: { request_type: Extract<PrivacyRequestType, "access_export" | "deletion">; subject_reference: string }) =>
+    http<{ ok: boolean; request: PrivacyRequest; execution: string }>(`/api/privacy/${tenant_id}/requests`, {
+      method: "POST",
+      body: JSON.stringify(payload),
+    }),
+  reviewPrivacyRequest: (tenant_id: string, request_id: string, payload: { status: PrivacyRequestStatus; review_note: string }) =>
+    http<{ ok: boolean; request: PrivacyRequest; execution: string }>(`/api/privacy/${tenant_id}/requests/${request_id}/review`, {
+      method: "POST",
+      body: JSON.stringify(payload),
+    }),
+  designPartnerReadiness: (tenant_id: string) => http<DesignPartnerReadiness>(`/api/design-partner/${tenant_id}/readiness`),
+  demoResetPreview: (tenant_id: string) => http<DemoResetPreview>(`/api/privacy/${tenant_id}/demo-reset-preview`),
+  createDemoResetRequest: (tenant_id: string) =>
+    http<{ ok: boolean; request: PrivacyRequest; execution: string }>(`/api/privacy/${tenant_id}/demo-reset-requests`, {
+      method: "POST",
+    }),
   provisionWorkspace: (payload: {
     tenant_id: string;
     name: string;
@@ -131,6 +204,11 @@ export const api = {
   pilotReadiness: (tenant_id: string) => http<PilotReadiness>(`/api/pilot-readiness/${tenant_id}`),
   pilotOperationsPreflight: (tenant_id: string) => http<PilotOperations>(`/api/pilot-operations/${tenant_id}/preflight`),
   pilotOperationsHoldPoint: (tenant_id: string) => http<PilotOperations>(`/api/pilot-operations/${tenant_id}/hold-point`),
+  reliabilitySLOs: (tenant_id: string) => http<ReliabilityScorecard>(`/api/reliability/${tenant_id}/slos`),
+  reliabilityDrills: (tenant_id: string, limit: number = 10) =>
+    http<DrillResultsResponse>(`/api/reliability/${tenant_id}/drills?limit=${limit}`),
+  reliabilityRecoveryPreview: (tenant_id: string) =>
+    http<RecoveryPreview>(`/api/reliability/${tenant_id}/recovery-preview`),
   mapPhone: (tenant_id: string, phone_number: string, label?: string) =>
     http<any>(`/api/admin/tenants/${tenant_id}/phone-numbers`, {
       method: "POST",
