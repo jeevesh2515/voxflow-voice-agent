@@ -23,6 +23,7 @@ from sqlalchemy import (
     Index,
     Integer,
     String,
+    inspect,
     Text,
     UniqueConstraint,
     create_engine,
@@ -854,14 +855,88 @@ def _ensure_day28_outbox_columns() -> None:
                 raise
 
 
-def init_db() -> None:
+def should_bootstrap_schema(*, mode: str, dialect_name: str) -> bool:
+    """Return whether a process may apply compatibility DDL at startup.
+
+    SQLite is intentionally self-initializing for local development and the
+    isolated test suite. Production PostgreSQL must instead use the checked-in,
+    reviewed SQL migrations; repeating ``create_all`` and idempotent ALTER/INDEX
+    work on every Render Free wake-up adds avoidable database latency.
+    """
+
+    if mode == "always":
+        return True
+    if mode == "skip":
+        return False
+    if mode == "auto":
+        return dialect_name == "sqlite"
+    raise ValueError(f"unsupported database bootstrap mode: {mode}")
+
+
+def verify_schema_tables() -> None:
+    """Fail fast if reviewed production migrations are absent.
+
+    This is intentionally read-only. It catches an incomplete migration before
+    the API is marked ready, while avoiding normal-boot DDL on constrained
+    production instances.
+    """
+
+    expected = set(Base.metadata.tables)
+    existing = set(inspect(_engine).get_table_names())
+    missing = sorted(expected - existing)
+    if missing:
+        raise RuntimeError(
+            "database schema verification failed; apply the reviewed migrations "
+            f"before starting the API (missing tables: {', '.join(missing)})"
+        )
+
+
+def init_db() -> bool:
+    """Prepare the database and return whether startup DDL was applied.
+
+    The FastAPI lifespan always verifies the configured database is reachable.
+    Schema mutation is limited to SQLite by default; migration-managed Postgres
+    starts perform only the bounded readiness query.
+    """
+
     from pathlib import Path
+
     if _db_url.startswith("sqlite"):
         path_str = _db_url.replace("sqlite:////", "/").replace("sqlite:///", "")
         if path_str and not path_str.startswith(":memory:"):
             Path(path_str).parent.mkdir(parents=True, exist_ok=True)
-    Base.metadata.create_all(_engine)
-    _ensure_day28_outbox_columns()
+
+    settings = get_settings()
+    should_bootstrap = should_bootstrap_schema(
+        mode=settings.db_schema_bootstrap_mode,
+        dialect_name=_engine.dialect.name,
+    )
+    if should_bootstrap:
+        Base.metadata.create_all(_engine)
+        _ensure_day28_outbox_columns()
+        log.info(
+            "db.schema_bootstrap_applied mode=%s dialect=%s",
+            settings.db_schema_bootstrap_mode,
+            _engine.dialect.name,
+        )
+        return True
+
+    # Migration-managed PostgreSQL still fails fast on a broken DATABASE_URL,
+    # without issuing table DDL on the request-readiness critical path. In auto
+    # mode it additionally verifies every ORM-mapped table before Render routes
+    # traffic to the newly woken instance.
+    with _engine.connect() as conn:
+        conn.execute(text("SELECT 1"))
+    if settings.db_schema_bootstrap_mode == "auto":
+        verify_schema_tables()
+        log.info("db.schema_verified dialect=%s", _engine.dialect.name)
+    else:
+        log.info(
+            "db.schema_bootstrap_skipped mode=%s dialect=%s",
+            settings.db_schema_bootstrap_mode,
+            _engine.dialect.name,
+        )
+    return False
 
 
 def get_session() -> Iterator[Session]:

@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import os
 import sys
+import tempfile
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -19,6 +20,9 @@ sys.path.insert(0, str(ROOT))
 # Deterministic, fully offline test configuration.
 os.environ.setdefault("LLM_PROVIDER", "ollama")
 os.environ.setdefault("DATABASE_URL", "sqlite:///./voxflow_test.db")
+# Session recovery writes snapshots under DATA_DIR. Give every pytest process an
+# isolated directory so a prior local simulator run cannot change test results.
+os.environ.setdefault("DATA_DIR", tempfile.mkdtemp(prefix="voxflow-test-data-"))
 
 # Most tests post unsigned requests to /twilio/voice. The signature tests turn
 # validation back on explicitly for themselves.

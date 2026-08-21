@@ -3,8 +3,10 @@
 import { useEffect, useRef, useState, useCallback } from "react";
 import { Mic, MicOff, Phone, PhoneOff, Send, Volume2, Loader2 } from "lucide-react";
 import { useTenant } from "@/lib/tenant-context";
+import { api } from "@/lib/api";
 
 type Turn = { role: "caller" | "agent"; text: string; at: number };
+type PreparationState = "idle" | "preparing" | "ready" | "failed";
 
 const LOCAL_WS_URL = "ws://localhost:8000";
 const PRODUCTION_WS_URL = "wss://voxflow-voice-agent.onrender.com";
@@ -88,6 +90,8 @@ export default function PhoneSimulator() {
   const [busy, setBusy] = useState(false);
   const [language, setLanguage] = useState<"hi" | "en">("hi");
   const [error, setError] = useState<string | null>(null);
+  const [preparationState, setPreparationState] = useState<PreparationState>("idle");
+  const [preparationMs, setPreparationMs] = useState<number | null>(null);
 
   const wsRef = useRef<WebSocket | null>(null);
   const audioCtxRef = useRef<AudioContext | null>(null);
@@ -102,6 +106,34 @@ export default function PhoneSimulator() {
       transcriptRef.current.scrollTop = transcriptRef.current.scrollHeight;
     }
   }, [turns]);
+
+  // ---------- Free-tier preparation ----------
+
+  const prepareSimulator = useCallback(async () => {
+    if (connected || preparationState === "preparing") return;
+
+    setError(null);
+    setPreparationState("preparing");
+    setPreparationMs(null);
+    const startedAt = performance.now();
+    try {
+      const health = await api.health();
+      if (!health?.ok) {
+        throw new Error("The API did not report a ready state.");
+      }
+      setPreparationMs(Math.round(performance.now() - startedAt));
+      setPreparationState("ready");
+    } catch (err) {
+      setPreparationState("failed");
+      setError(
+        err instanceof Error
+          ? `Simulator preparation failed: ${err.message}`
+          : "Simulator preparation failed. Please retry.",
+      );
+    }
+  }, [connected, preparationState]);
+
+  const simulatorPrepared = connected || preparationState === "ready";
 
   // ---------- WebSocket lifecycle ----------
 
@@ -256,7 +288,7 @@ export default function PhoneSimulator() {
 
   const sendText = useCallback(async () => {
     const text = textInput.trim();
-    if (!text) return;
+    if (!text || !simulatorPrepared) return;
     setBusy(true);
     setTextInput("");
     try {
@@ -267,7 +299,7 @@ export default function PhoneSimulator() {
     } finally {
       setBusy(false);
     }
-  }, [textInput, connect]);
+  }, [textInput, connect, simulatorPrepared]);
 
   // ---------- Manual commit (for testing) ----------
 
@@ -304,9 +336,15 @@ export default function PhoneSimulator() {
         </div>
 
         <div className="flex items-center gap-2">
-          <span className="flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-mono font-bold bg-[#00ffcc]/10 text-[#00ffcc] border border-[#00ffcc]/30">
-            <span className={`w-2 h-2 rounded-full ${connected ? "bg-[#00ffcc] animate-pulse" : "bg-[#64748b]"}`} />
-            {connected ? "WebSocket Connected" : "Ready"}
+            <span className="flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-mono font-bold bg-[#00ffcc]/10 text-[#00ffcc] border border-[#00ffcc]/30">
+            <span className={`w-2 h-2 rounded-full ${connected || preparationState === "ready" ? "bg-[#00ffcc] animate-pulse" : preparationState === "preparing" ? "bg-amber-300 animate-pulse" : "bg-[#64748b]"}`} />
+            {connected
+              ? "WebSocket Connected"
+              : preparationState === "preparing"
+                ? "Preparing Render"
+                : preparationState === "ready"
+                  ? "Render Ready"
+                  : "Prepare Simulator"}
           </span>
         </div>
       </header>
@@ -354,6 +392,23 @@ export default function PhoneSimulator() {
               </button>
             </div>
 
+            {/* Render Free warm-up runs only the read-only health endpoint. */}
+            {!simulatorPrepared && (
+              <button
+                onClick={() => void prepareSimulator()}
+                disabled={preparationState === "preparing"}
+                className="w-full py-2.5 rounded-xl text-xs font-mono font-bold bg-[#00ffcc] hover:bg-[#00e6b8] disabled:opacity-60 text-[#0a0a12] shadow-sm transition-colors flex items-center justify-center gap-2"
+              >
+                {preparationState === "preparing" ? <Loader2 size={15} className="animate-spin" /> : <Phone size={15} />}
+                {preparationState === "preparing" ? "Waking Render Free service…" : preparationState === "failed" ? "Retry Prepare Simulator" : "Prepare Simulator"}
+              </button>
+            )}
+            {simulatorPrepared && !connected && (
+              <p className="text-center text-[11px] font-mono text-[#00ffcc]">
+                Render is ready{preparationMs !== null ? ` in ${(preparationMs / 1000).toFixed(1)}s` : ""}. Start a browser-only session when ready.
+              </p>
+            )}
+
             {/* Call Action Buttons */}
             <div className="flex items-center justify-center gap-4 py-2">
               {!connected ? (
@@ -361,9 +416,10 @@ export default function PhoneSimulator() {
                   onClick={() => {
                     void connect().catch((e: Error) => setError(e.message));
                   }}
-                  className="h-14 w-14 rounded-2xl bg-[#00ffcc] hover:bg-[#00e6b8] flex items-center justify-center text-[#0a0a12] shadow-lg active:scale-95 transition-all"
+                  disabled={!simulatorPrepared}
+                  className="h-14 w-14 rounded-2xl bg-[#00ffcc] hover:bg-[#00e6b8] disabled:opacity-40 flex items-center justify-center text-[#0a0a12] shadow-lg active:scale-95 transition-all"
                   aria-label="Start call"
-                  title="Start Voice Session"
+                  title="Start browser-only voice session"
                 >
                   <Phone size={22} />
                 </button>
@@ -424,7 +480,8 @@ export default function PhoneSimulator() {
                   onClick={() => {
                     setTextInput(p);
                   }}
-                  className="px-2.5 py-1 rounded-lg text-[11px] font-mono bg-[#181826] hover:bg-[#202034] text-[#cbd5e1] hover:text-white border border-[#2c2c40] transition-colors"
+                  disabled={!simulatorPrepared}
+                  className="px-2.5 py-1 rounded-lg text-[11px] font-mono bg-[#181826] hover:bg-[#202034] disabled:opacity-40 text-[#cbd5e1] hover:text-white border border-[#2c2c40] transition-colors"
                 >
                   {p}
                 </button>
@@ -436,12 +493,13 @@ export default function PhoneSimulator() {
                 value={textInput}
                 onChange={(e) => setTextInput(e.target.value)}
                 onKeyDown={(e) => e.key === "Enter" && sendText()}
-                placeholder="Type query in Hindi or English..."
-                className="flex-1 bg-[#10101a] border border-[#28283c] rounded-xl px-3 py-2 text-xs text-white placeholder:text-[#64748b] focus:outline-none focus:border-[#ff2d78]"
+                placeholder={simulatorPrepared ? "Type query in Hindi or English..." : "Prepare Render before typing..."}
+                disabled={!simulatorPrepared}
+                className="flex-1 bg-[#10101a] border border-[#28283c] rounded-xl px-3 py-2 text-xs text-white placeholder:text-[#64748b] disabled:opacity-40 focus:outline-none focus:border-[#ff2d78]"
               />
               <button
                 onClick={sendText}
-                disabled={busy || !textInput.trim()}
+                disabled={busy || !simulatorPrepared || !textInput.trim()}
                 className="px-3.5 rounded-xl bg-[#ff2d78] hover:bg-[#e02669] disabled:opacity-40 text-white font-bold transition-colors"
                 aria-label="Send"
               >
@@ -475,7 +533,7 @@ export default function PhoneSimulator() {
                 <div className="space-y-1">
                   <p className="text-sm font-headline font-bold text-white">No active utterances yet</p>
                   <p className="text-xs text-[#94a3b8] max-w-sm">
-                    Press the green Phone button to activate your browser mic, or click one of the quick test prompt chips on the left.
+                    First prepare the free-tier backend, then press the green Phone button or select a text-only quick prompt.
                   </p>
                 </div>
               </div>
