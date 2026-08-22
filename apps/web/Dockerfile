@@ -24,6 +24,12 @@ ENV NODE_ENV=production
 
 RUN npm run build
 
+# public/ is optional in Next.js — the app may ship no static assets. Create it
+# unconditionally so the runner's `COPY /app/public` below never fails. Placed
+# after `npm run build` so it appends a cheap layer without invalidating the
+# expensive build cache.
+RUN mkdir -p /app/public
+
 # ---------- 3. Production runner ----------
 FROM node:20-alpine AS runner
 WORKDIR /app

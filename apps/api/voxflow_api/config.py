@@ -37,6 +37,10 @@ class Settings(BaseSettings):
     # `openai/gpt-oss-20b` is the account-available, tool-capable Groq model
     # verified for the production credential. Override with GROQ_MODEL when needed.
     groq_model: str = "openai/gpt-oss-20b"
+    # Bound provider-advised retry delays in the interactive free-tier demo.
+    # After the short retry budget is exhausted, the agent returns a safe
+    # no-action fallback rather than leaving a browser session stalled.
+    groq_max_retry_after_seconds: float = 5.0
 
     openrouter_api_key: str = ""
     openrouter_model: str = "meta-llama/llama-3.1-8b-instruct:free"

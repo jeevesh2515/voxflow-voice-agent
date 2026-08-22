@@ -5,6 +5,7 @@ from __future__ import annotations
 import httpx
 
 from .base import ChatTurn, LLMProvider, LLMResponse
+from ..config import get_settings
 from ..logging import get_logger
 
 
@@ -57,8 +58,15 @@ class GroqProvider(LLMProvider):
                 r = await client.post(f"{self._base}/chat/completions", json=payload, headers=headers)
                 if r.status_code == 429 and attempt < retries - 1:
                     retry_after = r.headers.get("retry-after")
-                    wait_time = float(retry_after) if retry_after else backoff * (2 ** attempt)
-                    log.warning("groq.rate_limited", attempt=attempt, wait_s=round(wait_time, 2), model=self.model)
+                    requested_wait = float(retry_after) if retry_after else backoff * (2 ** attempt)
+                    wait_time = min(requested_wait, get_settings().groq_max_retry_after_seconds)
+                    log.warning(
+                        "groq.rate_limited",
+                        attempt=attempt,
+                        wait_s=round(wait_time, 2),
+                        requested_wait_s=round(requested_wait, 2),
+                        model=self.model,
+                    )
                     await asyncio.sleep(wait_time)
                     continue
                 if r.status_code != 200:

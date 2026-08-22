@@ -244,6 +244,52 @@ else
   warn "SHEETS_ENABLED is not true — call outcomes go to Postgres only (supported; add Sheets later)"
 fi
 
+# Supabase powers real signup / sign-in and backend token verification. The web
+# image bakes NEXT_PUBLIC_SUPABASE_URL + _PUBLISHABLE_KEY at BUILD time, and the
+# API verifies Supabase JWTs with SUPABASE_URL + SUPABASE_JWKS_URL (auth.py). If
+# these are empty the build still succeeds but ships DEAD auth — the read-only
+# demo workspace works, real sign-in silently does not. Treated as an optional
+# group (like Sheets): all-empty = demo-only warn; half/placeholder = fail.
+SB_URL="$(getenv SUPABASE_URL)"
+SB_JWKS="$(getenv SUPABASE_JWKS_URL)"
+SB_KEY="$(getenv SUPABASE_PUBLISHABLE_KEY)"; [ -z "$SB_KEY" ] && SB_KEY="$(getenv SUPABASE_ANON_KEY)"
+if [ -z "$SB_URL" ] && [ -z "$SB_JWKS" ] && [ -z "$SB_KEY" ]; then
+  warn "Supabase not configured — the read-only demo workspace works, but real
+       signup / sign-in are disabled. Set SUPABASE_URL, SUPABASE_JWKS_URL, and
+       SUPABASE_PUBLISHABLE_KEY (or SUPABASE_ANON_KEY) before self-serve go-live."
+else
+  # Placeholder patterns are checked BEFORE the well-formed pattern, because the
+  # .env.example placeholder is itself shaped like a valid URL and would
+  # otherwise pass. Refs are lowercase; the placeholder 'YOUR' is uppercase.
+  case "$SB_URL" in
+    ""|*YOUR-PROJECT-REF*|*YOUR*) bad "SUPABASE_URL missing or still the placeholder — set https://<ref>.supabase.co" ;;
+    https://*.supabase.co) ok "SUPABASE_URL set" ;;
+    *) warn "SUPABASE_URL does not look like https://<ref>.supabase.co" ;;
+  esac
+  if [ -z "$SB_KEY" ]; then
+    bad "No SUPABASE_PUBLISHABLE_KEY / SUPABASE_ANON_KEY — the web build bakes this
+       in; without it the browser client cannot reach Supabase and sign-in/sign-up
+       fail. Set it, then rebuild web (--build)."
+  else
+    ok "Supabase browser key set (baked into web build)"
+  fi
+  case "$SB_JWKS" in
+    ""|*YOUR*) bad "SUPABASE_JWKS_URL missing/placeholder — the API verifies tokens
+       with it; without it authenticated dashboard calls are rejected.
+       Use https://<ref>.supabase.co/auth/v1/.well-known/jwks.json" ;;
+    https://*/auth/v1/.well-known/jwks.json) ok "SUPABASE_JWKS_URL set" ;;
+    *) warn "SUPABASE_JWKS_URL set but not the expected .well-known/jwks.json path" ;;
+  esac
+  # JWKS and URL must be the same project host or token verification never passes.
+  if [ -n "$SB_URL" ] && [ -n "$SB_JWKS" ]; then
+    u="${SB_URL#https://}"; u="${u%%/*}"
+    j="${SB_JWKS#https://}"; j="${j%%/*}"
+    [ "$u" = "$j" ] && ok "SUPABASE_URL and JWKS host match" \
+      || bad "SUPABASE_URL host ($u) != SUPABASE_JWKS_URL host ($j) — different
+       projects; token verification will always fail."
+  fi
+fi
+
 # ── 4. Network ───────────────────────────────────────────────────────────
 echo
 echo "4. Network"
