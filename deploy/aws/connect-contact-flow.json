@@ -81,7 +81,7 @@
       "Identifier": "InvokeVoxFlowLambda",
       "Type": "InvokeLambdaFunction",
       "Parameters": {
-        "LambdaFunctionARN": "arn:aws:lambda:us-east-1:123456789012:function:VoxFlow-Connect-Bridge",
+        "LambdaFunctionARN": "arn:aws:lambda:us-west-2:031247250483:function:VoxFlow-Connect-Bridge",
         "InvocationTimeLimitSeconds": "8",
         "Parameters": {
           "user_text": "$.StoredCustomerInput"

@@ -18,10 +18,11 @@ BUILD_DIR=$(mktemp -d /tmp/voxflow-lambda-build.XXXXXX)
 trap 'rm -rf "$BUILD_DIR"' EXIT
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-cp "$SCRIPT_DIR/lambda_handler.py" "$BUILD_DIR/"
+cp "$SCRIPT_DIR/lambda_handler.py" "$BUILD_DIR/lambda_handler.py"
+cp "$SCRIPT_DIR/lambda_handler.py" "$BUILD_DIR/lambda_function.py"
 
 cd "$BUILD_DIR"
-zip -q -r function.zip lambda_handler.py
+zip -q -r function.zip lambda_handler.py lambda_function.py
 
 echo "==> Deploying function code to AWS Lambda..."
 
@@ -31,11 +32,15 @@ if aws lambda get-function --function-name "$FUNCTION_NAME" --region "$REGION" >
         --zip-file "fileb://function.zip" \
         --region "$REGION" >/dev/null
     
+    # Wait for update to settle
+    aws lambda wait function-updated --function-name "$FUNCTION_NAME" --region "$REGION"
+    
     aws lambda update-function-configuration \
         --function-name "$FUNCTION_NAME" \
-        --environment "Variables={VOXFLOW_API_URL=$API_URL,VOXFLOW_SECRET=$SECRET}" \
+        --timeout 10 \
+        --environment "Variables={VOXFLOW_API_URL=\"$API_URL\",VOXFLOW_SECRET=\"$SECRET\"}" \
         --region "$REGION" >/dev/null
-    echo "✅ Successfully updated existing Lambda function: $FUNCTION_NAME"
+    echo "✅ Successfully deployed latest code to AWS Lambda function: $FUNCTION_NAME in $REGION"
 else
     echo "==> Lambda function does not exist yet. Please create it in AWS Console or provide an execution role ARN:"
     echo "    aws lambda create-function \\"

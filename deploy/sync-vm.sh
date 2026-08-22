@@ -69,13 +69,9 @@ say "Pushing Caddyfile to the VM"
 "${SCP[@]}" "${REPO_ROOT}/deploy/Caddyfile" \
             "${VM_USER}@${VM_HOST}:${VM_REPO}/deploy/Caddyfile"
 
-# seed.py is baked into the api image (apps/api has no source bind-mount), and
-# this script rebuilds api. Pushing it here keeps the rebuilt image from
-# reverting to the VM's older copy — the one whose single-transaction insert
-# tripped products_tenant_id_fkey on Postgres.
-say "Pushing the seeder to the VM"
-"${SCP[@]}" "${REPO_ROOT}/apps/api/voxflow_api/seed.py" \
-            "${VM_USER}@${VM_HOST}:${VM_REPO}/apps/api/voxflow_api/seed.py"
+say "Pushing apps/api code to the VM"
+"${SCP[@]}" -r "${REPO_ROOT}/apps/api/voxflow_api" \
+            "${VM_USER}@${VM_HOST}:${VM_REPO}/apps/api/"
 
 # ---------------------------------------------------------------------------
 # 3-5. Repair .env, rebuild, verify — all on the VM.
