@@ -63,10 +63,10 @@ Supply chain and logistics enterprises handle tens of thousands of repetitive, t
 ```mermaid
 flowchart TB
     subgraph Carriers["🌐 Telecom & Voice Ingestion Layer"]
-        AWS["📞 Amazon Connect (AWS)<br/>+44 20 4640 4552"]
-        TW["📱 Twilio Voice<br/>+44 7460 041934"]
-        TX["📡 Telnyx Voice<br/>+1 802 589 8040"]
-        WEB["💻 In-Browser Simulator<br/>WebAudio / Mic Stream"]
+        AWS["📞 Amazon Connect (AWS)<br/>Enterprise Contact Center"]
+        TW["📱 Twilio Voice<br/>Global PSTN Telephony"]
+        TX["📡 Telnyx Voice<br/>High-Capacity Carrier Trunk"]
+        WEB["💻 In-Browser Simulator<br/>Interactive Mic Stream"]
     end
 
     subgraph Streaming["⚡ Real-Time Audio & Gateway Layer"]
@@ -142,12 +142,12 @@ flowchart TB
 
 VoxFlow operates concurrently across multiple global cloud carriers:
 
-| Provider | Live Active Number | Capabilities | Integration Mechanism |
+| Provider | Inbound Phone Routing | Capabilities | Integration Mechanism |
 |---|---|---|---|
-| **Amazon Connect (AWS)** | **`+44 20 4640 4552`** | 90 Free Min/Mo, Global Contact Center | AWS Lambda Bridge + Polly Neural Voice |
-| **Twilio Voice** | **`+44 7460 041934`** | Global PSTN Inbound & Outbound | TwiML Webhook + Real-Time WSS Stream |
-| **Telnyx** | **`+1 802 589 8040`** | Low-Cost Carrier with $5 Trial Credit | TeXML Webhook + G.711 μ-law Streaming |
-| **In-Browser Simulator** | *N/A (Microphone)* | 100% Free, Zero Telecom Setup | WebAudio WebSocket at `/dashboard/simulator` |
+| **Amazon Connect (AWS)** | Dedicated Enterprise DID *(Assigned per tenant)* | 90 Free Min/Mo, Global Contact Center | AWS Lambda Bridge + Polly Neural Voice |
+| **Twilio Voice** | Global Number Pool *(Configurable per country)* | Worldwide PSTN Inbound & Outbound | TwiML Webhook + Real-Time WSS Stream |
+| **Telnyx** | Low-Cost Carrier Trunk *(US/UK/EU)* | High-Throughput TeXML Call Control | TeXML Webhook + G.711 μ-law Streaming |
+| **In-Browser Simulator** | Interactive Web Microphone | 100% Free, Zero Telecom Setup | WebAudio WebSocket at `/dashboard/simulator` |
 
 ---
 
@@ -216,6 +216,20 @@ npm run build
 - **Cloud Frontend**: **Vercel** Edge Network with sub-100ms global static asset delivery.
 - **Serverless Voice Bridge**: **AWS Lambda** (`us-west-2`) integrated with **Amazon Connect Contact Flows**.
 - **Live VM Sync Command**: `./deploy/sync-vm.sh` (automated code push, database migration, container reload, and zero-downtime health verification).
+
+---
+
+## 🏢 Enterprise Inquiries, Custom Pilots & Product Demos
+
+VoxFlow is available as an enterprise B2B SaaS platform with private cloud deployment options (AWS, Oracle Cloud, Azure) or fully managed multi-tenant instances.
+
+If you are a business stakeholder, supply chain leader, or enterprise partner interested in:
+- **Scheduling a Live Interactive Voice Agent Demonstration**
+- **Launching a Customized Pilot with Dedicated Phone Lines (US / UK / India)**
+- **Connecting VoxFlow to your ERP (SAP, Oracle, NetSuite), WMS, or Custom Database**
+- **Commercial Licensing, SLA Support, and Tenant Onboarding**
+
+👉 **Get in touch with the founder**: [Open a GitHub Inquiry](https://github.com/jeevesh2515/voxflow-voice-agent/issues) or reach out directly to discuss your supply chain workflow requirements.
 
 ---
 
