@@ -347,6 +347,7 @@ class TenantPhoneNumber(Base):
     phone_number: Mapped[str] = mapped_column(String(32), primary_key=True)  # E.164, e.g. +14155551234
     tenant_id: Mapped[str] = mapped_column(String(64), ForeignKey("tenants.id"), index=True)
     label: Mapped[str] = mapped_column(String(128), default="")
+    provider: Mapped[str] = mapped_column(String(32), default="twilio", server_default="twilio")
     active: Mapped[int] = mapped_column(Integer, default=1)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_utcnow)
 

@@ -113,20 +113,40 @@ case "$body" in
 esac
 
 # --- 5. wss upgrade, the Day-1 telephony requirement ----------------------
+# A curl "Upgrade: websocket" request CANNOT test this. Starlette's
+# WebSocketRoute only matches scope type "websocket", so an HTTP GET to /ws/call
+# returns 404 even when the route is perfectly healthy — and Next.js would also
+# 404 that path, making the status code useless for telling the two apart.
+#
+# Use a real client. The api image ships websockets==13.1, and dialling the
+# PUBLIC wss:// URL from inside it exercises the entire path a Twilio Media
+# Stream needs: DNS, the Let's Encrypt certificate, Caddy's @api matcher, the
+# HTTP/1.1 upgrade, and ws.py's `await ws.accept()`.
 echo
-echo "=== wss upgrade on /ws/call ==="
-ws="$(curl -s -o /dev/null -w '%{http_code}' --max-time 15 \
-     -H 'Connection: Upgrade' -H 'Upgrade: websocket' \
-     -H 'Sec-WebSocket-Version: 13' -H 'Sec-WebSocket-Key: dGhlIHNhbXBsZSBub25jZQ==' \
-     "https://${DOMAIN}/ws/call" || echo 000)"
-# 101 = upgraded. 426/400/403 = reached the app and it declined the handshake,
-# which still proves Caddy proxied the upgrade to FastAPI.
-case "$ws" in
-  101) echo "  101 — upgraded" ;;
-  400|403|426) echo "  $ws — reached FastAPI, handshake declined (proxy path works)" ;;
-  502|504|000) echo "  $ws — Caddy could not reach the api upstream"; rc=1 ;;
-  *) echo "  $ws" ;;
-esac
+echo "=== real wss handshake against wss://${DOMAIN}/ws/call ==="
+"${DC[@]}" exec -T -e VOXFLOW_WS="wss://${DOMAIN}/ws/call" api python - <<'PY' 2>&1 | tail -12
+import os, json, sys
+
+url = os.environ["VOXFLOW_WS"]
+try:
+    from websockets.sync.client import connect
+except Exception as exc:
+    print("SKIP: no sync websocket client available (%s)" % exc)
+    sys.exit(0)
+
+try:
+    with connect(url, open_timeout=20, close_timeout=5) as ws:
+        print("101 UPGRADED — TLS + Caddy + FastAPI websocket path all work")
+        ws.send(json.dumps({"type": "ping-from-verify"}))
+        try:
+            print("  app replied:", ws.recv(timeout=10)[:200])
+        except Exception:
+            print("  (no reply to an unknown message type — handshake still proven)")
+except Exception as exc:
+    print("FAILED: %s: %s" % (type(exc).__name__, str(exc)[:300]))
+    sys.exit(1)
+PY
+[[ "${PIPESTATUS[0]}" -eq 0 ]] || rc=1
 
 if [[ $rc -ne 0 ]]; then
   echo

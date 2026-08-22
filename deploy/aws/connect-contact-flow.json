@@ -1,0 +1,170 @@
+{
+  "Version": "2019-10-30",
+  "StartAction": "SetVoiceAction",
+  "Metadata": {
+    "EntryPoints": {},
+    "ActionMetadata": {
+      "SetVoiceAction": {
+        "Position": { "x": 160, "y": 80 }
+      },
+      "PlayWelcome": {
+        "Position": { "x": 360, "y": 80 }
+      },
+      "GetCustomerSpeech": {
+        "Position": { "x": 580, "y": 80 }
+      },
+      "InvokeVoxFlowLambda": {
+        "Position": { "x": 800, "y": 80 }
+      },
+      "PlayAgentResponse": {
+        "Position": { "x": 1020, "y": 80 }
+      },
+      "CheckEndCall": {
+        "Position": { "x": 1240, "y": 80 }
+      },
+      "CheckEscalate": {
+        "Position": { "x": 1240, "y": 280 }
+      },
+      "TransferToQueue": {
+        "Position": { "x": 1460, "y": 280 }
+      },
+      "DisconnectCall": {
+        "Position": { "x": 1460, "y": 80 }
+      }
+    }
+  },
+  "Actions": [
+    {
+      "Identifier": "SetVoiceAction",
+      "Type": "UpdateContactData",
+      "Parameters": {
+        "Voice": "Aditi",
+        "LanguageCode": "hi-IN"
+      },
+      "Transitions": {
+        "NextAction": "PlayWelcome",
+        "Errors": [],
+        "Conditions": []
+      }
+    },
+    {
+      "Identifier": "PlayWelcome",
+      "Type": "MessageParticipant",
+      "Parameters": {
+        "Text": "नमस्ते, वॉक्सफ़्लो में आपका स्वागत है। मैं आपकी क्या मदद कर सकता हूँ?"
+      },
+      "Transitions": {
+        "NextAction": "GetCustomerSpeech",
+        "Errors": [],
+        "Conditions": []
+      }
+    },
+    {
+      "Identifier": "GetCustomerSpeech",
+      "Type": "GetParticipantInput",
+      "Parameters": {
+        "InputTimeLimitSeconds": "5",
+        "Text": "कृपया अपनी बात कहें।"
+      },
+      "Transitions": {
+        "NextAction": "InvokeVoxFlowLambda",
+        "Errors": [
+          {
+            "NextAction": "DisconnectCall",
+            "ErrorType": "NoMatchingError"
+          }
+        ],
+        "Conditions": []
+      }
+    },
+    {
+      "Identifier": "InvokeVoxFlowLambda",
+      "Type": "InvokeLambdaFunction",
+      "Parameters": {
+        "LambdaFunctionARN": "arn:aws:lambda:us-east-1:123456789012:function:VoxFlow-Connect-Bridge",
+        "InvocationTimeLimitSeconds": "8",
+        "Parameters": {
+          "user_text": "$.StoredCustomerInput"
+        }
+      },
+      "Transitions": {
+        "NextAction": "PlayAgentResponse",
+        "Errors": [
+          {
+            "NextAction": "PlayWelcome",
+            "ErrorType": "ExecutionError"
+          }
+        ],
+        "Conditions": []
+      }
+    },
+    {
+      "Identifier": "PlayAgentResponse",
+      "Type": "MessageParticipant",
+      "Parameters": {
+        "Text": "$.External.agent_reply"
+      },
+      "Transitions": {
+        "NextAction": "CheckEndCall",
+        "Errors": [],
+        "Conditions": []
+      }
+    },
+    {
+      "Identifier": "CheckEndCall",
+      "Type": "Compare",
+      "Parameters": {
+        "ComparisonValue": "$.External.end_call"
+      },
+      "Transitions": {
+        "NextAction": "CheckEscalate",
+        "Conditions": [
+          {
+            "NextAction": "DisconnectCall",
+            "Condition": {
+              "Operator": "Equals",
+              "Operands": ["true"]
+            }
+          }
+        ],
+        "Errors": []
+      }
+    },
+    {
+      "Identifier": "CheckEscalate",
+      "Type": "Compare",
+      "Parameters": {
+        "ComparisonValue": "$.External.escalate"
+      },
+      "Transitions": {
+        "NextAction": "GetCustomerSpeech",
+        "Conditions": [
+          {
+            "NextAction": "TransferToQueue",
+            "Condition": {
+              "Operator": "Equals",
+              "Operands": ["true"]
+            }
+          }
+        ],
+        "Errors": []
+      }
+    },
+    {
+      "Identifier": "TransferToQueue",
+      "Type": "TransferToQueue",
+      "Parameters": {},
+      "Transitions": {
+        "NextAction": "DisconnectCall",
+        "Errors": [],
+        "Conditions": []
+      }
+    },
+    {
+      "Identifier": "DisconnectCall",
+      "Type": "DisconnectParticipant",
+      "Parameters": {},
+      "Transitions": {}
+    }
+  ]
+}
