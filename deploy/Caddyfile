@@ -29,7 +29,7 @@
 	# ---------- FastAPI backend ----------
 	# All machine-facing prefixes. Everything the API serves is under one of
 	# these; verify-turnstile lives at /api/auth/*, health at /api/health.
-	@api path /api/* /twilio/* /ws/call /chat /tts /agent/*
+	@api path /api/* /twilio/* /telnyx/* /ws/call /chat /tts /agent/*
 	handle @api {
 		reverse_proxy api:8000 {
 			# Twilio holds the Media Stream (/twilio/media) open for the whole
