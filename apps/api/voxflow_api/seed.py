@@ -313,6 +313,7 @@ def seed(reset: bool = False) -> None:
             # --- Map demo Twilio numbers to tenants ---
             # Replace these with your real Twilio number (see SETUP.md step 7).
             for number, tid, label, prov in (
+                ("+442046404552", "varun", "Varun Beverages Amazon Connect UK line", "connect"),
                 ("+18025898040", "varun", "Varun Beverages Telnyx US support line", "telnyx"),
                 ("+447460041934", "varun", "Varun Beverages Twilio UK line", "twilio"),
                 ("+15550100001", "varun", "Varun Beverages demo line", "twilio"),
