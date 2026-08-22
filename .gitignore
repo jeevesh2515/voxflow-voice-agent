@@ -63,6 +63,8 @@ graphify-out/
 
 # Internal / Personal Folders
 .planning/
+*HANDOFF*.md
+CLAUDE_HANDOFF.md
 data/
 docs/
 files/
