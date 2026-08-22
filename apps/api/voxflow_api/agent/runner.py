@@ -123,7 +123,29 @@ class AgentRunner:
 
         for iteration in range(self.max_iterations):
             t0 = time.time()
-            resp = await llm.chat(history, tools=TOOL_DEFINITIONS)
+            try:
+                resp = await llm.chat(history, tools=TOOL_DEFINITIONS)
+            except Exception as exc:
+                # Provider availability must not leave a browser simulator turn
+                # pending indefinitely. Do not disclose internal provider details
+                # and do not synthesize or queue any operational side effect.
+                log.warning(
+                    "llm.turn_unavailable",
+                    tenant=session.tenant_id,
+                    provider=getattr(llm, "name", "unknown"),
+                    exception_type=type(exc).__name__,
+                )
+                is_hindi = getattr(session, "language", "hi") == "hi"
+                return AgentTurnResult(
+                    reply=(
+                        "माफ़ कीजिए, डेमो सहायक अभी व्यस्त है। कृपया कुछ क्षण बाद फिर कोशिश करें। कोई कार्रवाई नहीं की गई है।"
+                        if is_hindi
+                        else "The demonstration assistant is temporarily busy. Please try again shortly; no action was taken."
+                    ),
+                    actions=actions,
+                    tool_calls=all_tool_calls,
+                    finish_reason="provider_unavailable",
+                )
             log.info(
                 "llm.turn",
                 iter=iteration,

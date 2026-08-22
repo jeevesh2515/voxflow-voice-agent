@@ -5,44 +5,56 @@
 # trusted certificate for both the webhook (https) and the Media Stream (wss),
 # so this is the piece that makes real phone calls possible.
 #
-# Routing (same domain):
-#   /dashboard/*  →  web:3000   (Next.js dashboard)
-#   everything    →  api:8000   (FastAPI backend, Twilio webhooks, WS)
+# Routing (single domain, single Next.js app WITHOUT basePath):
+#   /api/*        →  api:8000    FastAPI (data, auth, health, analytics, tenants)
+#   /twilio/*     →  api:8000    Twilio voice webhook + Media Stream (wss) + recording
+#   /ws/call      →  api:8000    browser simulator WebSocket
+#   /chat /tts    →  api:8000    bare test/debug endpoints
+#   /agent/*      →  api:8000    bare agent-run endpoint
+#   everything    →  web:3000    Next.js: marketing (/, /about, /pricing),
+#                                 auth (/sign-in, /sign-up), /dashboard/*, /_next/*
+#
+# The Next.js app serves the whole site from one origin (no basePath), so the
+# web container is the DEFAULT target and the API owns only the explicit
+# machine-facing prefixes above. New marketing pages need no Caddy change; any
+# new backend surface stays under /api and is already covered.
 
 {
 	email {$ACME_EMAIL}
 }
 
 {$DOMAIN} {
-	encode gzip
+	encode zstd gzip
 
-	# ---------- Web dashboard ----------
-	# Requests starting with /dashboard are forwarded to the Next.js app.
-	# strip_prefix removes /dashboard so Next.js sees / internally.
-	handle_path /dashboard* {
-		reverse_proxy web:3000
-	}
-
-	# Next.js static assets (_next/) served by the web container.
-	handle /_next/* {
-		reverse_proxy web:3000
-	}
-
-	# ---------- API (everything else) ----------
-	handle {
+	# ---------- FastAPI backend ----------
+	# All machine-facing prefixes. Everything the API serves is under one of
+	# these; verify-turnstile lives at /api/auth/*, health at /api/health.
+	@api path /api/* /twilio/* /ws/call /chat /tts /agent/*
+	handle @api {
 		reverse_proxy api:8000 {
-			# Twilio holds the Media Stream open for the whole call. The default
-			# read timeout would cut long calls off mid-conversation.
+			# Twilio holds the Media Stream (/twilio/media) open for the whole
+			# call, and the simulator holds /ws/call open per session. The
+			# default upstream deadlines would cut a long call off
+			# mid-conversation, so we extend them well past any real call.
 			transport http {
 				read_timeout 3600s
 				write_timeout 3600s
 			}
 
 			# Preserve the real client IP so the webhook rate limiter and the
-			# audit logs see the caller's origin, not the proxy's.
+			# audit logs see the caller's origin, not the proxy's. Caddy already
+			# sets X-Forwarded-For (uvicorn --proxy-headers reads it); X-Real-IP
+			# is added for any app code that expects the nginx-style header.
 			header_up X-Real-IP {remote_host}
 			header_up X-Forwarded-Proto {scheme}
 		}
+	}
+
+	# ---------- Next.js web app (default) ----------
+	# Marketing, auth, /dashboard/*, and /_next/* static assets. No prefix is
+	# stripped: the app has no basePath, so it must receive the full path.
+	handle {
+		reverse_proxy web:3000
 	}
 
 	log {

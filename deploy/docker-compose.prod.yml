@@ -4,7 +4,9 @@
 #
 # Services:
 #   caddy — terminates TLS with an automatic Let's Encrypt certificate and
-#           reverse-proxies to Web (/dashboard, /_next) and API (everything else).
+#           reverse-proxies API prefixes (/api, /twilio, /ws/call) to the
+#           backend and everything else (marketing, auth, /dashboard, /_next)
+#           to the Next.js web app. See Caddyfile for the exact routing.
 #   api   — the FastAPI backend (telephony, agent, database, Sheets queue, session recovery)
 #   web   — the Next.js production dashboard
 
