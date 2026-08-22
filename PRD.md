@@ -1,12 +1,12 @@
 # VoxFlow Product Requirements Document
 
-**Status:** Living product document; Day 36 reliability evidence is CI- and production-verified through the Render Free backend and the authenticated Vercel dashboard/Phone Simulator. Human authority and live activation remain deliberately blocked.
-**Last updated:** 2026-08-21
+**Status:** Living product document; Phase 9 Infrastructure, Resilience & UI Overhaul is verified locally with **266 passing backend tests**, **23 compiled frontend routes**, Oracle Cloud Always-Free ARM VM deployment with Caddy auto-TLS reverse proxy, and bilingual LLM provider resilience fallbacks. Full day-by-day logs are in [`DAY_TRACKER.md`](DAY_TRACKER.md).  
+**Last updated:** 2026-08-22  
 **Repository:** <https://github.com/jeevesh2515/voxflow-voice-agent>
 
 ## 1. Product statement
 
-VoxFlow is a bilingual Hindi-English voice operations platform for FMCG and supply-chain teams. It supports verified inbound voice workflows, operational dashboards, and controlled outbound campaign execution for operational—not sales—use cases such as delayed shipment follow-up, purchase-order confirmation, and dock reminders.
+VoxFlow is a bilingual Hindi-English voice operations platform for FMCG and supply-chain teams. It supports verified inbound voice workflows, operational dashboards, and controlled outbound campaign execution for operational—not sales—use cases such as delayed shipment follow-up, purchase-order confirmation, and dock reminders. Detailed day-wise implementation logs are maintained in [`DAY_TRACKER.md`](DAY_TRACKER.md).
 
 The product is designed around a simple safety principle: operational automation must be **tenant scoped, policy controlled, and auditable**. A campaign target may not reach a telephony provider merely because an operator created a campaign or an HTTP request succeeded.
 

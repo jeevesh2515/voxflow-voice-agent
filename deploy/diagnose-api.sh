@@ -16,7 +16,7 @@ VM_USER="${VM_USER:-ubuntu}"
 VM_KEY="${VM_KEY:-$HOME/Downloads/ssh-key-2026-08-03.key}"
 
 ssh -i "$VM_KEY" -o StrictHostKeyChecking=accept-new -o ConnectTimeout=15 \
-    "${VM_USER}@${VM_HOST}" 'bash -s' <<'REMOTE'
+    "${VM_USER}@${VM_HOST}" 'f=$(mktemp /tmp/voxflow-remote.XXXXXX); cat > "$f"; bash "$f" </dev/null; rc=$?; rm -f "$f"; exit $rc' <<'REMOTE'
 set -uo pipefail
 cd /home/ubuntu/voxflow-voice-agent/deploy
 

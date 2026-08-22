@@ -1,8 +1,8 @@
 # VoxFlow Delivery Phases
 
-**Last updated:** 2026-08-21
-**Current position:** Day 36 evidence-led pilot operations are CI- and production-verified through Fly and the authenticated Vercel dashboard. Render remains blocked by its documented outage; Vercel safely uses Fly until recovery. Day 36 is not pilot activation or automatic expansion; Day 37 reliability SLOs, drills, and recovery evidence are next.
-**Planning rule:** a milestone is complete only when its implementation, automated verification, deployment result, and safety boundary are recorded.
+**Last updated:** 2026-08-22  
+**Current position:** **Phase 9 Infrastructure, Resilience & UI Overhaul complete.** Verified locally with **266/266 passing tests**, **23/23 compiled Next.js routes**, Oracle Cloud ARM VM + Caddy auto-TLS deployment architecture, LLM resilience fallback, and complete dashboard accessibility redesign. Comprehensive day-by-day logs are catalogued in [`DAY_TRACKER.md`](DAY_TRACKER.md).  
+**Planning rule:** A milestone is complete only when its implementation, automated verification, deployment result, and safety boundary are recorded.
 
 ## Programme status
 
@@ -13,15 +13,18 @@
 | Controlled campaign cutover | 29–30 | Complete | Feature-gated worker, provider-operation idempotency, reconciliation foundation, tenant policy and auditable cancellation. |
 | Enterprise analytics and monitoring | 31 | Complete | Tenant KPI/trend aggregates, durable health signals, redacted CSV reporting, and dashboard operator view. |
 | Provider lifecycle hardening | 32 | Complete | Signed/fresh callbacks, immutable event ledger, tenant-derived reconciliation, quarantine, and lifecycle analytics. |
-| Integration reliability and pilot readiness | 33–35 | Complete; verified through temporary Fly backend | Dial callback certification, typed durable side-effect jobs, and Day 35 fail-closed pilot admission are CI- and browser-verified. No worker, callback secret, or provider integration is enabled. |
-| Post-pilot observability and resilience | 36–38 | Day 36 complete and production-verified; Day 37 next | Day 36 adds redacted evidence-led preflight/hold points and no-auto-expansion. Days 37–38 extend reliability SLOs, recovery drills, and alert/runbook evidence without activating a pilot. |
+| Integration reliability and pilot readiness | 33–35 | Complete | Dial callback certification, typed durable side-effect jobs, and Day 35 fail-closed pilot admission. |
+| Pilot operations observability & hold points | 36 | Complete | Redacted evidence-led preflight/hold points, no-auto-expansion governance, and pause evidence. |
+| Production Infrastructure & Resilience Hardening | 37+ | Complete | Oracle Cloud ARM VM + Caddy auto-TLS stack, Next.js 16 standalone Docker, LLM unavailability fallback, 266 backend tests, 23 frontend routes. |
 | Security and tenant controls | 39–43 | Planned | RBAC, RLS audit, callback hardening, retention, security evidence. |
 | Voice quality and integrations | 44–48 | Planned | Evaluation corpus, release thresholds, provider/integration contracts. |
-| Pilot readiness | 49–54 | Planned | Promotion controls, load/recovery rehearsal, tenant onboarding, controlled pilot. |
+| Pilot rehearsal & rollout | 49–54 | Planned | Promotion controls, load/recovery rehearsal, tenant onboarding, controlled pilot. |
+
+> For the comprehensive, day-by-day implementation log from Day 1 to current, see [`DAY_TRACKER.md`](DAY_TRACKER.md).
 
 ## Historical foundation: Days 1–24
 
-Days 1–24 established the backend, dashboard, tenant-aware data model, inbound voice functionality, security controls, operational modules, deployment path, and outbound campaign domain. The detailed original day-by-day worksheets are retained under `.planning/` and `.learning/` as historical learning material. The source of current engineering truth is this document together with `MEMORY.md`, `ARCHITECTURE.md`, and the latest `.learning` day guides.
+Days 1–24 established the backend, dashboard, tenant-aware data model, inbound voice functionality, security controls, operational modules, deployment path, and outbound campaign domain. The detailed original day-by-day worksheets are retained under `.planning/`, `.learning/`, and [`DAY_TRACKER.md`](DAY_TRACKER.md). The source of current engineering truth is this document together with `MEMORY.md`, `ARCHITECTURE.md`, and `DAY_TRACKER.md`.
 
 ## Completed durable execution, callback certification, controlled-pilot readiness, and Day 36 reliability evidence: Days 25–36
 

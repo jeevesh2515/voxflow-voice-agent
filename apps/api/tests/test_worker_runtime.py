@@ -21,7 +21,7 @@ def fresh_database():
 
 
 def _now() -> datetime:
-    return datetime(2026, 8, 23, 10, 0, tzinfo=timezone.utc)
+    return datetime.now(timezone.utc)
 
 
 def _as_utc(value: datetime | None) -> datetime | None:
@@ -89,6 +89,7 @@ def test_worker_completes_registered_handler_and_records_success():
 
 def test_worker_schedules_retry_with_full_jitter_and_error_evidence():
     job_id = _enqueue("cq-day27-retry")
+    fixed_now = datetime.now(timezone.utc) + timedelta(seconds=1)
 
     def transient_failure(_context):
         raise RetryableJobError("provider_timeout", "gateway timed out")
@@ -97,7 +98,7 @@ def test_worker_schedules_retry_with_full_jitter_and_error_evidence():
         session_factory=SessionLocal,
         handlers={"campaign.target.dispatch": transient_failure},
         worker_id="worker-retry",
-        now=_now,
+        now=lambda: fixed_now,
         base_retry_seconds=10,
         random_value=lambda: 0.5,
     )
@@ -109,7 +110,7 @@ def test_worker_schedules_retry_with_full_jitter_and_error_evidence():
     assert result.claimed == 1
     assert result.retried == 1
     assert job.status == RETRY_SCHEDULED
-    assert _as_utc(job.next_run_at) == _now() + timedelta(seconds=5)
+    assert _as_utc(job.next_run_at) == fixed_now + timedelta(seconds=5)
     assert job.last_error_code == "provider_timeout"
     assert attempt.outcome == RETRY_SCHEDULED
     assert attempt.error_code == "provider_timeout"

@@ -27,7 +27,7 @@ def fresh_database():
 
 
 def _now() -> datetime:
-    return datetime(2026, 8, 22, 10, 0, tzinfo=timezone.utc)
+    return datetime.now(timezone.utc)
 
 
 def _as_utc(value: datetime | None) -> datetime | None:

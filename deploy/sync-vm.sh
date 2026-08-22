@@ -62,7 +62,7 @@ say "Pushing next.config.mjs + Dockerfile to the VM"
 # 3-5. Repair .env, rebuild, verify — all on the VM.
 # ---------------------------------------------------------------------------
 say "Repairing .env, rebuilding api + web, verifying (this takes ~15 min)"
-"${SSH[@]}" 'bash -s' <<'REMOTE'
+"${SSH[@]}" 'f=$(mktemp /tmp/voxflow-remote.XXXXXX); cat > "$f"; bash "$f" </dev/null; rc=$?; rm -f "$f"; exit $rc' <<'REMOTE'
 set -euo pipefail
 cd /home/ubuntu/voxflow-voice-agent
 
@@ -187,7 +187,7 @@ done
 echo "--- waiting for web to accept connections (up to 2 min)"
 for i in $(seq 1 24); do
   if docker compose --env-file ../.env -f docker-compose.prod.yml \
-       exec -T caddy wget -q -T 3 -O /dev/null http://web:3000/ 2>/dev/null; then
+       exec -T caddy wget -q -T 3 -O /dev/null http://web:3000/ </dev/null 2>/dev/null; then
     echo "    web answering after ~$((i*5))s"; break
   fi
   sleep 5

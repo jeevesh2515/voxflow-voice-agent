@@ -17,7 +17,7 @@ VM_USER="${VM_USER:-ubuntu}"
 VM_KEY="${VM_KEY:-$HOME/Downloads/ssh-key-2026-08-03.key}"
 
 ssh -i "$VM_KEY" -o StrictHostKeyChecking=accept-new -o ConnectTimeout=15 \
-    "${VM_USER}@${VM_HOST}" 'bash -s' <<'REMOTE'
+    "${VM_USER}@${VM_HOST}" 'f=$(mktemp /tmp/voxflow-remote.XXXXXX); cat > "$f"; bash "$f" </dev/null; rc=$?; rm -f "$f"; exit $rc' <<'REMOTE'
 set -uo pipefail
 cd /home/ubuntu/voxflow-voice-agent/deploy
 DC=(docker compose --env-file ../.env -f docker-compose.prod.yml)
@@ -48,7 +48,7 @@ done
 # The web container declares no healthcheck, so poll its port from inside.
 echo "==> waiting for web to accept connections (up to 2 min)"
 for i in $(seq 1 24); do
-  if "${DC[@]}" exec -T caddy wget -q -T 3 -O /dev/null http://web:3000/ 2>/dev/null; then
+  if "${DC[@]}" exec -T caddy wget -q -T 3 -O /dev/null http://web:3000/ </dev/null 2>/dev/null; then
     echo "    web answering after ~$((i*5))s"; break
   fi
   sleep 5
@@ -64,7 +64,7 @@ echo "=== container state ==="
 echo
 echo "=== upstream probes from inside the Docker network (via caddy) ==="
 for target in http://api:8000/api/health http://web:3000/; do
-  code="$("${DC[@]}" exec -T caddy wget -q -T 8 -S -O /dev/null "$target" 2>&1 \
+  code="$("${DC[@]}" exec -T caddy wget -q -T 8 -S -O /dev/null "$target" </dev/null 2>&1 \
           | grep -oE 'HTTP/1\.[01] [0-9]{3}' | tail -1 | awk '{print $2}')"
   printf '  %-32s %s\n' "$target" "${code:-UNREACHABLE}"
 done
