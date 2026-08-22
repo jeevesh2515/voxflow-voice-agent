@@ -15,12 +15,13 @@
 </p>
 
 <p>
+  <img src="https://img.shields.io/badge/TESTS-266%20PASSED-10B981?style=for-the-badge&labelColor=111827" alt="266 Tests Passed" />
+  <img src="https://img.shields.io/badge/FRONTEND-23%20ROUTES-6366F1?style=for-the-badge&labelColor=111827" alt="23 Compiled Routes" />
   <img src="https://img.shields.io/badge/WORKSPACE-OPERATIONS%20INTELLIGENCE-7C3AED?style=for-the-badge&labelColor=111827" alt="Operations intelligence workspace" />
-  <img src="https://img.shields.io/badge/INTEGRATION-ENTERPRISE%20READY-0891B2?style=for-the-badge&labelColor=111827" alt="Enterprise integration ready" />
   <a href="LICENSE"><img src="https://img.shields.io/badge/LICENSE-MIT-16A34A?style=for-the-badge&labelColor=111827" alt="MIT License" /></a>
 </p>
 
-[**Explore the product**](https://voxflow-voice-agent.vercel.app) &nbsp;·&nbsp; [**Capabilities**](#capabilities) &nbsp;·&nbsp; [**Integration**](#integration) &nbsp;·&nbsp; [**Get started**](#getting-started)
+[**Explore the product**](https://voxflow-voice-agent.vercel.app) &nbsp;·&nbsp; [**Day-by-Day Implementation Tracker**](DAY_TRACKER.md) &nbsp;·&nbsp; [**Capabilities**](#capabilities) &nbsp;·&nbsp; [**Architecture**](ARCHITECTURE.md) &nbsp;·&nbsp; [**Get started**](#getting-started)
 
 </div>
 
@@ -30,6 +31,7 @@
 ## 📚 Table of Contents
 
 - [Overview](#overview)
+- [Day-by-Day Implementation Tracker (Days 1–37+)](DAY_TRACKER.md)
 - [Why VoxFlow](#why-voxflow)
 - [Capabilities](#capabilities)
 - [How VoxFlow Works](#how-voxflow-works)

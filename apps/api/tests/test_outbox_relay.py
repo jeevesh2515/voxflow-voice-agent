@@ -19,7 +19,7 @@ def fresh_database():
 
 
 def _now() -> datetime:
-    return datetime(2026, 8, 24, 10, 0, tzinfo=timezone.utc)
+    return datetime.now(timezone.utc)
 
 
 def _enqueue_outbox(queue_id: str) -> str:

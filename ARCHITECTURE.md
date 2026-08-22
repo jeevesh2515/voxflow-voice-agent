@@ -1,12 +1,12 @@
 # VoxFlow Architecture
 
-**Last updated:** 2026-08-21
-**Current milestone:** Day 36 — evidence-led pilot operations is CI- and production-verified; immutable redacted evidence, read-only preflight/hold-point scorecards, and same-cohort enforcement remain fail-closed in the staged Fly runtime.
+**Last updated:** 2026-08-22  
+**Current milestone:** **Phase 9 Infrastructure, Resilience & UI Overhaul complete.** 266 backend tests passing, 23 compiled frontend routes, Oracle Cloud Always-Free ARM VM containerized architecture with Caddy auto-TLS reverse proxy, and bilingual LLM provider resilience fallbacks. Comprehensive day-by-day implementation tracking is recorded in [`DAY_TRACKER.md`](DAY_TRACKER.md).  
 **Operating mode:** Inbound voice and dashboard functions are deployed. Campaign dispatch and operational side-effect workers are independently safe-staged; Day 35 admission and Day 36 current-version evidence are both fail-closed with an empty tenant allow-list.
 
 ## 1. System boundaries
 
-VoxFlow separates the latency-sensitive inbound voice path from durable operational work. FastAPI receives web/API requests and persists intent. Durable workers claim lease-protected jobs from the database and execute bounded units of background work. Campaign provider calls are not performed inside the campaign HTTP request transaction.
+VoxFlow separates the latency-sensitive inbound voice path from durable operational work. FastAPI receives web/API requests and persists intent. Durable workers claim lease-protected jobs from the database and execute bounded units of background work. Campaign provider calls are not performed inside the campaign HTTP request transaction. The stack is containerized and deployable on Oracle Cloud ARM VMs (via Caddy auto-TLS reverse proxy) as well as managed cloud hosts (Render/Vercel/Fly).
 
 ```mermaid
 flowchart TB
@@ -216,21 +216,24 @@ These settings are a deliberate layered control, not a missing feature. An inter
 
 ## 9. Engineering quality gates
 
-| Surface | Command |
-|---|---|
-| Backend lint | `cd apps/api && .venv/bin/ruff check voxflow_api tests` |
-| Backend tests | `cd apps/api && .venv/bin/pytest -q` |
-| Frontend lint | `npm run lint --workspace=apps/web` |
-| Frontend production build | `npm run build --workspace=apps/web` |
-| Live job posture | `GET /api/jobs/health?tenant_id=varun` |
+| Surface | Command | Verified Outcome |
+|---|---|---|
+| Backend lint | `cd apps/api && .venv/bin/ruff check voxflow_api tests` | Clean (0 errors) |
+| Backend tests | `cd apps/api && .venv/bin/pytest -q` | **266 passed** (in 86.5s) |
+| Frontend lint | `npm run lint --workspace=apps/web` | Clean (0 errors) |
+| Frontend production build | `npm run build --workspace=apps/web` | **23 static compiled routes** (Turbopack) |
+| Live job posture | `GET /api/jobs/health?tenant_id=varun` | Staged / safe |
 
-At the Day 36 local delivery point, the backend suite has **222 passing tests**, API lint is clean, and the frontend production build generates 20 routes. GitHub CI validates API lint, API test, and web lint/build on every `main` delivery.
+At the current delivery point, the backend suite has **266 passing tests**, API lint is clean, and the frontend production build generates 23 routes cleanly. GitHub CI validates API lint, API test, and web lint/build on every `main` delivery. Detailed historical day-by-day logs are available in [`DAY_TRACKER.md`](DAY_TRACKER.md).
 
 ## References
 
+- `DAY_TRACKER.md` (Master Day-Wise Implementation Tracker)
+- `deploy/ORACLE_DEPLOY.md` (Oracle Cloud Always-Free ARM Deployment Runbook)
+- `deploy/Caddyfile` & `deploy/docker-compose.prod.yml`
 - `apps/api/voxflow_api/jobs/`
 - `apps/api/voxflow_api/db.py`
-- `migrations/003_durable_job_ledger.sql`
+- `migrations/001_rls_policies.sql` through `migrations/010_pilot_operations_evidence.sql`
 - `migrations/004_outbox_relay_state.sql`
 - `migrations/005_campaign_policy_controls.sql`
 - `migrations/006_provider_callback_lifecycle.sql`
