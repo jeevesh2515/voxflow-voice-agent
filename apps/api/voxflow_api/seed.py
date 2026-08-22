@@ -7,8 +7,13 @@ Tenants:
   - britannia (Britannia Industries — Bakery products distributor)
 
 Usage:
-    python -m voxflow_api.seed            # add seed data
-    python -m voxflow_api.seed --reset    # drop & recreate everything
+    python -m voxflow_api.seed            # add seed data (idempotent, safe to re-run)
+    python -m voxflow_api.seed --reset    # SQLite only: drop & recreate everything
+
+Every group of rows is inserted in its own transaction, parent tables first,
+because the ORM's foreign keys are bare ForeignKey columns with no relationship()
+behind them — SQLAlchemy cannot infer the insert order from them, so this script
+supplies it explicitly. Re-running skips whatever already landed.
 """
 
 from __future__ import annotations
@@ -96,22 +101,71 @@ TENANT_SUPPLIERS = {
 }
 
 
+def _absent(model, pk) -> bool:
+    """True when a row is missing, checked in its own short transaction.
+
+    Used to gate each seeding stage so the whole script is re-runnable: a stage
+    whose rows already landed is skipped, and a stage that never ran completes.
+    """
+    with session_scope() as db:
+        return db.get(model, pk) is None
+
+
 def seed(reset: bool = False) -> None:
     setup_logging()
     if reset:
+        # reset_db() is drop_all() + create_all(). On SQLite that is a harmless
+        # dev convenience. On Postgres it is destructive in a way that is easy to
+        # miss: create_all() re-creates only what the ORM declares, so every
+        # object the reviewed SQL migrations establish BEYOND the ORM — the 22
+        # row-level-security policies above all — is dropped and never comes
+        # back. The result is a database that still accepts writes but no longer
+        # isolates one tenant's calls from another's. Refuse rather than warn.
+        with session_scope() as probe:
+            dialect = probe.get_bind().dialect.name
+        if dialect != "sqlite":
+            raise SystemExit(
+                "refusing --reset on %s: drop_all/create_all would destroy the "
+                "row-level-security policies and indexes created by migrations/, "
+                "which create_all() cannot rebuild. Re-apply the SQL migrations "
+                "instead, then run this script without --reset." % dialect
+            )
         log.info("seed.reset")
         reset_db()
     else:
         init_db()
 
+    # ---- Stage 1: tenants -------------------------------------------------
+    # Every other table has a tenant_id foreign key, so tenants must EXIST IN THE
+    # DATABASE — not merely be pending in a session — before anything else is
+    # inserted. That is why each stage below gets its own session_scope() and
+    # therefore its own COMMIT.
+    #
+    # This was one transaction, and Postgres rejected it:
+    #   ForeignKeyViolation: insert or update on table "products" violates foreign
+    #   key constraint "products_tenant_id_fkey"
+    #   DETAIL: Key (tenant_id)=(varun) is not present in table "tenants".
+    #
+    # The reason is subtle and worth knowing, because it will bite anywhere else
+    # this pattern appears: SQLAlchemy's unit of work orders INSERTs by MAPPER
+    # dependency, and mapper dependencies come from relationship(), not from bare
+    # ForeignKey columns. db.py declares exactly two relationships
+    # (Supplier.orders <-> Order.supplier); Tenant -> Product is a bare FK, so the
+    # unit of work had no reason to put tenants first and did not. SessionLocal is
+    # autoflush=False, so nothing hit the database until the single commit, at
+    # which point the order was whatever the identity map happened to produce.
+    #
+    # SQLite hid this for months: it does not enforce foreign keys unless
+    # `PRAGMA foreign_keys=ON` is issued per connection. The seed was already
+    # wrong on SQLite; only Postgres bothered to say so.
     with session_scope() as db:
-        # 1. Tenants
         if db.query(Tenant).count() == 0:
             for t in TENANTS:
                 db.add(Tenant(**t))
             log.info("seed.tenants", count=len(TENANTS))
 
-        # 2. Products & Suppliers
+    # ---- Stage 2: products + suppliers (need committed tenants) -----------
+    with session_scope() as db:
         if db.query(Product).count() == 0:
             for tid, prods in TENANT_PRODUCTS.items():
                 for p in prods:
@@ -124,7 +178,8 @@ def seed(reset: bool = False) -> None:
                     db.add(Supplier(tenant_id=tid, **s))
             log.info("seed.suppliers")
 
-        # 3. Stock
+    # ---- Stage 3: stock (stock.sku is a FK to products.sku) ---------------
+    with session_scope() as db:
         if db.query(Stock).count() == 0:
             warehouses = ["Gurgaon-WH1", "Noida-WH2", "Delhi-Central", "Anand-ColdStorage", "Nagpur-Distr", "BLR-Hub"]
             for tid, prods in TENANT_PRODUCTS.items():
@@ -134,15 +189,17 @@ def seed(reset: bool = False) -> None:
                     db.add(Stock(tenant_id=tid, sku=p["sku"], warehouse=wh, quantity=qty, updated_at=datetime.now(timezone.utc)))
             log.info("seed.stock")
 
-    # History (Orders, Shipments, Calls, Appointments, Logs)
+    # ---- Stage 4: orders (need committed tenants + suppliers) -------------
+    # History used to be gated on `if reset:`, which meant a plain
+    # `python -m voxflow_api.seed` produced tenants, products, suppliers and stock
+    # but NOT A SINGLE ORDER — and orders are the only thing the order-status flow
+    # actually reads. You would seed, see "seed.done", ring in to ask whether your
+    # PO had been signed, and the agent would correctly report that no such order
+    # exists. Worse, the workaround was `--reset`, which is exactly the flag that
+    # must never touch Postgres (see the guard above).
     #
-    # This used to be `if reset:`, which meant a plain `python -m voxflow_api.seed`
-    # produced tenants, products, suppliers and stock but NOT A SINGLE ORDER —
-    # and orders are the only thing the customer-support flow actually reads.
-    # You would seed, see "seed.done", ring in to ask whether your PO had been
-    # signed, and the agent would correctly report that no such order exists.
-    # Gate on emptiness like every block above; `--reset` still means "drop the
-    # tables first", which is a separate concern from "is there data yet".
+    # Gate on emptiness like every other stage. "Drop the tables first" and "is
+    # there data yet" are separate questions and no longer share a flag.
     with session_scope() as _probe:
         _history_empty = _probe.query(Order).count() == 0
     if _history_empty:
@@ -201,13 +258,25 @@ def seed(reset: bool = False) -> None:
                     tenant_id="haldirams",
                     supplier_id="sup-hal-001",
                     status="confirmed",
-                    items_json=json.dumps([{"sku": "HAL-BHUJIA-1KG", "quantity": 30}]),
+                    # HAL-BHUJIA-400G, not the HAL-BHUJIA-1KG this used to say:
+                    # items_json is text with no FK, so nothing rejected the typo,
+                    # but the agent reads these SKUs back to the caller and would
+                    # have quoted a product that does not exist in the catalog.
+                    items_json=json.dumps([{"sku": "HAL-BHUJIA-400G", "quantity": 30}]),
                     total_qty=30,
                     notes="Express dispatch",
                     created_at=now - timedelta(hours=12),
                 )
             )
             log.info("seed.orders")
+
+    # ---- Stage 5: shipments (shipments.order_id is a FK to orders.id) ------
+    # Same rule as tenants -> products: Shipment -> Order is a bare ForeignKey
+    # with no relationship() behind it, so the orders above must be COMMITTED,
+    # not merely pending, before a shipment can reference one.
+    if _absent(Shipment, "SHP-9901"):
+        with session_scope() as db:
+            now = datetime.now(timezone.utc)
 
             # Sample Shipment
             db.add(
@@ -234,6 +303,13 @@ def seed(reset: bool = False) -> None:
             )
             log.info("seed.shipments")
 
+    # ---- Stage 6: Twilio number -> tenant map ------------------------------
+    # This is the ONE table you will edit by hand later (SETUP.md step 7, or
+    # scripts/map_phone.py), so it gets its own stage and its own per-row guard:
+    # adding your real Twilio number must not be short-circuited by some other
+    # stage's "already seeded" check.
+    if _absent(TenantPhoneNumber, "+15550100001"):
+        with session_scope() as db:
             # --- Map demo Twilio numbers to tenants ---
             # Replace these with your real Twilio number (see SETUP.md step 7).
             for number, tid, label in (
@@ -243,6 +319,12 @@ def seed(reset: bool = False) -> None:
                 if not db.get(TenantPhoneNumber, number):
                     db.add(TenantPhoneNumber(phone_number=number, tenant_id=tid, label=label))
             log.info("seed.tenant_phone_numbers")
+
+    # ---- Stage 7: calls, appointments, communication logs -----------------
+    # These reference only tenants and suppliers, both committed in stages 1-2.
+    if _absent(Call, "call_sample_01"):
+        with session_scope() as db:
+            now = datetime.now(timezone.utc)
 
             # Sample Calls
             db.add(
@@ -322,7 +404,12 @@ def seed(reset: bool = False) -> None:
 
 def main() -> None:
     parser = argparse.ArgumentParser()
-    parser.add_argument("--reset", action="store_true", help="Drop & recreate all tables before seeding")
+    parser.add_argument(
+        "--reset",
+        action="store_true",
+        help="SQLite only: drop & recreate all tables before seeding. Refused on "
+             "Postgres, where it would delete the RLS policies from migrations/.",
+    )
     args = parser.parse_args()
     seed(reset=args.reset)
 

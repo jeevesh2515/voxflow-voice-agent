@@ -132,6 +132,21 @@ class Settings(BaseSettings):
     # Tenant used when an inbound number isn't mapped in tenant_phone_numbers.
     default_tenant_id: str = "varun"
 
+    # ----- Telnyx Telephony Provider -----
+    telnyx_api_key: str = ""
+    telnyx_api_secret: str = ""
+    telnyx_public_key: str = ""
+    telnyx_phone_number: str = ""
+    telnyx_connection_id: str = ""
+    telnyx_validate_signature: bool = True
+    telephony_provider: str = "twilio"
+
+    # ----- Amazon Connect (AWS Voice Contact Center) -----
+    connect_lambda_secret: str = ""
+    connect_instance_id: str = ""
+    connect_contact_flow_id: str = ""
+    connect_region: str = "us-east-1"
+
     # ----- Dial (AI Telephony & Outbound Voice Agent) -----
     dial_api_key: str = ""
     dial_phone_number: str = "+14845499931"

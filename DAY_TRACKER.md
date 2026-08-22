@@ -372,7 +372,27 @@
   - ✅ **266/266 Passing Backend Tests** (`.venv/bin/pytest tests/ -q` in 86.5s).
   - ✅ **23/23 Static Compiled Routes** (`npm run build` in 20.8s, 0 errors).
   - ✅ **Vercel Frontend Live** (`https://web-gamma-ten-21.vercel.app`): Public routes return HTTP 200; all 13 dashboard routes return HTTP 307 redirect when unauthenticated.
-- **Artifacts:** `deploy/ORACLE_DEPLOY.md`, `deploy/Caddyfile`, `deploy/docker-compose.prod.yml`, `apps/api/tests/test_llm_resilience.py`, `apps/web/next.config.mjs`, `apps/web/Dockerfile`.
+#### 🗓️ Day 38: Multi-Provider Telephony (Telnyx + Amazon Connect AWS Integration)
+- **Objective:** Eliminate single-carrier dependency by decoupling telephony from Twilio and implementing native support for Telnyx ($5 free credit) and Amazon Connect (90 min/mo free tier on AWS).
+- **Implementation:**
+  1. **Telephony Provider Abstraction Layer (`telephony/base.py`, `telephony/registry.py`):**
+     - Abstracted webhook validation, incoming call normalization, connect response generation, and media streaming codec frames.
+     - Implemented `TwilioProvider`, `TelnyxProvider`, and `ConnectProvider` behind a unified singleton provider registry.
+  2. **Telnyx Integration (`routes/telnyx.py`, `telephony/telnyx_provider.py`):**
+     - Added `POST /telnyx/voice` supporting both TeXML (TwiML-compatible) and Call Control v2 JSON payloads.
+     - Added `WS /telnyx/media` for bidirectional audio streaming with G.711 μ-law codec, 8kHz $\rightarrow$ 16kHz resampling, VAD, and caller speech barge-in.
+     - Added `POST /telnyx/status` for call lifecycle callbacks.
+  3. **Amazon Connect AWS Integration (`routes/connect.py`, `deploy/aws/`):**
+     - Built AWS Lambda bridge (`deploy/aws/lambda_handler.py`) with HMAC-SHA256 request authentication.
+     - Added `POST /api/connect/turn` and `POST /api/connect/end` executing full AgentRunner turns (order tracking, appointment booking, inventory lookup, sheets sync).
+     - Authored importable Amazon Connect Contact Flow template (`deploy/aws/connect-contact-flow.json`), Lambda deploy script (`deploy/aws/deploy-lambda.sh`), and setup guide (`deploy/aws/setup-connect.md`).
+  4. **Multi-Provider Database Routing (`migrations/014_telephony_provider.sql`):**
+     - Added `provider` column (`DEFAULT 'twilio'`) and index to `tenant_phone_numbers` for per-tenant telephony provider assignment.
+- **Verification Evidence:**
+  - ✅ **279/279 Passing Backend Tests** (`.venv/bin/pytest tests/ -q` in 54.4s).
+  - ✅ **13/13 Telephony Unit & Integration Tests Passing** (`test_telephony_base.py`, `test_telnyx.py`, `test_connect.py`).
+  - ✅ **23/23 Static Compiled Routes** (`npm run build` in 1916ms, 0 errors).
+- **Artifacts:** `voxflow_api/telephony/`, `voxflow_api/routes/telnyx.py`, `voxflow_api/routes/connect.py`, `deploy/aws/`, `migrations/014_telephony_provider.sql`, `tests/test_telnyx.py`, `tests/test_connect.py`, `tests/test_telephony_base.py`.
 
 ---
 
@@ -380,18 +400,19 @@
 
 | Metric | Target | Current Value | Status |
 |---|---|---|---|
-| **Backend Unit & Integration Tests** | $\ge 200$ | **266 Passed** | ✅ Green |
+| **Backend Unit & Integration Tests** | $\ge 200$ | **279 Passed** | ✅ Green |
 | **Frontend Static Routes** | $\ge 15$ | **23 Compiled Pages** | ✅ Green |
 | **Lint & Static Analysis** | 0 warnings | `ruff check .` clean, ESLint clean | ✅ Clean |
-| **Database Migrations** | Staged & Verified | 10 Migrations (`001`–`010`) | ✅ Current |
+| **Database Migrations** | Staged & Verified | 14 Migrations (`000`–`014`) | ✅ Current |
+| **Telephony Providers Supported** | Multi-carrier | Twilio, Telnyx, Amazon Connect | ✅ Verified |
 | **Multi-Tenant Isolation** | Strict RLS | 100% tenant-scoped queries | ✅ Verified |
 | **Authentication & Auth Gate** | Unauth Redirects | HTTP 307 $\rightarrow$ `/sign-in` | ✅ Verified |
 | **Public Simulator Execution** | Hindi/English turns | Text turn + read-only tool | ✅ Verified |
 
 ---
 
-## 🧭 Next Recommended Actions (Day 38+)
+## 🧭 Next Recommended Actions (Day 39+)
 
-1. **Deterministic Fault-Injection Drills:** Rehearse worker crash recovery, network split isolation, and database connection timeout simulations in staging.
-2. **Alert Routing & Runbook Evidence:** Connect PagerDuty / webhook alert endpoints to dead-letter queue growth and callback quarantine thresholds.
-3. **Controlled Pilot Activation Ceremony:** Obtain signed human authorization, configure pilot tenant secrets, and execute the initial micro-cohort test with live operator oversight.
+1. **Telnyx Inbound Live Call Test:** Point Telnyx TeXML Application to `https://voxflow-voice-agent.onrender.com/telnyx/voice` and make a live test call.
+2. **Amazon Connect Contact Flow Provisioning:** Import `deploy/aws/connect-contact-flow.json` in AWS Console, claim a free number, and test end-to-end voice turns with Amazon Polly.
+3. **Deterministic Fault-Injection Drills:** Rehearse worker crash recovery, network split isolation, and database connection timeout simulations in staging.

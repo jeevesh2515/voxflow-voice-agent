@@ -4,7 +4,7 @@
 #
 # Run this from your Mac (NOT on the VM). It:
 #   1. pulls the VM's regenerated package-lock.json back into this repo
-#   2. pushes the repo's next.config.mjs + Dockerfile to the VM
+#   2. pushes the repo's next.config.mjs + Dockerfile + Caddyfile + seed.py to the VM
 #   3. repairs the VM's .env (joined lines, Sheets flag, CORS origin)
 #   4. rebuilds the api + web containers and waits for health
 #   5. verifies /, /dashboard and /api/health over HTTPS
@@ -48,15 +48,34 @@ say "Pulling regenerated package-lock.json from the VM"
             "${REPO_ROOT}/apps/web/package-lock.json"
 
 # ---------------------------------------------------------------------------
-# 2. Push the repo's build config to the VM.
+# 2. Push the repo's deploy-affecting config to the VM.
 #
-# Only these two files — never a whole-tree rsync, because .planning/ and
+# Only these files — never a whole-tree rsync, because .planning/ and
 # .learning/ are private and must never leave this machine.
+#
+# The Caddyfile belongs in this list. It is bind-mounted into the container
+# (./Caddyfile:/etc/caddy/Caddyfile:ro), so a stale copy on the VM survives
+# every image rebuild untouched. One did: it routed EVERY path to api:8000, so
+# /, /pricing and /sign-in returned FastAPI JSON and 404s while http://web:3000/
+# answered 200 from inside the same Docker network. Rebuilding could never have
+# fixed that, because the fault was in a file the rebuild does not read.
 # ---------------------------------------------------------------------------
 say "Pushing next.config.mjs + Dockerfile to the VM"
 "${SCP[@]}" "${REPO_ROOT}/apps/web/next.config.mjs" \
             "${REPO_ROOT}/apps/web/Dockerfile" \
             "${VM_USER}@${VM_HOST}:${VM_REPO}/apps/web/"
+
+say "Pushing Caddyfile to the VM"
+"${SCP[@]}" "${REPO_ROOT}/deploy/Caddyfile" \
+            "${VM_USER}@${VM_HOST}:${VM_REPO}/deploy/Caddyfile"
+
+# seed.py is baked into the api image (apps/api has no source bind-mount), and
+# this script rebuilds api. Pushing it here keeps the rebuilt image from
+# reverting to the VM's older copy — the one whose single-transaction insert
+# tripped products_tenant_id_fkey on Postgres.
+say "Pushing the seeder to the VM"
+"${SCP[@]}" "${REPO_ROOT}/apps/api/voxflow_api/seed.py" \
+            "${VM_USER}@${VM_HOST}:${VM_REPO}/apps/api/voxflow_api/seed.py"
 
 # ---------------------------------------------------------------------------
 # 3-5. Repair .env, rebuild, verify — all on the VM.
@@ -169,6 +188,19 @@ docker compose --env-file ../.env -f docker-compose.prod.yml \
 #     for the life of the process, so a Caddy left running across the recreate
 #     above keeps dialing the OLD container IPs and returns 502 on every route.
 #     Certificates persist on the caddy_data volume; nothing is re-issued.
+#
+#     Validate the just-pushed Caddyfile FIRST. The bind-mount is live, so the
+#     container already sees the new file while still serving the previous config
+#     from memory — the only safe moment to catch a syntax error.
+if val_out="$(docker compose --env-file ../.env -f docker-compose.prod.yml \
+              exec -T caddy caddy validate --config /etc/caddy/Caddyfile \
+              --adapter caddyfile 2>&1)"; then
+  echo "--- Caddyfile valid"
+else
+  printf '%s\n' "$val_out" | tail -15
+  echo "FAILED: pushed Caddyfile does not validate; caddy left on the old config"
+  exit 1
+fi
 docker compose --env-file ../.env -f docker-compose.prod.yml restart caddy
 
 # 5. Wait for real readiness. Container State flips to "running" within
