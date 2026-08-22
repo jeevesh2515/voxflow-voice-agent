@@ -8,11 +8,10 @@ Amazon Connect Contact Flow:
 
 from __future__ import annotations
 
-import time
 from datetime import datetime, timezone
 from typing import Any, Optional
 
-from fastapi import APIRouter, Header, HTTPException, Request
+from fastapi import APIRouter, HTTPException, Request
 from pydantic import BaseModel
 
 from ..agent.runner import AgentRunner
@@ -21,7 +20,6 @@ from ..db import TenantPhoneNumber, async_session_scope
 from ..logging import get_logger
 from ..schemas import CallTurn
 from ..telephony.registry import get_telephony_provider
-from ..voice.pipeline import CallSession
 from .ws import get_pipeline
 
 log = get_logger(__name__)

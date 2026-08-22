@@ -2,10 +2,8 @@
 
 from __future__ import annotations
 
-import pytest
 
-from voxflow_api.telephony.base import IncomingCall, MediaStart, TelephonyProvider
-from voxflow_api.telephony.registry import get_telephony_provider, register_telephony_provider
+from voxflow_api.telephony.registry import get_telephony_provider
 from voxflow_api.telephony.telnyx_provider import TelnyxProvider
 from voxflow_api.telephony.twilio_provider import TwilioProvider
 

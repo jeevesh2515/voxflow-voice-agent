@@ -4,14 +4,12 @@ from __future__ import annotations
 
 import base64
 import json
-import os
 
 import pytest
 from fastapi.testclient import TestClient
 
 from voxflow_api.main import create_app
 import voxflow_api.routes.telnyx as tx
-from voxflow_api.telephony.registry import get_telephony_provider
 
 
 @pytest.fixture

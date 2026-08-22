@@ -22,7 +22,7 @@ from fastapi import APIRouter, HTTPException, Request, WebSocket, WebSocketDisco
 from fastapi.responses import Response
 
 from ..config import get_settings
-from ..db import Call, async_session_scope
+from ..db import async_session_scope
 from ..logging import get_logger
 from ..telephony.registry import get_telephony_provider
 from ..voice.pipeline import CallSession
