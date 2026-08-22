@@ -312,12 +312,14 @@ def seed(reset: bool = False) -> None:
         with session_scope() as db:
             # --- Map demo Twilio numbers to tenants ---
             # Replace these with your real Twilio number (see SETUP.md step 7).
-            for number, tid, label in (
-                ("+15550100001", "varun", "Varun Beverages support line"),
-                ("+15550100002", "amul", "Amul support line"),
+            for number, tid, label, prov in (
+                ("+18025898040", "varun", "Varun Beverages Telnyx US support line", "telnyx"),
+                ("+447460041934", "varun", "Varun Beverages Twilio UK line", "twilio"),
+                ("+15550100001", "varun", "Varun Beverages demo line", "twilio"),
+                ("+15550100002", "amul", "Amul support line", "twilio"),
             ):
                 if not db.get(TenantPhoneNumber, number):
-                    db.add(TenantPhoneNumber(phone_number=number, tenant_id=tid, label=label))
+                    db.add(TenantPhoneNumber(phone_number=number, tenant_id=tid, label=label, provider=prov))
             log.info("seed.tenant_phone_numbers")
 
     # ---- Stage 7: calls, appointments, communication logs -----------------
