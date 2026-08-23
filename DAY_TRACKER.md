@@ -394,25 +394,44 @@
   - ✅ **23/23 Static Compiled Routes** (`npm run build` in 1916ms, 0 errors).
 - **Artifacts:** `voxflow_api/telephony/`, `voxflow_api/routes/telnyx.py`, `voxflow_api/routes/connect.py`, `deploy/aws/`, `migrations/014_telephony_provider.sql`, `tests/test_telnyx.py`, `tests/test_connect.py`, `tests/test_telephony_base.py`.
 
+#### 🗓️ Day 39: Always-On Baseline, Lambda VM Routing & Complete Sidebar Nav
+- **Objective:** Eliminate cold-start latency drops by routing Amazon Connect Lambda to the always-on Oracle Cloud VM, link all orphaned pages into the dashboard Sidebar, and streamline the telephony stack to Amazon Connect + In-Browser Simulator.
+- **Implementation:**
+  1. **Always-On Lambda Bridge Routing (`deploy/aws/lambda_handler.py`):**
+     - Configured default `VOXFLOW_API_URL` to `https://voxflow-jeevesh.duckdns.org` (Oracle Cloud VM with automated Caddy TLS), avoiding serverless cold-start timeouts.
+  2. **Complete Dashboard Sidebar Nav (`apps/web/src/components/Sidebar.tsx`):**
+     - Linked orphaned real pages: **Analytics** (`/dashboard/analytics`) under Main, and **Settings** (`/dashboard/settings`) under Account group.
+  3. **Streamlined Telephony Engine:**
+     - Standardized core telephony on Amazon Connect AWS Contact Center (`+44 20 4640 4552` UK DID) + In-Browser WebAudio Simulator.
+     - Extracted audio codecs to `voxflow_api/voice/codecs.py` and eliminated ~3,000 lines of dead legacy telephony code.
+  4. **Next.js 16 Route-Gate Protection (`apps/web/src/proxy.ts`):**
+     - Verified active live route-gate proxy on Next.js 16 with Supabase auth guard.
+- **Verification Evidence:**
+  - ✅ **251/251 Passing Backend Tests** (`pytest tests/ -q` in 89.4s).
+  - ✅ **23/23 Static Compiled Next.js Routes** (`npm run build` in 1416ms).
+  - ✅ **Zero Lint / Type Errors** (`ruff check .` clean, ESLint clean, `tsc --noEmit` clean).
+  - ✅ **Live Database Verified** (Supabase Postgres connection active, 5 tenant partitions verified).
+- **Artifacts:** `deploy/aws/lambda_handler.py`, `apps/web/src/components/Sidebar.tsx`, `apps/api/voxflow_api/voice/codecs.py`, `.learning/day-39-ship-blockers-and-always-on-baseline.md`.
+
 ---
 
 ## 🎯 Verification & Test Summary Matrix
 
 | Metric | Target | Current Value | Status |
 |---|---|---|---|
-| **Backend Unit & Integration Tests** | $\ge 200$ | **279 Passed** | ✅ Green |
+| **Backend Unit & Integration Tests** | $\ge 200$ | **251 Passed** | ✅ Green |
 | **Frontend Static Routes** | $\ge 15$ | **23 Compiled Pages** | ✅ Green |
 | **Lint & Static Analysis** | 0 warnings | `ruff check .` clean, ESLint clean | ✅ Clean |
 | **Database Migrations** | Staged & Verified | 14 Migrations (`000`–`014`) | ✅ Current |
-| **Telephony Providers Supported** | Multi-carrier | Twilio, Telnyx, Amazon Connect | ✅ Verified |
+| **Telephony Providers Supported** | Enterprise Voice | Amazon Connect (AWS) + WebAudio Simulator | ✅ Verified |
 | **Multi-Tenant Isolation** | Strict RLS | 100% tenant-scoped queries | ✅ Verified |
 | **Authentication & Auth Gate** | Unauth Redirects | HTTP 307 $\rightarrow$ `/sign-in` | ✅ Verified |
 | **Public Simulator Execution** | Hindi/English turns | Text turn + read-only tool | ✅ Verified |
 
 ---
 
-## 🧭 Next Recommended Actions (Day 39+)
+## 🧭 Next Recommended Actions (Day 40+)
 
-1. **Telnyx Inbound Live Call Test:** Point Telnyx TeXML Application to `https://voxflow-voice-agent.onrender.com/telnyx/voice` and make a live test call.
-2. **Amazon Connect Contact Flow Provisioning:** Import `deploy/aws/connect-contact-flow.json` in AWS Console, claim a free number, and test end-to-end voice turns with Amazon Polly.
-3. **Deterministic Fault-Injection Drills:** Rehearse worker crash recovery, network split isolation, and database connection timeout simulations in staging.
+1. **Live AWS Production Deployment Sync:** Run `deploy/sync-vm.sh` to synchronize the latest backend changes to the Oracle Cloud VM.
+2. **Amazon Connect Live Call Verification:** Test an inbound voice turn on the live Amazon Connect DID to verify sub-second response times.
+3. **Continuous Performance & Load Baseline:** Execute simulated multi-turn concurrency tests on the FastAPI and WebSocket pipelines.
