@@ -43,7 +43,10 @@ def _post_json(url: str, payload: dict, secret: str, path: str) -> dict:
 def lambda_handler(event, context):
     print("Received event:", json.dumps(event))
 
-    api_url = os.environ.get("VOXFLOW_API_URL", "https://voxflow-voice-agent.onrender.com").rstrip("/")
+    # Default to the always-on Oracle VM. Amazon Connect gives this Lambda ~8s;
+    # a Render Free cold start blows that budget and drops the call. Override in
+    # AWS with the VOXFLOW_API_URL env var (env wins; this is only a safety net).
+    api_url = os.environ.get("VOXFLOW_API_URL", "https://voxflow-jeevesh.duckdns.org").rstrip("/")
     secret = os.environ.get("VOXFLOW_SECRET", "")
 
     details = event.get("Details", {})
