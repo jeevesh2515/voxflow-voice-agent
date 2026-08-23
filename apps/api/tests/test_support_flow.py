@@ -683,27 +683,18 @@ def test_a1_used_for_both_read_and_append() -> None:
 
 
 def test_send_sms_tool_execution():
-    """Verify send_sms queues a durable notification without direct Twilio IO."""
-    from unittest.mock import MagicMock, patch
-
-    mock_client = MagicMock()
-    mock_msg = MagicMock()
-    mock_msg.sid = "SM12345678"
-    mock_client.messages.create.return_value = mock_msg
-
+    """Verify send_sms queues a durable notification without direct IO."""
     s = _session(verified=True)
-    with patch("voxflow_api.agent.tools._get_twilio_client", return_value=mock_client):
-        res = asyncio.run(
-            tools.execute_tool(
-                "send_sms",
-                {"to_phone": "9876500001", "message": "Your PO-SIGNED-1 has been verified."},
-                s,
-            )
+    res = asyncio.run(
+        tools.execute_tool(
+            "send_sms",
+            {"to_phone": "9876500001", "message": "Your PO-SIGNED-1 has been verified."},
+            s,
         )
+    )
     assert res["ok"] is True
     assert res["channel"] == "sms"
     assert res["recipient"] == "+9876500001"
     assert res["comm_id"].startswith("comm-sms-")
     assert res["status"] == "queued"
     assert res["job_id"].startswith("job-")
-    assert not mock_client.messages.create.called

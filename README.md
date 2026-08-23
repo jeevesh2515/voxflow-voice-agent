@@ -62,15 +62,13 @@ Supply chain and logistics enterprises handle tens of thousands of repetitive, t
 
 ```mermaid
 flowchart TB
-    subgraph Carriers["🌐 Telecom & Voice Ingestion Layer"]
-        AWS["📞 Amazon Connect (AWS)<br/>Enterprise Contact Center"]
-        TW["📱 Twilio Voice<br/>Global PSTN Telephony"]
-        TX["📡 Telnyx Voice<br/>High-Capacity Carrier Trunk"]
-        WEB["💻 In-Browser Simulator<br/>Interactive Mic Stream"]
+    subgraph Carriers["🌐 Voice Ingestion & Telephony Layer"]
+        AWS["📞 Amazon Connect (AWS)<br/>Enterprise Contact Center & DIDs"]
+        WEB["💻 In-Browser Simulator<br/>Interactive Mic & WebAudio"]
     end
 
-    subgraph Streaming["⚡ Real-Time Audio & Gateway Layer"]
-        LMB["AWS Lambda Bridge<br/>HMAC-SHA256 Auth"]
+    subgraph Streaming["⚡ Cloud Gateway & Auth Layer"]
+        LMB["AWS Lambda Bridge<br/>HMAC-SHA256 Signed Turns"]
         WSS["WSS Audio Pipeline<br/>G.711 μ-law · VAD · Barge-in"]
         CAD["Caddy Reverse Proxy<br/>Automated Let's Encrypt TLS"]
     end
@@ -95,11 +93,10 @@ flowchart TB
     end
 
     AWS --> LMB --> CAD
-    TW --> WSS --> CAD
-    TX --> WSS --> CAD
     WEB --> WSS --> CAD
 
-    CAD --> STT --> LLM --> TTS --> WSS
+    CAD --> STT --> LLM --> TTS
+    LMB --> LLM
     LLM --> Tools
 
     Tools --> PG
@@ -138,16 +135,14 @@ flowchart TB
 
 ---
 
-## 📞 Multi-Carrier Telephony Matrix
+## 📞 Telephony & Voice Channels
 
-VoxFlow operates concurrently across multiple global cloud carriers:
+VoxFlow provides flexible voice interfaces for enterprise operations and rapid testing:
 
-| Provider | Inbound Phone Routing | Capabilities | Integration Mechanism |
+| Provider / Channel | Inbound Routing | Capabilities | Integration Mechanism |
 |---|---|---|---|
-| **Amazon Connect (AWS)** | Dedicated Enterprise DID *(Assigned per tenant)* | 90 Free Min/Mo, Global Contact Center | AWS Lambda Bridge + Polly Neural Voice |
-| **Twilio Voice** | Global Number Pool *(Configurable per country)* | Worldwide PSTN Inbound & Outbound | TwiML Webhook + Real-Time WSS Stream |
-| **Telnyx** | Low-Cost Carrier Trunk *(US/UK/EU)* | High-Throughput TeXML Call Control | TeXML Webhook + G.711 μ-law Streaming |
-| **In-Browser Simulator** | Interactive Web Microphone | 100% Free, Zero Telecom Setup | WebAudio WebSocket at `/dashboard/simulator` |
+| **Amazon Connect (AWS)** | Dedicated Enterprise DID *(Assigned per tenant)* | 90 Free Min/Mo, Global Contact Center, AWS Polly Neural Voices | AWS Lambda Bridge (`VoxFlow-Connect-Bridge`) + REST Turns |
+| **In-Browser Simulator** | Interactive Web Microphone | 100% Free, Zero Telecom Setup, Direct Streaming | WebAudio WebSocket at `/dashboard/simulator` |
 
 ---
 

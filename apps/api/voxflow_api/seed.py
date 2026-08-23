@@ -310,14 +310,11 @@ def seed(reset: bool = False) -> None:
     # stage's "already seeded" check.
     if _absent(TenantPhoneNumber, "+15550100001"):
         with session_scope() as db:
-            # --- Map demo Twilio numbers to tenants ---
-            # Replace these with your real Twilio number (see SETUP.md step 7).
+            # --- Map active phone numbers to tenants ---
             for number, tid, label, prov in (
                 ("+442046404552", "varun", "Varun Beverages Amazon Connect UK line", "connect"),
-                ("+18025898040", "varun", "Varun Beverages Telnyx US support line", "telnyx"),
-                ("+447460041934", "varun", "Varun Beverages Twilio UK line", "twilio"),
-                ("+15550100001", "varun", "Varun Beverages demo line", "twilio"),
-                ("+15550100002", "amul", "Amul support line", "twilio"),
+                ("+15550100001", "varun", "Varun Beverages demo line", "connect"),
+                ("+15550100002", "amul", "Amul support line", "connect"),
             ):
                 if not db.get(TenantPhoneNumber, number):
                     db.add(TenantPhoneNumber(phone_number=number, tenant_id=tid, label=label, provider=prov))

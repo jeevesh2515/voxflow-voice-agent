@@ -35,8 +35,6 @@ from .routes import privacy as privacy_routes
 from .routes import public_auth as public_auth_routes
 from .routes import reliability as reliability_routes
 from .routes import connect as connect_routes
-from .routes import telnyx as telnyx_routes
-from .routes import twilio as twilio_routes
 from .routes import ws as ws_routes
 from .routes.ws import get_pipeline
 from .schemas import ChatRequest, ChatResponse
@@ -130,8 +128,6 @@ def create_app() -> FastAPI:
     app.include_router(provider_callback_routes.router)
     app.include_router(dial_callback_routes.router)
     app.include_router(ws_routes.router, tags=["ws"])
-    app.include_router(twilio_routes.router)
-    app.include_router(telnyx_routes.router)
     app.include_router(connect_routes.router)
 
     # ----- LLM test endpoint (POST /chat) -----

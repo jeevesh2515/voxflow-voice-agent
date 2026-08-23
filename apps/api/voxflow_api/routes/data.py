@@ -609,10 +609,8 @@ def list_active_calls(
     request: Request,
     tenant_id: str | None = Query(default=None),
 ) -> list[dict[str, Any]]:
-    """Return all calls currently in progress (in-memory, not yet persisted).
-
-    Reads the pipeline's live session map — these are calls still connected
-    to Twilio or the browser simulator. Calls disappear from this list as
+    """Active in-memory calls — live right now, receiving audio frames
+    to Amazon Connect or the browser simulator. Calls disappear from this list as
     soon as they end and are persisted to the database.
     """
     import time

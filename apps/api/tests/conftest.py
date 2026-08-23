@@ -24,10 +24,6 @@ os.environ.setdefault("DATABASE_URL", "sqlite:///./voxflow_test.db")
 # isolated directory so a prior local simulator run cannot change test results.
 os.environ.setdefault("DATA_DIR", tempfile.mkdtemp(prefix="voxflow-test-data-"))
 
-# Most tests post unsigned requests to /twilio/voice. The signature tests turn
-# validation back on explicitly for themselves.
-os.environ.setdefault("TWILIO_VALIDATE_SIGNATURE", "false")
-
 # STT/Sheets must never reach the network during tests.
 os.environ.setdefault("STT_PROVIDER", "groq")
 os.environ.setdefault("GROQ_API_KEY", "test-key-never-used")

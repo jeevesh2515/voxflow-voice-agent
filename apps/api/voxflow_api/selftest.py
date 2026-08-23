@@ -125,7 +125,7 @@ async def check_config() -> tuple[str, str, str]:
         f"DB         {'postgres' if 'postgres' in s.database_url else 'sqlite' if s.database_url else 'UNSET'}",
         f"Sheets     {'enabled' if s.sheets_enabled else 'disabled'}",
         f"Public URL {s.public_base_url or 'UNSET'}",
-        f"Signature  {'validated' if s.twilio_validate_signature else 'NOT validated'}",
+        f"Telephony  {s.telephony_provider}",
     ]
     problems = []
     if not s.database_url:
@@ -334,8 +334,8 @@ async def check_tts(state: dict[str, Any]) -> tuple[str, str, str]:
 
 
 async def check_codecs(state: dict[str, Any]) -> tuple[str, str, str]:
-    """Decode the TTS MP3 the same way the Twilio path does, then round-trip it."""
-    from .routes.twilio import mp3_to_pcm8k, mulaw_to_pcm, pcm_to_mulaw, resample_8k_to_16k
+    """Decode the TTS MP3 and round-trip it through audio codecs."""
+    from .voice.codecs import mp3_to_pcm8k, mulaw_to_pcm, pcm_to_mulaw, resample_8k_to_16k
 
     mp3 = state.get("mp3")
     if not mp3:

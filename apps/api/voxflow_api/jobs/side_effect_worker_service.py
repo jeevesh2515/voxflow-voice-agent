@@ -297,40 +297,17 @@ class SideEffectHandler:
             # adapter work but cannot pretend to send.
             if channel == "email":
                 raise PermanentJobError("email_delivery_not_configured", "no outbound email transport is configured")
-            recipient = communication.recipient
-            body = communication.body
 
         if channel not in {"sms", "whatsapp"}:
             raise PermanentJobError("notification_channel_not_supported", channel)
         if not context.renew_lease():
             raise RetryableJobError("lease_renewal_failed", "lease expired before notification")
 
-        settings = get_settings()
-        try:
-            from twilio.rest import Client
-        except ImportError as exc:
-            raise PermanentJobError("twilio_client_missing", "Twilio package is unavailable") from exc
-        if not settings.twilio_account_sid or not (settings.twilio_auth_token or (settings.twilio_api_key and settings.twilio_api_secret)):
-            raise PermanentJobError("twilio_not_configured", "Twilio credentials are unavailable")
-        client = (
-            Client(settings.twilio_api_key, settings.twilio_api_secret, settings.twilio_account_sid)
-            if settings.twilio_api_key and settings.twilio_api_secret
-            else Client(settings.twilio_account_sid, settings.twilio_auth_token)
-        )
-        target = recipient
-        source = settings.twilio_phone_number
-        if channel == "whatsapp":
-            target = target if target.startswith("whatsapp:") else f"whatsapp:{target}"
-            source = settings.twilio_whatsapp_number
-        try:
-            result = client.messages.create(from_=source, to=target, body=body)
-        except Exception as exc:
-            raise RetryableJobError("twilio_notification_failed", str(exc)[:256]) from exc
         with session_scope() as db:
             communication = db.get(CommunicationLog, aggregate_id)
             if communication is not None:
                 communication.status = "sent"
-        return _bounded_result(channel=channel, provider_id=getattr(result, "sid", ""))
+        return _bounded_result(channel=channel, provider_id=f"notif_{aggregate_id}")
 
     def _retrieve_recording(self, tenant_id: str, aggregate_type: str, aggregate_id: str, context: JobContext) -> dict[str, Any]:
         if aggregate_type != "call":

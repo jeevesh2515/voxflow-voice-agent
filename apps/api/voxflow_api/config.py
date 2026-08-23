@@ -111,41 +111,16 @@ class Settings(BaseSettings):
             return val.replace("postgres://", "postgresql://", 1)
         return val
 
-    # ----- Twilio -----
-    twilio_account_sid: str = ""
-    twilio_auth_token: str = ""
-    # Optional Twilio API Key credentials (safer than Account SID/Auth Token for
-    # CLI tools, SDKs, and REST client calls that do NOT need webhook validation).
-    # Leave blank to use Account SID + Auth Token (default; required for webhooks).
-    # To generate: Twilio Console → Account → API keys & tokens → Create API key.
-    twilio_api_key: str = ""
-    twilio_api_secret: str = ""
-    # Public https base URL of THIS backend, e.g. https://voxflow-api.up.railway.app
-    # Used to build the <Stream> URL in TwiML and to validate webhook signatures.
     public_base_url: str = ""
-    # Reject unsigned/forged webhook requests. Keep true in production.
-    twilio_validate_signature: bool = True
-    # Default Twilio trial phone number for Voice & SMS dispatch
-    twilio_phone_number: str = "+447460041934"
-    # Default Twilio WhatsApp Sandbox number (format: whatsapp:+14155238886)
-    twilio_whatsapp_number: str = "whatsapp:+14155238886"
-    # Tenant used when an inbound number isn't mapped in tenant_phone_numbers.
     default_tenant_id: str = "varun"
-
-    # ----- Telnyx Telephony Provider -----
-    telnyx_api_key: str = ""
-    telnyx_api_secret: str = ""
-    telnyx_public_key: str = ""
-    telnyx_phone_number: str = ""
-    telnyx_connection_id: str = ""
-    telnyx_validate_signature: bool = True
-    telephony_provider: str = "twilio"
+    telephony_provider: str = "connect"
 
     # ----- Amazon Connect (AWS Voice Contact Center) -----
     connect_lambda_secret: str = ""
-    connect_instance_id: str = ""
+    connect_instance_id: str = "voxflow-agent"
     connect_contact_flow_id: str = ""
-    connect_region: str = "us-east-1"
+    connect_phone_number: str = "+442046404552"
+    connect_region: str = "us-west-2"
 
     # ----- Dial (AI Telephony & Outbound Voice Agent) -----
     dial_api_key: str = ""
