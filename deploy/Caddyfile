@@ -20,10 +20,10 @@
 # new backend surface stays under /api and is already covered.
 
 {
-	email {$ACME_EMAIL}
+	email {$ACME_EMAIL:admin@voxflow-jeevesh.duckdns.org}
 }
 
-{$DOMAIN} {
+{$DOMAIN:voxflow-jeevesh.duckdns.org} {
 	encode zstd gzip
 
 	# ---------- FastAPI backend ----------
