@@ -20,6 +20,8 @@ import {
   ShieldCheck,
   LockKeyhole,
   ClipboardCheck,
+  BarChart3,
+  Settings,
 } from "lucide-react";
 import clsx from "clsx";
 
@@ -30,6 +32,7 @@ const NAV_GROUPS = [
       { href: "/dashboard", label: "Overview", icon: LayoutDashboard },
       { href: "/dashboard/simulator", label: "Phone Simulator", icon: Phone },
       { href: "/dashboard/calls", label: "Calls", icon: PhoneCall },
+      { href: "/dashboard/analytics", label: "Analytics", icon: BarChart3 },
       { href: "/dashboard/workspace", label: "Workspace Access", icon: ShieldCheck },
       { href: "/dashboard/privacy", label: "Privacy Controls", icon: LockKeyhole },
       { href: "/dashboard/readiness", label: "Pilot Readiness", icon: ClipboardCheck },
@@ -45,6 +48,12 @@ const NAV_GROUPS = [
       { href: "/dashboard/suppliers", label: "Suppliers", icon: Users },
       { href: "/dashboard/appointments", label: "Appointments", icon: Calendar },
       { href: "/dashboard/communications", label: "Outbound Logs", icon: MessageSquare },
+    ],
+  },
+  {
+    label: "Account",
+    items: [
+      { href: "/dashboard/settings", label: "Settings", icon: Settings },
     ],
   },
   {
