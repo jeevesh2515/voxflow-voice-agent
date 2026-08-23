@@ -45,6 +45,9 @@ class Settings(BaseSettings):
     openrouter_api_key: str = ""
     openrouter_model: str = "meta-llama/llama-3.1-8b-instruct:free"
 
+    openai_api_key: str = ""
+    openai_model: str = "gpt-4o-mini"
+
     # ----- Voice -----
     # "groq"  = Groq whisper-large-v3-turbo, server-side (~200-400ms). Default.
     # "local" = faster-whisper on this box (~1.5-3s, needs requirements-local.txt).
