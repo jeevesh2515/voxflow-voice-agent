@@ -158,8 +158,8 @@ def provision_workspace(payload: WorkspaceProvisionIn, request: Request) -> Work
                 name=company_name,
                 plan=payload.plan or "pro",
                 agent_name="Vaani",
-                welcome_message=f"नमस्ते! {company_name} में आपका स्वागत है। मैं आपकी क्या मदद कर सकती हूँ?",
-                default_language=payload.default_language or "hi",
+                welcome_message=f"Hello, and welcome to {company_name}. How can I help you today?",
+                default_language=payload.default_language or "en",
                 active=1,
             )
             db.add(tenant)

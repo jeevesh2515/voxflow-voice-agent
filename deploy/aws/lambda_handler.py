@@ -1,12 +1,16 @@
 """AWS Lambda function bridging Amazon Connect Contact Flows to VoxFlow Voice Agent API.
 
 This function is invoked by Amazon Connect 'Invoke AWS Lambda function' blocks.
-It forwards transcribed caller input to the hosted VoxFlow API and returns
-the agent's response text to be spoken via Amazon Polly.
+It forwards the caller's transcribed speech (from the Amazon Lex V2 en-GB bot,
+exposed to the flow as $.Lex.InputTranscript) to the hosted VoxFlow API and
+returns the agent's response text to be spoken via Amazon Polly.
 
 Environment Variables:
-  - VOXFLOW_API_URL: e.g. 'https://voxflow-voice-agent.onrender.com'
+  - VOXFLOW_API_URL: e.g. 'https://voxflow-jeevesh.duckdns.org' (the always-on VM)
   - VOXFLOW_SECRET: shared HMAC secret for request authentication
+                    (must equal the VM's CONNECT_LAMBDA_SECRET)
+  - VOXFLOW_DEFAULT_LANG: session language for a new call (default 'en' for the
+                          UK-English market; the API/agent still mirror the caller).
 """
 
 import hashlib
@@ -49,6 +53,10 @@ def lambda_handler(event, context):
     api_url = os.environ.get("VOXFLOW_API_URL", "https://voxflow-jeevesh.duckdns.org").rstrip("/")
     secret = os.environ.get("VOXFLOW_SECRET", "")
 
+    # First market is UK English. The session starts in English; the agent still
+    # mirrors whatever language the caller actually speaks (see agent/prompts.py).
+    default_lang = os.environ.get("VOXFLOW_DEFAULT_LANG", "en")
+
     details = event.get("Details", {})
     contact_data = details.get("ContactData", {})
     parameters = details.get("Parameters", {})
@@ -57,7 +65,8 @@ def lambda_handler(event, context):
     customer_phone = contact_data.get("CustomerEndpoint", {}).get("Address", "")
     system_phone = contact_data.get("SystemEndpoint", {}).get("Address", "")
 
-    # Customer speech input passed from Lex or Connect Speech Recognition block
+    # Caller speech transcribed by the Amazon Lex V2 bot and passed by the contact
+    # flow as $.Lex.InputTranscript. (Legacy DTMF paths may still send user_text.)
     user_text = parameters.get("user_text") or event.get("user_text", "")
     action = parameters.get("action") or event.get("action", "turn")
 
@@ -80,14 +89,15 @@ def lambda_handler(event, context):
             return {"statusCode": 500, "error": str(e)}
 
     # Conversational turn
-    if not user_text:
-        # Default prompt if caller gave empty speech
+    if not user_text.strip():
+        # Caller gave blank/empty speech (Lex returned no transcript). Re-prompt in
+        # English instead of sending empty text to the agent.
         return {
             "statusCode": 200,
-            "agent_reply": "नमस्ते, मैं वॉक्सफ़्लो वॉइस असिस्टेंट हूँ। मैं आपकी क्या मदद कर सकता हूँ?",
+            "agent_reply": "Hello, this is the VoxFlow voice assistant. How can I help you today?",
             "escalate": "false",
             "end_call": "false",
-            "language": "hi",
+            "language": default_lang,
         }
 
     try:
@@ -98,16 +108,16 @@ def lambda_handler(event, context):
                 "customer_phone": customer_phone,
                 "system_phone": system_phone,
                 "user_text": user_text,
-                "language": parameters.get("language"),
+                "language": parameters.get("language") or default_lang,
             },
             secret,
             "/api/connect/turn",
         )
 
-        agent_reply = res.get("agent_reply", "धन्यवाद, आपकी सहायता करके खुशी हुई।")
+        agent_reply = res.get("agent_reply", "Thank you, I'm glad I could help.")
         escalate = str(res.get("escalate", False)).lower()
         end_call = str(res.get("end_call", False)).lower()
-        language = res.get("language", "hi")
+        language = res.get("language", default_lang)
 
         return {
             "statusCode": 200,
@@ -120,7 +130,7 @@ def lambda_handler(event, context):
         print("Error processing turn:", str(e))
         return {
             "statusCode": 200,
-            "agent_reply": "क्षमा करें, तकनीकी समस्या के कारण मैं अभी आपकी सहायता नहीं कर पा रहा हूँ। कृपया थोड़ी देर बाद कॉल करें।",
+            "agent_reply": "Sorry, I'm having a technical problem and can't help right now. Please call back in a few minutes.",
             "escalate": "true",
             "end_call": "true",
             "error": str(e),

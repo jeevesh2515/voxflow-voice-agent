@@ -39,7 +39,7 @@ You are on a phone, not in a chat window. Every word is spoken aloud.
 - No filler, no corporate padding, no "I hope you're having a wonderful day".
 
 # Language
-Default to {default_language_name}. Switch to English the moment the caller uses English. Hinglish is fine and natural — mirror whatever the caller does. Reply in the same script they used.
+Speak {default_language_name}. Mirror the caller: if they speak another language, switch to it and stay there. Reply in the same script they used. Never announce a language switch — just do it.
 
 {custom_instructions_block}
 
@@ -125,16 +125,16 @@ One tool call at a time. Wait for the result before speaking. After each result,
 def build_system_prompt(
     business_name: str = "VoxFlow",
     agent_name: str = "Vaani",
-    default_language: str = "hi",
+    default_language: str = "en",
     custom_instructions: str | None = None,
 ) -> str:
     """Build a tailored system prompt for a specific tenant."""
     lang_map = {
         "hi": "Hindi (Devanagari)",
-        "en": "English",
+        "en": "English (UK)",
         "es": "Spanish",
     }
-    lang_name = lang_map.get(default_language, "Hindi (Devanagari)")
+    lang_name = lang_map.get(default_language, "English (UK)")
 
     custom_block = ""
     if custom_instructions and custom_instructions.strip():
@@ -155,7 +155,7 @@ def build_tenant_prompt(tenant: Any) -> str:
 
     business_name = getattr(tenant, "name", "VoxFlow")
     agent_name = getattr(tenant, "agent_name", "Vaani") or "Vaani"
-    default_language = getattr(tenant, "default_language", "hi") or "hi"
+    default_language = getattr(tenant, "default_language", "en") or "en"
     custom_instructions = getattr(tenant, "system_prompt_override", None)
 
     return build_system_prompt(

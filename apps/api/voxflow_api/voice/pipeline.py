@@ -94,7 +94,7 @@ def _remove_snapshot(call_id: str) -> None:
 class CallSession:
     call_id: str
     tenant_id: str = "varun"
-    language: str = "hi"
+    language: str = "en"
     supplier_id: str | None = None
     caller_name: str = ""
     caller_phone: str = ""
@@ -395,7 +395,7 @@ class VoicePipeline:
                 session = CallSession(
                     call_id=call_id,
                     tenant_id=data.get("tenant_id", "varun"),
-                    language=data.get("language", "hi"),
+                    language=data.get("language", "en"),
                     supplier_id=data.get("supplier_id"),
                     caller_name=data.get("caller_name", ""),
                     caller_phone=data.get("caller_phone", ""),

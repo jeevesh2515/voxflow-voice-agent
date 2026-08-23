@@ -9,10 +9,13 @@ live.
 
 from __future__ import annotations
 
+import glob
 import os
 import sys
 import tempfile
 from pathlib import Path
+
+import pytest
 
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT))
@@ -38,3 +41,29 @@ os.environ.setdefault("PILOT_READINESS_ENFORCED", "false")
 # tests explicitly enable the production-default fail-closed gate and supply a
 # verified identity plus active membership fixture.
 os.environ.setdefault("TENANT_AUTHORIZATION_ENFORCED", "false")
+
+
+@pytest.fixture(autouse=True)
+def _clear_leaked_session_snapshots():
+    """Isolate every test from disk session snapshots left by earlier tests.
+
+    Sessions started via the API/Connect endpoints snapshot to DATA_DIR/sessions
+    for crash recovery. That directory is shared across the whole pytest process,
+    and `reset_db()` clears only database tables — not these files. Any test that
+    then starts the app recovers those stale snapshots and persists them as calls
+    under the default tenant, inflating counts (e.g. analytics total_calls). In
+    production this recovery is a feature; in tests it is cross-test leakage.
+
+    Clearing at setup makes tests order-independent without touching product code.
+    Tests that monkeypatch `data_dir`/`_sessions_dir` to a tmp_path are unaffected:
+    they write and recover their own snapshots inside the test body, after this runs.
+    """
+    from voxflow_api.voice.pipeline import _sessions_dir
+
+    sdir = _sessions_dir()
+    for snapshot in glob.glob(os.path.join(sdir, "*.json")):
+        try:
+            os.remove(snapshot)
+        except OSError:
+            pass
+    yield
