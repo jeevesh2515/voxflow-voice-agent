@@ -13,14 +13,14 @@
 
 <p align="center">
   <img src="https://img.shields.io/badge/CI%2FCD-100%25%20PASSING-success?style=for-the-badge&logo=githubactions&logoColor=white&labelColor=111827" alt="CI Status" />
-  <img src="https://img.shields.io/badge/TESTS-279%20PASSED-10B981?style=for-the-badge&logo=pytest&logoColor=white&labelColor=111827" alt="279 Pytest Tests Passed" />
+  <img src="https://img.shields.io/badge/TESTS-265%20PASSED-10B981?style=for-the-badge&logo=pytest&logoColor=white&labelColor=111827" alt="265 Pytest Tests Passed" />
   <img src="https://img.shields.io/badge/FRONTEND-23%20ROUTES-6366F1?style=for-the-badge&logo=nextdotjs&logoColor=white&labelColor=111827" alt="23 Next.js Routes" />
-  <img src="https://img.shields.io/badge/VOICE-HINDI%20%2B%20ENGLISH-F97316?style=for-the-badge&labelColor=111827" alt="Hindi + English Multilingual" />
+  <img src="https://img.shields.io/badge/VOICE-ENGLISH%20%28UK%29%20%2B%20HINDI-F97316?style=for-the-badge&labelColor=111827" alt="English (UK) + Hindi Multilingual" />
 </p>
 
 <p align="center">
   <img src="https://img.shields.io/badge/CLOUD-AWS%20%2B%20ORACLE%20VM-FF9900?style=for-the-badge&logo=amazonaws&logoColor=white&labelColor=111827" alt="AWS & Oracle VM" />
-  <img src="https://img.shields.io/badge/TELEPHONY-AMAZON%20CONNECT%20%7C%20TWILIO%20%7C%20TELNYX-0284C7?style=for-the-badge&labelColor=111827" alt="Telephony Providers" />
+  <img src="https://img.shields.io/badge/TELEPHONY-AMAZON%20CONNECT%20%2B%20LEX-0284C7?style=for-the-badge&labelColor=111827" alt="Telephony Providers" />
   <img src="https://img.shields.io/badge/DATABASE-SUPABASE%20POSTGRES-3ECF8E?style=for-the-badge&logo=supabase&logoColor=white&labelColor=111827" alt="Supabase Postgres" />
   <a href="LICENSE"><img src="https://img.shields.io/badge/LICENSE-MIT-gray?style=for-the-badge&labelColor=111827" alt="MIT License" /></a>
 </p>
@@ -52,9 +52,9 @@ Supply chain and logistics enterprises handle tens of thousands of repetitive, t
 | Problem in Operations Today | VoxFlow Solution |
 |---|---|
 | **High Call Center Overhead**: Operations teams spend 40% of their day answering status check calls. | **Autonomous Voice Agent**: Resolves PO inquiries, stock checks, and dock scheduling with zero human intervention. |
-| **Language Barriers in Emerging Markets**: Field drivers and warehouse operators speak native regional languages. | **Natural Hindi-English (Hinglish) Support**: Code-switching speech recognition and neural TTS for seamless communication. |
+| **Language & Dialect Adaptability**: Multi-region drivers and suppliers communicate across regional UK & global dialects. | **Adaptive Speech & Neural Voice Intelligence**: Amazon Lex V2 STT, Groq Whisper Turbo, and Polly/Edge neural speech. |
 | **Data Silos & Delayed Data Entry**: Call outcomes are lost in spreadsheets or updated hours after the call ends. | **Real-Time Data Write-Back**: Idempotent synchronization directly into Google Sheets, PostgreSQL, and ERP databases. |
-| **Single-Carrier Lock-In**: Outages or price spikes on single telecom vendors cripple business communications. | **Multi-Carrier Cloud Abstraction**: Seamless carrier routing across **Amazon Connect**, **Twilio**, and **Telnyx**. |
+| **Legacy IVR Friction**: Keypad DTMF menus frustrate drivers and delay operational updates. | **Conversational Voice AI**: Spoken natural language understanding powered by **Amazon Connect + Amazon Lex V2**. |
 
 ---
 
@@ -141,7 +141,7 @@ VoxFlow provides flexible voice interfaces for enterprise operations and rapid t
 
 | Provider / Channel | Inbound Routing | Capabilities | Integration Mechanism |
 |---|---|---|---|
-| **Amazon Connect (AWS)** | Dedicated Enterprise DID *(Assigned per tenant)* | 90 Free Min/Mo, Global Contact Center, AWS Polly Neural Voices | AWS Lambda Bridge (`VoxFlow-Connect-Bridge`) + REST Turns |
+| **Amazon Connect (AWS)** | Dedicated Enterprise DID *(Assigned per tenant)* | 90 Free Min/Mo, Global Contact Center, AWS Polly Neural Voices | AWS Lambda Bridge (`VoxFlow-Connect-Bridge`) + Amazon Lex V2 STT + REST Turns |
 | **In-Browser Simulator** | Interactive Web Microphone | 100% Free, Zero Telecom Setup, Direct Streaming | WebAudio WebSocket at `/dashboard/simulator` |
 
 ---
@@ -162,7 +162,7 @@ cd voxflow-voice-agent
 ### 2. Configure Environment Variables
 ```bash
 cp .env.example .env
-# Edit .env with your OpenAI, Groq, and database credentials
+# Edit .env with your LLM keys, database credentials, and Connect settings
 ```
 
 ### 3. Start the Backend API
@@ -171,6 +171,9 @@ cd apps/api
 python3 -m venv .venv
 source .venv/bin/activate
 pip install -r requirements.txt
+
+# Run initial seed migrations
+python -m voxflow_api.seed --reset
 
 # Run backend server
 uvicorn voxflow_api.main:app --host 0.0.0.0 --port 8000 --reload
@@ -191,7 +194,7 @@ npm run dev
 Run all automated test suites locally:
 
 ```bash
-# 1. Run full backend test suite (279 unit, integration & resilience tests)
+# 1. Run full backend test suite (265 unit, integration & resilience tests)
 cd apps/api
 pytest tests/ -v
 

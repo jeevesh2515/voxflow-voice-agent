@@ -69,7 +69,7 @@ def pcm_to_wav_bytes(pcm: np.ndarray, sample_rate: int = 16000) -> bytes:
     return buf.getvalue()
 
 
-def _normalise_language(raw: str | None, fallback: str = "hi") -> str:
+def _normalise_language(raw: str | None, fallback: str = "en") -> str:
     if not raw:
         return fallback
     raw = raw.strip().lower()
@@ -109,7 +109,7 @@ class GroqSTT:
 
         # Whisper rejects sub-100ms clips; VAD noise can produce them.
         if duration < 0.1:
-            return Transcription(text="", language=language or "hi", confidence=0.0, duration_sec=duration)
+            return Transcription(text="", language=language or "en", confidence=0.0, duration_sec=duration)
 
         wav = pcm_to_wav_bytes(pcm, sample_rate)
         data = {"model": self._model, "response_format": "verbose_json", "temperature": "0"}
@@ -128,15 +128,15 @@ class GroqSTT:
             # A transcription failure must not kill the call — the pipeline
             # treats empty text as "didn't catch that" and the agent re-asks.
             log.error("stt.groq_request_failed", error=str(e))
-            return Transcription(text="", language=language or "hi", confidence=0.0, duration_sec=duration)
+            return Transcription(text="", language=language or "en", confidence=0.0, duration_sec=duration)
 
         if r.status_code >= 300:
             log.error("stt.groq_http_error", status=r.status_code, body=r.text[:200])
-            return Transcription(text="", language=language or "hi", confidence=0.0, duration_sec=duration)
+            return Transcription(text="", language=language or "en", confidence=0.0, duration_sec=duration)
 
         payload = r.json()
         text = (payload.get("text") or "").strip()
-        lang = _normalise_language(payload.get("language"), fallback=language or "hi")
+        lang = _normalise_language(payload.get("language"), fallback=language or "en")
 
         # verbose_json gives per-segment no_speech_prob; mirror the local backend.
         probs = [
@@ -203,7 +203,7 @@ class LocalWhisperSTT:
 
         return Transcription(
             text=" ".join(t for t in text_parts if t).strip(),
-            language=_normalise_language(info.language, fallback=language or "hi"),
+            language=_normalise_language(info.language, fallback=language or "en"),
             confidence=float(np.mean(probs)) if probs else 0.0,
             duration_sec=duration,
         )

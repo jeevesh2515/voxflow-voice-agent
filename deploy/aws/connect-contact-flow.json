@@ -38,8 +38,8 @@
       "Identifier": "SetVoiceAction",
       "Type": "UpdateContactData",
       "Parameters": {
-        "Voice": "Aditi",
-        "LanguageCode": "hi-IN"
+        "Voice": "Amy",
+        "LanguageCode": "en-GB"
       },
       "Transitions": {
         "NextAction": "PlayWelcome",
@@ -51,7 +51,7 @@
       "Identifier": "PlayWelcome",
       "Type": "MessageParticipant",
       "Parameters": {
-        "Text": "नमस्ते, वॉक्सफ़्लो में आपका स्वागत है। मैं आपकी क्या मदद कर सकता हूँ?"
+        "Text": "Hello, and welcome to VoxFlow. How can I help you today?"
       },
       "Transitions": {
         "NextAction": "GetCustomerSpeech",
@@ -63,14 +63,21 @@
       "Identifier": "GetCustomerSpeech",
       "Type": "GetParticipantInput",
       "Parameters": {
-        "InputTimeLimitSeconds": "5",
-        "Text": "कृपया अपनी बात कहें।"
+        "Text": "Please tell me how I can help.",
+        "InputTimeLimitSeconds": "8",
+        "LexV2Bot": {
+          "AliasArn": "arn:aws:lex:us-west-2:YOUR_AWS_ACCOUNT_ID:bot-alias/YOUR_LEX_BOT_ID/YOUR_LEX_ALIAS_ID"
+        }
       },
       "Transitions": {
         "NextAction": "InvokeVoxFlowLambda",
         "Errors": [
           {
-            "NextAction": "DisconnectCall",
+            "NextAction": "InvokeVoxFlowLambda",
+            "ErrorType": "NoMatchingCondition"
+          },
+          {
+            "NextAction": "InvokeVoxFlowLambda",
             "ErrorType": "NoMatchingError"
           }
         ],
@@ -84,7 +91,7 @@
         "LambdaFunctionARN": "arn:aws:lambda:us-west-2:YOUR_AWS_ACCOUNT_ID:function:VoxFlow-Connect-Bridge",
         "InvocationTimeLimitSeconds": "8",
         "Parameters": {
-          "user_text": "$.StoredCustomerInput"
+          "user_text": "$.Lex.InputTranscript"
         }
       },
       "Transitions": {

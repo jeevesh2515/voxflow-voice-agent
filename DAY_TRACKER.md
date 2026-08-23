@@ -2,10 +2,10 @@
 
 **Project:** VoxFlow — Voice Operations for Modern Supply Chains  
 **Repository:** `jeevesh2515/voxflow-voice-agent`  
-**Current Test Suite:** **266 Passing Tests** (`pytest tests/ -q`)  
+**Current Test Suite:** **265 Passing Tests** (`pytest tests/ -q`)  
 **Frontend Surface:** **23 Compiled Routes** (Next.js 16 App Router, Turbopack)  
 **Deployment Infrastructure:** Oracle Cloud Always-Free ARM VM (Caddy Auto-TLS + Docker) / Render Free API / Vercel Edge Frontend  
-**Last Updated:** 2026-08-22
+**Last Updated:** 2026-08-23
 
 ---
 
@@ -402,7 +402,7 @@
   2. **Complete Dashboard Sidebar Nav (`apps/web/src/components/Sidebar.tsx`):**
      - Linked orphaned real pages: **Analytics** (`/dashboard/analytics`) under Main, and **Settings** (`/dashboard/settings`) under Account group.
   3. **Streamlined Telephony Engine:**
-     - Standardized core telephony on Amazon Connect AWS Contact Center (`+44 20 4640 4552` UK DID) + In-Browser WebAudio Simulator.
+     - Standardized core telephony on Amazon Connect AWS Contact Center + In-Browser WebAudio Simulator.
      - Extracted audio codecs to `voxflow_api/voice/codecs.py` and eliminated ~3,000 lines of dead legacy telephony code.
   4. **Next.js 16 Route-Gate Protection (`apps/web/src/proxy.ts`):**
      - Verified active live route-gate proxy on Next.js 16 with Supabase auth guard.
@@ -413,25 +413,49 @@
   - ✅ **Live Database Verified** (Supabase Postgres connection active, 5 tenant partitions verified).
 - **Artifacts:** `deploy/aws/lambda_handler.py`, `apps/web/src/components/Sidebar.tsx`, `apps/api/voxflow_api/voice/codecs.py`, `.learning/day-39-ship-blockers-and-always-on-baseline.md`.
 
+#### 🗓️ Day 40: Amazon Lex en-GB Speech Recognition & UK-English Defaults
+- **Objective:** Fix spoken-voice speech recognition in Amazon Connect telephony by wiring an Amazon Lex V2 bot (`en-GB`) as the speech-to-text front door and aligning all system defaults to the UK-English enterprise market.
+- **Implementation:**
+  1. **Amazon Lex V2 Front Door & Contact Flow (`deploy/aws/connect-contact-flow.json`):**
+     - Updated contact flow to use Amazon Polly `Amy` (`en-GB`) voice.
+     - Added `GetCustomerSpeech` backed by Amazon Lex V2 (`AliasArn`) to capture caller spoken utterances into `$.Lex.InputTranscript` rather than DTMF keypad digits.
+     - Routed blank/unmatched speech to Lambda for contextual English re-prompts.
+  2. **AWS Lambda Bridge Hardening (`deploy/aws/lambda_handler.py`, `deploy/aws/deploy-lambda.sh`):**
+     - Implemented English fallbacks, env-overridable language, and blank transcript re-prompting.
+     - Upgraded `deploy-lambda.sh` to package JSON environment configurations, validate HMAC secret, and execute automated post-deploy smoke tests against the API.
+     - Authored complete console runbook and rollback plan in `deploy/aws/LEX_SETUP.md`.
+  3. **UK-English Platform Defaults:**
+     - Configured default TTS voice to `en-GB-SoniaNeural` (`en`).
+     - Aligned default language across `Tenant.default_language`, `Call.language`, prompts, schemas, and tenant provisioning to `en`.
+  4. **Order-Independent Test Harness (`tests/test_connect_lambda_bridge.py`, `tests/conftest.py`):**
+     - Created 14 unit and integration tests covering the Lambda bridge (transcript forwarding, blank re-prompting, HMAC header validation, timeout envelopes).
+     - Added autouse session snapshot cleanup fixture in `conftest.py` ensuring complete test order independence.
+- **Verification Evidence:**
+  - ✅ **265/265 Passing Backend Tests** (`pytest tests/ -q`).
+  - ✅ **23/23 Static Compiled Next.js Routes** (`npm run build`).
+  - ✅ **Zero Lint / Static Analysis Errors** (`ruff check .` clean, ESLint clean).
+- **Artifacts:** `deploy/aws/connect-contact-flow.json`, `deploy/aws/lambda_handler.py`, `deploy/aws/deploy-lambda.sh`, `deploy/aws/LEX_SETUP.md`, `apps/api/tests/test_connect_lambda_bridge.py`, `.learning/day-40-amazon-lex-en-gb-speech-capture.md`.
+
 ---
 
 ## 🎯 Verification & Test Summary Matrix
 
 | Metric | Target | Current Value | Status |
 |---|---|---|---|
-| **Backend Unit & Integration Tests** | $\ge 200$ | **251 Passed** | ✅ Green |
+| **Backend Unit & Integration Tests** | $\ge 200$ | **265 Passed** | ✅ Green |
 | **Frontend Static Routes** | $\ge 15$ | **23 Compiled Pages** | ✅ Green |
 | **Lint & Static Analysis** | 0 warnings | `ruff check .` clean, ESLint clean | ✅ Clean |
 | **Database Migrations** | Staged & Verified | 14 Migrations (`000`–`014`) | ✅ Current |
-| **Telephony Providers Supported** | Enterprise Voice | Amazon Connect (AWS) + WebAudio Simulator | ✅ Verified |
+| **Telephony Providers Supported** | Enterprise Voice | Amazon Connect (AWS) + Amazon Lex STT + WebAudio Simulator | ✅ Verified |
 | **Multi-Tenant Isolation** | Strict RLS | 100% tenant-scoped queries | ✅ Verified |
 | **Authentication & Auth Gate** | Unauth Redirects | HTTP 307 $\rightarrow$ `/sign-in` | ✅ Verified |
 | **Public Simulator Execution** | Hindi/English turns | Text turn + read-only tool | ✅ Verified |
 
 ---
 
-## 🧭 Next Recommended Actions (Day 40+)
+## 🧭 Next Recommended Actions (Day 41+)
 
-1. **Live AWS Production Deployment Sync:** Run `deploy/sync-vm.sh` to synchronize the latest backend changes to the Oracle Cloud VM.
-2. **Amazon Connect Live Call Verification:** Test an inbound voice turn on the live Amazon Connect DID to verify sub-second response times.
-3. **Continuous Performance & Load Baseline:** Execute simulated multi-turn concurrency tests on the FastAPI and WebSocket pipelines.
+1. **First Real UK English Live Call:** Dial the live Amazon Connect DID to verify Lex en-GB speech recognition and Polly neural playback end-to-end.
+2. **Real Call Logging & Transcription Sync:** Validate dual-engine persistence (Supabase PostgreSQL + Google Sheets audit log) for live spoken calls.
+3. **Latency & 429 Resilience Tuning:** Measure end-to-end latency of the Lex $\rightarrow$ Lambda $\rightarrow$ AgentRunner $\rightarrow$ Polly pipeline.
+4. **Live AWS Production Deployment Sync:** Run `deploy/sync-vm.sh` to synchronize the latest backend changes to the Oracle Cloud VM.

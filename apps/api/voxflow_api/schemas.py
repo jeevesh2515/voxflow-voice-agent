@@ -203,7 +203,7 @@ class WorkspaceProvisionIn(BaseModel):
     admin_name: str = ""
     admin_email: str = ""
     phone_number: str | None = None
-    default_language: str = "hi"
+    default_language: str = "en"
     seed_starter_data: bool = True
 
 

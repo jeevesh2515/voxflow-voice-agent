@@ -59,8 +59,8 @@ class Settings(BaseSettings):
     whisper_compute_type: str = "int8"
 
     tts_voice_hi: str = "hi-IN-SwaraNeural"
-    tts_voice_en: str = "en-IN-NeerjaNeural"
-    tts_default_lang: Literal["hi", "en"] = "hi"
+    tts_voice_en: str = "en-GB-SoniaNeural"
+    tts_default_lang: Literal["hi", "en"] = "en"
 
     # ----- API -----
     api_host: str = "0.0.0.0"

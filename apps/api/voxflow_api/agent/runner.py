@@ -135,7 +135,7 @@ class AgentRunner:
                     provider=getattr(llm, "name", "unknown"),
                     exception_type=type(exc).__name__,
                 )
-                is_hindi = getattr(session, "language", "hi") == "hi"
+                is_hindi = getattr(session, "language", "en") == "hi"
                 return AgentTurnResult(
                     reply=(
                         "माफ़ कीजिए, डेमो सहायक अभी व्यस्त है। कृपया कुछ क्षण बाद फिर कोशिश करें। कोई कार्रवाई नहीं की गई है।"
