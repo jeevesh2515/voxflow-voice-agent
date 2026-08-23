@@ -783,20 +783,6 @@ async def send_email(session: CallSession, to_address: str, subject: str, body: 
     )
 
 
-def _get_twilio_client():
-    """Return a Twilio Client instance using API key or Account SID credentials."""
-    s = get_settings()
-    if not s.twilio_account_sid:
-        return None
-    try:
-        from twilio.rest import Client
-        if s.twilio_api_key and s.twilio_api_secret:
-            return Client(s.twilio_api_key, s.twilio_api_secret, s.twilio_account_sid)
-        if s.twilio_auth_token:
-            return Client(s.twilio_account_sid, s.twilio_auth_token)
-    except Exception as e:
-        log.warning("twilio.client_init_failed", error=str(e))
-    return None
 
 
 async def send_whatsapp_message(session: CallSession, to_phone: str, message: str) -> dict[str, Any]:

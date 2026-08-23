@@ -42,9 +42,6 @@ edge-tts==7.2.8
 av==14.0.0
 numpy==2.2.0
 
-# Telephony — used for webhook signature validation
-twilio==9.4.1
-
 # Google Sheets call log (service-account auth)
 google-auth==2.37.0
 

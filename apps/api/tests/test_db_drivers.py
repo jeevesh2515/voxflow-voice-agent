@@ -175,7 +175,6 @@ def test_full_app_imports_against_a_postgres_url(monkeypatch, tmp_path):
         "LLM_PROVIDER": "groq",
         "GROQ_API_KEY": "test",
         "SHEETS_ENABLED": "false",
-        "TWILIO_VALIDATE_SIGNATURE": "false",
         "PYTHONPATH": str(__import__("pathlib").Path(__file__).resolve().parent.parent),
     }
     result = subprocess.run(

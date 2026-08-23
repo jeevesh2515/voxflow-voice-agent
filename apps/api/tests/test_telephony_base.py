@@ -1,66 +1,32 @@
-"""Tests for Telephony provider abstraction and registry."""
+"""Tests for Telephony provider abstraction and registry (Amazon Connect)."""
 
 from __future__ import annotations
 
-
+from voxflow_api.telephony.connect_provider import ConnectProvider
 from voxflow_api.telephony.registry import get_telephony_provider
-from voxflow_api.telephony.telnyx_provider import TelnyxProvider
-from voxflow_api.telephony.twilio_provider import TwilioProvider
 
 
-def test_registry_returns_twilio_by_default():
+def test_registry_returns_connect_by_default():
     provider = get_telephony_provider()
-    assert isinstance(provider, TwilioProvider)
-    assert provider.name == "twilio"
+    assert isinstance(provider, ConnectProvider)
+    assert provider.name == "connect"
 
 
-def test_registry_returns_telnyx():
-    provider = get_telephony_provider("telnyx")
-    assert isinstance(provider, TelnyxProvider)
-    assert provider.name == "telnyx"
+def test_registry_returns_connect_explicitly():
+    provider = get_telephony_provider("connect")
+    assert isinstance(provider, ConnectProvider)
+    assert provider.name == "connect"
 
 
-def test_registry_unknown_falls_back_to_twilio():
+def test_registry_unknown_falls_back_to_connect():
     provider = get_telephony_provider("nonexistent")
-    assert isinstance(provider, TwilioProvider)
+    assert isinstance(provider, ConnectProvider)
+    assert provider.name == "connect"
 
 
-def test_telnyx_provider_texml_generation():
-    provider = get_telephony_provider("telnyx")
-    texml = provider.generate_connect_response("example.com", "/telnyx/media")
-    assert "<Response>" in texml
-    assert "<Stream url=\"wss://example.com/telnyx/media\" />" in texml
-    assert provider.content_type() == "application/xml"
+def test_connect_provider_properties():
+    provider = get_telephony_provider("connect")
+    assert provider.content_type() == "application/json"
+    resp = provider.generate_connect_response("example.com", "/api/connect/turn")
+    assert "ok" in resp and "connect" in resp
 
-
-def test_telnyx_incoming_call_parsing_texml():
-    provider = get_telephony_provider("telnyx")
-    form = {
-        "CallSid": "call-12345",
-        "From": "+14155552671",
-        "To": "+14155559999",
-    }
-    incoming = provider.parse_incoming_call(form)
-    assert incoming.call_sid == "call-12345"
-    assert incoming.caller_phone == "+14155552671"
-    assert incoming.to_number == "+14155559999"
-    assert incoming.provider == "telnyx"
-
-
-def test_telnyx_incoming_call_parsing_v2_json():
-    provider = get_telephony_provider("telnyx")
-    payload = {
-        "data": {
-            "event_type": "call.initiated",
-            "payload": {
-                "call_control_id": "cc-9988",
-                "from": "+919876543210",
-                "to": "+14155551234",
-            },
-        }
-    }
-    incoming = provider.parse_incoming_call(payload)
-    assert incoming.call_sid == "cc-9988"
-    assert incoming.caller_phone == "+919876543210"
-    assert incoming.to_number == "+14155551234"
-    assert incoming.provider == "telnyx"

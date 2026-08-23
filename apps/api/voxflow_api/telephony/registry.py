@@ -6,26 +6,22 @@ from typing import Dict, Type
 
 from .base import TelephonyProvider
 from .connect_provider import ConnectProvider
-from .telnyx_provider import TelnyxProvider
-from .twilio_provider import TwilioProvider
 
 _PROVIDERS: Dict[str, Type[TelephonyProvider]] = {
-    "twilio": TwilioProvider,
-    "telnyx": TelnyxProvider,
     "connect": ConnectProvider,
 }
 
 _INSTANCES: Dict[str, TelephonyProvider] = {}
 
 
-def get_telephony_provider(name: str = "twilio") -> TelephonyProvider:
+def get_telephony_provider(name: str = "connect") -> TelephonyProvider:
     """Return a singleton instance of the requested telephony provider.
     
-    Defaults to 'twilio' if name is unrecognized or unspecified.
+    Defaults to 'connect' (Amazon Connect) if name is unrecognized or unspecified.
     """
-    key = (name or "twilio").lower().strip()
+    key = (name or "connect").lower().strip()
     if key not in _INSTANCES:
-        cls = _PROVIDERS.get(key, TwilioProvider)
+        cls = _PROVIDERS.get(key, ConnectProvider)
         _INSTANCES[key] = cls()
     return _INSTANCES[key]
 

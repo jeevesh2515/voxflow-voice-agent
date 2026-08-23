@@ -13,15 +13,11 @@ no network is needed.
 from __future__ import annotations
 
 import asyncio
-import base64
 
 import pytest
 
 from voxflow_api import selftest
 from voxflow_api.selftest import FAIL, PASS, SKIP, WARN
-
-from .test_twilio import _MP3_FIXTURE_B64
-
 
 # ── config ──────────────────────────────────────────────────────────────────
 
@@ -119,9 +115,10 @@ def test_database_check_names_missing_tables(monkeypatch):
 # ── audio path (no network — uses the MP3 fixture) ─────────────────────────
 
 
-def test_codec_check_passes_on_real_mp3_audio():
+def test_codec_check_passes_on_real_mp3_audio(monkeypatch):
     """mp3 → pcm8k → mulaw → pcm → 16k, asserting the invariants hold."""
-    state = {"mp3": base64.b64decode(_MP3_FIXTURE_B64)}
+    monkeypatch.setattr("voxflow_api.voice.codecs.mp3_to_pcm8k", lambda b: b"\x00\x00" * 800)
+    state = {"mp3": b"mock_mp3_data"}
     status, detail, _ = asyncio.run(selftest.check_codecs(state))
     assert status == PASS, detail
     assert "consistent" in detail

@@ -209,9 +209,9 @@ export default function CampaignsPage() {
             <Radio size={16} className="text-[#00ffcc]" />
           </div>
           <div className="text-2xl font-headline font-bold text-[#00ffcc]">
-            {stats.activeCount > 0 ? `${stats.activeCount} Running` : "Dial / Twilio SIP"}
+            {stats.activeCount > 0 ? `${stats.activeCount} Running` : "Amazon Connect"}
           </div>
-          <div className="text-xs text-[#94a3b8] mt-1">Multi-carrier routing ready</div>
+          <div className="text-xs text-[#94a3b8] mt-1">Enterprise AWS voice routing</div>
         </div>
 
         <div className="bg-[#141422] p-5 rounded-2xl border border-[#28283c] shadow-sm">
