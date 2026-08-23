@@ -74,9 +74,9 @@ flowchart TB
     end
 
     subgraph Intelligence["🧠 Core AI Reasoning & Voice Engine"]
-        STT["🎙️ Groq Whisper Turbo<br/>Sub-150ms Transcription"]
-        LLM["🤖 OpenAI GPT-4o-mini<br/>Autonomous Tool-Calling Agent"]
-        TTS["🔊 Edge-TTS & Polly<br/>Neural Hindi/English Speech"]
+        STT["🎙️ Amazon Lex V2 & Groq Whisper<br/>Sub-150ms Speech Recognition"]
+        LLM["🤖 Groq & LLM Tool-Calling<br/>Autonomous AgentRunner Engine"]
+        TTS["🔊 Amazon Polly & Edge-TTS<br/>Neural en-GB Amy / Sonia Speech"]
     end
 
     subgraph Tools["⚙️ Durable Operational Tool Layer"]
@@ -115,7 +115,8 @@ flowchart TB
 ## ⚡ Core Platform Capabilities
 
 ### 1. 🎙️ Natural Multilingual Voice Intelligence
-- **Hindi & English (Hinglish)** conversational fluency tuned specifically for supply chain vocabulary (e.g. *“PO number kya hai?”*, *“Delivery schedule kar do”*).
+- **English (UK) & Multilingual Fluency**: Conversational AI tailored for global supply chains, drivers, dispatchers, and warehouse managers.
+- **Amazon Lex V2 & Neural Polly Voice**: Real-time speech front door capturing spoken words with sub-second neural speech playback.
 - **Instant Speech Barge-In**: When a human speaks while the agent is speaking, the outbound playback queue is flushed immediately within 50ms.
 - **Voice Activity Detection (VAD)**: RMS energy filtering with 450ms trailing silence threshold eliminates awkward conversational lag.
 
