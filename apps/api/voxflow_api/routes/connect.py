@@ -41,6 +41,7 @@ class ConnectTurnResponse(BaseModel):
     escalate: bool = False
     end_call: bool = False
     actions: list[dict[str, Any]] = []
+    latency_ms: Optional[float] = None
 
 
 class ConnectEndRequest(BaseModel):
@@ -79,6 +80,9 @@ async def connect_turn(
     request: Request,
 ) -> ConnectTurnResponse:
     """Execute one conversational turn from Amazon Connect."""
+    import time
+    start_time = time.perf_counter()
+
     provider = get_telephony_provider("connect")
     form_dict = req.model_dump()
     if not provider.validate_webhook(request, form_dict, "/api/connect/turn"):
@@ -110,6 +114,7 @@ async def connect_turn(
             session.escalated = True
 
     should_end = session.resolution_status != "" or session.outcome not in ("in_progress", "")
+    latency_ms = round((time.perf_counter() - start_time) * 1000, 2)
 
     log.info(
         "connect.turn_completed",
@@ -117,6 +122,7 @@ async def connect_turn(
         caller=user_text,
         agent=agent_result.reply,
         escalated=session.escalated,
+        latency_ms=latency_ms,
     )
 
     return ConnectTurnResponse(
@@ -126,6 +132,7 @@ async def connect_turn(
         escalate=session.escalated,
         end_call=should_end,
         actions=agent_result.actions,
+        latency_ms=latency_ms,
     )
 
 

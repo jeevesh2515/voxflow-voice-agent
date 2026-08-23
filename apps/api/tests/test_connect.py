@@ -32,6 +32,9 @@ def test_connect_turn_execution(client):
     assert "agent_reply" in data
     assert isinstance(data["escalate"], bool)
     assert isinstance(data["end_call"], bool)
+    assert "latency_ms" in data
+    assert isinstance(data["latency_ms"], float)
+    assert data["latency_ms"] >= 0.0
 
 
 def test_connect_turn_with_signature_verification(monkeypatch, client):

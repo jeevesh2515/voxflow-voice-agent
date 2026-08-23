@@ -445,7 +445,7 @@
 | **Backend Unit & Integration Tests** | $\ge 200$ | **265 Passed** | ✅ Green |
 | **Frontend Static Routes** | $\ge 15$ | **23 Compiled Pages** | ✅ Green |
 | **Lint & Static Analysis** | 0 warnings | `ruff check .` clean, ESLint clean | ✅ Clean |
-| **Database Migrations** | Staged & Verified | 14 Migrations (`000`–`014`) | ✅ Current |
+| **Database Migrations** | Staged & Verified | 15 Migrations (`000`–`014`) | ✅ Current |
 | **Telephony Providers Supported** | Enterprise Voice | Amazon Connect (AWS) + Amazon Lex STT + WebAudio Simulator | ✅ Verified |
 | **Multi-Tenant Isolation** | Strict RLS | 100% tenant-scoped queries | ✅ Verified |
 | **Authentication & Auth Gate** | Unauth Redirects | HTTP 307 $\rightarrow$ `/sign-in` | ✅ Verified |
