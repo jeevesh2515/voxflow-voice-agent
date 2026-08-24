@@ -2,7 +2,7 @@
 
 **Project:** VoxFlow — Voice Operations for Modern Supply Chains  
 **Repository:** `jeevesh2515/voxflow-voice-agent`  
-**Current Test Suite:** **282 Passing Tests** (`pytest tests/ -q`)  
+**Current Test Suite:** **289 Passing Tests** (`pytest tests/ -q`)  
 **Frontend Surface:** **23 Compiled Routes** (Next.js 16 App Router, Turbopack)  
 **Deployment Infrastructure:** Oracle Cloud Always-Free ARM VM (Caddy Auto-TLS + Docker) / Render Free API / Vercel Edge Frontend  
 **Last Updated:** 2026-08-24
@@ -471,17 +471,41 @@
      - Implemented `sheet_mirror_enabled(tenant_id)` gate requiring explicit tenant admission in `SHEETS_CALL_LOG_TENANTS`.
      - Implemented detached, non-blocking mirror scheduling (`_schedule_sheet_mirror`, `_mirror_sheet`, `drain_background_tasks`).
      - Added dual-layer idempotency (in-process `_sheet_inflight` set + DB `sheet_synced` check) preventing duplicate writes on Lambda retries.
-     - Ensured fail-soft behavior: Sheets API exceptions log warnings and leave `sheet_synced=0` without breaking the call or delaying `/api/connect/end`.
-  3. **Configuration & Tenant Gate (`config.py`, `.env.example`):**
-     - Added `sheets_call_log_tenants` config to `Settings` with `sheets_call_log_tenant_ids` tuple property.
-     - Updated `.env.example` with `SHEETS_CALL_LOG_TENANTS=varun`.
-  4. **Comprehensive Test Suite (`tests/test_day42_sheet_logging.py`):**
-     - Authored 7 tests covering column mapping, row builder, tenant allow-list gating, non-blocking end_session, idempotency, failure resilience, and crash-restart safety.
+     - Ensured fail-soft behavior: Sheets API exceptions log war  4. **Comprehensive Test Suite (`tests/test_day42_sheet_logging.py`):**
+      - Authored 7 tests covering column mapping, row builder, tenant allow-list gating, non-blocking end_session, idempotency, failure resilience, and crash-restart safety.
 - **Verification Evidence:**
-  - ✅ **281/281 Passing Backend Tests** (`pytest tests/ -q`).
+  - ✅ **282/282 Passing Backend Tests** (`pytest tests/ -q`).
   - ✅ **23/23 Static Compiled Next.js Routes** (`npm run build`).
   - ✅ **Zero Lint / Static Analysis Errors** (`ruff check .` clean, ESLint clean).
 - **Artifacts:** `apps/api/voxflow_api/voice/pipeline.py`, `apps/api/voxflow_api/integrations/gsheets.py`, `apps/api/voxflow_api/db.py`, `apps/api/voxflow_api/config.py`, `migrations/015_call_latency.sql`, `apps/api/tests/test_day42_sheet_logging.py`, `.learning/day-42-real-call-logging-postgres-and-sheets.md`.
+
+#### 🗓️ Day 43: Latency Tuning, Groq 429 Resilience, VAD Silence Re-Prompts & Backups
+- **Objective:** Optimize per-turn speech latency (<2s glass-to-glass), harden Groq provider against rate limits with connection pooling and model fallbacks, implement progressive VAD silence re-prompting, and ensure data durability via Supabase keepalive and encrypted backups.
+- **Implementation:**
+  1. **Groq HTTP Client Connection Pooling & Jittered 429 Resilience (`llm/groq.py`, `config.py`):**
+     - Upgraded `GroqProvider` to reuse a persistent `httpx.AsyncClient` with connection pooling (`Limits(max_keepalive_connections=10, max_connections=20)`), saving ~80–150ms per turn.
+     - Implemented full-jitter exponential backoff on HTTP 429/503 responses (`min(base_wait * jitter, max_retry_after)`).
+     - Added secondary fallback model (`llama-3.1-8b-instant`) when primary model experiences rate limit exhaustion.
+  2. **Progressive VAD Silence & Timeout Handling (`voice/pipeline.py`, `routes/connect.py`, `deploy/aws/lambda_handler.py`):**
+     - Added `silence_count: int = 0` to `CallSession`.
+     - In `routes/connect.py`, handled empty input turns with progressive responses:
+       - Silence turn 1: Contextual prompt ("Are you still there? What would you like to know?").
+       - Silence turn 2: Re-assurance ("I'm still here. How can I help with your stock or order inquiry...?").
+       - Silence turn 3: Polite call termination (`end_call=True`, `resolution_status="abandoned"`).
+     - Reset `silence_count = 0` whenever caller speaks.
+  3. **Data Durability & Automated Encrypted Backups (`scripts/`):**
+     - Created `scripts/supabase_keepalive.py` with standalone `--once` and `--interval-hours 6` daemon modes to prevent Supabase Free Tier project pausing.
+     - Upgraded `scripts/db_backup.sh` with AES-256 symmetric encryption (via `gpg` or `openssl`), multi-dialect support (Postgres `pg_dump` and SQLite), and automated 7-day retention rotation.
+     - Created `scripts/db_restore_test.sh` for non-destructive automated decryption, decompression, and SQLite/Postgres schema integrity verification drills.
+  4. **Dedicated Resilience Test Suite (`tests/test_day43_resilience.py`):**
+     - Authored 7 comprehensive tests covering connection pooling, 429 jitter backoff, model fallback, progressive silence turns, silence resets, Supabase keep-alive, and encrypted backup/restore cycles.
+- **Verification Evidence:**
+  - ✅ **289/289 Passing Backend Tests** (`pytest tests/ -q` in 60.3s).
+  - ✅ **23/23 Static Compiled Next.js Routes** (`npm run build`).
+  - ✅ **Zero Lint / Static Analysis Errors** (`ruff check .` clean, ESLint clean).
+  - ✅ **Verified Backup & Restore Drill:** Passed PRAGMA integrity check and 36 table validation.
+  - ✅ **Verified Supabase Keepalive:** Successfully pinged live Supabase Postgres database.
+- **Artifacts:** `apps/api/voxflow_api/llm/groq.py`, `apps/api/voxflow_api/voice/pipeline.py`, `apps/api/voxflow_api/routes/connect.py`, `deploy/aws/lambda_handler.py`, `scripts/supabase_keepalive.py`, `scripts/db_backup.sh`, `scripts/db_restore_test.sh`, `apps/api/tests/test_day43_resilience.py`, `.learning/day-43-latency-groq429-and-backups.md`.
 
 ---
 
@@ -489,7 +513,7 @@
 
 | Metric | Target | Current Value | Status |
 |---|---|---|---|
-| **Backend Unit & Integration Tests** | $\ge 200$ | **281 Passed** | ✅ Green |
+| **Backend Unit & Integration Tests** | $\ge 200$ | **289 Passed** | ✅ Green |
 | **Frontend Static Routes** | $\ge 15$ | **23 Compiled Pages** | ✅ Green |
 | **Lint & Static Analysis** | 0 warnings | `ruff check .` clean, ESLint clean | ✅ Clean |
 | **Latency & TTFT Benchmarks** | Sub-second P50 | **P50 ~566ms glass-to-glass** | ✅ Verified |
@@ -502,10 +526,12 @@
 
 ---
 
-## 🧭 Next Recommended Actions (Day 43+)
+## 🧭 Next Recommended Actions (Day 44+)
 
-1. **Latency, Groq 429 & Backups (Day 43):** End-to-end latency profiling, Groq rate-limit exponential backoff tuning, Supabase connection keep-alive, and nightly DB backup script.
-2. **Self-Serve Signup & Provisioning (Day 44):** Customer self-serve onboarding wizard with Turnstile bot protection and automatic tenant initialization.
+1. **Self-Serve Signup & Provisioning (Day 44):** Customer self-serve onboarding wizard with Turnstile bot protection and automatic tenant initialization.
+2. **Company Data Ingestion (Day 45):** Bulk CSV upload and management for suppliers, stock items, and purchase orders.
+3. **Live AWS Production Deployment Sync:** Run `deploy/sync-vm.sh` to synchronize the latest backend changes to the Oracle Cloud VM.
+ (Day 44):** Customer self-serve onboarding wizard with Turnstile bot protection and automatic tenant initialization.
 3. **Company Data Ingestion (Day 45):** Bulk CSV upload and management for suppliers, stock items, and purchase orders.
 4. **Live AWS Production Deployment Sync:** Run `deploy/sync-vm.sh` to synchronize the latest backend changes to the Oracle Cloud VM.
 

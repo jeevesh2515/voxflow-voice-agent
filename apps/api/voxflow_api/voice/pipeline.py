@@ -131,6 +131,8 @@ class CallSession:
     # Day 42: per-turn server-side processing times (ms) recorded by callers of
     # handle_turn (e.g. the Amazon Connect route) for logging and latency SLOs.
     turn_latencies: list[float] = field(default_factory=list)
+    # Day 43: consecutive silence/VAD timeout turns for progressive re-prompting
+    silence_count: int = 0
 
     def append_pcm(self, chunk: bytes) -> None:
         MAX_BYTES = 1_920_000

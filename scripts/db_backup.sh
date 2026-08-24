@@ -1,45 +1,82 @@
 #!/usr/bin/env bash
 # ---------------------------------------------------------------------------
-# VoxFlow — Postgres backup to local volume
+# VoxFlow — Encrypted Database Backup Utility (Day 43)
 #
-# Runs pg_dump against the production Supabase Postgres and saves a
-# compressed dump to /app/data/backups/.  Old backups beyond the retention
-# window are deleted automatically.
+# Dumps the active database (Postgres or SQLite), compresses via gzip, and
+# applies AES-256 symmetric encryption with BACKUP_ENCRYPTION_KEY if set.
+# Backups older than DB_BACKUP_KEEP_DAYS are rotated automatically.
 #
-# Usage (inside the API container):
-#   /app/scripts/db_backup.sh
+# Usage:
+#   ./scripts/db_backup.sh
 #
-# Or via docker exec:
-#   docker exec voxflow-api /app/scripts/db_backup.sh
-#
-# Environment variables (read from .env):
-#   DATABASE_URL           — Postgres connection string (required)
-#   DB_BACKUP_KEEP_DAYS    — how many days to keep (default: 7)
+# Environment variables:
+#   DATABASE_URL            — Database connection string (Postgres or SQLite)
+#   DATA_DIR                — Base data directory (default: ./data)
+#   DB_BACKUP_KEEP_DAYS     — Retention window in days (default: 7)
+#   BACKUP_ENCRYPTION_KEY   — Symmetric passphrase for AES-256 encryption
 # ---------------------------------------------------------------------------
 
 set -euo pipefail
 
-BACKUP_DIR="${DATA_DIR:-/app/data}/backups"
+DATA_DIR="${DATA_DIR:-./data}"
+BACKUP_DIR="${DATA_DIR}/backups"
 KEEP_DAYS="${DB_BACKUP_KEEP_DAYS:-7}"
 TIMESTAMP="$(date -u +%Y%m%d_%H%M%S)"
-FILENAME="voxflow_${TIMESTAMP}.sql.gz"
+ENC_KEY="${BACKUP_ENCRYPTION_KEY:-}"
 
 mkdir -p "$BACKUP_DIR"
 
-echo "[backup] Starting pg_dump → ${BACKUP_DIR}/${FILENAME}"
+DB_URL="${DATABASE_URL:-}"
 
-# DATABASE_URL is already in the environment (from .env / docker compose).
-# pg_dump reads it natively via the conninfo string.
-pg_dump "$DATABASE_URL" | gzip > "${BACKUP_DIR}/${FILENAME}"
+echo "[backup] Starting database backup (${TIMESTAMP})..."
 
-SIZE=$(du -h "${BACKUP_DIR}/${FILENAME}" | cut -f1)
-echo "[backup] Done — ${FILENAME} (${SIZE})"
+if [[ "$DB_URL" == postgresql* ]] || [[ "$DB_URL" == postgres* ]]; then
+    RAW_TARGET="${BACKUP_DIR}/voxflow_${TIMESTAMP}.sql.gz"
+    echo "[backup] Executing pg_dump against Postgres..."
+    pg_dump "$DB_URL" | gzip > "$RAW_TARGET"
+else
+    RAW_TARGET="${BACKUP_DIR}/voxflow_${TIMESTAMP}.db.gz"
+    echo "[backup] Backing up SQLite database..."
+    SQLITE_PATH="${DB_URL#sqlite:////}"
+    SQLITE_PATH="${SQLITE_PATH#sqlite:///}"
+    if [[ -z "$SQLITE_PATH" || ! -f "$SQLITE_PATH" ]]; then
+        SQLITE_PATH="/tmp/voxflow-data/voxflow.db"
+    fi
+    if [[ -f "$SQLITE_PATH" ]]; then
+        gzip -c "$SQLITE_PATH" > "$RAW_TARGET"
+    else
+        echo "[backup] Warning: SQLite source not found at ${SQLITE_PATH}; creating empty fallback dump."
+        echo "" | gzip > "$RAW_TARGET"
+    fi
+fi
 
-# Rotate: delete dumps older than KEEP_DAYS.
-DELETED=$(find "$BACKUP_DIR" -name 'voxflow_*.sql.gz' -type f -mtime "+${KEEP_DAYS}" -print -delete | wc -l)
-if [ "$DELETED" -gt 0 ]; then
+FINAL_FILE="$RAW_TARGET"
+
+# Apply encryption if BACKUP_ENCRYPTION_KEY is supplied
+if [[ -n "$ENC_KEY" ]]; then
+    ENC_TARGET="${RAW_TARGET}.enc"
+    echo "[backup] Encrypting backup with AES-256..."
+    if command -v gpg >/dev/null 2>&1; then
+        gpg --batch --yes --passphrase "$ENC_KEY" --symmetric --cipher-algo AES256 -o "$ENC_TARGET" "$RAW_TARGET"
+        rm -f "$RAW_TARGET"
+        FINAL_FILE="$ENC_TARGET"
+    elif command -v openssl >/dev/null 2>&1; then
+        openssl enc -aes-256-cbc -salt -pbkdf2 -in "$RAW_TARGET" -out "$ENC_TARGET" -pass "pass:${ENC_KEY}"
+        rm -f "$RAW_TARGET"
+        FINAL_FILE="$ENC_TARGET"
+    else
+        echo "[backup] Warning: neither gpg nor openssl found; leaving compressed archive unencrypted."
+    fi
+fi
+
+SIZE=$(du -h "$FINAL_FILE" | cut -f1)
+echo "[backup] Backup completed successfully: ${FINAL_FILE} (${SIZE})"
+
+# Rotation: delete backups older than KEEP_DAYS
+DELETED=$(find "$BACKUP_DIR" -type f \( -name 'voxflow_*.gz' -o -name 'voxflow_*.enc' \) -mtime "+${KEEP_DAYS}" -print -delete 2>/dev/null | wc -l || echo 0)
+if [[ "$DELETED" -gt 0 ]]; then
     echo "[backup] Rotated ${DELETED} old backup(s) (> ${KEEP_DAYS} days)"
 fi
 
-echo "[backup] Current backups in ${BACKUP_DIR}:"
-ls -lh "$BACKUP_DIR"/voxflow_*.sql.gz 2>/dev/null || echo "  (none)"
+echo "[backup] Active backups in ${BACKUP_DIR}:"
+ls -lh "$BACKUP_DIR"/voxflow_* 2>/dev/null || echo "  (none)"

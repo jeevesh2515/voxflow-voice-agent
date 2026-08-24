@@ -102,37 +102,80 @@ async def connect_turn(
         )
 
     user_text = req.user_text.strip()
-    session.transcript.append(CallTurn(role="caller", text=user_text, at=datetime.now(timezone.utc)))
+    if not user_text:
+        session.silence_count += 1
+        is_hindi = session.language == "hi"
+        if session.silence_count == 1:
+            if len(session.transcript) <= 1:
+                agent_reply = (
+                    "नमस्ते, मैं वॉक्सफ़्लो वॉयस असिस्टेंट हूँ। मैं आज आपकी क्या सहायता कर सकता हूँ?"
+                    if is_hindi
+                    else "Hello, this is the VoxFlow voice assistant. How can I help you today?"
+                )
+            else:
+                agent_reply = (
+                    "क्या आप अभी भी वहाँ हैं? आप क्या जानना चाहते हैं?"
+                    if is_hindi
+                    else "Are you still there? What would you like to know?"
+                )
+            should_end = False
+        elif session.silence_count == 2:
+            agent_reply = (
+                "मैं अभी भी यहीं हूँ। क्या आप स्टॉक या ऑर्डर की जानकारी चाहते हैं, या किसी सहयोगी से बात करना चाहेंगे?"
+                if is_hindi
+                else "I'm still here. How can I help with your stock or order inquiry, or would you like to speak to a colleague?"
+            )
+            should_end = False
+        else:
+            agent_reply = (
+                "आपकी आवाज़ नहीं आ रही है, इसलिए मैं अभी कॉल समाप्त कर रहा हूँ। कृपया बाद में फिर कॉल करें।"
+                if is_hindi
+                else "I haven't heard anything from you, so I'll end the call for now. Please feel free to call back."
+            )
+            should_end = True
+            session.resolution_status = "abandoned"
+            session.outcome = "abandoned"
 
-    runner = AgentRunner()
-    agent_result = await runner.handle_turn(session=session, user_text=user_text)
+        actions: list[dict[str, Any]] = []
+        session.transcript.append(CallTurn(role="caller", text="[silence]", at=datetime.now(timezone.utc)))
+        session.transcript.append(CallTurn(role="agent", text=agent_reply, at=datetime.now(timezone.utc)))
+    else:
+        session.silence_count = 0
+        session.transcript.append(CallTurn(role="caller", text=user_text, at=datetime.now(timezone.utc)))
 
-    session.transcript.append(CallTurn(role="agent", text=agent_result.reply, at=datetime.now(timezone.utc)))
-    for a in agent_result.actions:
-        session.actions.append(a)
-        if a.get("name") == "escalate_to_human":
-            session.escalated = True
+        runner = AgentRunner()
+        agent_result = await runner.handle_turn(session=session, user_text=user_text)
+        agent_reply = agent_result.reply
+        actions = agent_result.actions
 
-    should_end = session.resolution_status != "" or session.outcome not in ("in_progress", "")
+        session.transcript.append(CallTurn(role="agent", text=agent_reply, at=datetime.now(timezone.utc)))
+        for a in actions:
+            session.actions.append(a)
+            if a.get("name") == "escalate_to_human":
+                session.escalated = True
+
+        should_end = session.resolution_status != "" or session.outcome not in ("in_progress", "")
+
     latency_ms = round((time.perf_counter() - start_time) * 1000, 2)
     session.turn_latencies.append(latency_ms)
 
     log.info(
         "connect.turn_completed",
         contact_id=req.contact_id,
-        caller=user_text,
-        agent=agent_result.reply,
+        caller=user_text or "[silence]",
+        silence_count=session.silence_count,
+        agent=agent_reply,
         escalated=session.escalated,
         latency_ms=latency_ms,
     )
 
     return ConnectTurnResponse(
         contact_id=req.contact_id,
-        agent_reply=agent_result.reply,
+        agent_reply=agent_reply,
         language=session.language,
         escalate=session.escalated,
         end_call=should_end,
-        actions=agent_result.actions,
+        actions=actions,
         latency_ms=latency_ms,
     )
 

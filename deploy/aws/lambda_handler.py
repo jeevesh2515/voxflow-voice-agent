@@ -91,7 +91,7 @@ def lambda_handler(event, context):
     # Conversational turn
     if not user_text.strip():
         # Caller gave blank/empty speech (Lex returned no transcript). Re-prompt in
-        # English instead of sending empty text to the agent.
+        # English without an API call to conserve latency/cost.
         return {
             "statusCode": 200,
             "agent_reply": "Hello, this is the VoxFlow voice assistant. How can I help you today?",

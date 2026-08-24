@@ -1,7 +1,7 @@
 # VoxFlow Delivery Phases
 
 **Last updated:** 2026-08-24  
-**Current position:** **Day 42 Complete — Durable Call Logging (Postgres + Google Sheets Mirroring).** Verified with **282/282 passing tests**, **23/23 compiled Next.js routes**, Amazon Connect AWS UK DID (+44 20 4640 4552) + Amazon Lex V2 en-GB STT front door, server-side turn latency telemetry, and dual-destination durable call logging (Postgres `calls` + off-request-path Google Sheets mirror). Comprehensive day-by-day logs are catalogued in [`DAY_TRACKER.md`](DAY_TRACKER.md).  
+**Current position:** **Day 43 Complete — Latency Tuning, Groq 429 Resilience, VAD Silence Re-Prompts & Backups.** Verified with **289/289 passing tests**, **23/23 compiled Next.js routes**, persistent Groq connection pooling, jittered 429 backoff with secondary model fallback (`llama-3.1-8b-instant`), progressive silence re-prompting and auto-termination, Supabase keep-alive heartbeat script, and AES-256 encrypted `pg_dump`/SQLite backup & restore verification drill. Comprehensive day-by-day logs are catalogued in [`DAY_TRACKER.md`](DAY_TRACKER.md).  
 **Planning rule:** A milestone is complete only when its implementation, automated verification, deployment result, and safety boundary are recorded.
 
 ## Programme status
@@ -16,8 +16,9 @@
 | Integration reliability and pilot readiness | 33–35 | Complete | Dial callback certification, typed durable side-effect jobs, and Day 35 fail-closed pilot admission. |
 | Pilot operations observability & hold points | 36 | Complete | Redacted evidence-led preflight/hold points, no-auto-expansion governance, and pause evidence. |
 | Production Infrastructure & Resilience Hardening | 37–40 | Complete | Oracle Cloud ARM VM + Caddy auto-TLS stack, Amazon Connect AWS + Lex V2 en-GB STT, 265 backend tests, 23 frontend routes. |
-| Live Telephony & Durable Logging | 41–42 | Complete | Server-side turn latency telemetry, live UK DID routing, Postgres `calls` + Google Sheets mirroring, 274 tests. |
-| SaaS Polish & Onboarding | 43–48 | In Progress | Latency/429 tuning, self-serve signup, CSV ingest, settings, and escalation loops. |
+| Live Telephony & Durable Logging | 41–42 | Complete | Server-side turn latency telemetry, live UK DID routing, Postgres `calls` + Google Sheets mirroring, 282 tests. |
+| Latency, Resilience & Backups | 43 | Complete | Groq persistent connection pooling, 429 jitter backoff + fallback model, silence re-prompts, Supabase keep-alive, encrypted backups, 289 tests. |
+| SaaS Polish & Onboarding | 44–48 | In Progress | Self-serve signup, CSV ingest, settings, and escalation loops. |
 | Voice Quality, RBAC & Lifecycle | 49–53 | Planned | Voice eval harness, tenant RBAC, observability, GDPR/retention, Stripe billing. |
 
 > For the comprehensive, day-by-day implementation log from Day 1 to current, see [`DAY_TRACKER.md`](DAY_TRACKER.md).
