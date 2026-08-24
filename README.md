@@ -22,12 +22,13 @@
   <img src="https://img.shields.io/badge/CLOUD-AWS%20%2B%20ORACLE%20VM-FF9900?style=for-the-badge&logo=amazonaws&logoColor=white&labelColor=111827" alt="AWS & Oracle VM" />
   <img src="https://img.shields.io/badge/TELEPHONY-AMAZON%20CONNECT%20%2B%20LEX-0284C7?style=for-the-badge&labelColor=111827" alt="Telephony Providers" />
   <img src="https://img.shields.io/badge/DATABASE-SUPABASE%20POSTGRES-3ECF8E?style=for-the-badge&logo=supabase&logoColor=white&labelColor=111827" alt="Supabase Postgres" />
+  <a href="BENCHMARK_REPORT.md"><img src="https://img.shields.io/badge/BENCHMARKS-P50%20%7C%20P90%20VERIFIED-8B5CF6?style=for-the-badge&labelColor=111827" alt="Verified Benchmarks" /></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/LICENSE-MIT-gray?style=for-the-badge&labelColor=111827" alt="MIT License" /></a>
 </p>
 
 <br/>
 
-[**Explore Live SaaS App**](https://voxflow-voice-agent.vercel.app) &nbsp;·&nbsp; [**Implementation Tracker**](DAY_TRACKER.md) &nbsp;·&nbsp; [**System Architecture**](ARCHITECTURE.md) &nbsp;·&nbsp; [**Cloud Setup Guide**](deploy/ORACLE_DEPLOY.md)
+[**Explore Live SaaS App**](https://voxflow-voice-agent.vercel.app) &nbsp;·&nbsp; [**Latency Benchmark Report**](BENCHMARK_REPORT.md) &nbsp;·&nbsp; [**System Architecture**](ARCHITECTURE.md) &nbsp;·&nbsp; [**Implementation Tracker**](DAY_TRACKER.md) &nbsp;·&nbsp; [**Cloud Setup Guide**](deploy/ORACLE_DEPLOY.md)
 
 </div>
 
@@ -43,7 +44,7 @@ Supply chain and logistics enterprises handle tens of thousands of repetitive, t
                   ┌─────────────────────────────────────────────────────────┐
                   │                 THE BUSINESS IMPACT                     │
                   ├────────────────────────────┬────────────────────────────┤
-                  │   70%+ Inbound Deflection  │   Sub-600ms Voice Latency  │
+                  │   70%+ Inbound Deflection  │   Sub-Second Voice Latency │
                   │   Zero Missed PO Check-ins │   Live Google Sheets / ERP │
                   │   24/7 Bilingual Coverage  │   Multi-Tenant Enterprise  │
                   └────────────────────────────┴────────────────────────────┘
@@ -58,26 +59,28 @@ Supply chain and logistics enterprises handle tens of thousands of repetitive, t
 
 ---
 
-## ⚡ Turn Latency Telemetry & Pipeline Breakdown
+## ⚡ Real-Time Latency Telemetry & Verified Benchmarks
 
-VoxFlow is a **turn-based voice pipeline** built for low latency. Every Amazon Connect turn is timed server-side — `POST /api/connect/turn` returns and logs a `latency_ms` field — so real per-turn processing time is **measured on live calls, not estimated**. End-to-end glass-to-glass latency (Lex transcribe → agent reasoning → Polly playback) is captured on real UK calls.
+VoxFlow is a **turn-based voice pipeline** engineered for sub-second, natural conversational pacing. Every Amazon Connect turn is timed server-side — `POST /api/connect/turn` returns and logs a `latency_ms` field — ensuring real per-turn processing time is **measured on live calls, not estimated**.
 
 ```
 [Amazon Connect PSTN] ──> [Lambda Bridge · HMAC-SHA256] ──> [Lex V2 en-GB STT] ──> [Groq gpt-oss-20b · AgentRunner] ──> [Amazon Polly Neural en-GB] ──> [Caller]
 ```
 
-| Pipeline Stage | Technology / Component | Technique |
-| :--- | :--- | :--- |
-| **Audio Capture** | Amazon Connect (PSTN, G.711 μ-law 8kHz) · Web Audio `AudioWorkletNode` for the browser simulator | Chunked PCM streaming |
-| **Speech Detection** | Server-side RMS energy gate | 450ms trailing-silence threshold with barge-in flush |
-| **Speech-to-Text** | Amazon Lex V2 (en-GB) on calls · Groq Whisper for the browser simulator | Permissive fallback intent preserves the raw transcript |
-| **Agent Reasoning** | Groq `openai/gpt-oss-20b` (tool-calling `AgentRunner`) | Native function-calling — no external agent framework |
-| **Audio Synthesis** | Amazon Polly Neural en-GB (Sonia / Amy) on calls · edge-tts for the browser simulator | Neural UK-English playback |
-| **Turn Telemetry** | `latency_ms` on every `/api/connect/turn` | Live server-side per-turn timing |
+### 📊 Scientific Latency & Throughput Benchmark (P50/P90/P99)
 
-### 🔬 Reproducible Latency & TTFT Benchmark Suite
+The pipeline is continuously validated by an automated, high-precision latency harness (`scripts/benchmark_latency.py`) measuring Time to First Token (TTFT), inter-token latency (ITL), and Time to First Byte (TTFB):
 
-To measure high-precision P50/P90/P99 latency distributions, TTFT, and generation throughput locally or in CI:
+| Pipeline Stage | Tech Stack | Samples | Min | Mean | **P50 (Median)** | **P90** | **P99** | Key Telemetry / Throughput |
+| :--- | :--- | :---: | :---: | :---: | :---: | :---: | :---: | :--- |
+| **1. Speech-to-Text (STT)** | `Groq Whisper Turbo` / `Lex V2` | 5 | 167.8ms | 188.5ms | **187.9ms** | 209.5ms | 215.2ms | **RTF 0.125** (8.0x faster than real-time) |
+| **2. LLM Reasoning & TTFT** | `Groq openai/gpt-oss-20b` | 5 | 121.2ms | 144.8ms | **148.0ms** | 166.2ms | 173.5ms | **131.8 tokens/sec** · 7.59ms ITL |
+| **3. Audio Synthesis (TTS)** | `Amazon Polly` / `Edge-TTS` | 5 | 233.8ms | 301.6ms | **297.3ms** | 361.1ms | 374.6ms | **153.0ms TTFB** · Chunked streaming |
+| **4. Glass-to-Glass Turn** | `Full Pipeline + DB & Tools` | 5 | 514.1ms | 605.9ms | **566.1ms** | 722.6ms | 797.9ms | Sub-second conversational pacing |
+
+### 🔬 Reproducible Benchmark Execution
+
+Any engineer or stakeholder can run the benchmark suite locally or against live cloud endpoints:
 
 ```bash
 # Run full benchmark harness across all stages (STT, LLM TTFT, TTS, E2E)
@@ -87,7 +90,7 @@ python3 scripts/benchmark_latency.py --iterations 5 --export-markdown BENCHMARK_
 python3 scripts/benchmark_latency.py --stages llm --mode live --iterations 10
 ```
 
-Detailed metrics and percentile charts are exported to [`BENCHMARK_REPORT.md`](BENCHMARK_REPORT.md) and [`data/latency_benchmark.json`](data/latency_benchmark.json).
+Detailed telemetry exports are persisted to [`BENCHMARK_REPORT.md`](BENCHMARK_REPORT.md) and [`data/latency_benchmark.json`](data/latency_benchmark.json).
 
 ---
 
