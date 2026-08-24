@@ -17,9 +17,11 @@ Local SQLite development/tests create the SQLAlchemy metadata. Production Postgr
 008_typed_durable_side_effect_jobs.sql
 009_controlled_pilot_readiness.sql
 010_pilot_operations_evidence.sql
+014_telephony_provider.sql
+015_call_latency.sql
 ```
 
-The initial tenant/core schema and prior feature migrations must already be present. Do not copy partial DDL from this document into a production database; use the migration files so indexes and constraints remain aligned with code.
+The initial tenant/core schema (`000_base_schema.sql`) and prior feature migrations must already be present. Do not copy partial DDL from this document into a production database; use the migration files so indexes and constraints remain aligned with code.
 
 ## 2. Tenant isolation model
 

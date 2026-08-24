@@ -115,6 +115,7 @@ async def connect_turn(
 
     should_end = session.resolution_status != "" or session.outcome not in ("in_progress", "")
     latency_ms = round((time.perf_counter() - start_time) * 1000, 2)
+    session.turn_latencies.append(latency_ms)
 
     log.info(
         "connect.turn_completed",

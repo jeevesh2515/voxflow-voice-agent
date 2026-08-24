@@ -191,6 +191,10 @@ class Settings(BaseSettings):
     google_sheet_tab: str = "Call Log"
     google_sheet_email_tab: str = "Email Log"
     sheets_enabled: bool = False
+    # Day 42: per-tenant call-log mirroring. Comma-separated tenant IDs whose
+    # finished calls are mirrored to Google Sheets. Empty means no tenant is
+    # mirrored — the global sheets_enabled flag stays the master switch.
+    sheets_call_log_tenants: str = ""
 
     # ----- Email Summarizer & Gmail -----
     gmail_user_email: str = ""
@@ -218,6 +222,16 @@ class Settings(BaseSettings):
     # ----- Business -----
     business_name: str = "VoxFlow"
     business_timezone: str = "Asia/Kolkata"
+
+    @property
+    def sheets_call_log_tenant_ids(self) -> tuple[str, ...]:
+        """Tenants explicitly admitted to the Day 42 Sheets call-log mirror."""
+
+        return tuple(
+            tenant_id.strip()
+            for tenant_id in self.sheets_call_log_tenants.split(",")
+            if tenant_id.strip()
+        )
 
     @property
     def durable_side_effects_allowed_tenant_ids(self) -> tuple[str, ...]:

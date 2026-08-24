@@ -1,7 +1,7 @@
 # VoxFlow Delivery Phases
 
-**Last updated:** 2026-08-22  
-**Current position:** **Phase 9 Infrastructure, Resilience & UI Overhaul complete.** Verified locally with **266/266 passing tests**, **23/23 compiled Next.js routes**, Oracle Cloud ARM VM + Caddy auto-TLS deployment architecture, LLM resilience fallback, and complete dashboard accessibility redesign. Comprehensive day-by-day logs are catalogued in [`DAY_TRACKER.md`](DAY_TRACKER.md).  
+**Last updated:** 2026-08-24  
+**Current position:** **Day 42 Complete — Durable Call Logging (Postgres + Google Sheets Mirroring).** Verified with **282/282 passing tests**, **23/23 compiled Next.js routes**, Amazon Connect AWS UK DID (+44 20 4640 4552) + Amazon Lex V2 en-GB STT front door, server-side turn latency telemetry, and dual-destination durable call logging (Postgres `calls` + off-request-path Google Sheets mirror). Comprehensive day-by-day logs are catalogued in [`DAY_TRACKER.md`](DAY_TRACKER.md).  
 **Planning rule:** A milestone is complete only when its implementation, automated verification, deployment result, and safety boundary are recorded.
 
 ## Programme status
@@ -15,10 +15,10 @@
 | Provider lifecycle hardening | 32 | Complete | Signed/fresh callbacks, immutable event ledger, tenant-derived reconciliation, quarantine, and lifecycle analytics. |
 | Integration reliability and pilot readiness | 33–35 | Complete | Dial callback certification, typed durable side-effect jobs, and Day 35 fail-closed pilot admission. |
 | Pilot operations observability & hold points | 36 | Complete | Redacted evidence-led preflight/hold points, no-auto-expansion governance, and pause evidence. |
-| Production Infrastructure & Resilience Hardening | 37+ | Complete | Oracle Cloud ARM VM + Caddy auto-TLS stack, Next.js 16 standalone Docker, LLM unavailability fallback, 266 backend tests, 23 frontend routes. |
-| Security and tenant controls | 39–43 | Planned | RBAC, RLS audit, callback hardening, retention, security evidence. |
-| Voice quality and integrations | 44–48 | Planned | Evaluation corpus, release thresholds, provider/integration contracts. |
-| Pilot rehearsal & rollout | 49–54 | Planned | Promotion controls, load/recovery rehearsal, tenant onboarding, controlled pilot. |
+| Production Infrastructure & Resilience Hardening | 37–40 | Complete | Oracle Cloud ARM VM + Caddy auto-TLS stack, Amazon Connect AWS + Lex V2 en-GB STT, 265 backend tests, 23 frontend routes. |
+| Live Telephony & Durable Logging | 41–42 | Complete | Server-side turn latency telemetry, live UK DID routing, Postgres `calls` + Google Sheets mirroring, 274 tests. |
+| SaaS Polish & Onboarding | 43–48 | In Progress | Latency/429 tuning, self-serve signup, CSV ingest, settings, and escalation loops. |
+| Voice Quality, RBAC & Lifecycle | 49–53 | Planned | Voice eval harness, tenant RBAC, observability, GDPR/retention, Stripe billing. |
 
 > For the comprehensive, day-by-day implementation log from Day 1 to current, see [`DAY_TRACKER.md`](DAY_TRACKER.md).
 

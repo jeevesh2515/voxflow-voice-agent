@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import base64
 import json
+import time
 
 from fastapi import APIRouter, WebSocket, WebSocketDisconnect
 
@@ -110,7 +111,10 @@ async def call_socket(ws: WebSocket) -> None:
 
                 session.transcript.append(CallTurn(role="caller", text=user_text, at=datetime.now(timezone.utc)))
                 runner = AgentRunner()
+                t_turn = time.perf_counter()
                 agent_result = await runner.handle_turn(session=session, user_text=user_text)
+                latency_ms = round((time.perf_counter() - t_turn) * 1000, 2)
+                session.turn_latencies.append(latency_ms)
                 session.transcript.append(CallTurn(role="agent", text=agent_result.reply, at=datetime.now(timezone.utc)))
                 for a in agent_result.actions:
                     session.actions.append(a)

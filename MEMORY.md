@@ -4,20 +4,23 @@
 
 ## Current position
 
-**Last updated:** 2026-08-22  
-**Current milestone:** **Phase 9 Infrastructure, Resilience & UI Overhaul complete.** Complete Oracle Cloud Always-Free ARM VM deployment architecture with Caddy auto-TLS, Next.js 16 standalone multi-arch containerization, LLM resilience fallback (Hindi/English), 16 redesigned dashboard views, **266 passing backend tests**, and **23 compiled frontend routes**.  
-**Next implementation:** **Day 38 — Reliability SLOs, deterministic fault-injection drills, alert routing, and recovery evidence.**  
+**Last updated:** 2026-08-24  
+**Current milestone:** **Day 42 Complete — Durable Call Logging (Postgres + Google Sheets Mirroring).** Complete Oracle Cloud Always-Free ARM VM deployment architecture with Caddy auto-TLS, Next.js 16 standalone multi-arch containerization, Amazon Connect AWS UK DID (+44 20 4640 4552) + Amazon Lex V2 en-GB STT front door, server-side turn latency telemetry, and durable call logging (Postgres `calls` table + off-request-path Google Sheets mirror). Verified with **282 passing backend tests** and **23 compiled frontend routes**.  
+**Next implementation:** **Day 43 — Latency, Groq 429 Resilience Tuning, Supabase Keep-Alive & Nightly Backups.**  
 **Master Day-Wise Tracker:** See [`DAY_TRACKER.md`](DAY_TRACKER.md) for full day-by-day logs from Day 1 to current.
 
-The durable campaign, observability, callback-certification, typed side-effect, pilot-readiness, and evidence-led pilot-operations programme for Days 25–36 is implemented, CI-validated, and browser-verified. The codebase includes a complete production deployment configuration for an Always-Free Oracle ARM VM running Docker + Caddy (`deploy/ORACLE_DEPLOY.md`), Render API backend, and Vercel Next.js edge frontend. No real outbound provider call, notification, provider subscription, signing-secret configuration, provider ping, CRM webhook, Sheets write, Gmail fetch, or recording download has been performed during any milestone or verification.
+The durable campaign, observability, callback-certification, typed side-effect, pilot-readiness, and evidence-led pilot-operations programme for Days 25–36 is implemented, CI-validated, and browser-verified. The codebase includes a complete production deployment configuration for an Always-Free Oracle ARM VM running Docker + Caddy (`deploy/ORACLE_DEPLOY.md`), Render API backend, and Vercel Next.js edge frontend. No real outbound provider call, notification, provider subscription, signing-secret configuration, provider ping, CRM webhook, Gmail fetch, or recording download has been performed during any milestone or verification.
 
 ## Verified delivery state
 
 | Area | Verified state |
 |---|---|
-| Backend quality | `ruff check .` clean; **266 tests passing** (`pytest tests/ -q` in 86.5s). Comprehensive coverage across DB models, agents, tools, workers, callbacks, resilience fallbacks, and multi-tenant security. |
+| Backend quality | `ruff check .` clean; **282 tests passing** (`pytest tests/ -q` in 62.5s). Comprehensive coverage across DB models, agents, tools, workers, callbacks, resilience fallbacks, Amazon Connect bridge, latency & TTFT benchmarks, and Day 42 Google Sheets call log mirroring. |
 | Frontend quality | ESLint clean; Next.js 16.3.1 production build completed with **23 compiled routes** (Turbopack, 0 errors), including full dark/light theme redesign, WCAG AA accessibility, and zero layout shift. |
 | Oracle VM Deployment | Documented and configured in `deploy/ORACLE_DEPLOY.md`, `deploy/Caddyfile`, `deploy/docker-compose.prod.yml`, with automated helper scripts (`deploy/diagnose-api.sh`, `deploy/sync-vm.sh`, `deploy/verify-vm.sh`, `scripts/preflight.sh`). |
+| Telephony & Speech | Amazon Connect AWS Contact Center UK DID (`+44 20 4640 4552`) with Amazon Lex V2 `en-GB` speech front door and HMAC-authenticated Lambda bridge (`deploy/aws/lambda_handler.py`). |
+| Turn Latency Telemetry | Server-side handler execution timing (`time.perf_counter()`) on `POST /api/connect/turn` emitting `latency_ms` in logs and `ConnectTurnResponse`, plus `avg_turn_latency_ms` persisted in `calls` table. |
+| Durable Call Logging | Dual-destination persistence: Postgres `calls` table as source of truth + detached, non-blocking Google Sheets mirror gated by `SHEETS_CALL_LOG_TENANTS` allow-list. |
 | LLM Resilience | Agent runner includes non-blocking fallback on LLM unavailability (`apps/api/voxflow_api/agent/runner.py`) and bounded retry-after with configurable max wait cap (`apps/api/voxflow_api/llm/groq.py`). Covered by `tests/test_llm_resilience.py`. |
 | Day 34 local scope | `SideEffectIntent`, transactional job/outbox enqueue, separate staged worker service, migration `008`, legacy Sheets/email loop removal, direct notification/CRM/worksheet/call-dispatch migration, analytics/CSV aggregation, and dashboard visibility are complete locally. |
 | Day 35 local scope | `PilotConfiguration`, `PilotCohortMember`, and `PilotSecurityIncident` models; migration `009`; fail-closed campaign admission; frozen scorecard; read-only pilot and rollback-preview APIs; dashboard panel; database-only rollback drill; `railway.json` temporary-host manifest. |

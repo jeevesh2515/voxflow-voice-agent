@@ -7,7 +7,6 @@ import pytest
 from voxflow_api.benchmarks.e2e_bench import run_e2e_benchmark
 from voxflow_api.benchmarks.engine import (
     BenchmarkSummary,
-    PercentileDistribution,
     StageLatencyResult,
     calculate_percentiles,
     format_ascii_table,

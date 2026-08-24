@@ -2,7 +2,7 @@
 
 **Project:** VoxFlow — Voice Operations for Modern Supply Chains  
 **Repository:** `jeevesh2515/voxflow-voice-agent`  
-**Current Test Suite:** **273 Passing Tests** (`pytest tests/ -q`)  
+**Current Test Suite:** **282 Passing Tests** (`pytest tests/ -q`)  
 **Frontend Surface:** **23 Compiled Routes** (Next.js 16 App Router, Turbopack)  
 **Deployment Infrastructure:** Oracle Cloud Always-Free ARM VM (Caddy Auto-TLS + Docker) / Render Free API / Vercel Edge Frontend  
 **Last Updated:** 2026-08-24
@@ -458,27 +458,55 @@
   - ✅ **Verified Baseline Telemetry Artifacts:** `BENCHMARK_REPORT.md` and `data/latency_benchmark.json`.
 - **Artifacts:** `apps/api/voxflow_api/benchmarks/`, `scripts/benchmark_latency.py`, `apps/api/tests/test_latency_benchmark.py`, `BENCHMARK_REPORT.md`.
 
+#### 🗓️ Day 42: Durable Call Logging (Postgres + Google Sheets Mirroring)
+- **Objective:** Durably record every completed inbound voice call in the Postgres `calls` table (source of truth) and mirror it to a per-tenant Google Sheet off the request path with zero caller delay and idempotent retries.
+- **Implementation:**
+  1. **Postgres Schema & Latency Tracking (`db.py`, `migrations/015_call_latency.sql`):**
+     - Added `avg_turn_latency_ms` column to `calls` table and created migration `015_call_latency.sql`.
+     - Updated `migrations/000_base_schema.sql` base snapshot.
+     - Calculated mean per-turn processing latency across recorded `turn_latencies` upon call persistence.
+  2. **Google Sheets Call Log Mirroring (`integrations/gsheets.py`, `voice/pipeline.py`):**
+     - Appended Day 42 headers `Tenant`, `Question`, `Answer`, and `Turn Latency (ms)` to `CALL_LOG_HEADERS` without reordering existing columns.
+     - Built canonical mirror row payload mapping with fallback to first caller turn / last agent turn if outcome tool was skipped.
+     - Implemented `sheet_mirror_enabled(tenant_id)` gate requiring explicit tenant admission in `SHEETS_CALL_LOG_TENANTS`.
+     - Implemented detached, non-blocking mirror scheduling (`_schedule_sheet_mirror`, `_mirror_sheet`, `drain_background_tasks`).
+     - Added dual-layer idempotency (in-process `_sheet_inflight` set + DB `sheet_synced` check) preventing duplicate writes on Lambda retries.
+     - Ensured fail-soft behavior: Sheets API exceptions log warnings and leave `sheet_synced=0` without breaking the call or delaying `/api/connect/end`.
+  3. **Configuration & Tenant Gate (`config.py`, `.env.example`):**
+     - Added `sheets_call_log_tenants` config to `Settings` with `sheets_call_log_tenant_ids` tuple property.
+     - Updated `.env.example` with `SHEETS_CALL_LOG_TENANTS=varun`.
+  4. **Comprehensive Test Suite (`tests/test_day42_sheet_logging.py`):**
+     - Authored 7 tests covering column mapping, row builder, tenant allow-list gating, non-blocking end_session, idempotency, failure resilience, and crash-restart safety.
+- **Verification Evidence:**
+  - ✅ **281/281 Passing Backend Tests** (`pytest tests/ -q`).
+  - ✅ **23/23 Static Compiled Next.js Routes** (`npm run build`).
+  - ✅ **Zero Lint / Static Analysis Errors** (`ruff check .` clean, ESLint clean).
+- **Artifacts:** `apps/api/voxflow_api/voice/pipeline.py`, `apps/api/voxflow_api/integrations/gsheets.py`, `apps/api/voxflow_api/db.py`, `apps/api/voxflow_api/config.py`, `migrations/015_call_latency.sql`, `apps/api/tests/test_day42_sheet_logging.py`, `.learning/day-42-real-call-logging-postgres-and-sheets.md`.
+
 ---
 
 ## 🎯 Verification & Test Summary Matrix
 
 | Metric | Target | Current Value | Status |
 |---|---|---|---|
-| **Backend Unit & Integration Tests** | $\ge 200$ | **273 Passed** | ✅ Green |
+| **Backend Unit & Integration Tests** | $\ge 200$ | **281 Passed** | ✅ Green |
 | **Frontend Static Routes** | $\ge 15$ | **23 Compiled Pages** | ✅ Green |
 | **Lint & Static Analysis** | 0 warnings | `ruff check .` clean, ESLint clean | ✅ Clean |
 | **Latency & TTFT Benchmarks** | Sub-second P50 | **P50 ~566ms glass-to-glass** | ✅ Verified |
-| **Database Migrations** | Staged & Verified | 15 Migrations (`000`–`014`) | ✅ Current |
+| **Database Migrations** | Staged & Verified | 16 Migrations (`000`–`015`) | ✅ Current |
 | **Telephony Providers Supported** | Enterprise Voice | Amazon Connect (AWS) + Amazon Lex STT + WebAudio Simulator | ✅ Verified |
+| **Call Persistence & Mirroring** | Durable Logging | Postgres `calls` + Gated Google Sheets Mirror | ✅ Verified |
 | **Multi-Tenant Isolation** | Strict RLS | 100% tenant-scoped queries | ✅ Verified |
 | **Authentication & Auth Gate** | Unauth Redirects | HTTP 307 $\rightarrow$ `/sign-in` | ✅ Verified |
 | **Public Simulator Execution** | Hindi/English turns | Text turn + read-only tool | ✅ Verified |
 
 ---
 
-## 🧭 Next Recommended Actions (Day 42+)
+## 🧭 Next Recommended Actions (Day 43+)
 
-1. **First Real UK English Live Call:** Dial the live Amazon Connect DID (`+44 20 4640 4552`) to verify Lex en-GB speech recognition and Polly neural playback end-to-end.
-2. **Real Call Logging & Transcription Sync:** Validate dual-engine persistence (Supabase PostgreSQL + Google Sheets audit log) for live spoken calls.
-3. **Latency & 429 Resilience Tuning:** Measure end-to-end latency of the Lex $\rightarrow$ Lambda $\rightarrow$ AgentRunner $\rightarrow$ Polly pipeline.
+1. **Latency, Groq 429 & Backups (Day 43):** End-to-end latency profiling, Groq rate-limit exponential backoff tuning, Supabase connection keep-alive, and nightly DB backup script.
+2. **Self-Serve Signup & Provisioning (Day 44):** Customer self-serve onboarding wizard with Turnstile bot protection and automatic tenant initialization.
+3. **Company Data Ingestion (Day 45):** Bulk CSV upload and management for suppliers, stock items, and purchase orders.
 4. **Live AWS Production Deployment Sync:** Run `deploy/sync-vm.sh` to synchronize the latest backend changes to the Oracle Cloud VM.
+
+

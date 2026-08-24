@@ -111,7 +111,7 @@ async def run_e2e_benchmark(
 
         t_turn_start = time.perf_counter()
         try:
-            res = await runner.handle_turn(session, scenario["user_text"])
+            await runner.handle_turn(session, scenario["user_text"])
             # STT duration (~190ms) + AgentRunner reasoning + TTS TTFB (~180ms)
             simulated_vad_stt_tts_ms = 0.0 if is_live else random.uniform(320.0, 420.0)
             turn_elapsed_ms = (time.perf_counter() - t_turn_start) * 1000.0 + simulated_vad_stt_tts_ms

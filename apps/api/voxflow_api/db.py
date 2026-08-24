@@ -329,6 +329,8 @@ class Call(Base):
     staff_resolved_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     # Whether this call's outcome row reached Google Sheets.
     sheet_synced: Mapped[int] = mapped_column(Integer, default=0)
+    # Day 42: mean server-side processing time per agent turn (ms), 0 if unknown.
+    avg_turn_latency_ms: Mapped[int] = mapped_column(Integer, default=0)
     # Twilio call recording audio URL (if recorded)
     recording_url: Mapped[str | None] = mapped_column(String(512), nullable=True)
     verified: Mapped[int] = mapped_column(Integer, default=0)

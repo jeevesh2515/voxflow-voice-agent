@@ -6,7 +6,6 @@ import asyncio
 import io
 import random
 import time
-from typing import Any
 
 from .engine import StageLatencyResult, calculate_percentiles
 from ..config import get_settings

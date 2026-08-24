@@ -6,7 +6,6 @@ import asyncio
 import json
 import random
 import time
-from typing import Any
 
 import httpx
 

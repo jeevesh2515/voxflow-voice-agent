@@ -58,6 +58,11 @@ CALL_LOG_HEADERS = [
     "Escalated",
     "Duration (sec)",
     "Related Order",
+    # Day 42 additions — appended, never reordered.
+    "Tenant",
+    "Question",
+    "Answer",
+    "Turn Latency (ms)",
 ]
 
 EMAIL_LOG_HEADERS = [
@@ -309,6 +314,10 @@ class GoogleSheetsClient:
             "Yes" if row.get("escalated") else "No",
             row.get("duration_sec", 0),
             row.get("related_order", ""),
+            row.get("tenant", ""),
+            row.get("question", ""),
+            row.get("answer", ""),
+            row.get("turn_latency_ms", ""),
         ]
         res = await self.append_row(
             values,

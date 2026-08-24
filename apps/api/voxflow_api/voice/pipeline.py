@@ -17,7 +17,7 @@ import os
 import time
 import uuid
 from dataclasses import dataclass, field
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from typing import Any
 
 import numpy as np
@@ -128,6 +128,9 @@ class CallSession:
     related_order: str = ""
     sheet_synced: bool = False
     sheet_task: Any = None
+    # Day 42: per-turn server-side processing times (ms) recorded by callers of
+    # handle_turn (e.g. the Amazon Connect route) for logging and latency SLOs.
+    turn_latencies: list[float] = field(default_factory=list)
 
     def append_pcm(self, chunk: bytes) -> None:
         MAX_BYTES = 1_920_000
@@ -192,6 +195,10 @@ class VoicePipeline:
         await self._drain_sheet_task(session)
         await self._persist(session)
         _remove_snapshot(session.call_id)
+        # Day 42: mirror the finished call to Google Sheets off the request
+        # path. The detached task must never delay the caller or the /end
+        # response; Postgres above is already the durable source of truth.
+        self._schedule_sheet_mirror(session)
         log.info(
             "call.ended",
             call_id=call_id,
@@ -228,10 +235,13 @@ class VoicePipeline:
 
         session.transcript.append(CallTurn(role="caller", text=user_text, at=time.time()))
 
+        t_turn = time.perf_counter()
         agent_result = await self.agent.handle_turn(
             session=session,
             user_text=user_text,
         )
+        latency_ms = round((time.perf_counter() - t_turn) * 1000, 2)
+        session.turn_latencies.append(latency_ms)
 
         agent_text = agent_result.reply
         session.transcript.append(CallTurn(role="agent", text=agent_text, at=time.time()))
@@ -290,11 +300,11 @@ class VoicePipeline:
             session.sheet_synced = False
 
     async def _log_abandoned_if_needed(self, session: CallSession) -> None:
+        """Fill structured outcome fields for a call that ended without a
+        log_call_outcome tool call. No network IO here — the Sheets mirror is
+        owned by the detached end-of-call task."""
         if session.resolution_status:
             return
-
-        from datetime import timedelta
-        from ..integrations.gsheets import get_sheets_client
 
         turns = len(session.transcript)
         session.reason = session.reason or (
@@ -306,33 +316,114 @@ class VoicePipeline:
         session.follow_up_required = True
         session.outcome = "abandoned"
 
+    # ---------- Day 42 Google Sheets mirror (gated, non-blocking, idempotent) ----------
+
+    _sheet_inflight: set[str] = set()
+    _background_tasks: set["asyncio.Task[None]"] = set()
+
+    def sheet_mirror_enabled(self, tenant_id: str) -> bool:
+        """Day 42 gate: per-tenant allow-list AND a fully configured client.
+
+        The durable side-effect engine stays parked; this is the single
+        permitted activation and it covers only the call-logging row.
+        """
+        s = get_settings()
+        if tenant_id not in s.sheets_call_log_tenant_ids:
+            return False
+        from ..integrations import gsheets
+
+        return gsheets.get_sheets_client().is_configured()
+
+    @staticmethod
+    def sheet_row_for(session: CallSession) -> dict[str, Any]:
+        """Build the canonical mirror-row payload (stable column mapping)."""
         ist = timezone(timedelta(hours=5, minutes=30))
+        caller_turns = [t.text for t in session.transcript if t.role == "caller" and t.text]
+        agent_turns = [t.text for t in session.transcript if t.role == "agent" and t.text]
+        question = session.reason or (caller_turns[0] if caller_turns else "")
+        answer = session.solution or (agent_turns[-1] if agent_turns else "")
+        latencies = [ms for ms in session.turn_latencies if ms > 0]
+        avg_latency = round(sum(latencies) / len(latencies)) if latencies else ""
+        return {
+            "timestamp": datetime.now(ist).strftime("%Y-%m-%d %H:%M:%S"),
+            "call_id": session.call_id,
+            "caller_phone": session.caller_phone,
+            "caller_name": session.caller_name,
+            "company": session.company_name,
+            "verified": session.verified,
+            "language": session.language,
+            "reason": session.reason,
+            "solution": session.solution,
+            "resolution_status": session.resolution_status,
+            "satisfaction": session.satisfaction,
+            "follow_up_required": session.follow_up_required,
+            "escalated": session.escalated,
+            "duration_sec": int((session.ended_at or time.time()) - session.started_at),
+            "related_order": session.related_order,
+            "tenant": session.tenant_id,
+            "question": question,
+            "answer": answer,
+            "turn_latency_ms": avg_latency,
+        }
+
+    def _schedule_sheet_mirror(self, session: CallSession) -> None:
+        """Schedule the detached mirror write. Never raises, never blocks."""
         try:
-            result = await get_sheets_client().append_call_outcome(
-                {
-                    "timestamp": datetime.now(ist).strftime("%Y-%m-%d %H:%M:%S"),
-                    "call_id": session.call_id,
-                    "caller_phone": session.caller_phone,
-                    "caller_name": session.caller_name,
-                    "company": session.company_name,
-                    "verified": session.verified,
-                    "language": session.language,
-                    "reason": session.reason,
-                    "solution": session.solution,
-                    "resolution_status": session.resolution_status,
-                    "satisfaction": session.satisfaction,
-                    "follow_up_required": True,
-                    "escalated": session.escalated,
-                    "duration_sec": int((session.ended_at or time.time()) - session.started_at),
-                    "related_order": session.related_order,
-                }
-            )
-            session.sheet_synced = bool(result.get("ok"))
+            if not self.sheet_mirror_enabled(session.tenant_id):
+                return
+            # In-process idempotency: one mirror per call_id even under races.
+            if session.call_id in VoicePipeline._sheet_inflight:
+                return
+            VoicePipeline._sheet_inflight.add(session.call_id)
+            task = asyncio.create_task(self._mirror_sheet(session))
+            VoicePipeline._background_tasks.add(task)
+            task.add_done_callback(VoicePipeline._background_tasks.discard)
         except Exception as e:
-            log.warning("call.abandoned_log_failed", call_id=session.call_id, error=str(e))
+            log.warning("call.sheet_schedule_failed", call_id=session.call_id, error=str(e))
+            VoicePipeline._sheet_inflight.discard(session.call_id)
+
+    async def _mirror_sheet(self, session: CallSession) -> None:
+        """Write exactly one Sheet row for this call, guarded by Postgres."""
+        from ..integrations import gsheets
+
+        call_id = session.call_id
+        try:
+            from sqlalchemy import select
+
+            async with async_session_scope() as db:
+                row = (await db.execute(select(Call).where(Call.id == call_id))).scalars().first()
+                if row is None:
+                    log.warning("call.sheet_mirror_missing_db_row", call_id=call_id)
+                    return
+                if row.sheet_synced:
+                    return  # already mirrored (crash/retry safety)
+                payload = self.sheet_row_for(session)
+
+            result = await gsheets.get_sheets_client().append_call_outcome(payload, queue_on_failure=False)
+            if result.get("ok"):
+                await gsheets._mark_call_sheet_synced(call_id)
+                session.sheet_synced = True
+                log.info("call.sheet_synced", call_id=call_id, tab=result.get("tab"))
+            else:
+                log.warning(
+                    "call.sheet_not_synced",
+                    call_id=call_id,
+                    reason=result.get("reason"),
+                )
+        except Exception as e:
+            log.error("call.sheet_failed", call_id=call_id, error=str(e))
+        finally:
+            VoicePipeline._sheet_inflight.discard(call_id)
+
+    async def drain_background_tasks(self, timeout: float = 10.0) -> None:
+        """Await detached end-of-call tasks (tests + graceful shutdown)."""
+        pending = [t for t in list(VoicePipeline._background_tasks) if not t.done()]
+        if pending:
+            await asyncio.wait(pending, timeout=timeout)
 
     async def _persist(self, session: CallSession) -> None:
         t0 = time.time()
+        latencies = [ms for ms in session.turn_latencies if ms > 0]
         try:
             async with async_session_scope() as db:
                 row = Call(
@@ -341,6 +432,7 @@ class VoicePipeline:
                     started_at=datetime.fromtimestamp(session.started_at, tz=timezone.utc),
                     ended_at=datetime.fromtimestamp(session.ended_at or session.started_at, tz=timezone.utc),
                     duration_sec=int((session.ended_at or session.started_at) - session.started_at),
+                    avg_turn_latency_ms=round(sum(latencies) / len(latencies)) if latencies else 0,
                     supplier_id=session.supplier_id,
                     caller_phone=session.caller_phone,
                     caller_name=session.caller_name,
