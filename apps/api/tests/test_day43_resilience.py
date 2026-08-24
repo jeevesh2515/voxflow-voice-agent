@@ -10,6 +10,7 @@ import httpx
 import pytest
 from fastapi.testclient import TestClient
 
+from voxflow_api.config import get_settings
 from voxflow_api.llm.base import ChatTurn
 from voxflow_api.llm.groq import GroqProvider
 from voxflow_api.main import create_app
@@ -121,8 +122,9 @@ async def test_groq_fallback_model_activation():
 # ============================================================================
 
 
-def test_progressive_silence_reprompts():
+def test_progressive_silence_reprompts(monkeypatch):
     """Verify progressive re-prompting and eventual termination on consecutive silence turns."""
+    monkeypatch.setattr(get_settings(), "connect_lambda_secret", "", raising=False)
     app = create_app()
     client = TestClient(app)
 
@@ -136,6 +138,7 @@ def test_progressive_silence_reprompts():
             "customer_phone": "+447700900123",
             "system_phone": "+442046404552",
             "user_text": "",
+            "language": "en",
         },
     )
     assert res1.status_code == 200
@@ -151,6 +154,7 @@ def test_progressive_silence_reprompts():
             "customer_phone": "+447700900123",
             "system_phone": "+442046404552",
             "user_text": "   ",
+            "language": "en",
         },
     )
     assert res2.status_code == 200
@@ -166,6 +170,7 @@ def test_progressive_silence_reprompts():
             "customer_phone": "+447700900123",
             "system_phone": "+442046404552",
             "user_text": "",
+            "language": "en",
         },
     )
     assert res3.status_code == 200
@@ -174,8 +179,9 @@ def test_progressive_silence_reprompts():
     assert data3["end_call"] is True
 
 
-def test_silence_count_resets_on_spoken_turn():
+def test_silence_count_resets_on_spoken_turn(monkeypatch):
     """Verify that caller speaking resets the consecutive silence counter."""
+    monkeypatch.setattr(get_settings(), "connect_lambda_secret", "", raising=False)
     app = create_app()
     client = TestClient(app)
 
@@ -189,6 +195,7 @@ def test_silence_count_resets_on_spoken_turn():
             "customer_phone": "+447700900123",
             "system_phone": "+442046404552",
             "user_text": "",
+            "language": "en",
         },
     )
 
@@ -204,6 +211,7 @@ def test_silence_count_resets_on_spoken_turn():
                 "customer_phone": "+447700900123",
                 "system_phone": "+442046404552",
                 "user_text": "Hello, I need stock for item 1001",
+                "language": "en",
             },
         )
         assert res_spoken.status_code == 200
@@ -217,6 +225,7 @@ def test_silence_count_resets_on_spoken_turn():
             "customer_phone": "+447700900123",
             "system_phone": "+442046404552",
             "user_text": "",
+            "language": "en",
         },
     )
     assert res_silence.status_code == 200
