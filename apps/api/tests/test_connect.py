@@ -13,7 +13,8 @@ from voxflow_api.main import create_app
 
 
 @pytest.fixture
-def client():
+def client(monkeypatch):
+    monkeypatch.setattr(get_settings(), "connect_lambda_secret", "", raising=False)
     return TestClient(create_app())
 
 

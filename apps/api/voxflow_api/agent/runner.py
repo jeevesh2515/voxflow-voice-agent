@@ -65,10 +65,11 @@ class AgentRunner:
         self.max_iterations = 5  # safety: prevent infinite tool loops
         self._prompt_cache: dict[str, tuple[float, str]] = {}
 
-    def _resolve_tenant_prompt(self, tenant_id: str) -> str:
+    def _resolve_tenant_prompt(self, tenant_id: str, session_language: str | None = None) -> str:
         """Fetch and compile the dynamic system prompt for this tenant with caching."""
+        cache_key = f"{tenant_id}:{session_language or 'default'}"
         now = time.time()
-        cached = self._prompt_cache.get(tenant_id)
+        cached = self._prompt_cache.get(cache_key)
         if cached and now - cached[0] < 60:  # cache for 60 seconds
             return cached[1]
 
@@ -76,35 +77,45 @@ class AgentRunner:
             with session_scope() as db:
                 tenant = db.get(Tenant, tenant_id)
                 if tenant:
-                    prompt = build_tenant_prompt(tenant)
-                    self._prompt_cache[tenant_id] = (now, prompt)
+                    prompt = build_tenant_prompt(tenant, session_language=session_language)
+                    self._prompt_cache[cache_key] = (now, prompt)
                     return prompt
         except Exception as e:
             log.warning("runner.tenant_prompt_fallback", tenant_id=tenant_id, error=str(e))
 
         s = get_settings()
-        prompt = build_system_prompt(business_name=s.business_name)
-        self._prompt_cache[tenant_id] = (now, prompt)
+        prompt = build_system_prompt(
+            business_name=s.business_name,
+            default_language=session_language or "en",
+        )
+        self._prompt_cache[cache_key] = (now, prompt)
         return prompt
 
     @staticmethod
     def _call_context(session: CallSession) -> str:
         """Facts about THIS call, as a system message."""
+        active_lang = session.language or "en"
         return (
             "CALL CONTEXT (facts about this call — not spoken by the caller):\n"
             f"- Tenant ID: {session.tenant_id}\n"
+            f"- Active Conversation Language: {active_lang}\n"
             f"- Caller's number: {session.caller_phone or 'withheld / not available'}\n"
             f"- Caller's company: {session.company_name or 'unidentified'}\n"
             f"- Verified so far: {'YES' if session.verified else 'NO — disclose no order details yet'}\n"
             f"- Verification attempts used: {session.verify_attempts} of 3\n"
             "Pass the caller's number to lookup_supplier exactly as written above. "
             "If it says withheld, do not invent one — ask the caller for their company name "
-            "and call lookup_supplier with the name instead."
+            "and call lookup_supplier with the name instead.\n"
+            f"CRITICAL: The caller is in an '{active_lang}' session. Respond in {('English' if active_lang == 'en' else 'Hindi')}."
         )
 
     def _history(self, session: CallSession) -> list[ChatTurn]:
         """Convert transcript -> ChatTurns for the LLM. Injects tenant-specific prompt."""
-        system_prompt = self._resolve_tenant_prompt(session.tenant_id)
+        try:
+            system_prompt = self._resolve_tenant_prompt(session.tenant_id, session.language)
+        except TypeError:
+            system_prompt = self._resolve_tenant_prompt(session.tenant_id)
+
         turns: list[ChatTurn] = [
             ChatTurn(role="system", content=system_prompt),
             ChatTurn(role="system", content=self._call_context(session)),

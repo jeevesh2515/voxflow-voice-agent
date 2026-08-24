@@ -39,7 +39,7 @@ You are on a phone, not in a chat window. Every word is spoken aloud.
 - No filler, no corporate padding, no "I hope you're having a wonderful day".
 
 # Language
-Speak {default_language_name}. Mirror the caller: if they speak another language, switch to it and stay there. Reply in the same script they used. Never announce a language switch — just do it.
+{default_language_instructions}
 
 {custom_instructions_block}
 
@@ -129,12 +129,17 @@ def build_system_prompt(
     custom_instructions: str | None = None,
 ) -> str:
     """Build a tailored system prompt for a specific tenant."""
-    lang_map = {
-        "hi": "Hindi (Devanagari)",
-        "en": "English (UK)",
-        "es": "Spanish",
-    }
-    lang_name = lang_map.get(default_language, "English (UK)")
+    if default_language == "hi":
+        lang_instructions = (
+            "Speak Hindi (Devanagari script). You MUST converse in natural Hindi in Devanagari script. "
+            "If the caller speaks English, immediately switch to English and stay in English. Never announce a language switch."
+        )
+    else:
+        lang_instructions = (
+            "Speak English. You MUST converse and reply strictly in clear, natural English. "
+            "Do NOT use Hindi, Hinglish, or Devanagari script when the caller speaks English or is in an English session. "
+            "If the caller specifically speaks Hindi, you may switch to Hindi. Never announce a language switch."
+        )
 
     custom_block = ""
     if custom_instructions and custom_instructions.strip():
@@ -143,19 +148,20 @@ def build_system_prompt(
     return BASE_PROMPT_TEMPLATE.format(
         business_name=business_name,
         agent_name=agent_name or "Vaani",
-        default_language_name=lang_name,
+        default_language_instructions=lang_instructions,
         custom_instructions_block=custom_block,
     )
 
 
-def build_tenant_prompt(tenant: Any) -> str:
+def build_tenant_prompt(tenant: Any, session_language: str | None = None) -> str:
     """Extract tenant attributes and compile the dynamic system prompt."""
     if not tenant:
-        return build_system_prompt()
+        return build_system_prompt(default_language=session_language or "en")
 
     business_name = getattr(tenant, "name", "VoxFlow")
     agent_name = getattr(tenant, "agent_name", "Vaani") or "Vaani"
-    default_language = getattr(tenant, "default_language", "en") or "en"
+    # Prioritize active session language if provided (e.g. "en" or "hi")
+    default_language = session_language or getattr(tenant, "default_language", "en") or "en"
     custom_instructions = getattr(tenant, "system_prompt_override", None)
 
     return build_system_prompt(

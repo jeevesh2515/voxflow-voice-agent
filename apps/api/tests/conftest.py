@@ -21,26 +21,18 @@ ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT))
 
 # Deterministic, fully offline test configuration.
-os.environ.setdefault("LLM_PROVIDER", "ollama")
-os.environ.setdefault("DATABASE_URL", "sqlite:///./voxflow_test.db")
-# Session recovery writes snapshots under DATA_DIR. Give every pytest process an
-# isolated directory so a prior local simulator run cannot change test results.
-os.environ.setdefault("DATA_DIR", tempfile.mkdtemp(prefix="voxflow-test-data-"))
+os.environ["LLM_PROVIDER"] = "ollama"
+os.environ["DATABASE_URL"] = "sqlite:///./voxflow_test.db"
+os.environ["CONNECT_LAMBDA_SECRET"] = ""
+os.environ["DATA_DIR"] = tempfile.mkdtemp(prefix="voxflow-test-data-")
+os.environ["STT_PROVIDER"] = "groq"
+os.environ["GROQ_API_KEY"] = "test-key-never-used"
+os.environ["SHEETS_ENABLED"] = "false"
+os.environ["PILOT_READINESS_ENFORCED"] = "false"
+os.environ["TENANT_AUTHORIZATION_ENFORCED"] = "false"
 
-# STT/Sheets must never reach the network during tests.
-os.environ.setdefault("STT_PROVIDER", "groq")
-os.environ.setdefault("GROQ_API_KEY", "test-key-never-used")
-os.environ.setdefault("SHEETS_ENABLED", "false")
-
-# Day 35 production defaults enforce a fail-closed pilot admission gate. Legacy
-# Day 25–34 fixtures intentionally exercise their historical policy contracts,
-# so dedicated Day 35 tests toggle this back on with an isolated Settings cache.
-os.environ.setdefault("PILOT_READINESS_ENFORCED", "false")
-
-# Legacy endpoint tests predate the tenant_members ledger. New authorization
-# tests explicitly enable the production-default fail-closed gate and supply a
-# verified identity plus active membership fixture.
-os.environ.setdefault("TENANT_AUTHORIZATION_ENFORCED", "false")
+from voxflow_api.config import get_settings  # noqa: E402
+get_settings.cache_clear()
 
 
 @pytest.fixture(autouse=True)

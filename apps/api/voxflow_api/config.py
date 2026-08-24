@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import os
+import sys
 from functools import lru_cache
 from typing import Literal
 
@@ -16,7 +17,7 @@ STTProvider = Literal["local", "groq"]
 
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(
-        env_file=(".env", "../.env", "../../.env"),
+        env_file=(".env", "../.env", "../../.env") if "pytest" not in sys.modules and os.environ.get("PYTEST_CURRENT_TEST") is None and not os.environ.get("VOXFLOW_TESTING") else None,
         env_file_encoding="utf-8",
         case_sensitive=False,
         extra="ignore",

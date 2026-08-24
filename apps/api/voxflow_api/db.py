@@ -1044,7 +1044,7 @@ def init_db() -> bool:
         dialect_name=_engine.dialect.name,
     )
     if should_bootstrap:
-        Base.metadata.create_all(_engine)
+        Base.metadata.create_all(_engine, checkfirst=True)
         _ensure_day28_outbox_columns()
         log.info(
             "db.schema_bootstrap_applied mode=%s dialect=%s",
@@ -1107,5 +1107,6 @@ async def async_session_scope() -> AsyncIterator[AsyncSession]:
 
 def reset_db() -> None:
     """Drop & recreate all tables — used in tests and seed-from-scratch."""
-    Base.metadata.drop_all(_engine)
-    Base.metadata.create_all(_engine)
+    _engine.dispose()
+    Base.metadata.drop_all(_engine, checkfirst=True)
+    Base.metadata.create_all(_engine, checkfirst=True)

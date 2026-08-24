@@ -88,7 +88,7 @@ export default function PhoneSimulator() {
   const [recording, setRecording] = useState(false);
   const [textInput, setTextInput] = useState("");
   const [busy, setBusy] = useState(false);
-  const [language, setLanguage] = useState<"hi" | "en">("hi");
+  const [language, setLanguage] = useState<"hi" | "en">("en");
   const [error, setError] = useState<string | null>(null);
   const [preparationState, setPreparationState] = useState<PreparationState>("idle");
   const [preparationMs, setPreparationMs] = useState<number | null>(null);
