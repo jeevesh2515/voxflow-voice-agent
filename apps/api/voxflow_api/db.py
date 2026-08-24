@@ -968,6 +968,7 @@ def _ensure_day28_outbox_columns() -> None:
         "ALTER TABLE job_outbox ADD COLUMN IF NOT EXISTS last_error_code VARCHAR(128)",
         "ALTER TABLE job_outbox ADD COLUMN IF NOT EXISTS last_error_json TEXT",
         "CREATE INDEX IF NOT EXISTS ix_job_outbox_claim ON job_outbox (published_at, relay_lease_expires_at, created_at)",
+        "ALTER TABLE calls ADD COLUMN IF NOT EXISTS avg_turn_latency_ms INTEGER NOT NULL DEFAULT 0",
     ]
     if _engine.dialect.name == "sqlite":
         # SQLite supports ADD COLUMN but not PostgreSQL's IF NOT EXISTS form.
