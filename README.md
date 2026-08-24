@@ -13,7 +13,7 @@
 
 <p align="center">
   <img src="https://img.shields.io/badge/CI%2FCD-100%25%20PASSING-success?style=for-the-badge&logo=githubactions&logoColor=white&labelColor=111827" alt="CI Status" />
-  <img src="https://img.shields.io/badge/TESTS-265%20PASSED-10B981?style=for-the-badge&logo=pytest&logoColor=white&labelColor=111827" alt="265 Pytest Tests Passed" />
+  <img src="https://img.shields.io/badge/TESTS-273%20PASSED-10B981?style=for-the-badge&logo=pytest&logoColor=white&labelColor=111827" alt="273 Pytest Tests Passed" />
   <img src="https://img.shields.io/badge/FRONTEND-23%20ROUTES-6366F1?style=for-the-badge&logo=nextdotjs&logoColor=white&labelColor=111827" alt="23 Next.js Routes" />
   <img src="https://img.shields.io/badge/VOICE-ENGLISH%20%28UK%29%20%2B%20HINDI-F97316?style=for-the-badge&labelColor=111827" alt="English (UK) + Hindi Multilingual" />
 </p>
@@ -74,6 +74,20 @@ VoxFlow is a **turn-based voice pipeline** built for low latency. Every Amazon C
 | **Agent Reasoning** | Groq `openai/gpt-oss-20b` (tool-calling `AgentRunner`) | Native function-calling — no external agent framework |
 | **Audio Synthesis** | Amazon Polly Neural en-GB (Sonia / Amy) on calls · edge-tts for the browser simulator | Neural UK-English playback |
 | **Turn Telemetry** | `latency_ms` on every `/api/connect/turn` | Live server-side per-turn timing |
+
+### 🔬 Reproducible Latency & TTFT Benchmark Suite
+
+To measure high-precision P50/P90/P99 latency distributions, TTFT, and generation throughput locally or in CI:
+
+```bash
+# Run full benchmark harness across all stages (STT, LLM TTFT, TTS, E2E)
+python3 scripts/benchmark_latency.py --iterations 5 --export-markdown BENCHMARK_REPORT.md
+
+# Benchmark live LLM streaming TTFT & tokens/sec throughput on Groq
+python3 scripts/benchmark_latency.py --stages llm --mode live --iterations 10
+```
+
+Detailed metrics and percentile charts are exported to [`BENCHMARK_REPORT.md`](BENCHMARK_REPORT.md) and [`data/latency_benchmark.json`](data/latency_benchmark.json).
 
 ---
 
