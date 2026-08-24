@@ -1,0 +1,8 @@
+blank_issues_enabled: false
+contact_links:
+  - name: 💬 Community Discussions
+    url: https://github.com/jeevesh2515/voxflow-voice-agent/discussions
+    about: Ask questions, share ideas, and discuss supply-chain voice agent workflows.
+  - name: 🔒 Security Vulnerability Report
+    url: https://github.com/jeevesh2515/voxflow-voice-agent/security/advisories/new
+    about: Report security vulnerabilities privately.
