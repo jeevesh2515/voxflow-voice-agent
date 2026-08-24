@@ -2,10 +2,10 @@
 
 **Project:** VoxFlow — Voice Operations for Modern Supply Chains  
 **Repository:** `jeevesh2515/voxflow-voice-agent`  
-**Current Test Suite:** **265 Passing Tests** (`pytest tests/ -q`)  
+**Current Test Suite:** **273 Passing Tests** (`pytest tests/ -q`)  
 **Frontend Surface:** **23 Compiled Routes** (Next.js 16 App Router, Turbopack)  
 **Deployment Infrastructure:** Oracle Cloud Always-Free ARM VM (Caddy Auto-TLS + Docker) / Render Free API / Vercel Edge Frontend  
-**Last Updated:** 2026-08-23
+**Last Updated:** 2026-08-24
 
 ---
 
@@ -436,15 +436,38 @@
   - ✅ **Zero Lint / Static Analysis Errors** (`ruff check .` clean, ESLint clean).
 - **Artifacts:** `deploy/aws/connect-contact-flow.json`, `deploy/aws/lambda_handler.py`, `deploy/aws/deploy-lambda.sh`, `deploy/aws/LEX_SETUP.md`, `apps/api/tests/test_connect_lambda_bridge.py`, `.learning/day-40-amazon-lex-en-gb-speech-capture.md`.
 
+#### 🗓️ Day 41: Live Turn Latency & TTFT Benchmarking Harness
+- **Objective:** Design, implement, and verify a modular, reproducible latency & TTFT benchmarking harness measuring mathematical percentile distributions (P50, P90, P95, P99) across every pipeline stage (STT, LLM reasoning/TTFT, TTS synthesis, and glass-to-glass conversational turns).
+- **Implementation:**
+  1. **Core Statistical Engine (`apps/api/voxflow_api/benchmarks/engine.py`):**
+     - Computes exact distributions: Min, Mean, Max, StdDev, P50 (Median), P90, P95, P99.
+     - Generates publication-ready ASCII distribution tables, ANSI horizontal bar charts, and structured Markdown/JSON reports.
+  2. **Stage Timing Modules (`voxflow_api/benchmarks/`):**
+     - `stt_bench.py`: Measures speech transcription turnaround and Real-Time Factor (RTF) across audio buffers.
+     - `llm_bench.py`: Directly hooks into SSE chunk streams to capture Time to First Token (TTFT), Inter-Token Latency (ITL), and generation throughput (Tokens/sec).
+     - `tts_bench.py`: Measures Time to First Byte (TTFB) and total audio synthesis turnaround.
+     - `e2e_bench.py`: Measures cumulative glass-to-glass turn execution with live tool execution.
+  3. **CLI Benchmark Runner (`scripts/benchmark_latency.py`):**
+     - Single unified CLI executable supporting `--iterations`, `--stages`, `--mode <auto|live|mock>`, `--export-markdown`, and `--export-json`.
+  4. **Dedicated Test Suite (`apps/api/tests/test_latency_benchmark.py`):**
+     - Added 8 unit tests covering mathematical percentiles, formatters, and stage runners.
+- **Verification Evidence:**
+  - ✅ **273/273 Passing Backend Tests** (`pytest tests/ -q` in 93.1s).
+  - ✅ **23/23 Static Compiled Next.js Routes** (`npm run build`).
+  - ✅ **Zero Lint / Static Analysis Errors** (`ruff check .` clean, ESLint clean).
+  - ✅ **Verified Baseline Telemetry Artifacts:** `BENCHMARK_REPORT.md` and `data/latency_benchmark.json`.
+- **Artifacts:** `apps/api/voxflow_api/benchmarks/`, `scripts/benchmark_latency.py`, `apps/api/tests/test_latency_benchmark.py`, `BENCHMARK_REPORT.md`.
+
 ---
 
 ## 🎯 Verification & Test Summary Matrix
 
 | Metric | Target | Current Value | Status |
 |---|---|---|---|
-| **Backend Unit & Integration Tests** | $\ge 200$ | **265 Passed** | ✅ Green |
+| **Backend Unit & Integration Tests** | $\ge 200$ | **273 Passed** | ✅ Green |
 | **Frontend Static Routes** | $\ge 15$ | **23 Compiled Pages** | ✅ Green |
 | **Lint & Static Analysis** | 0 warnings | `ruff check .` clean, ESLint clean | ✅ Clean |
+| **Latency & TTFT Benchmarks** | Sub-second P50 | **P50 ~566ms glass-to-glass** | ✅ Verified |
 | **Database Migrations** | Staged & Verified | 15 Migrations (`000`–`014`) | ✅ Current |
 | **Telephony Providers Supported** | Enterprise Voice | Amazon Connect (AWS) + Amazon Lex STT + WebAudio Simulator | ✅ Verified |
 | **Multi-Tenant Isolation** | Strict RLS | 100% tenant-scoped queries | ✅ Verified |
@@ -453,9 +476,9 @@
 
 ---
 
-## 🧭 Next Recommended Actions (Day 41+)
+## 🧭 Next Recommended Actions (Day 42+)
 
-1. **First Real UK English Live Call:** Dial the live Amazon Connect DID to verify Lex en-GB speech recognition and Polly neural playback end-to-end.
+1. **First Real UK English Live Call:** Dial the live Amazon Connect DID (`+44 20 4640 4552`) to verify Lex en-GB speech recognition and Polly neural playback end-to-end.
 2. **Real Call Logging & Transcription Sync:** Validate dual-engine persistence (Supabase PostgreSQL + Google Sheets audit log) for live spoken calls.
 3. **Latency & 429 Resilience Tuning:** Measure end-to-end latency of the Lex $\rightarrow$ Lambda $\rightarrow$ AgentRunner $\rightarrow$ Polly pipeline.
 4. **Live AWS Production Deployment Sync:** Run `deploy/sync-vm.sh` to synchronize the latest backend changes to the Oracle Cloud VM.

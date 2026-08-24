@@ -110,7 +110,7 @@ flowchart TB
     end
 
     subgraph Intelligence["🧠 Core AI Reasoning & Voice Engine"]
-        STT["🎙️ Amazon Lex V2 & Groq Whisper<br/>Sub-150ms Speech Recognition"]
+        STT["🎙️ Amazon Lex V2 & Groq Whisper<br/>Streaming Neural Speech Recognition"]
         LLM["🤖 Groq & LLM Tool-Calling<br/>Autonomous AgentRunner Engine"]
         TTS["🔊 Amazon Polly & Edge-TTS<br/>Neural en-GB Amy / Sonia Speech"]
     end
@@ -153,8 +153,8 @@ flowchart TB
 ### 1. 🎙️ Natural Multilingual Voice Intelligence
 - **English (UK) & Multilingual Fluency**: Conversational AI tailored for global supply chains, drivers, dispatchers, and warehouse managers.
 - **Amazon Lex V2 & Neural Polly Voice**: Real-time speech front door capturing spoken words with sub-second neural speech playback.
-- **Instant Speech Barge-In**: When a human speaks while the agent is speaking, the outbound playback queue is flushed immediately within 50ms.
-- **Voice Activity Detection (VAD)**: RMS energy filtering with 450ms trailing silence threshold eliminates awkward conversational lag.
+- **Instant Speech Barge-In**: When a caller speaks while the agent is speaking, outbound audio playback is immediately interrupted and audio buffers are reset.
+- **Voice Activity Detection (VAD)**: RMS energy filtering with configurable trailing silence threshold (300–600ms) minimizes conversational latency.
 
 ### 2. 📦 Autonomous Supply Chain Workflows
 - **Purchase Order Inquiries**: Look up order numbers, item quantities, delivery statuses, and supplier milestones.
@@ -231,7 +231,7 @@ npm run dev
 Run all automated test suites locally:
 
 ```bash
-# 1. Run full backend test suite (265 unit, integration & resilience tests)
+# 1. Run full backend test suite (273 unit, integration & resilience tests)
 cd apps/api
 pytest tests/ -v
 

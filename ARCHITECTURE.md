@@ -1,7 +1,7 @@
 # VoxFlow Architecture
 
-**Last updated:** 2026-08-22  
-**Current milestone:** **Phase 9 Infrastructure, Resilience & UI Overhaul complete.** 266 backend tests passing, 23 compiled frontend routes, Oracle Cloud Always-Free ARM VM containerized architecture with Caddy auto-TLS reverse proxy, and bilingual LLM provider resilience fallbacks. Comprehensive day-by-day implementation tracking is recorded in [`DAY_TRACKER.md`](DAY_TRACKER.md).  
+**Last updated:** 2026-08-24  
+**Current milestone:** **Phase 9 Infrastructure, Resilience & UI Overhaul complete.** 273 backend tests passing, 23 compiled frontend routes, Oracle Cloud Always-Free ARM VM containerized architecture with Caddy auto-TLS reverse proxy, and high-precision latency & TTFT benchmarking harness. Comprehensive day-by-day implementation tracking is recorded in [`DAY_TRACKER.md`](DAY_TRACKER.md).  
 **Operating mode:** Inbound voice and dashboard functions are deployed. Campaign dispatch and operational side-effect workers are independently safe-staged; Day 35 admission and Day 36 current-version evidence are both fail-closed with an empty tenant allow-list.
 
 ## 1. System boundaries
@@ -219,16 +219,19 @@ These settings are a deliberate layered control, not a missing feature. An inter
 | Surface | Command | Verified Outcome |
 |---|---|---|
 | Backend lint | `cd apps/api && .venv/bin/ruff check voxflow_api tests` | Clean (0 errors) |
-| Backend tests | `cd apps/api && .venv/bin/pytest -q` | **266 passed** (in 86.5s) |
+| Backend tests | `cd apps/api && .venv/bin/pytest -q` | **273 passed** (in 93.1s) |
+| Latency benchmark harness | `python3 scripts/benchmark_latency.py` | Verified P50/P90/P99 latency distributions |
 | Frontend lint | `npm run lint --workspace=apps/web` | Clean (0 errors) |
 | Frontend production build | `npm run build --workspace=apps/web` | **23 static compiled routes** (Turbopack) |
 | Live job posture | `GET /api/jobs/health?tenant_id=varun` | Staged / safe |
 
-At the current delivery point, the backend suite has **266 passing tests**, API lint is clean, and the frontend production build generates 23 routes cleanly. GitHub CI validates API lint, API test, and web lint/build on every `main` delivery. Detailed historical day-by-day logs are available in [`DAY_TRACKER.md`](DAY_TRACKER.md).
+At the current delivery point, the backend suite has **273 passing tests**, API lint is clean, and the frontend production build generates 23 routes cleanly. GitHub CI validates API lint, API test, and web lint/build on every `main` delivery. Detailed historical day-by-day logs are available in [`DAY_TRACKER.md`](DAY_TRACKER.md).
 
 ## References
 
 - `DAY_TRACKER.md` (Master Day-Wise Implementation Tracker)
+- `BENCHMARK_REPORT.md` (Reproducible Latency & TTFT Benchmark Telemetry)
+- `apps/api/voxflow_api/benchmarks/` (Modular Latency & Percentile Timing Engine)
 - `deploy/ORACLE_DEPLOY.md` (Oracle Cloud Always-Free ARM Deployment Runbook)
 - `deploy/Caddyfile` & `deploy/docker-compose.prod.yml`
 - `apps/api/voxflow_api/jobs/`
