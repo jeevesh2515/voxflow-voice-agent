@@ -1,7 +1,9 @@
 #!/usr/bin/env python3
 """
-VoxFlow Mock Audio Stream & Latency Feeder
-Simulates real-time chunked PCM audio streaming and measures Glass-to-Glass turn latency.
+VoxFlow Mock Audio Stream & Pipeline Feeder
+Generates a synthetic PCM burst and prints the real turn-pipeline component stack.
+Actual per-turn latency is measured live by the API (`latency_ms` on POST /api/connect/turn),
+not by this script.
 """
 
 import sys
@@ -33,14 +35,14 @@ async def test_mock_feeder(host: str = "localhost", port: int = 8000, tenant_id:
     pcm_data = generate_mock_sine_pcm(duration_sec=1.5, sample_rate=16000)
     print(f"✓ Audio frame created: {len(pcm_data)} bytes ({len(pcm_data) // 2} samples)")
 
-    print(f"\n⚡ Telemetry & Latency Budget Breakdown (Target: <380ms):")
-    print(f"  [1] Audio Capture & Chunking  : ~20ms")
-    print(f"  [2] Silero VAD Speech Gate    : ~30ms")
-    print(f"  [3] Speech-to-Text (STT)      : ~115ms (Deepgram / Whisper)")
-    print(f"  [4] LangGraph Agent Reasoning : ~95ms TTFT (Groq Llama 3.3)")
-    print(f"  [5] Neural Audio Synthesis    : ~80ms TTFB (ElevenLabs / Cartesia)")
+    print(f"\n⚡ Turn Pipeline Stages (real per-turn latency_ms is logged by /api/connect/turn on live calls):")
+    print(f"  [1] Audio Capture & Chunking  : Amazon Connect PSTN / Web Audio AudioWorklet")
+    print(f"  [2] Speech Gate (VAD)         : server-side RMS energy gate, 450ms trailing silence")
+    print(f"  [3] Speech-to-Text (STT)      : Amazon Lex V2 en-GB (calls) / Groq Whisper (sim)")
+    print(f"  [4] Agent Reasoning           : Groq openai/gpt-oss-20b, tool-calling AgentRunner")
+    print(f"  [5] Neural Audio Synthesis    : Amazon Polly en-GB (calls) / edge-tts (sim)")
     print(f"  -------------------------------------------------------------")
-    print(f"  🎯 Glass-to-Glass Round-Trip  : ~340ms - 380ms [OPTIMAL]\n")
+    print(f"  🎯 Glass-to-Glass Round-Trip  : measured live via latency_ms (real UK calls)\n")
     print(f"✓ Mock stream test completed successfully.")
 
 def main():

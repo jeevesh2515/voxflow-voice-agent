@@ -58,22 +58,22 @@ Supply chain and logistics enterprises handle tens of thousands of repetitive, t
 
 ---
 
-## ⚡ Real-Time Latency Telemetry & Pipeline Breakdown
+## ⚡ Turn Latency Telemetry & Pipeline Breakdown
 
-VoxFlow achieves a **sub-380ms glass-to-glass turn-taking response time** through chunked streaming, dual-gate VAD, and speculative tool execution:
+VoxFlow is a **turn-based voice pipeline** built for low latency. Every Amazon Connect turn is timed server-side — `POST /api/connect/turn` returns and logs a `latency_ms` field — so real per-turn processing time is **measured on live calls, not estimated**. End-to-end glass-to-glass latency (Lex transcribe → agent reasoning → Polly playback) is captured on real UK calls.
 
 ```
-[Audio Ingestion] ──(20ms)──> [Silero VAD] ──(30ms)──> [Deepgram / Lex] ──(115ms)──> [LangGraph LLM] ──(95ms TTFT)──> [Polly / ElevenLabs] ──(80ms TTFB)──> [Speaker Output]
+[Amazon Connect PSTN] ──> [Lambda Bridge · HMAC-SHA256] ──> [Lex V2 en-GB STT] ──> [Groq gpt-oss-20b · AgentRunner] ──> [Amazon Polly Neural en-GB] ──> [Caller]
 ```
 
-| Pipeline Stage | Technology / Component | Latency Target | Optimized Technique |
-| :--- | :--- | :--- | :--- |
-| **Audio Capture** | Web Audio `AudioWorkletNode` / Telephony | ~20ms | 16kHz PCM mono chunking (512 samples) |
-| **Speech Detection** | Silero VAD v5 / RMS Gate | ~30ms | Client-side & server-side dual-gate VAD |
-| **Speech-to-Text** | Deepgram Nova-2 / Amazon Lex V2 / Whisper | ~115ms | WebSocket streaming with interim results |
-| **Agent Reasoning** | LangGraph + Groq Llama 3.3 / GPT-4o-mini | ~95ms (TTFT) | Speculative tool execution & streaming tokens |
-| **Audio Synthesis** | AWS Polly Neural / ElevenLabs Turbo v2.5 | ~80ms (TTFB) | Byte-stream chunk playback over WebSocket |
-| **Total Round-Trip** | **Glass-to-Glass** | **~340ms - 380ms** | Zero-buffering asynchronous pipeline |
+| Pipeline Stage | Technology / Component | Technique |
+| :--- | :--- | :--- |
+| **Audio Capture** | Amazon Connect (PSTN, G.711 μ-law 8kHz) · Web Audio `AudioWorkletNode` for the browser simulator | Chunked PCM streaming |
+| **Speech Detection** | Server-side RMS energy gate | 450ms trailing-silence threshold with barge-in flush |
+| **Speech-to-Text** | Amazon Lex V2 (en-GB) on calls · Groq Whisper for the browser simulator | Permissive fallback intent preserves the raw transcript |
+| **Agent Reasoning** | Groq `openai/gpt-oss-20b` (tool-calling `AgentRunner`) | Native function-calling — no external agent framework |
+| **Audio Synthesis** | Amazon Polly Neural en-GB (Sonia / Amy) on calls · edge-tts for the browser simulator | Neural UK-English playback |
+| **Turn Telemetry** | `latency_ms` on every `/api/connect/turn` | Live server-side per-turn timing |
 
 ---
 
