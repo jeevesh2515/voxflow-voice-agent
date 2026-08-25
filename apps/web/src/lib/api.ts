@@ -327,8 +327,36 @@ export const api = {
     http<any[]>(`/api/campaigns/${id}/policy-decisions?tenant_id=${tenant_id || "varun"}&limit=${limit}`),
   jobHealth: (tenant_id?: string) =>
     http<any>(`/api/jobs/health?tenant_id=${tenant_id || "varun"}`),
-  recentJobs: (tenant_id?: string, limit: number = 20) =>
-    http<any[]>(`/api/jobs?tenant_id=${tenant_id || "varun"}&limit=${limit}`),
+  // Day 44: Self-Serve SaaS Signup & Tenant Provisioning
+  signupTenant: (payload: {
+    company_name: string;
+    email: string;
+    name?: string;
+    user_id?: string;
+    tenant_id?: string;
+    phone_number?: string;
+    agent_name?: string;
+    default_language?: "en" | "hi" | "es";
+    plan?: "starter" | "pro" | "enterprise";
+    seed_starter_data?: boolean;
+    turnstile_token?: string | null;
+  }) =>
+    http<{
+      ok: boolean;
+      tenant_id: string;
+      name: string;
+      agent_name: string;
+      default_language: string;
+      plan: string;
+      owner_user_id: string;
+      owner_membership_created: boolean;
+      phone_number?: string;
+      starter_data_seeded?: boolean;
+      stats?: Record<string, number>;
+    }>("/api/auth/signup", {
+      method: "POST",
+      body: JSON.stringify(payload),
+    }),
 
   health: () => http<any>("/api/health"),
 };

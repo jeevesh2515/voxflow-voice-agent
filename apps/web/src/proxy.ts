@@ -1,7 +1,7 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 
-const publicRoutes = ["/sign-in", "/sign-up", "/", "/pricing", "/about"];
+const publicRoutes = ["/sign-in", "/sign-up", "/", "/pricing", "/about", "/onboarding"];
 
 export async function proxy(request: NextRequest) {
   const response = NextResponse.next();
@@ -28,8 +28,8 @@ export async function proxy(request: NextRequest) {
 
     // The cookie is only a UX gate for the explicitly fixed demo tenant. The
     // backend independently limits it to read-only APIs and never accepts it as
-    // authority for a Next.js API route or a real customer workspace.
-    const isAuthenticated = !!session || (hasScopedDemoSession && !isApiRequest);
+    const authToken = request.cookies.get("auth-token");
+    const isAuthenticated = !!session || !!authToken || (hasScopedDemoSession && !isApiRequest);
 
     if (!isAuthenticated && !isPublicRoute) {
       if (isApiRequest) {
@@ -46,7 +46,9 @@ export async function proxy(request: NextRequest) {
       return NextResponse.redirect(url);
     }
   } catch {
-    if (!hasScopedDemoSession && !isPublicRoute) {
+    const authToken = request.cookies.get("auth-token");
+    const isAuth = !!authToken || hasScopedDemoSession;
+    if (!isAuth && !isPublicRoute) {
       const url = request.nextUrl.clone();
       url.pathname = "/sign-in";
       return NextResponse.redirect(url);

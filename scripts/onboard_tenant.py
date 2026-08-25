@@ -23,7 +23,8 @@ import sys
 # Ensure api is importable
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "apps", "api")))
 
-from voxflow_api.db import Tenant, TenantPhoneNumber, init_db, session_scope
+from voxflow_api.db import init_db, session_scope
+from voxflow_api.services.provisioning import provision_tenant
 
 
 def parse_args():
@@ -38,6 +39,7 @@ def parse_args():
     p.add_argument("--welcome-message", default="", help="Custom opening greeting")
     p.add_argument("--webhook-url", default="", help="Client ERP/CRM webhook URL")
     p.add_argument("--plan", default="pro", choices=["starter", "pro", "enterprise"], help="Subscription plan")
+    p.add_argument("--seed-data", action="store_true", help="Prepopulate with starter catalog")
     p.add_argument("--dry-run", action="store_true", help="Print actions without saving to database")
     return p.parse_args()
 
@@ -46,6 +48,7 @@ def main():
     args = parse_args()
     clean_phone = args.phone_number.strip().replace(" ", "")
     webhook_secret = f"whsec_{secrets.token_hex(16)}" if args.webhook_url else None
+    owner_user_id = f"usr-{args.tenant_id[:16]}-admin"
 
     print("\n" + "=" * 70)
     print(f"🏢 VoxFlow SaaS — Onboarding Client: {args.company_name} ({args.tenant_id})")
@@ -69,46 +72,27 @@ def main():
     init_db()
 
     with session_scope() as db:
-        tenant = db.get(Tenant, args.tenant_id)
-        if not tenant:
-            tenant = Tenant(
-                id=args.tenant_id,
-                name=args.company_name,
-                agent_name=args.agent_name,
-                default_language=args.language,
-                system_prompt_override=args.prompt_override or None,
-                welcome_message=args.welcome_message or None,
-                webhook_url=args.webhook_url or None,
-                webhook_secret=webhook_secret,
-                plan=args.plan,
-            )
-            db.add(tenant)
-            print("\n✅ Created new Tenant record in database.")
-        else:
-            tenant.name = args.company_name
-            tenant.agent_name = args.agent_name
-            tenant.default_language = args.language
-            if args.prompt_override:
-                tenant.system_prompt_override = args.prompt_override
-            if args.webhook_url:
-                tenant.webhook_url = args.webhook_url
-                tenant.webhook_secret = webhook_secret
-            tenant.plan = args.plan
-            print("\n✅ Updated existing Tenant record in database.")
-
-        phone_entry = db.get(TenantPhoneNumber, clean_phone)
-        if phone_entry:
-            phone_entry.tenant_id = args.tenant_id
-            phone_entry.label = f"{args.company_name} Main Line"
-        else:
-            phone_entry = TenantPhoneNumber(
-                phone_number=clean_phone,
-                tenant_id=args.tenant_id,
-                label=f"{args.company_name} Main Line",
-            )
-            db.add(phone_entry)
-
-        print(f"✅ Mapped phone number {clean_phone} → {args.tenant_id}")
+        res = provision_tenant(
+            db,
+            tenant_id=args.tenant_id,
+            name=args.company_name,
+            owner_user_id=owner_user_id,
+            owner_email=args.admin_email or None,
+            agent_name=args.agent_name,
+            default_language=args.language,
+            plan=args.plan,
+            phone_number=clean_phone,
+            phone_label=f"{args.company_name} Main Line",
+            seed_starter_data=args.seed_data,
+            system_prompt_override=args.prompt_override or None,
+            welcome_message=args.welcome_message or None,
+            webhook_url=args.webhook_url or None,
+            webhook_secret=webhook_secret,
+            invited_by="cli_onboard",
+        )
+        print(f"\n✅ Provisioned tenant record: {res['tenant_id']} (Plan: {res['plan'].upper()})")
+        print(f"✅ Created/verified owner membership for {args.admin_email or owner_user_id}")
+        print(f"✅ Mapped phone number {clean_phone} → {res['tenant_id']}")
 
     print("\n" + "=" * 70)
     print("🎉 Onboarding Completed Successfully!")
