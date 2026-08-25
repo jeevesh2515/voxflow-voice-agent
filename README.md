@@ -13,8 +13,8 @@
 
 <p align="center">
   <img src="https://img.shields.io/badge/CI%2FCD-100%25%20PASSING-success?style=for-the-badge&logo=githubactions&logoColor=white&labelColor=111827" alt="CI Status" />
-  <img src="https://img.shields.io/badge/TESTS-273%20PASSED-10B981?style=for-the-badge&logo=pytest&logoColor=white&labelColor=111827" alt="273 Pytest Tests Passed" />
-  <img src="https://img.shields.io/badge/FRONTEND-23%20ROUTES-6366F1?style=for-the-badge&logo=nextdotjs&logoColor=white&labelColor=111827" alt="23 Next.js Routes" />
+  <img src="https://img.shields.io/badge/TESTS-295%20PASSED-10B981?style=for-the-badge&logo=pytest&logoColor=white&labelColor=111827" alt="295 Pytest Tests Passed" />
+  <img src="https://img.shields.io/badge/FRONTEND-24%20ROUTES-6366F1?style=for-the-badge&logo=nextdotjs&logoColor=white&labelColor=111827" alt="24 Next.js Routes" />
   <img src="https://img.shields.io/badge/VOICE-ENGLISH%20%28UK%29%20%2B%20HINDI-F97316?style=for-the-badge&labelColor=111827" alt="English (UK) + Hindi Multilingual" />
 </p>
 
@@ -125,7 +125,7 @@ flowchart TB
     subgraph Storage["🗄️ Persistence & Enterprise Workspaces"]
         PG["🐘 Supabase PostgreSQL<br/>Dual Engine (Sync + Async)"]
         GS["📑 Live Google Sheets Sync<br/>Idempotent Queue Relay"]
-        DASH["🖥️ Next.js 16 SaaS Dashboard<br/>23 Interactive Routes"]
+        DASH["🖥️ Next.js 16 SaaS Dashboard<br/>24 Interactive Routes"]
     end
 
     AWS --> LMB --> CAD
@@ -148,6 +148,33 @@ flowchart TB
 
 ---
 
+## 🏢 Automated Self-Serve SaaS Provisioning & Onboarding
+
+Day 44 transforms VoxFlow from an operator-provisioned internal tool into a **fully automated, self-serve multi-tenant B2B SaaS platform**. Any business or supply chain manager can sign up online, get an instantly provisioned tenant workspace with owner membership and starter catalog, and complete a 4-step onboarding wizard.
+
+```mermaid
+flowchart TD
+    A["New Business User"] -->|1. Submit /sign-up| B["POST /api/auth/signup"]
+    B -->|2. Generate Unique Slug| C["voxflow_api.services.provisioning"]
+    C -->|3. Create Tenant Row| D[("DB: tenants")]
+    C -->|4. Create Owner Member| E[("DB: tenant_members (ROLE_OWNER)")]
+    C -->|5. Seed Starter Catalog| F[("DB: products, stock, suppliers, orders, shipments")]
+    B -->|6. Return 200 OK + Payload| G["Next.js: /onboarding Wizard"]
+    G -->|Step 1| H["Voice Persona & Greeting Configuration"]
+    G -->|Step 2| I["Pre-Seeded Catalog & Stock Confirmation"]
+    G -->|Step 3| J["Live Phone Simulator Interactive Test"]
+    G -->|Step 4| K["Launch into /dashboard"]
+```
+
+| Step | Component | Action & Deliverable |
+| :--- | :--- | :--- |
+| **1. Instant Sign-Up** | `/sign-up` | Email/password registration with operational language choice (`en` / `hi`) and Cloudflare Turnstile bot gating. |
+| **2. Auto-Provisioning** | `POST /api/auth/signup` | Automatic tenant slug disambiguation (`apex-logistics-ltd`, `apex-logistics-ltd-2`), DB tenant creation, and `ROLE_OWNER` assignment. |
+| **3. Starter Data Seeding** | `provision_tenant()` | Auto-populates 3 SKUs, warehouse stock levels, primary supplier depot, purchase order `PO-1001`, and tracked shipment. |
+| **4. Onboarding Wizard** | `/onboarding` | 4-step guided setup: agent persona customization, catalog overview, 1-click live test prompt, and instant dashboard launch. |
+
+---
+
 ## ⚡ Core Platform Capabilities
 
 ### 1. 🎙️ Natural Multilingual Voice Intelligence
@@ -166,9 +193,10 @@ flowchart TB
 - **Live Google Sheets Mirror**: Appends every call turn, order update, and appointment directly into Google Sheets with background idempotency retry queues.
 - **Transactional Outbox Pattern**: Guarantees zero lost turns even during network dropouts or backend restarts.
 
-### 4. 🏢 Multi-Tenant SaaS Workspace
-- **Organization & Role-Based Isolation**: Distinct workspaces for individual companies (e.g., Varun Beverages, Amul) with dedicated phone numbers and isolated data partitions.
-- **Full Operational Dashboard**: 23 compiled Next.js routes covering Calls, Escalations, Appointments, Inventory, Shipments, Campaigns, and Web-based Call Simulators.
+### 4. 🏢 Multi-Tenant SaaS Workspace & Self-Serve Provisioning
+- **Instant Tenant Onboarding**: Self-serve registration with automatic tenant slug generation, owner membership provisioning, and starter supply-chain data seeding.
+- **Organization & Role-Based Isolation**: Distinct workspaces for individual companies with dedicated phone numbers and isolated data partitions.
+- **Full Operational Dashboard**: 24 compiled Next.js routes covering Calls, Escalations, Appointments, Inventory, Shipments, Campaigns, and Web-based Call Simulators.
 
 ---
 
@@ -231,7 +259,7 @@ npm run dev
 Run all automated test suites locally:
 
 ```bash
-# 1. Run full backend test suite (273 unit, integration & resilience tests)
+# 1. Run full backend test suite (295 unit, integration & resilience tests)
 cd apps/api
 pytest tests/ -v
 

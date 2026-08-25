@@ -1,8 +1,8 @@
 # VoxFlow Architecture
 
-**Last updated:** 2026-08-24  
-**Current milestone:** **Phase 9 Infrastructure, Resilience & UI Overhaul complete.** 273 backend tests passing, 23 compiled frontend routes, Oracle Cloud Always-Free ARM VM containerized architecture with Caddy auto-TLS reverse proxy, and high-precision latency & TTFT benchmarking harness. Comprehensive day-by-day implementation tracking is recorded in [`DAY_TRACKER.md`](DAY_TRACKER.md).  
-**Operating mode:** Inbound voice and dashboard functions are deployed. Campaign dispatch and operational side-effect workers are independently safe-staged; Day 35 admission and Day 36 current-version evidence are both fail-closed with an empty tenant allow-list.
+**Last updated:** 2026-08-25  
+**Current milestone:** **Phase 10 Self-Serve SaaS Onboarding & UK Telephony complete.** 295 backend tests passing, 24 compiled frontend routes, Oracle Cloud Always-Free ARM VM containerized architecture with Caddy auto-TLS reverse proxy, and high-precision latency & TTFT benchmarking harness. Comprehensive day-by-day implementation tracking is recorded in [`DAY_TRACKER.md`](DAY_TRACKER.md).  
+**Operating mode:** Inbound voice, self-serve tenant onboarding, and dashboard functions are deployed. Campaign dispatch and operational side-effect workers are independently safe-staged; Day 35 admission and Day 36 current-version evidence are both fail-closed with an empty tenant allow-list.
 
 ## 1. System boundaries
 
@@ -113,7 +113,44 @@ sequenceDiagram
 
 A `requested` provider operation with unknown acceptance is retried through reconciliation, not by making a second provider request. An `accepted` operation waits for a callback/reconciliation terminal result. Terminal outcomes settle active capacity; a pre-request policy deferral or lease loss releases unused capacity and budget reservation.
 
-## 4. Provider callback lifecycle
+## 4. Self-serve SaaS provisioning & tenant lifecycle
+
+Day 44 unifies tenant creation, member role mapping, and initial catalog population into a centralized provisioning service (`voxflow_api.services.provisioning`). The public signup route (`POST /api/auth/signup`) and internal CLI (`scripts/onboard_tenant.py`) share this single source of truth.
+
+```mermaid
+sequenceDiagram
+    participant User as Business Admin (/sign-up)
+    participant API as FastAPI (POST /api/auth/signup)
+    participant Turnstile as Cloudflare Turnstile
+    participant Service as voxflow_api.services.provisioning
+    participant DB as PostgreSQL Database
+    participant UI as Next.js (/onboarding Wizard)
+
+    User->>API: email, password, company_name, default_language, token
+    opt Turnstile active
+        API->>Turnstile: verify challenge token
+        Turnstile-->>API: challenge valid
+    end
+    API->>Service: provision_tenant(db, company_name, owner_email, ...)
+    Service->>DB: query existing slugs → generate unique slug
+    Service->>DB: INSERT INTO tenants (id, name, default_language, plan, ...)
+    Service->>DB: INSERT INTO tenant_members (tenant_id, role="owner", status="active", ...)
+    Service->>DB: INSERT INTO products, stock, suppliers, orders, shipments (Starter Catalog)
+    DB-->>Service: commit transaction
+    Service-->>API: TenantProvisionResult
+    API-->>User: 200 OK + tenant metadata + auth cookies
+    User->>UI: Redirect to /onboarding (Steps 1–4)
+    UI->>User: Step 1 (Persona) → Step 2 (Catalog) → Step 3 (Live Test) → Step 4 (Launch)
+```
+
+| Lifecycle Component | Architecture Role | Security & Isolation Guarantee |
+|---|---|---|
+| `sanitize_slug()` & `generate_unique_tenant_slug()` | Deterministic URL/Tenant ID formatting | Automatic deduplication (`acme-logistics`, `acme-logistics-2`) prevents primary key collisions. |
+| `provision_tenant()` | Transactional multi-table provisioning | Atomic creation of Tenant, Owner Member, Phone Mapping, and Seed Catalog in a single DB transaction. |
+| `POST /api/auth/signup` | Public HTTP SaaS registration gateway | Bot-protected via optional Turnstile; maps requester to `ROLE_OWNER` with zero-trust hashed email verification. |
+| `/onboarding` (Next.js 16) | 4-step interactive onboarding wizard | Step 1 (Agent Persona) $\rightarrow$ Step 2 (Catalog Stats) $\rightarrow$ Step 3 (Live Simulator) $\rightarrow$ Step 4 (Dashboard). |
+
+## 5. Provider callback lifecycle
 
 Day 32 exposes `POST /api/provider-callbacks/events`, a normalized callback ingress for an existing provider operation. With signature validation enabled, the route requires a current timestamp and HMAC-SHA256 signature over the raw body. The endpoint fails closed with `503` when no callback secret is configured, which is the deployed default until a provider-specific sandbox adapter is certified.
 
@@ -127,7 +164,7 @@ Day 32 exposes `POST /api/provider-callbacks/events`, a normalized callback ingr
 
 Day 33 adds the Dial-specific adapter at `POST /api/provider-callbacks/dial/events`, but it is deployed in a certification-only posture. It parses `X-Dial-Signature: t=<unix-seconds>,v1=<hex-hmac>`, verifies HMAC-SHA256 over `timestamp + "." + raw body`, accepts only a configured current/previous secret overlap, and bounds replay age. It maps only documented outbound `call.status_changed` and `call.ended` events into the Day 32 neutral lifecycle; signed `webhook.ping` is acknowledged without creating a business event. The route cannot apply an event unless `DIAL_CALLBACK_ADAPTER_ENABLED=true`, sandbox mode remains true, a secret exists, and the resolved tenant is explicitly allow-listed. No raw provider callback payload, signature, secret, transcript, phone number, or job payload is rendered in analytics or stored in the adapter audit ledger. [1] [2] [3]
 
-## 5. Operational side-effect lifecycle
+## 6. Operational side-effect lifecycle
 
 Day 34 moves API-process Sheets retry, periodic email scheduling, direct agent notification delivery, fire-and-forget CRM posting, generic worksheet writes, and recording follow-up into the durable job contract. `SideEffectIntent` stores only a type, trusted aggregate reference, idempotency key, hash, and bounded result state. It never stores a raw external payload.
 
@@ -141,7 +178,7 @@ Day 34 moves API-process Sheets retry, periodic email scheduling, direct agent n
 
 The worker builds only if `DURABLE_SIDE_EFFECTS_WORKER_ENABLED=true` **and** an explicit tenant allow-list exists. In Day 34 production defaults it is disabled. If it is later admitted in dry-run, a claimed intent receives a bounded `dry_run` result and no integration client is invoked. Retryable transport faults retain `retry_scheduled`; malformed aggregate, missing configuration, or unsupported channels retain bounded terminal evidence. The existing `WorkerRuntime` owns lease renewal, retries, stale-worker recovery, and attempt history.
 
-## 6. Tenant policy and auditable cancellation
+## 7. Tenant policy and auditable cancellation
 
 The policy gate runs before `ProviderOperation` reservation. A dispatch target must satisfy all conditions below.
 
@@ -163,7 +200,7 @@ The policy gate runs before `ProviderOperation` reservation. A dispatch target m
 Every policy evaluation appends a `campaign_policy_decisions` record.
  The operator endpoint returns decision, reason code, timestamp, and next eligible time, but does not expose raw evidence JSON. Policy cancellations map to terminal durable `cancelled` jobs rather than dead letters.
 
-## 7. Data model
+## 8. Data model
 
 The core business schema remains tenant scoped. Durable dispatch adds the following tables.
 
@@ -189,7 +226,7 @@ The core business schema remains tenant scoped. Durable dispatch adds the follow
 
 Production migrations are ordered as `003_durable_job_ledger.sql`, `004_outbox_relay_state.sql`, `005_campaign_policy_controls.sql`, `006_provider_callback_lifecycle.sql`, `007_dial_sandbox_callback_adapter.sql`, `008_typed_durable_side_effect_jobs.sql`, `009_controlled_pilot_readiness.sql`, then `010_pilot_operations_evidence.sql`.
 
-## 8. Production safety and rollout
+## 9. Production safety and rollout
 
 The deployed backend remains in a non-executing campaign posture:
 
@@ -214,18 +251,18 @@ dry_run=true
 
 These settings are a deliberate layered control, not a missing feature. An internal canary must use a dedicated worker process, explicit tenant allow-list, dry-run evidence, tenant policy configuration, consented test target, concurrency one, monitoring, and a rollback owner. The dashboard’s `Launch Campaign` control does not bypass the worker gate or invoke the provider inline.
 
-## 9. Engineering quality gates
+## 10. Engineering quality gates
 
 | Surface | Command | Verified Outcome |
 |---|---|---|
 | Backend lint | `cd apps/api && .venv/bin/ruff check voxflow_api tests` | Clean (0 errors) |
-| Backend tests | `cd apps/api && .venv/bin/pytest -q` | **273 passed** (in 93.1s) |
+| Backend tests | `cd apps/api && .venv/bin/pytest -q` | **295 passed** (in 113.4s) |
 | Latency benchmark harness | `python3 scripts/benchmark_latency.py` | Verified P50/P90/P99 latency distributions |
 | Frontend lint | `npm run lint --workspace=apps/web` | Clean (0 errors) |
-| Frontend production build | `npm run build --workspace=apps/web` | **23 static compiled routes** (Turbopack) |
+| Frontend production build | `npm run build --workspace=apps/web` | **24 static compiled routes** (Turbopack) |
 | Live job posture | `GET /api/jobs/health?tenant_id=varun` | Staged / safe |
 
-At the current delivery point, the backend suite has **273 passing tests**, API lint is clean, and the frontend production build generates 23 routes cleanly. GitHub CI validates API lint, API test, and web lint/build on every `main` delivery. Detailed historical day-by-day logs are available in [`DAY_TRACKER.md`](DAY_TRACKER.md).
+At the current delivery point, the backend suite has **295 passing tests**, API lint is clean, and the frontend production build generates 24 routes cleanly. GitHub CI validates API lint, API test, and web lint/build on every `main` delivery. Detailed historical day-by-day logs are available in [`DAY_TRACKER.md`](DAY_TRACKER.md).
 
 ## References
 

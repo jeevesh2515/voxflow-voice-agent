@@ -2,10 +2,10 @@
 
 **Project:** VoxFlow — Voice Operations for Modern Supply Chains  
 **Repository:** `jeevesh2515/voxflow-voice-agent`  
-**Current Test Suite:** **289 Passing Tests** (`pytest tests/ -q`)  
-**Frontend Surface:** **23 Compiled Routes** (Next.js 16 App Router, Turbopack)  
+**Current Test Suite:** **295 Passing Tests** (`pytest tests/ -q`)  
+**Frontend Surface:** **24 Compiled Routes** (Next.js 16 App Router, Turbopack)  
 **Deployment Infrastructure:** Oracle Cloud Always-Free ARM VM (Caddy Auto-TLS + Docker) / Render Free API / Vercel Edge Frontend  
-**Last Updated:** 2026-08-24
+**Last Updated:** 2026-08-25
 
 ---
 
@@ -22,6 +22,7 @@
 | **Phase 7** | 29–32 | Controlled Cutover & Provider Lifecycle | ✅ Complete | Canary worker filters, tenant policy engine, consent checks, enterprise analytics CSV, signed callback quarantine. |
 | **Phase 8** | 33–36 | Adapters, Side Effects & Pilot Evidence | ✅ Complete | Dial sandbox HMAC adapter, typed side-effect jobs ledger, fail-closed pilot admission, same-cohort hold points. |
 | **Phase 9** | Production | Infrastructure, Resilience & UI Overhaul | ✅ Complete | Oracle ARM VM + Caddy Auto-TLS, Next.js 16 standalone Docker, LLM resilience fallback, 16 dashboard views overhaul. |
+| **Phase 10** | 41–44 | UK Voice, Resilience & Self-Serve SaaS | ✅ Complete | Amazon Connect en-GB, Postgres+Sheets call logs, rate-limit resilience & encrypted backups, self-serve signup & 4-step onboarding wizard. |
 
 ---
 
@@ -507,32 +508,56 @@
   - ✅ **Verified Supabase Keepalive:** Successfully pinged live Supabase Postgres database.
 - **Artifacts:** `apps/api/voxflow_api/llm/groq.py`, `apps/api/voxflow_api/voice/pipeline.py`, `apps/api/voxflow_api/routes/connect.py`, `deploy/aws/lambda_handler.py`, `scripts/supabase_keepalive.py`, `scripts/db_backup.sh`, `scripts/db_restore_test.sh`, `apps/api/tests/test_day43_resilience.py`, `.learning/day-43-latency-groq429-and-backups.md`.
 
+#### 🗓️ Day 44: Self-Serve SaaS Signup & Centralized Tenant Provisioning
+- **Objective:** Transform VoxFlow into an automated self-serve B2B SaaS platform where any business can register, instantly provision an isolated multi-tenant workspace with owner permissions and starter supply-chain data, and complete a 4-step interactive onboarding wizard without manual intervention.
+- **Implementation:**
+  1. **Centralized Provisioning Engine (`voxflow_api/services/provisioning.py`):**
+     - Built `provision_tenant()` to handle transactional creation of `Tenant`, `TenantMember` (`role="owner"`, `status="active"`), optional phone mapping (`TenantPhoneNumber`), and pre-seeded starter catalog (`Product`, `Stock`, `Supplier`, `Order`, `Shipment`).
+     - Implemented `generate_unique_tenant_slug()` for automatic URL-safe slug collision resolution (`acme-logistics`, `acme-logistics-2`, etc.).
+     - Refactored CLI tool (`scripts/onboard_tenant.py`) to share this single source of truth.
+  2. **Public Self-Serve Signup Endpoint (`routes/public_auth.py`):**
+     - Created `POST /api/auth/signup` accepting company name, admin email, owner full name, language selection (`en` / `hi`), and optional Turnstile challenge verification.
+  3. **Frontend Self-Serve Signup & 4-Step Onboarding Wizard (`apps/web`):**
+     - Upgraded `/sign-up` with language selection (`en`/`hi`), Turnstile bot validation, active workspace caching, and automatic transition to onboarding.
+     - Built `/onboarding` 4-step wizard:
+       - **Step 1: Voice Persona & Language**: Agent name ("Vaani"), language preference, opening greeting.
+       - **Step 2: Starter Catalog**: Overview of 3 pre-seeded SKUs, stock levels, supplier depot, and PO-1001.
+       - **Step 3: Live Simulator Test**: Guided test prompts and 1-click test button.
+       - **Step 4: Launch**: Direct transition into `/dashboard`.
+  4. **Automated Test Suite & Browser Verification (`tests/test_day44_self_serve_provisioning.py`, `scratch/verify_day44.py`):**
+     - Authored 6 tests covering provisioning, slug collision auto-disambiguation, Turnstile validation, multi-tenant isolation, and CLI script compatibility.
+     - Verified end-to-end flow with Playwright capturing screenshots of all 4 onboarding steps.
+- **Verification Evidence:**
+  - ✅ **295/295 Passing Backend Tests** (`pytest tests/ -q` in 113.4s).
+  - ✅ **24/24 Static Compiled Next.js Routes** (`npm run build` including `/onboarding`).
+  - ✅ **Zero Lint / Static Analysis Errors** (`ruff check .` clean, ESLint clean).
+  - ✅ **Browser Screenshots Captured:** `day44_shot_signup.png`, `day44_shot_onboarding_step1.png`, `day44_shot_onboarding_step2.png`, `day44_shot_onboarding_step3.png`, `day44_shot_onboarding_step4.png`, `day44_shot_dashboard_provisioned.png`.
+- **Artifacts:** `apps/api/voxflow_api/services/provisioning.py`, `apps/api/voxflow_api/routes/public_auth.py`, `apps/web/src/app/onboarding/page.tsx`, `apps/web/src/app/sign-up/page.tsx`, `scripts/onboard_tenant.py`, `apps/api/tests/test_day44_self_serve_provisioning.py`, `.learning/day-44-self-serve-signup-and-tenant-provisioning.md`.
+
 ---
 
 ## 🎯 Verification & Test Summary Matrix
 
 | Metric | Target | Current Value | Status |
 |---|---|---|---|
-| **Backend Unit & Integration Tests** | $\ge 200$ | **289 Passed** | ✅ Green |
-| **Frontend Static Routes** | $\ge 15$ | **23 Compiled Pages** | ✅ Green |
+| **Backend Unit & Integration Tests** | $\ge 200$ | **295 Passed** | ✅ Green |
+| **Frontend Static Routes** | $\ge 15$ | **24 Compiled Pages** | ✅ Green |
 | **Lint & Static Analysis** | 0 warnings | `ruff check .` clean, ESLint clean | ✅ Clean |
 | **Latency & TTFT Benchmarks** | Sub-second P50 | **P50 ~566ms glass-to-glass** | ✅ Verified |
 | **Database Migrations** | Staged & Verified | 16 Migrations (`000`–`015`) | ✅ Current |
 | **Telephony Providers Supported** | Enterprise Voice | Amazon Connect (AWS) + Amazon Lex STT + WebAudio Simulator | ✅ Verified |
 | **Call Persistence & Mirroring** | Durable Logging | Postgres `calls` + Gated Google Sheets Mirror | ✅ Verified |
 | **Multi-Tenant Isolation** | Strict RLS | 100% tenant-scoped queries | ✅ Verified |
+| **Self-Serve Onboarding** | Instant Provisioning | `/sign-up` $\rightarrow$ `/onboarding` $\rightarrow$ `/dashboard` | ✅ Verified |
 | **Authentication & Auth Gate** | Unauth Redirects | HTTP 307 $\rightarrow$ `/sign-in` | ✅ Verified |
 | **Public Simulator Execution** | Hindi/English turns | Text turn + read-only tool | ✅ Verified |
 
 ---
 
-## 🧭 Next Recommended Actions (Day 44+)
+## 🧭 Next Recommended Actions (Day 45+)
 
-1. **Self-Serve Signup & Provisioning (Day 44):** Customer self-serve onboarding wizard with Turnstile bot protection and automatic tenant initialization.
-2. **Company Data Ingestion (Day 45):** Bulk CSV upload and management for suppliers, stock items, and purchase orders.
-3. **Live AWS Production Deployment Sync:** Run `deploy/sync-vm.sh` to synchronize the latest backend changes to the Oracle Cloud VM.
- (Day 44):** Customer self-serve onboarding wizard with Turnstile bot protection and automatic tenant initialization.
-3. **Company Data Ingestion (Day 45):** Bulk CSV upload and management for suppliers, stock items, and purchase orders.
-4. **Live AWS Production Deployment Sync:** Run `deploy/sync-vm.sh` to synchronize the latest backend changes to the Oracle Cloud VM.
+1. **Company Data Ingestion (Day 45):** Bulk CSV upload and schema validation for customer-specific suppliers, stock items, and purchase orders.
+2. **Phone Number Mapping & Caller Verification Config (Day 46):** Dynamic DID assignment per tenant and custom caller PIN verification controls.
+3. **Live AWS / Oracle Production Deployment Sync:** Run `deploy/sync-vm.sh` to synchronize the latest backend changes to the production VM.
 
 

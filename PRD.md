@@ -1,12 +1,12 @@
 # VoxFlow Product Requirements Document
 
-**Status:** Living product document; Phase 9 Infrastructure, Resilience & UI Overhaul is verified locally with **266 passing backend tests**, **23 compiled frontend routes**, Oracle Cloud Always-Free ARM VM deployment with Caddy auto-TLS reverse proxy, and bilingual LLM provider resilience fallbacks. Full day-by-day logs are in [`DAY_TRACKER.md`](DAY_TRACKER.md).  
-**Last updated:** 2026-08-22  
+**Status:** Living product document; Phase 10 Self-Serve SaaS Onboarding & UK Telephony is verified locally with **295 passing backend tests**, **24 compiled frontend routes**, Oracle Cloud Always-Free ARM VM deployment with Caddy auto-TLS reverse proxy, Amazon Connect en-GB voice integration, and automated self-serve tenant provisioning. Full day-by-day logs are in [`DAY_TRACKER.md`](DAY_TRACKER.md).  
+**Last updated:** 2026-08-25  
 **Repository:** <https://github.com/jeevesh2515/voxflow-voice-agent>
 
 ## 1. Product statement
 
-VoxFlow is a bilingual Hindi-English voice operations platform for FMCG and supply-chain teams. It supports verified inbound voice workflows, operational dashboards, and controlled outbound campaign execution for operational—not sales—use cases such as delayed shipment follow-up, purchase-order confirmation, and dock reminders. Detailed day-wise implementation logs are maintained in [`DAY_TRACKER.md`](DAY_TRACKER.md).
+VoxFlow is a bilingual UK English and Hindi voice operations platform for modern supply-chain and logistics enterprises. It supports verified inbound voice workflows, operational dashboards, automated self-serve multi-tenant provisioning with a 4-step onboarding wizard, and controlled outbound campaign execution for operational use cases such as delayed shipment follow-up, purchase-order confirmation, and dock reminders. Detailed day-wise implementation logs are maintained in [`DAY_TRACKER.md`](DAY_TRACKER.md).
 
 The product is designed around a simple safety principle: operational automation must be **tenant scoped, policy controlled, and auditable**. A campaign target may not reach a telephony provider merely because an operator created a campaign or an HTTP request succeeded.
 
@@ -14,12 +14,24 @@ The product is designed around a simple safety principle: operational automation
 
 | User | Problem | Required product outcome |
 |---|---|---|
+| New Enterprise Customer | Onboarding requires manual database scripts and developer assistance. | Self-serve `/sign-up` with automated slug generation, owner role assignment, and 4-step guided wizard. |
 | Operations staff | Manual supplier/customer calls delay shipment, PO, and dock workflows. | Structured call handling, operational records, campaign queues, and escalation visibility. |
 | Tenant administrator | Cannot safely delegate outbound operational reminders without proof of consent and capacity controls. | Tenant-local policy, recipient preference, quotas, cancellation evidence, and a hard stop. |
 | Operator | Cannot diagnose a stuck dispatch without database access. | Tenant-safe job health, target queue, reason codes, and audit timeline. |
 | Platform owner | Provider retries can create duplicate side effects. | Durable job ledger, leases, provider-operation idempotency, reconciliation, and staged rollout. |
 
 ## 3. Product capabilities
+
+### Self-serve SaaS onboarding & tenant provisioning (Day 44)
+
+VoxFlow provides automated, zero-touch tenant onboarding:
+- **Public Signup (`/sign-up`)**: Email/password registration with language choice (`en`/`hi`) and Turnstile bot protection.
+- **Centralized Provisioning Engine (`provision_tenant`)**: Automatic tenant slug generation with numeric collision avoidance (`apex-haulage`, `apex-haulage-2`), owner `TenantMember` mapping, and starter catalog seeding (3 Products, Stock items, Supplier depot, PO-1001, Shipment).
+- **Guided 4-Step Onboarding Wizard (`/onboarding`)**:
+  - Step 1: Voice Persona (agent name, language, greeting).
+  - Step 2: Starter Catalog verification.
+  - Step 3: Interactive live simulator test prompts.
+  - Step 4: One-click launch into the operations dashboard.
 
 ### Inbound operations
 
