@@ -73,11 +73,12 @@ VoxFlow is a **turn-based voice pipeline** engineered for sub-second, natural co
 The pipeline is continuously validated by an automated, high-precision latency harness (`scripts/benchmark_latency.py`) measuring Time to First Token (TTFT), inter-token latency (ITL), and Time to First Byte (TTFB):
 
 | Pipeline Stage | Tech Stack | Samples | Min | Mean | **P50 (Median)** | **P90** | **P99** | Key Telemetry / Throughput |
-| :--- | :--- | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :--- |
+| :--- | :--- | :---: | :---: | :---: | :---: | :---: | :---: | :--- |
 | **1. Speech-to-Text (STT)** | `Groq Whisper Turbo` / `Lex V2` | 5 | 167.8ms | 188.5ms | **187.9ms** | 209.5ms | 215.2ms | **RTF 0.125** (8.0x faster than real-time) |
 | **2. LLM Reasoning & TTFT** | `Groq openai/gpt-oss-20b` | 5 | 121.2ms | 144.8ms | **148.0ms** | 166.2ms | 173.5ms | **131.8 tokens/sec** · 7.59ms ITL |
 | **3. Audio Synthesis (TTS)** | `Amazon Polly` / `Edge-TTS` | 5 | 233.8ms | 301.6ms | **297.3ms** | 361.1ms | 374.6ms | **153.0ms TTFB** · Chunked streaming |
 | **4. Glass-to-Glass Turn** | `Full Pipeline + DB & Tools` | 5 | 514.1ms | 605.9ms | **566.1ms** | 722.6ms | 797.9ms | Sub-second conversational pacing |
+
 
 ### 🔬 Reproducible Benchmark Execution
 
@@ -198,8 +199,9 @@ flowchart LR
 - **Streaming RFC-4180 Ingestion**: Memory-bounded processing for high-volume catalogs and stock level matrices.
 - **5 Core Entity Schemas**:
   - `products`: `sku` (PK), `name`, `category`, `pack_size`, `mrp_inr`
-  - `stock`: `sku`, `warehouse`, `quantity` ($\ge 0$)
+  - `stock`: `sku`, `warehouse`, `quantity` (≥ 0)
   - `suppliers`: `name`, `phone` (E.164 sanitization), `contact_person`, `gstin`, `auth_pin`
+
   - `orders`: `id`, `supplier_id`, `status`, `customer_po_ref`, `total_qty`, `items` (JSON)
   - `shipments`: `id`, `order_id`, `status`, `carrier`, `tracking_no`, `expected_delivery`
 - **Pre-Flight Dry-Run Validation**: `POST /api/data/{entity}/validate` validates headers, field types, and formats before committing changes.
