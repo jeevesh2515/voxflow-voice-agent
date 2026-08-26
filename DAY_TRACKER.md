@@ -2,10 +2,10 @@
 
 **Project:** VoxFlow — Voice Operations for Modern Supply Chains  
 **Repository:** `jeevesh2515/voxflow-voice-agent`  
-**Current Test Suite:** **295 Passing Tests** (`pytest tests/ -q`)  
-**Frontend Surface:** **24 Compiled Routes** (Next.js 16 App Router, Turbopack)  
+**Current Test Suite:** **305 Passing Tests** (`pytest tests/ -q`)  
+**Frontend Surface:** **25 Compiled Routes** (Next.js 16 App Router, Turbopack)  
 **Deployment Infrastructure:** Oracle Cloud Always-Free ARM VM (Caddy Auto-TLS + Docker) / Render Free API / Vercel Edge Frontend  
-**Last Updated:** 2026-08-25
+**Last Updated:** 2026-08-26
 
 ---
 
@@ -22,7 +22,8 @@
 | **Phase 7** | 29–32 | Controlled Cutover & Provider Lifecycle | ✅ Complete | Canary worker filters, tenant policy engine, consent checks, enterprise analytics CSV, signed callback quarantine. |
 | **Phase 8** | 33–36 | Adapters, Side Effects & Pilot Evidence | ✅ Complete | Dial sandbox HMAC adapter, typed side-effect jobs ledger, fail-closed pilot admission, same-cohort hold points. |
 | **Phase 9** | Production | Infrastructure, Resilience & UI Overhaul | ✅ Complete | Oracle ARM VM + Caddy Auto-TLS, Next.js 16 standalone Docker, LLM resilience fallback, 16 dashboard views overhaul. |
-| **Phase 10** | 41–44 | UK Voice, Resilience & Self-Serve SaaS | ✅ Complete | Amazon Connect en-GB, Postgres+Sheets call logs, rate-limit resilience & encrypted backups, self-serve signup & 4-step onboarding wizard. |
+| **Phase 10** | 41–45 | UK Voice, SaaS Onboarding & CSV Engine | ✅ Complete | Amazon Connect en-GB, Postgres+Sheets call logs, resilience & backups, self-serve signup & onboarding, streaming CSV ingestion & validation engine. |
+
 
 ---
 
@@ -534,30 +535,63 @@
   - ✅ **Browser Screenshots Captured:** `day44_shot_signup.png`, `day44_shot_onboarding_step1.png`, `day44_shot_onboarding_step2.png`, `day44_shot_onboarding_step3.png`, `day44_shot_onboarding_step4.png`, `day44_shot_dashboard_provisioned.png`.
 - **Artifacts:** `apps/api/voxflow_api/services/provisioning.py`, `apps/api/voxflow_api/routes/public_auth.py`, `apps/web/src/app/onboarding/page.tsx`, `apps/web/src/app/sign-up/page.tsx`, `scripts/onboard_tenant.py`, `apps/api/tests/test_day44_self_serve_provisioning.py`, `.learning/day-44-self-serve-signup-and-tenant-provisioning.md`.
 
+#### 🗓️ Day 45: Company Data Ingestion (Streaming CSV Validation & Multi-Tenant Upsert Engine)
+- **Objective:** Enable multi-tenant SaaS clients to bulk-ingest their own operational supply chain data (Products, Stock, Suppliers, Purchase Orders, and Shipments) via streaming RFC-4180 CSV uploads with pre-flight dry-run schema validation, transactional upsert guarantees, and instant real-time accessibility to the AI voice agent.
+- **Implementation:**
+  1. **Data Ingestion Engine (`voxflow_api/services/data_ingestion.py`):**
+     - Built streaming `csv.DictReader` parser supporting memory-efficient byte and text processing.
+     - Defined comprehensive entity schemas, required headers, and type coercion validators for 5 models (`products`, `stock`, `suppliers`, `orders`, `shipments`).
+     - Added downloadable RFC-4180 CSV template generator with production-grade sample data (`get_csv_template`).
+     - Engineered transactional `ingest_csv_data` with all-or-nothing rollback semantics, multi-tenant isolation, and conflict resolution modes (`upsert` vs `strict`).
+  2. **Database Multi-Tenant Composite Key (`voxflow_api/db.py` & `routes/data.py`):**
+     - Updated `Product` model to use composite primary key `(sku, tenant_id)` to eliminate cross-tenant SKU collisions.
+     - Updated `list_stock` SQL joins to bind on both `sku` and `tenant_id`.
+  3. **REST Ingestion Endpoints (`routes/data.py` & `schemas.py`):**
+     - `GET /api/data/entities`: Catalogs all 5 supported entities, required/optional fields, and descriptions.
+     - `GET /api/data/templates/{entity}`: Streams downloadable CSV template with attachment headers.
+     - `POST /api/data/{entity}/validate`: Pre-flight dry-run CSV validation returning row-level error reports, total/valid row counts, and live previews.
+     - `POST /api/data/{entity}/import`: Authenticated bulk import endpoint with tenant isolation and read-only demo guardrails (`HTTP 403 demo_access_read_only`).
+  4. **Interactive Dashboard UI (`apps/web`):**
+     - Built `CsvImportModal.tsx`: Entity tab switching, downloadable template buttons, drag-and-drop file upload zone, raw CSV text editor, live validation preview table with error badges, and conflict resolution toggle.
+     - Built `Company Data Hub` (`/dashboard/data`): Dedicated management center with live tenant metrics, entity schema requirements, direct template downloads, and enterprise data safeguards.
+     - Added "Import CSV" triggers across `/dashboard/stock`, `/dashboard/orders`, `/dashboard/suppliers`, and `/dashboard/shipments`.
+     - Integrated custom CSV data upload trigger in Step 2 of `/onboarding`.
+  5. **Automated Test Suite & Browser Verification (`tests/test_day45_data_ingestion.py`, `scratch/verify_day45_browser.py`):**
+     - Authored 10 tests verifying entity schemas, template generation, pre-flight error reporting, all-or-nothing rollback, idempotent upserting, tenant isolation, and real-time queryability by voice agent tools (`test_agent_queries_imported_csv_data`).
+     - Verified end-to-end browser experience with Playwright capturing full modal import workflows and updated inventory tables.
+- **Verification Evidence:**
+  - ✅ **305/305 Passing Backend Tests** (`pytest apps/api/tests/ -q` in 106.29s).
+  - ✅ **25/25 Static Compiled Next.js Routes** (`npm --prefix apps/web run build` including `/dashboard/data`).
+  - ✅ **Zero Lint / Static Analysis Errors** (`ruff check apps/api` clean, ESLint clean).
+  - ✅ **Browser Screenshots Captured:** `day45_data_hub.png`, `day45_modal_open.png`, `day45_modal_validated.png`, `day45_modal_success.png`, `day45_stock_page.png`, `day45_orders_page.png`, `day45_suppliers_page.png`, `day45_shipments_page.png`.
+- **Artifacts:** `apps/api/voxflow_api/services/data_ingestion.py`, `apps/api/voxflow_api/routes/data.py`, `apps/api/voxflow_api/schemas.py`, `apps/api/voxflow_api/db.py`, `apps/web/src/components/dashboard/CsvImportModal.tsx`, `apps/web/src/app/dashboard/data/page.tsx`, `apps/api/tests/test_day45_data_ingestion.py`, `.learning/day-45-company-data-ingestion-csv.md`.
+
 ---
 
 ## 🎯 Verification & Test Summary Matrix
 
 | Metric | Target | Current Value | Status |
 |---|---|---|---|
-| **Backend Unit & Integration Tests** | $\ge 200$ | **295 Passed** | ✅ Green |
-| **Frontend Static Routes** | $\ge 15$ | **24 Compiled Pages** | ✅ Green |
+| **Backend Unit & Integration Tests** | $\ge 200$ | **305 Passed** | ✅ Green |
+| **Frontend Static Routes** | $\ge 15$ | **25 Compiled Pages** | ✅ Green |
 | **Lint & Static Analysis** | 0 warnings | `ruff check .` clean, ESLint clean | ✅ Clean |
 | **Latency & TTFT Benchmarks** | Sub-second P50 | **P50 ~566ms glass-to-glass** | ✅ Verified |
 | **Database Migrations** | Staged & Verified | 16 Migrations (`000`–`015`) | ✅ Current |
 | **Telephony Providers Supported** | Enterprise Voice | Amazon Connect (AWS) + Amazon Lex STT + WebAudio Simulator | ✅ Verified |
 | **Call Persistence & Mirroring** | Durable Logging | Postgres `calls` + Gated Google Sheets Mirror | ✅ Verified |
-| **Multi-Tenant Isolation** | Strict RLS | 100% tenant-scoped queries | ✅ Verified |
+| **Multi-Tenant Isolation** | Strict Composite Keys | 100% tenant-scoped queries & imports | ✅ Verified |
 | **Self-Serve Onboarding** | Instant Provisioning | `/sign-up` $\rightarrow$ `/onboarding` $\rightarrow$ `/dashboard` | ✅ Verified |
+| **Bulk Data Ingestion** | Streaming CSV Engine | Pre-flight validation + Upsert semantics | ✅ Verified |
 | **Authentication & Auth Gate** | Unauth Redirects | HTTP 307 $\rightarrow$ `/sign-in` | ✅ Verified |
 | **Public Simulator Execution** | Hindi/English turns | Text turn + read-only tool | ✅ Verified |
 
 ---
 
-## 🧭 Next Recommended Actions (Day 45+)
+## 🧭 Next Recommended Actions (Day 46+)
 
-1. **Company Data Ingestion (Day 45):** Bulk CSV upload and schema validation for customer-specific suppliers, stock items, and purchase orders.
-2. **Phone Number Mapping & Caller Verification Config (Day 46):** Dynamic DID assignment per tenant and custom caller PIN verification controls.
+1. **Phone Number Mapping & Caller Verification Config (Day 46):** Dynamic DID/inbound phone number assignment per tenant, configurable caller verification PINs, and automated routing rules.
+2. **Per-Tenant Agent Settings (Day 47):** Custom prompt templates, voice persona selection, business hours, and fallback escalation rules per tenant.
 3. **Live AWS / Oracle Production Deployment Sync:** Run `deploy/sync-vm.sh` to synchronize the latest backend changes to the production VM.
+
 
 

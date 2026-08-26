@@ -65,10 +65,11 @@ graphify-out/
 .planning/
 *HANDOFF*.md
 CLAUDE_HANDOFF.md
-data/
-docs/
+/data/
+/docs/
 files/
 resources/
 Resources/
 stitch*/
 Makefile
+

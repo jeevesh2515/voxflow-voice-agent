@@ -1,12 +1,12 @@
 # VoxFlow Product Requirements Document
 
-**Status:** Living product document; Phase 10 Self-Serve SaaS Onboarding & UK Telephony is verified locally with **295 passing backend tests**, **24 compiled frontend routes**, Oracle Cloud Always-Free ARM VM deployment with Caddy auto-TLS reverse proxy, Amazon Connect en-GB voice integration, and automated self-serve tenant provisioning. Full day-by-day logs are in [`DAY_TRACKER.md`](DAY_TRACKER.md).  
-**Last updated:** 2026-08-25  
+**Status:** Living product document; Phase 10 Bulk Company Data Ingestion, Self-Serve SaaS Onboarding & UK Telephony is verified locally with **305 passing backend tests**, **25 compiled frontend routes**, Oracle Cloud Always-Free ARM VM deployment with Caddy auto-TLS reverse proxy, Amazon Connect en-GB voice integration, streaming CSV validation engine, and automated self-serve tenant provisioning. Full day-by-day logs are in [`DAY_TRACKER.md`](DAY_TRACKER.md).  
+**Last updated:** 2026-08-26  
 **Repository:** <https://github.com/jeevesh2515/voxflow-voice-agent>
 
 ## 1. Product statement
 
-VoxFlow is a bilingual UK English and Hindi voice operations platform for modern supply-chain and logistics enterprises. It supports verified inbound voice workflows, operational dashboards, automated self-serve multi-tenant provisioning with a 4-step onboarding wizard, and controlled outbound campaign execution for operational use cases such as delayed shipment follow-up, purchase-order confirmation, and dock reminders. Detailed day-wise implementation logs are maintained in [`DAY_TRACKER.md`](DAY_TRACKER.md).
+VoxFlow is a bilingual UK English and Hindi voice operations platform for modern supply-chain and logistics enterprises. It supports verified inbound voice workflows, operational dashboards, bulk company data ingestion via streaming CSV uploads, automated self-serve multi-tenant provisioning with a 4-step onboarding wizard, and controlled outbound campaign execution for operational use cases such as delayed shipment follow-up, purchase-order confirmation, and dock reminders. Detailed day-wise implementation logs are maintained in [`DAY_TRACKER.md`](DAY_TRACKER.md).
 
 The product is designed around a simple safety principle: operational automation must be **tenant scoped, policy controlled, and auditable**. A campaign target may not reach a telephony provider merely because an operator created a campaign or an HTTP request succeeded.
 
@@ -15,6 +15,7 @@ The product is designed around a simple safety principle: operational automation
 | User | Problem | Required product outcome |
 |---|---|---|
 | New Enterprise Customer | Onboarding requires manual database scripts and developer assistance. | Self-serve `/sign-up` with automated slug generation, owner role assignment, and 4-step guided wizard. |
+| Supply Chain Manager | Entering hundreds of catalog SKUs, stock levels, and vendor contacts manually is infeasible. | Centralized Company Data Hub with downloadable RFC-4180 CSV templates, pre-flight dry-run validation, and idempotent upserts. |
 | Operations staff | Manual supplier/customer calls delay shipment, PO, and dock workflows. | Structured call handling, operational records, campaign queues, and escalation visibility. |
 | Tenant administrator | Cannot safely delegate outbound operational reminders without proof of consent and capacity controls. | Tenant-local policy, recipient preference, quotas, cancellation evidence, and a hard stop. |
 | Operator | Cannot diagnose a stuck dispatch without database access. | Tenant-safe job health, target queue, reason codes, and audit timeline. |
@@ -22,7 +23,17 @@ The product is designed around a simple safety principle: operational automation
 
 ## 3. Product capabilities
 
+### Bulk company data ingestion & CSV engine (Day 45)
+
+VoxFlow provides transactional bulk data onboarding across 5 core supply chain entities:
+- **Streaming Parser & Pre-Flight Validation**: Line-by-line streaming RFC-4180 parsing with detailed per-row error reporting before any table mutation.
+- **5 Core Model Schemas**: Products, Stock, Suppliers, Purchase Orders, and Shipments with strict E.164 phone sanitization, decimal MRP coercion, and JSON item parsing.
+- **Composite Primary Keys & Multi-Tenant Isolation**: Enforces tenant scoping at the DB composite key layer (`Product.sku, Product.tenant_id`) preventing cross-tenant collisions or data leakage.
+- **Real-Time Agent Queryability**: Imported catalog items and stock levels are immediately available to voice agent lookup tools.
+- **Company Data Hub UI (`/dashboard/data`)**: Dedicated management center with live metrics, entity schema requirements, downloadable CSV templates, and drag-and-drop CSV import modal with live table previews.
+
 ### Self-serve SaaS onboarding & tenant provisioning (Day 44)
+
 
 VoxFlow provides automated, zero-touch tenant onboarding:
 - **Public Signup (`/sign-up`)**: Email/password registration with language choice (`en`/`hi`) and Turnstile bot protection.

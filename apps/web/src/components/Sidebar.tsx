@@ -22,6 +22,7 @@ import {
   ClipboardCheck,
   BarChart3,
   Settings,
+  Database,
 } from "lucide-react";
 import clsx from "clsx";
 
@@ -41,6 +42,7 @@ const NAV_GROUPS = [
   {
     label: "Operations",
     items: [
+      { href: "/dashboard/data", label: "Data Hub & CSV", icon: Database },
       { href: "/dashboard/escalations", label: "Escalations", icon: AlertTriangle },
       { href: "/dashboard/orders", label: "Orders", icon: Package },
       { href: "/dashboard/shipments", label: "Shipments", icon: Truck },
@@ -50,6 +52,7 @@ const NAV_GROUPS = [
       { href: "/dashboard/communications", label: "Outbound Logs", icon: MessageSquare },
     ],
   },
+
   {
     label: "Account",
     items: [

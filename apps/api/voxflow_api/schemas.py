@@ -214,3 +214,39 @@ class WorkspaceProvisionOut(BaseModel):
     plan: str
     message: str
     stats: dict[str, int] = {}
+
+
+# ---------- Company Data Ingestion (CSV) ----------
+
+
+class CsvValidationIn(BaseModel):
+    csv_text: str = Field(..., description="Raw CSV string content to validate")
+    tenant_id: str | None = None
+
+
+class CsvImportIn(BaseModel):
+    csv_text: str = Field(..., description="Raw CSV string content to import")
+    mode: Literal["upsert", "strict"] = "upsert"
+
+
+class CsvValidationOut(BaseModel):
+    entity: str
+    total_rows: int
+    valid_rows: int
+    error_count: int
+    errors: list[dict[str, Any]] = []
+    preview: list[dict[str, Any]] = []
+    headers: list[str] = []
+    is_valid: bool
+
+
+class CsvImportOut(BaseModel):
+    success: bool
+    entity: str
+    tenant_id: str
+    inserted: int
+    updated: int
+    total_processed: int
+    message: str
+    errors: list[dict[str, Any]] = []
+

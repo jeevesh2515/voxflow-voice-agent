@@ -242,7 +242,7 @@ class Product(Base):
     __tablename__ = "products"
 
     sku: Mapped[str] = mapped_column(String(64), primary_key=True)
-    tenant_id: Mapped[str] = mapped_column(String(64), ForeignKey("tenants.id"), index=True, default="varun")
+    tenant_id: Mapped[str] = mapped_column(String(64), ForeignKey("tenants.id"), primary_key=True, default="varun")
     name: Mapped[str] = mapped_column(String(255))
     category: Mapped[str] = mapped_column(String(128))
     pack_size: Mapped[str] = mapped_column(String(64))
@@ -254,7 +254,7 @@ class Stock(Base):
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
     tenant_id: Mapped[str] = mapped_column(String(64), ForeignKey("tenants.id"), index=True, default="varun")
-    sku: Mapped[str] = mapped_column(String(64), ForeignKey("products.sku"), index=True)
+    sku: Mapped[str] = mapped_column(String(64), index=True)
     warehouse: Mapped[str] = mapped_column(String(128))
     quantity: Mapped[int] = mapped_column(Integer, default=0)
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_utcnow)

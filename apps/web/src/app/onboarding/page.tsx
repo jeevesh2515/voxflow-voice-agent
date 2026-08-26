@@ -2,10 +2,12 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+
 import { useEffect, useState } from "react";
 import { FadeUp } from "@/components/ScrollAnimations";
 import { useAuth } from "@/lib/auth-context";
 import { useTenant } from "@/lib/tenant-context";
+import CsvImportModal from "@/components/dashboard/CsvImportModal";
 
 type OnboardingData = {
   tenantId: string;
@@ -25,6 +27,7 @@ export default function OnboardingPage() {
   const { user } = useAuth();
   const { refreshTenants, setActiveTenantId } = useTenant();
   const [step, setStep] = useState<1 | 2 | 3 | 4>(1);
+  const [modalOpen, setModalOpen] = useState(false);
   const [data, setData] = useState<OnboardingData>({
     tenantId: "workspace",
     companyName: "Your Company",
@@ -32,6 +35,7 @@ export default function OnboardingPage() {
     language: "en",
     stats: { products: 3, suppliers: 1, stock_units: 190, orders: 1 },
   });
+
 
   const [agentName, setAgentName] = useState("Vaani");
   const [greeting, setGreeting] = useState("");
@@ -221,9 +225,18 @@ export default function OnboardingPage() {
                 </div>
               </div>
 
-              <div className="rounded-xl border border-[#302840]/60 bg-[#141422]/60 p-4 text-xs text-[#e8e0f0] space-y-2">
-                <div className="flex items-center gap-2 text-[#00ffcc] font-bold">
-                  <span>✓</span> Starter supply chain catalog pre-loaded
+              <div className="rounded-xl border border-[#302840]/60 bg-[#141422]/60 p-4 text-xs text-[#e8e0f0] space-y-3">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2 text-[#00ffcc] font-bold">
+                    <span>✓</span> Starter supply chain catalog pre-loaded
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setModalOpen(true)}
+                    className="text-[11px] font-mono text-[#00ffcc] hover:underline flex items-center gap-1"
+                  >
+                    <span>+ Upload Custom CSV Instead</span>
+                  </button>
                 </div>
                 <p className="text-[#a098b0] text-[11px]">
                   Your voice agent can immediately query stock levels, lookup tracking for PO-1001, and verify supplier credentials without any manual database setup.
@@ -248,6 +261,7 @@ export default function OnboardingPage() {
               </div>
             </div>
           )}
+
 
           {/* STEP 3: Live Simulator Test */}
           {step === 3 && (
@@ -327,6 +341,25 @@ export default function OnboardingPage() {
           )}
         </div>
       </FadeUp>
+
+      <CsvImportModal
+        isOpen={modalOpen}
+        onClose={() => setModalOpen(false)}
+        initialEntity="products"
+        onSuccess={() => {
+          setData((prev) => ({
+            ...prev,
+            stats: {
+              ...prev.stats,
+              products: (prev.stats?.products || 0) + 1,
+              suppliers: prev.stats?.suppliers || 1,
+              stock_units: (prev.stats?.stock_units || 0) + 50,
+              orders: prev.stats?.orders || 1,
+            },
+          }));
+        }}
+      />
     </div>
   );
 }
+

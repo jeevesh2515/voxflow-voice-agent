@@ -2,20 +2,22 @@
 
 import { useState, useMemo } from "react";
 import useSWR from "swr";
-import { Boxes, Search, ChevronDown } from "lucide-react";
+import { Boxes, Search, ChevronDown, UploadCloud } from "lucide-react";
 import { api } from "@/lib/api";
 import { useTenant } from "@/lib/tenant-context";
 import SectionCard from "@/components/dashboard/SectionCard";
 import DataTable from "@/components/dashboard/DataTable";
+import CsvImportModal from "@/components/dashboard/CsvImportModal";
 
 export default function StockPage() {
   const { activeTenantId, activeTenant } = useTenant();
-  const { data: stock, error, isLoading } = useSWR(["stock", activeTenantId], () =>
+  const { data: stock, error, isLoading, mutate } = useSWR(["stock", activeTenantId], () =>
     api.stock({ tenant_id: activeTenantId }),
   );
 
   const [search, setSearch] = useState("");
   const [warehouseFilter, setWarehouseFilter] = useState<string>("all");
+  const [modalOpen, setModalOpen] = useState(false);
 
   const warehouses = useMemo(() => {
     if (!stock) return [];
@@ -87,6 +89,13 @@ export default function StockPage() {
         icon={<Boxes size={18} className="text-[#00ffcc]" />}
         action={
           <div className="flex items-center gap-2">
+            <button
+              onClick={() => setModalOpen(true)}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-[#00ffcc]/10 hover:bg-[#00ffcc]/20 border border-[#00ffcc]/30 text-[#00ffcc] text-xs font-bold transition-colors"
+            >
+              <UploadCloud size={13} />
+              <span>Import CSV</span>
+            </button>
             <div className="relative">
               <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-[#a098b0]" />
               <input
@@ -122,14 +131,29 @@ export default function StockPage() {
             keyExtractor={(s) => `${s.warehouse}-${s.sku}`}
             loading={isLoading}
             emptyState={
-              <div className="px-4 py-12 text-center">
-                <Boxes size={32} className="mx-auto text-[#5a5068] mb-3" />
+              <div className="px-4 py-12 text-center space-y-3">
+                <Boxes size={32} className="mx-auto text-[#5a5068]" />
                 <div className="text-sm text-[#a098b0]">No stock data found for {activeTenant.name}.</div>
+                <button
+                  onClick={() => setModalOpen(true)}
+                  className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-[#00ffcc] text-[#0a0a12] text-xs font-bold"
+                >
+                  <UploadCloud size={14} />
+                  <span>Import Stock via CSV</span>
+                </button>
               </div>
             }
           />
         )}
       </SectionCard>
+
+      <CsvImportModal
+        isOpen={modalOpen}
+        onClose={() => setModalOpen(false)}
+        initialEntity="stock"
+        onSuccess={() => mutate()}
+      />
     </div>
   );
 }
+

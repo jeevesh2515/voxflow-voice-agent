@@ -6,7 +6,7 @@ import json
 from datetime import datetime, timedelta, timezone
 from typing import Any
 
-from fastapi import APIRouter, HTTPException, Query, Request
+from fastapi import APIRouter, HTTPException, Query, Request, Response
 from sqlalchemy import desc, select
 
 from ..auth import (
@@ -40,6 +40,8 @@ from ..schemas import (
     CallOut,
     CallTurn,
     CommunicationCreate,
+    CsvImportOut,
+    CsvValidationOut,
     OrderCreate,
     OrderItemIn,
     OrderOut,
@@ -51,6 +53,13 @@ from ..schemas import (
     SupplierOut,
     WorkspaceProvisionIn,
     WorkspaceProvisionOut,
+)
+from ..services.data_ingestion import (
+    ENTITY_SCHEMAS,
+    SUPPORTED_ENTITIES,
+    get_csv_template,
+    ingest_csv_data,
+    validate_csv_data,
 )
 
 
@@ -495,7 +504,15 @@ def list_stock(
 ) -> list[dict[str, Any]]:
     tenant = _tenant_id(request, tenant_id)
     with session_scope() as db:
-        stmt = select(Stock, Product).join(Product, Product.sku == Stock.sku, isouter=True).where(Stock.tenant_id == tenant)
+        stmt = (
+            select(Stock, Product)
+            .join(
+                Product,
+                (Product.sku == Stock.sku) & (Product.tenant_id == Stock.tenant_id),
+                isouter=True,
+            )
+            .where(Stock.tenant_id == tenant)
+        )
         if sku:
             stmt = stmt.where(Stock.sku == sku)
         if warehouse:
@@ -942,3 +959,173 @@ def _call_out(c: Call) -> dict[str, Any]:
         "verified": bool(c.verified),
         "recording_url": c.recording_url,
     }
+
+
+# ---------- Company Data Ingestion (CSV Import & Templates) ----------
+
+
+@router.get("/data/entities")
+def get_importable_entities() -> dict[str, Any]:
+    """Return catalog of entities supported for CSV bulk ingestion."""
+    return {
+        "entities": [
+            {
+                "id": k,
+                "description": v["description"],
+                "required_columns": v["required_columns"],
+                "optional_columns": v["optional_columns"],
+                "sample_rows": v.get("sample_rows", []),
+            }
+            for k, v in ENTITY_SCHEMAS.items()
+        ]
+    }
+
+
+@router.get("/data/templates/{entity}")
+def download_csv_template(entity: str) -> Response:
+    """Download standard CSV template for an entity."""
+    entity_key = entity.lower().strip()
+    if entity_key not in ENTITY_SCHEMAS:
+        raise HTTPException(
+            status_code=404,
+            detail=f"Unsupported entity '{entity}'. Allowed: {', '.join(SUPPORTED_ENTITIES)}",
+        )
+    csv_content = get_csv_template(entity_key)
+    return Response(
+        content=csv_content,
+        media_type="text/csv",
+        headers={
+            "Content-Disposition": f'attachment; filename="{entity_key}_template.csv"',
+            "Cache-Control": "no-cache",
+        },
+    )
+
+
+@router.post("/data/{entity}/validate", response_model=CsvValidationOut)
+async def validate_csv(
+    entity: str,
+    request: Request,
+    tenant_id: str | None = Query(None),
+) -> CsvValidationOut:
+    """Dry-run validation of CSV data before committing to the database."""
+    entity_key = entity.lower().strip()
+    if entity_key not in ENTITY_SCHEMAS:
+        raise HTTPException(
+            status_code=404,
+            detail=f"Unsupported entity '{entity}'. Allowed: {', '.join(SUPPORTED_ENTITIES)}",
+        )
+
+    content = ""
+    content_type = request.headers.get("content-type", "")
+
+    if "multipart/form-data" in content_type:
+        form = await request.form()
+        uploaded = form.get("file")
+        if uploaded is not None and hasattr(uploaded, "read"):
+            file_bytes = await uploaded.read()
+            content = file_bytes.decode("utf-8", errors="replace")
+        elif "csv_text" in form:
+            content = str(form.get("csv_text") or "")
+    elif "application/json" in content_type:
+        try:
+            body = await request.json()
+            if isinstance(body, dict):
+                content = str(body.get("csv_text") or "")
+                if not tenant_id and "tenant_id" in body:
+                    tenant_id = str(body["tenant_id"])
+        except Exception:
+            pass
+    else:
+        raw_body = await request.body()
+        content = raw_body.decode("utf-8", errors="replace")
+
+    if not content.strip():
+        raise HTTPException(status_code=400, detail="csv_content_required")
+
+    res = validate_csv_data(entity=entity_key, csv_text=content, tenant_id=tenant_id or "")
+    return CsvValidationOut(
+        entity=res.entity,
+        total_rows=res.total_rows,
+        valid_rows=res.valid_rows,
+        error_count=res.error_count,
+        errors=res.errors,
+        preview=res.preview,
+        headers=res.headers,
+        is_valid=res.is_valid,
+    )
+
+
+@router.post("/data/{entity}/import", response_model=CsvImportOut)
+async def import_csv(
+    entity: str,
+    request: Request,
+    tenant_id: str | None = Query(None),
+) -> CsvImportOut:
+    """Execute transactional bulk CSV import for the authenticated tenant."""
+    entity_key = entity.lower().strip()
+    if entity_key not in ENTITY_SCHEMAS:
+        raise HTTPException(
+            status_code=404,
+            detail=f"Unsupported entity '{entity}'. Allowed: {', '.join(SUPPORTED_ENTITIES)}",
+        )
+
+    resolved_tenant = _tenant_id(request, tenant_id, write=True)
+
+    content = ""
+    mode = "upsert"
+    content_type = request.headers.get("content-type", "")
+
+    if "multipart/form-data" in content_type:
+        form = await request.form()
+        uploaded = form.get("file")
+        if uploaded is not None and hasattr(uploaded, "read"):
+            file_bytes = await uploaded.read()
+            content = file_bytes.decode("utf-8", errors="replace")
+        elif "csv_text" in form:
+            content = str(form.get("csv_text") or "")
+        mode = str(form.get("mode") or "upsert")
+    elif "application/json" in content_type:
+        try:
+            body = await request.json()
+            if isinstance(body, dict):
+                content = str(body.get("csv_text") or "")
+                mode = str(body.get("mode") or "upsert")
+        except Exception:
+            pass
+    else:
+        raw_body = await request.body()
+        content = raw_body.decode("utf-8", errors="replace")
+
+    if not content.strip():
+        raise HTTPException(status_code=400, detail="csv_content_required")
+
+    with session_scope() as db:
+        res = ingest_csv_data(
+            db=db,
+            entity=entity_key,
+            csv_text=content,
+            tenant_id=resolved_tenant,
+            mode=mode,
+        )
+
+    if not res.success and res.errors:
+        raise HTTPException(
+            status_code=422,
+            detail={
+                "message": res.message,
+                "errors": res.errors,
+                "total_processed": res.total_processed,
+            },
+        )
+
+    return CsvImportOut(
+        success=res.success,
+        entity=res.entity,
+        tenant_id=res.tenant_id,
+        inserted=res.inserted,
+        updated=res.updated,
+        total_processed=res.total_processed,
+        message=res.message,
+        errors=res.errors,
+    )
+

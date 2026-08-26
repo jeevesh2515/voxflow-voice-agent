@@ -2,21 +2,23 @@
 
 import { useState, useMemo } from "react";
 import useSWR from "swr";
-import { Truck, Search } from "lucide-react";
+import { Truck, Search, UploadCloud } from "lucide-react";
 import { api } from "@/lib/api";
 import { fmtRelative, statusBg, statusColor } from "@/lib/format";
 import { useTenant } from "@/lib/tenant-context";
 import type { Shipment } from "@/lib/types";
 import SectionCard from "@/components/dashboard/SectionCard";
 import DataTable from "@/components/dashboard/DataTable";
+import CsvImportModal from "@/components/dashboard/CsvImportModal";
 
 export default function ShipmentsPage() {
   const { activeTenantId, activeTenant } = useTenant();
-  const { data: shipments, error, isLoading } = useSWR(["shipments", activeTenantId], () =>
+  const { data: shipments, error, isLoading, mutate } = useSWR(["shipments", activeTenantId], () =>
     api.shipments(undefined, activeTenantId),
   );
 
   const [search, setSearch] = useState("");
+  const [modalOpen, setModalOpen] = useState(false);
 
   const filteredShipments = useMemo(() => {
     if (!shipments) return [];
@@ -85,15 +87,24 @@ export default function ShipmentsPage() {
         subtitle={`${activeTenant.name} · ${shipments?.length ?? 0} active`}
         icon={<Truck size={18} className="text-[#00ffcc]" />}
         action={
-          <div className="relative">
-            <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-[#a098b0]" />
-            <input
-              type="text"
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              placeholder="Search shipments..."
-              className="pl-9 pr-4 py-2 rounded-lg bg-[#0a0a12] border border-[#302840] text-xs text-[#e8e0f0] placeholder-[#5a5068] focus:outline-none focus:border-[#00ffcc]/50 w-48"
-            />
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => setModalOpen(true)}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-[#00ffcc]/10 hover:bg-[#00ffcc]/20 border border-[#00ffcc]/30 text-[#00ffcc] text-xs font-bold transition-colors"
+            >
+              <UploadCloud size={13} />
+              <span>Import CSV</span>
+            </button>
+            <div className="relative">
+              <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-[#a098b0]" />
+              <input
+                type="text"
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                placeholder="Search shipments..."
+                className="pl-9 pr-4 py-2 rounded-lg bg-[#0a0a12] border border-[#302840] text-xs text-[#e8e0f0] placeholder-[#5a5068] focus:outline-none focus:border-[#00ffcc]/50 w-48"
+              />
+            </div>
           </div>
         }
       >
@@ -106,14 +117,29 @@ export default function ShipmentsPage() {
             keyExtractor={(s) => s.id}
             loading={isLoading}
             emptyState={
-              <div className="px-4 py-12 text-center">
-                <Truck size={32} className="mx-auto text-[#5a5068] mb-3" />
+              <div className="px-4 py-12 text-center space-y-3">
+                <Truck size={32} className="mx-auto text-[#5a5068]" />
                 <div className="text-sm text-[#a098b0]">No shipments found for {activeTenant.name}.</div>
+                <button
+                  onClick={() => setModalOpen(true)}
+                  className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-[#00ffcc] text-[#0a0a12] text-xs font-bold shadow-lg"
+                >
+                  <UploadCloud size={14} />
+                  <span>Import Shipments via CSV</span>
+                </button>
               </div>
             }
           />
         )}
       </SectionCard>
+
+      <CsvImportModal
+        isOpen={modalOpen}
+        onClose={() => setModalOpen(false)}
+        initialEntity="shipments"
+        onSuccess={() => mutate()}
+      />
     </div>
   );
 }
+

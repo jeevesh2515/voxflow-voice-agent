@@ -2,19 +2,21 @@
 
 import { useState, useMemo } from "react";
 import useSWR from "swr";
-import { Users, Search } from "lucide-react";
+import { Users, Search, UploadCloud } from "lucide-react";
 import { api } from "@/lib/api";
 import { useTenant } from "@/lib/tenant-context";
 import SectionCard from "@/components/dashboard/SectionCard";
 import DataTable from "@/components/dashboard/DataTable";
+import CsvImportModal from "@/components/dashboard/CsvImportModal";
 
 export default function SuppliersPage() {
   const { activeTenantId, activeTenant } = useTenant();
-  const { data: suppliers, error, isLoading } = useSWR(["suppliers", activeTenantId], () =>
+  const { data: suppliers, error, isLoading, mutate } = useSWR(["suppliers", activeTenantId], () =>
     api.suppliers(undefined, activeTenantId),
   );
 
   const [search, setSearch] = useState("");
+  const [modalOpen, setModalOpen] = useState(false);
 
   const filteredSuppliers = useMemo(() => {
     if (!suppliers) return [];
@@ -73,15 +75,24 @@ export default function SuppliersPage() {
         subtitle={`${activeTenant.name} · ${suppliers?.length ?? 0} total`}
         icon={<Users size={18} className="text-[#ffe04a]" />}
         action={
-          <div className="relative">
-            <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-[#a098b0]" />
-            <input
-              type="text"
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              placeholder="Search suppliers..."
-              className="pl-9 pr-4 py-2 rounded-lg bg-[#0a0a12] border border-[#302840] text-xs text-[#e8e0f0] placeholder-[#5a5068] focus:outline-none focus:border-[#ffe04a]/50 w-48"
-            />
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => setModalOpen(true)}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-[#ffe04a]/10 hover:bg-[#ffe04a]/20 border border-[#ffe04a]/30 text-[#ffe04a] text-xs font-bold transition-colors"
+            >
+              <UploadCloud size={13} />
+              <span>Import CSV</span>
+            </button>
+            <div className="relative">
+              <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-[#a098b0]" />
+              <input
+                type="text"
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                placeholder="Search suppliers..."
+                className="pl-9 pr-4 py-2 rounded-lg bg-[#0a0a12] border border-[#302840] text-xs text-[#e8e0f0] placeholder-[#5a5068] focus:outline-none focus:border-[#ffe04a]/50 w-48"
+              />
+            </div>
           </div>
         }
       >
@@ -94,14 +105,29 @@ export default function SuppliersPage() {
             keyExtractor={(s) => s.id}
             loading={isLoading}
             emptyState={
-              <div className="px-4 py-12 text-center">
-                <Users size={32} className="mx-auto text-[#5a5068] mb-3" />
+              <div className="px-4 py-12 text-center space-y-3">
+                <Users size={32} className="mx-auto text-[#5a5068]" />
                 <div className="text-sm text-[#a098b0]">No registered suppliers for {activeTenant.name}.</div>
+                <button
+                  onClick={() => setModalOpen(true)}
+                  className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-[#ffe04a] text-[#0a0a12] text-xs font-bold shadow-lg"
+                >
+                  <UploadCloud size={14} />
+                  <span>Import Suppliers via CSV</span>
+                </button>
               </div>
             }
           />
         )}
       </SectionCard>
+
+      <CsvImportModal
+        isOpen={modalOpen}
+        onClose={() => setModalOpen(false)}
+        initialEntity="suppliers"
+        onSuccess={() => mutate()}
+      />
     </div>
   );
 }
+

@@ -13,8 +13,8 @@
 
 <p align="center">
   <img src="https://img.shields.io/badge/CI%2FCD-100%25%20PASSING-success?style=for-the-badge&logo=githubactions&logoColor=white&labelColor=111827" alt="CI Status" />
-  <img src="https://img.shields.io/badge/TESTS-295%20PASSED-10B981?style=for-the-badge&logo=pytest&logoColor=white&labelColor=111827" alt="295 Pytest Tests Passed" />
-  <img src="https://img.shields.io/badge/FRONTEND-24%20ROUTES-6366F1?style=for-the-badge&logo=nextdotjs&logoColor=white&labelColor=111827" alt="24 Next.js Routes" />
+  <img src="https://img.shields.io/badge/TESTS-305%20PASSED-10B981?style=for-the-badge&logo=pytest&logoColor=white&labelColor=111827" alt="305 Pytest Tests Passed" />
+  <img src="https://img.shields.io/badge/FRONTEND-25%20ROUTES-6366F1?style=for-the-badge&logo=nextdotjs&logoColor=white&labelColor=111827" alt="25 Next.js Routes" />
   <img src="https://img.shields.io/badge/VOICE-ENGLISH%20%28UK%29%20%2B%20HINDI-F97316?style=for-the-badge&labelColor=111827" alt="English (UK) + Hindi Multilingual" />
 </p>
 
@@ -53,6 +53,7 @@ Supply chain and logistics enterprises handle tens of thousands of repetitive, t
 | Problem in Operations Today | VoxFlow Solution |
 |---|---|
 | **High Call Center Overhead**: Operations teams spend 40% of their day answering status check calls. | **Autonomous Voice Agent**: Resolves PO inquiries, stock checks, and dock scheduling with zero human intervention. |
+| **Data Ingestion Friction**: Manual entry of thousands of SKUs and orders delays deployment for weeks. | **Streaming CSV Ingestion Engine**: Instant RFC-4180 upload with pre-flight dry-run validation and transactional upserts. |
 | **Language & Dialect Adaptability**: Multi-region drivers and suppliers communicate across regional UK & global dialects. | **Adaptive Speech & Neural Voice Intelligence**: Amazon Lex V2 STT, Groq Whisper Turbo, and Polly/Edge neural speech. |
 | **Data Silos & Delayed Data Entry**: Call outcomes are lost in spreadsheets or updated hours after the call ends. | **Real-Time Data Write-Back**: Idempotent synchronization directly into Google Sheets, PostgreSQL, and ERP databases. |
 | **Legacy IVR Friction**: Keypad DTMF menus frustrate drivers and delay operational updates. | **Conversational Voice AI**: Spoken natural language understanding powered by **Amazon Connect + Amazon Lex V2**. |
@@ -72,7 +73,7 @@ VoxFlow is a **turn-based voice pipeline** engineered for sub-second, natural co
 The pipeline is continuously validated by an automated, high-precision latency harness (`scripts/benchmark_latency.py`) measuring Time to First Token (TTFT), inter-token latency (ITL), and Time to First Byte (TTFB):
 
 | Pipeline Stage | Tech Stack | Samples | Min | Mean | **P50 (Median)** | **P90** | **P99** | Key Telemetry / Throughput |
-| :--- | :--- | :---: | :---: | :---: | :---: | :---: | :---: | :--- |
+| :--- | :--- | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :--- |
 | **1. Speech-to-Text (STT)** | `Groq Whisper Turbo` / `Lex V2` | 5 | 167.8ms | 188.5ms | **187.9ms** | 209.5ms | 215.2ms | **RTF 0.125** (8.0x faster than real-time) |
 | **2. LLM Reasoning & TTFT** | `Groq openai/gpt-oss-20b` | 5 | 121.2ms | 144.8ms | **148.0ms** | 166.2ms | 173.5ms | **131.8 tokens/sec** · 7.59ms ITL |
 | **3. Audio Synthesis (TTS)** | `Amazon Polly` / `Edge-TTS` | 5 | 233.8ms | 301.6ms | **297.3ms** | 361.1ms | 374.6ms | **153.0ms TTFB** · Chunked streaming |
@@ -98,50 +99,55 @@ Detailed telemetry exports are persisted to [`BENCHMARK_REPORT.md`](BENCHMARK_RE
 
 ```mermaid
 flowchart TB
-    subgraph Carriers["🌐 Voice Ingestion & Telephony Layer"]
-        AWS["📞 Amazon Connect (AWS)<br/>Enterprise Contact Center & DIDs"]
-        WEB["💻 In-Browser Simulator<br/>Interactive Mic & WebAudio"]
+    subgraph Telephony["📞 Inbound Telephony Layer"]
+        PSTN["Inbound PSTN Call"] --> Connect["Amazon Connect Contact Center\n(en-GB / Multilingual)"]
+        Connect --> Lambda["AWS Lambda Bridge\n(HMAC-SHA256 Auth)"]
+        WebMic["Web Audio Simulator\n(Interactive Browser Mic)"] --> WebWS["FastAPI WebAudio WS\n/api/connect/turn"]
     end
 
-    subgraph Streaming["⚡ Cloud Gateway & Auth Layer"]
-        LMB["AWS Lambda Bridge<br/>HMAC-SHA256 Signed Turns"]
-        WSS["WSS Audio Pipeline<br/>G.711 μ-law · VAD · Barge-in"]
-        CAD["Caddy Reverse Proxy<br/>Automated Let's Encrypt TLS"]
+    subgraph CoreEngine["⚡ Real-Time Voice Pipeline (<600ms Glass-to-Glass)"]
+        Lambda --> FastAPITurn["FastAPI Voice Gateway\nPOST /api/connect/turn"]
+        FastAPITurn --> LexSTT["Amazon Lex V2 / Whisper\nStreaming STT"]
+        LexSTT --> AgentRunner["AgentRunner\nBilingual System Context"]
+        AgentRunner --> LLMGroq["Groq openai/gpt-oss-20b\n~130 tokens/sec & TTFT 148ms"]
+        LLMGroq --> PollyTTS["Amazon Polly Neural TTS\nAmy / Brian en-GB"]
+        PollyTTS --> FastAPITurn
     end
 
-    subgraph Intelligence["🧠 Core AI Reasoning & Voice Engine"]
-        STT["🎙️ Amazon Lex V2 & Groq Whisper<br/>Streaming Neural Speech Recognition"]
-        LLM["🤖 Groq & LLM Tool-Calling<br/>Autonomous AgentRunner Engine"]
-        TTS["🔊 Amazon Polly & Edge-TTS<br/>Neural en-GB Amy / Sonia Speech"]
+    subgraph DataIngestion["📂 Bulk Company Data Hub & CSV Engine"]
+        CSVUpload["CSV Drag & Drop / Upload"] --> CSVValidator["Streaming DictReader Parser\nPre-Flight Dry-Run Validation"]
+        CSVValidator --> UpsertEngine["Atomic Upsert Engine\nMulti-Tenant Composite Keys"]
+        UpsertEngine --> TenantDB
     end
 
-    subgraph Tools["⚙️ Durable Operational Tool Layer"]
-        T1["📦 PO Status & Tracking"]
-        T2["📊 Stock Inventory Check"]
-        T3["📅 Dock Appointment Scheduler"]
-        T4["🚨 Supervisor Escalation Engine"]
+    subgraph Tools["🛠️ Tool Dispatch & Orchestration Engine"]
+        AgentRunner --> ToolExec["Tool Dispatch Layer"]
+        ToolExec --> CheckStock["check_stock\n(Multi-warehouse bin levels)"]
+        ToolExec --> OrderStatus["get_order_status\n(PO confirmation & status)"]
+        ToolExec --> ShipStatus["get_shipment_status\n(Waybill & Carrier tracking)"]
+        ToolExec --> ScheduleDock["schedule_appointment\n(Dock booking & conflict checks)"]
+        ToolExec --> Escalations["escalate_to_human\n(Priority queue & summaries)"]
     end
 
-    subgraph Storage["🗄️ Persistence & Enterprise Workspaces"]
-        PG["🐘 Supabase PostgreSQL<br/>Dual Engine (Sync + Async)"]
-        GS["📑 Live Google Sheets Sync<br/>Idempotent Queue Relay"]
-        DASH["🖥️ Next.js 16 SaaS Dashboard<br/>24 Interactive Routes"]
+    subgraph Storage["🗄️ Persistence & Enterprise Mirroring Layer"]
+        CheckStock --> TenantDB[("PostgreSQL / SQLite\nComposite Keys (sku, tenant_id)")]
+        OrderStatus --> TenantDB
+        ShipStatus --> TenantDB
+        ScheduleDock --> TenantDB
+        Escalations --> TenantDB
+        FastAPITurn --> PostgresCalls[("Postgres calls Table\nlatency_ms & turn logs")]
+        FastAPITurn --> OutboxQueue["Transactional JobOutbox\n(Zero-Lost-Turn Ledger)"]
+        OutboxQueue --> SheetsWorker["Google Sheets Worker\n(Async Idempotent Mirror)"]
+        SheetsWorker --> GSheets["📊 Live Google Sheets Spreadsheet"]
     end
 
-    AWS --> LMB --> CAD
-    WEB --> WSS --> CAD
+    FastAPITurn --> Lambda
+    Lambda --> Connect
+    Connect --> PSTN
 
-    CAD --> STT --> LLM --> TTS
-    LMB --> LLM
-    LLM --> Tools
-
-    Tools --> PG
-    Tools --> GS
-    PG --> DASH
-
-    style Carriers fill:#1E293B,stroke:#38BDF8,color:#F8FAFC
-    style Streaming fill:#0F172A,stroke:#818CF8,color:#F8FAFC
-    style Intelligence fill:#134E4A,stroke:#2DD4BF,color:#F8FAFC
+    style Telephony fill:#1E293B,stroke:#0284C7,color:#F8FAFC
+    style CoreEngine fill:#0F172A,stroke:#10B981,color:#F8FAFC
+    style DataIngestion fill:#0D2818,stroke:#059669,color:#F8FAFC
     style Tools fill:#312E81,stroke:#A78BFA,color:#F8FAFC
     style Storage fill:#1C1917,stroke:#F59E0B,color:#F8FAFC
 ```
@@ -150,7 +156,7 @@ flowchart TB
 
 ## 🏢 Automated Self-Serve SaaS Provisioning & Onboarding
 
-Day 44 transforms VoxFlow from an operator-provisioned internal tool into a **fully automated, self-serve multi-tenant B2B SaaS platform**. Any business or supply chain manager can sign up online, get an instantly provisioned tenant workspace with owner membership and starter catalog, and complete a 4-step onboarding wizard.
+VoxFlow features a **fully automated, self-serve multi-tenant B2B SaaS platform**. Any business or supply chain manager can sign up online, get an instantly provisioned tenant workspace with owner membership and starter catalog, and complete a 4-step onboarding wizard.
 
 ```mermaid
 flowchart TD
@@ -175,6 +181,34 @@ flowchart TD
 
 ---
 
+## 📂 Bulk Company Data Hub & Streaming CSV Ingestion Engine
+
+VoxFlow allows businesses to immediately bulk-populate their operational data across 5 core supply chain entities with zero manual coding.
+
+```mermaid
+flowchart LR
+    CSV[RFC-4180 CSV / Text Payload] --> Stream[Streaming DictReader Parser]
+    Stream --> Val[Dry-Run Schema Validator\nPer-Row Type Coercion & Bounds]
+    Val -- Invalid --> ErrReport[Structured Error Report\nRow, Column, Reason]
+    Val -- Valid --> Upsert[Atomic Transactional Upsert Engine]
+    Upsert --> TenantDB[(Tenant-Scoped Database\nComposite PK: sku, tenant_id)]
+    TenantDB --> Tools[Real-Time Voice Agent Tools\ncheck_stock, get_order_status]
+```
+
+- **Streaming RFC-4180 Ingestion**: Memory-bounded processing for high-volume catalogs and stock level matrices.
+- **5 Core Entity Schemas**:
+  - `products`: `sku` (PK), `name`, `category`, `pack_size`, `mrp_inr`
+  - `stock`: `sku`, `warehouse`, `quantity` ($\ge 0$)
+  - `suppliers`: `name`, `phone` (E.164 sanitization), `contact_person`, `gstin`, `auth_pin`
+  - `orders`: `id`, `supplier_id`, `status`, `customer_po_ref`, `total_qty`, `items` (JSON)
+  - `shipments`: `id`, `order_id`, `status`, `carrier`, `tracking_no`, `expected_delivery`
+- **Pre-Flight Dry-Run Validation**: `POST /api/data/{entity}/validate` validates headers, field types, and formats before committing changes.
+- **Atomic Transactional Rollback**: An error on row 49 of 50 safely rolls back the entire batch to preserve database integrity.
+- **Zero-Leak Tenant Isolation**: Composite primary keys `(sku, tenant_id)` strictly isolate data per company workspace.
+- **Real-Time Voice Agent Lookups**: Newly imported records are queryable by the AI voice agent in real-time.
+
+---
+
 ## ⚡ Core Platform Capabilities
 
 ### 1. 🎙️ Natural Multilingual Voice Intelligence
@@ -196,7 +230,7 @@ flowchart TD
 ### 4. 🏢 Multi-Tenant SaaS Workspace & Self-Serve Provisioning
 - **Instant Tenant Onboarding**: Self-serve registration with automatic tenant slug generation, owner membership provisioning, and starter supply-chain data seeding.
 - **Organization & Role-Based Isolation**: Distinct workspaces for individual companies with dedicated phone numbers and isolated data partitions.
-- **Full Operational Dashboard**: 24 compiled Next.js routes covering Calls, Escalations, Appointments, Inventory, Shipments, Campaigns, and Web-based Call Simulators.
+- **Full Operational Dashboard**: 25 compiled Next.js routes covering Calls, Escalations, Appointments, Inventory, Shipments, Data Hub & CSV, Campaigns, and Web-based Call Simulators.
 
 ---
 
@@ -259,7 +293,7 @@ npm run dev
 Run all automated test suites locally:
 
 ```bash
-# 1. Run full backend test suite (295 unit, integration & resilience tests)
+# 1. Run full backend test suite (305 unit, integration & resilience tests)
 cd apps/api
 pytest tests/ -v
 

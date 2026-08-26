@@ -2,22 +2,24 @@
 
 import { useState, useMemo } from "react";
 import useSWR from "swr";
-import { Package, Search, ChevronDown } from "lucide-react";
+import { Package, Search, ChevronDown, UploadCloud } from "lucide-react";
 import { api } from "@/lib/api";
 import { fmtRelative, statusBg, statusColor } from "@/lib/format";
 import { useTenant } from "@/lib/tenant-context";
 import type { Order, OrderItem } from "@/lib/types";
 import SectionCard from "@/components/dashboard/SectionCard";
 import DataTable from "@/components/dashboard/DataTable";
+import CsvImportModal from "@/components/dashboard/CsvImportModal";
 
 export default function OrdersPage() {
   const { activeTenantId, activeTenant } = useTenant();
-  const { data: orders, error, isLoading } = useSWR(["orders", activeTenantId], () =>
+  const { data: orders, error, isLoading, mutate } = useSWR(["orders", activeTenantId], () =>
     api.orders({ tenant_id: activeTenantId }),
   );
 
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("all");
+  const [modalOpen, setModalOpen] = useState(false);
 
   const statuses = useMemo(() => {
     if (!orders) return [];
@@ -87,6 +89,13 @@ export default function OrdersPage() {
         icon={<Package size={18} className="text-[#ff2d78]" />}
         action={
           <div className="flex items-center gap-2">
+            <button
+              onClick={() => setModalOpen(true)}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-[#ff2d78]/10 hover:bg-[#ff2d78]/20 border border-[#ff2d78]/30 text-[#ff2d78] text-xs font-bold transition-colors"
+            >
+              <UploadCloud size={13} />
+              <span>Import CSV</span>
+            </button>
             <div className="relative">
               <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-[#a098b0]" />
               <input
@@ -122,14 +131,29 @@ export default function OrdersPage() {
             keyExtractor={(o) => o.id}
             loading={isLoading}
             emptyState={
-              <div className="px-4 py-12 text-center">
-                <Package size={32} className="mx-auto text-[#5a5068] mb-3" />
+              <div className="px-4 py-12 text-center space-y-3">
+                <Package size={32} className="mx-auto text-[#5a5068]" />
                 <div className="text-sm text-[#a098b0]">No orders logged for {activeTenant.name}.</div>
+                <button
+                  onClick={() => setModalOpen(true)}
+                  className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-[#ff2d78] text-white text-xs font-bold shadow-lg"
+                >
+                  <UploadCloud size={14} />
+                  <span>Import Orders via CSV</span>
+                </button>
               </div>
             }
           />
         )}
       </SectionCard>
+
+      <CsvImportModal
+        isOpen={modalOpen}
+        onClose={() => setModalOpen(false)}
+        initialEntity="orders"
+        onSuccess={() => mutate()}
+      />
     </div>
   );
 }
+

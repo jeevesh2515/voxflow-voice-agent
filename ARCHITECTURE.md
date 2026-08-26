@@ -1,8 +1,9 @@
 # VoxFlow Architecture
 
-**Last updated:** 2026-08-25  
-**Current milestone:** **Phase 10 Self-Serve SaaS Onboarding & UK Telephony complete.** 295 backend tests passing, 24 compiled frontend routes, Oracle Cloud Always-Free ARM VM containerized architecture with Caddy auto-TLS reverse proxy, and high-precision latency & TTFT benchmarking harness. Comprehensive day-by-day implementation tracking is recorded in [`DAY_TRACKER.md`](DAY_TRACKER.md).  
-**Operating mode:** Inbound voice, self-serve tenant onboarding, and dashboard functions are deployed. Campaign dispatch and operational side-effect workers are independently safe-staged; Day 35 admission and Day 36 current-version evidence are both fail-closed with an empty tenant allow-list.
+**Last updated:** 2026-08-26  
+**Current milestone:** **Phase 10 Bulk Company Data Ingestion, Self-Serve SaaS Onboarding & UK Telephony complete.** 305 backend tests passing, 25 compiled frontend routes, Oracle Cloud Always-Free ARM VM containerized architecture with Caddy auto-TLS reverse proxy, and high-precision latency & TTFT benchmarking harness. Comprehensive day-by-day implementation tracking is recorded in [`DAY_TRACKER.md`](DAY_TRACKER.md).  
+**Operating mode:** Inbound voice, self-serve tenant onboarding, bulk data ingestion engine, and dashboard functions are deployed. Campaign dispatch and operational side-effect workers are independently safe-staged; Day 35 admission and Day 36 current-version evidence are both fail-closed with an empty tenant allow-list.
+
 
 ## 1. System boundaries
 
@@ -251,20 +252,45 @@ dry_run=true
 
 These settings are a deliberate layered control, not a missing feature. An internal canary must use a dedicated worker process, explicit tenant allow-list, dry-run evidence, tenant policy configuration, consented test target, concurrency one, monitoring, and a rollback owner. The dashboard’s `Launch Campaign` control does not bypass the worker gate or invoke the provider inline.
 
-## 10. Engineering quality gates
+## 10. Bulk Company Data Ingestion Subsystem
+
+The bulk ingestion subsystem lives in `apps/api/voxflow_api/services/data_ingestion.py` and `routes/data.py`.
+
+```mermaid
+flowchart LR
+    CSV[RFC-4180 CSV / Text Payload] --> Stream[Streaming DictReader Parser]
+    Stream --> Val[Dry-Run Schema Validator\nPer-Row Type Coercion & Bounds]
+    Val -- Invalid --> ErrReport[Structured Error Report\nRow, Column, Reason]
+    Val -- Valid --> Upsert[Atomic Transactional Upsert Engine]
+    Upsert --> TenantDB[(Tenant-Scoped SQLite / PostgreSQL\nComposite PK sku, tenant_id)]
+    TenantDB --> Tools[Real-Time Voice Agent Tools\ncheck_stock, execute_tool]
+```
+
+- **Streaming DictReader**: Memory-bounded line-by-line processing supporting large product and stock matrices.
+- **5 Core Model Schemas**: Products, Stock, Suppliers, Purchase Orders, and Shipments with strict E.164 phone sanitization, decimal MRP coercion, and JSON item parsing.
+- **Pre-Flight Validation**: `POST /api/data/{entity}/validate` dry-runs all validations before mutating tables.
+- **Composite Primary Keys & Multi-Tenant Isolation**: Enforces tenant scoping at the DB composite key layer (`Product.sku, Product.tenant_id`) preventing cross-tenant leakage.
+- **Real-Time Agent Queryability**: Imported catalog items and stock levels are immediately available to voice agent lookup tools.
+
+## 11. Engineering quality gates
 
 | Surface | Command | Verified Outcome |
 |---|---|---|
-| Backend lint | `cd apps/api && .venv/bin/ruff check voxflow_api tests` | Clean (0 errors) |
-| Backend tests | `cd apps/api && .venv/bin/pytest -q` | **295 passed** (in 113.4s) |
+| Backend lint | `cd apps/api && ruff check voxflow_api tests` | Clean (0 errors) |
+| Backend tests | `cd apps/api && pytest -q` | **305 passed** (in 106.3s) |
 | Latency benchmark harness | `python3 scripts/benchmark_latency.py` | Verified P50/P90/P99 latency distributions |
 | Frontend lint | `npm run lint --workspace=apps/web` | Clean (0 errors) |
-| Frontend production build | `npm run build --workspace=apps/web` | **24 static compiled routes** (Turbopack) |
+| Frontend production build | `npm run build --workspace=apps/web` | **25 static compiled routes** (Turbopack) |
 | Live job posture | `GET /api/jobs/health?tenant_id=varun` | Staged / safe |
 
-At the current delivery point, the backend suite has **295 passing tests**, API lint is clean, and the frontend production build generates 24 routes cleanly. GitHub CI validates API lint, API test, and web lint/build on every `main` delivery. Detailed historical day-by-day logs are available in [`DAY_TRACKER.md`](DAY_TRACKER.md).
+At the current delivery point, the backend suite has **305 passing tests**, API lint is clean, and the frontend production build generates 25 routes cleanly. GitHub CI validates API lint, API test, and web lint/build on every `main` delivery. Detailed historical day-by-day logs are available in [`DAY_TRACKER.md`](DAY_TRACKER.md).
 
 ## References
+
+- `DAY_TRACKER.md` (Master Day-Wise Implementation Tracker)
+- `apps/api/voxflow_api/services/data_ingestion.py`
+- `apps/api/voxflow_api/routes/data.py`
+
 
 - `DAY_TRACKER.md` (Master Day-Wise Implementation Tracker)
 - `BENCHMARK_REPORT.md` (Reproducible Latency & TTFT Benchmark Telemetry)

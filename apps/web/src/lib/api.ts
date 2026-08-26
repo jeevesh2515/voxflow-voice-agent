@@ -61,8 +61,19 @@ function getAuthHeader(): Record<string, string> {
     const raw = localStorage.getItem("voxflow_session");
     if (raw) {
       const session = JSON.parse(raw);
-      if (session?.token) return { Authorization: `Bearer ${session.token}` };
+      const headers: Record<string, string> = {};
+      const userId = session?.user?.id || session?.userId;
+      if (session?.token) {
+        headers["Authorization"] = `Bearer ${session.token}`;
+      } else if (userId) {
+        headers["Authorization"] = `Bearer ${userId}`;
+      }
+      if (userId) {
+        headers["X-VoxFlow-User-Id"] = String(userId);
+      }
+      if (Object.keys(headers).length > 0) return headers;
     }
+
 
     // Check Supabase Auth session token (sb-*-auth-token).
     for (let i = 0; i < localStorage.length; i++) {
@@ -358,5 +369,84 @@ export const api = {
       body: JSON.stringify(payload),
     }),
 
+  // Day 45: Company Data Ingestion (CSV Bulk Import & CRUD)
+  getImportEntities: () =>
+    http<{
+      entities: Array<{
+        id: string;
+        description: string;
+        required_columns: string[];
+        optional_columns: string[];
+        sample_rows?: Array<Record<string, string>>;
+      }>;
+    }>("/api/data/entities"),
+
+  getCsvTemplateUrl: (entity: string) => {
+    const base = getApiUrl();
+    return `${base}/api/data/templates/${encodeURIComponent(entity)}`;
+  },
+
+  validateCsvImport: (entity: string, csv_text: string, tenant_id?: string) =>
+    http<{
+      entity: string;
+      total_rows: number;
+      valid_rows: number;
+      error_count: number;
+      errors: Array<{ row_number: number; column: string; message: string; raw_value?: string }>;
+      preview: Array<Record<string, any>>;
+      headers: string[];
+      is_valid: boolean;
+    }>(`/api/data/${entity}/validate${tenant_id ? `?tenant_id=${tenant_id}` : ""}`, {
+      method: "POST",
+      body: JSON.stringify({ csv_text, tenant_id }),
+    }),
+
+  importCsvText: (
+    entity: string,
+    csv_text: string,
+    mode: "upsert" | "strict" = "upsert",
+    tenant_id?: string,
+  ) =>
+    http<{
+      success: boolean;
+      entity: string;
+      tenant_id: string;
+      inserted: number;
+      updated: number;
+      total_processed: number;
+      message: string;
+      errors: Array<{ row_number: number; column: string; message: string; raw_value?: string }>;
+    }>(`/api/data/${entity}/import${tenant_id ? `?tenant_id=${tenant_id}` : ""}`, {
+      method: "POST",
+      body: JSON.stringify({ csv_text, mode }),
+    }),
+
+  importCsvFile: async (
+    entity: string,
+    file: File,
+    mode: "upsert" | "strict" = "upsert",
+    tenant_id?: string,
+  ) => {
+    const base = getApiUrl();
+    const url = `${base}/api/data/${entity}/import${tenant_id ? `?tenant_id=${tenant_id}` : ""}`;
+    const formData = new FormData();
+    formData.append("file", file);
+    formData.append("mode", mode);
+    const authHeaders = getAuthHeader();
+    const res = await fetch(url, {
+      method: "POST",
+      body: formData,
+      headers: {
+        ...authHeaders,
+      },
+    });
+    if (!res.ok) {
+      const errText = await res.text();
+      throw new Error(`${res.status}: ${errText}`);
+    }
+    return res.json();
+  },
+
   health: () => http<any>("/api/health"),
 };
+

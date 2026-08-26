@@ -53,6 +53,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           });
         } else if (mounted) {
           try {
+            const customSession = localStorage.getItem("voxflow_session");
+            if (customSession) {
+              const parsed = JSON.parse(customSession);
+              if (parsed?.user) {
+                setUser({
+                  id: parsed.user.id,
+                  email: parsed.user.email || "",
+                  name: parsed.user.name || parsed.user.user_metadata?.full_name || parsed.user.email?.split("@")[0],
+                  tenant_id: parsed.user.tenant_id || "varun",
+                });
+                return;
+              }
+            }
             const saved = localStorage.getItem("voxflow_demo_user");
             if (saved) {
               setUser(JSON.parse(saved));
@@ -81,6 +94,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         });
       } else {
         try {
+          const customSession = localStorage.getItem("voxflow_session");
+          if (customSession) {
+            const parsed = JSON.parse(customSession);
+            if (parsed?.user) {
+              setUser({
+                id: parsed.user.id,
+                email: parsed.user.email || "",
+                name: parsed.user.name || parsed.user.user_metadata?.full_name || parsed.user.email?.split("@")[0],
+                tenant_id: parsed.user.tenant_id || "varun",
+              });
+              setLoading(false);
+              return;
+            }
+          }
           const saved = localStorage.getItem("voxflow_demo_user");
           if (!saved) setUser(null);
         } catch {
@@ -89,6 +116,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
       setLoading(false);
     });
+
 
     return () => {
       mounted = false;
