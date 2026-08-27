@@ -159,22 +159,27 @@ def seed(reset: bool = False) -> None:
     # `PRAGMA foreign_keys=ON` is issued per connection. The seed was already
     # wrong on SQLite; only Postgres bothered to say so.
     with session_scope() as db:
-        if db.query(Tenant).count() == 0:
-            for t in TENANTS:
+        added_tenants = 0
+        for t in TENANTS:
+            if not db.get(Tenant, t["id"]):
                 db.add(Tenant(**t))
-            log.info("seed.tenants", count=len(TENANTS))
+                added_tenants += 1
+        if added_tenants:
+            log.info("seed.tenants", count=added_tenants)
 
     # ---- Stage 2: products + suppliers (need committed tenants) -----------
     with session_scope() as db:
-        if db.query(Product).count() == 0:
-            for tid, prods in TENANT_PRODUCTS.items():
-                for p in prods:
+        for tid, prods in TENANT_PRODUCTS.items():
+            for p in prods:
+                existing_p = db.query(Product).filter(Product.tenant_id == tid, Product.sku == p["sku"]).first()
+                if not existing_p:
                     db.add(Product(tenant_id=tid, **p))
-            log.info("seed.products")
+        log.info("seed.products")
 
-        if db.query(Supplier).count() == 0:
-            for tid, sups in TENANT_SUPPLIERS.items():
-                for s in sups:
+        for tid, sups in TENANT_SUPPLIERS.items():
+            for s in sups:
+                existing_s = db.query(Supplier).filter(Supplier.tenant_id == tid, Supplier.id == s["id"]).first()
+                if not existing_s:
                     db.add(
                         Supplier(
                             tenant_id=tid,
@@ -184,99 +189,76 @@ def seed(reset: bool = False) -> None:
                             **s,
                         )
                     )
-            log.info("seed.suppliers")
+        log.info("seed.suppliers")
 
     # ---- Stage 3: stock (stock.sku is a FK to products.sku) ---------------
     with session_scope() as db:
-        if db.query(Stock).count() == 0:
-            warehouses = ["Gurgaon-WH1", "Noida-WH2", "Delhi-Central", "Anand-ColdStorage", "Nagpur-Distr", "BLR-Hub"]
-            for tid, prods in TENANT_PRODUCTS.items():
-                for i, p in enumerate(prods):
-                    wh = warehouses[i % len(warehouses)]
+        warehouses = ["Gurgaon-WH1", "Noida-WH2", "Delhi-Central", "Anand-ColdStorage", "Nagpur-Distr", "BLR-Hub"]
+        for tid, prods in TENANT_PRODUCTS.items():
+            for i, p in enumerate(prods):
+                wh = warehouses[i % len(warehouses)]
+                existing_stk = db.query(Stock).filter(Stock.tenant_id == tid, Stock.sku == p["sku"], Stock.warehouse == wh).first()
+                if not existing_stk:
                     qty = 150 if i % 2 == 0 else (0 if i == 1 else 45)
                     db.add(Stock(tenant_id=tid, sku=p["sku"], warehouse=wh, quantity=qty, updated_at=datetime.now(timezone.utc)))
-            log.info("seed.stock")
+        log.info("seed.stock")
 
     # ---- Stage 4: orders (need committed tenants + suppliers) -------------
-    # History used to be gated on `if reset:`, which meant a plain
-    # `python -m voxflow_api.seed` produced tenants, products, suppliers and stock
-    # but NOT A SINGLE ORDER — and orders are the only thing the order-status flow
-    # actually reads. You would seed, see "seed.done", ring in to ask whether your
-    # PO had been signed, and the agent would correctly report that no such order
-    # exists. Worse, the workaround was `--reset`, which is exactly the flag that
-    # must never touch Postgres (see the guard above).
-    #
-    # Gate on emptiness like every other stage. "Drop the tables first" and "is
-    # there data yet" are separate questions and no longer share a flag.
-    with session_scope() as _probe:
-        _history_empty = _probe.query(Order).count() == 0
-    if _history_empty:
-        with session_scope() as db:
-            now = datetime.now(timezone.utc)
-            # --- Varun: a SIGNED, dispatched PO. The happy-path demo call. ---
-            db.add(
-                Order(
-                    id="PO-1717000000-001",
-                    tenant_id="varun",
-                    supplier_id="sup-varun-001",
-                    status="shipped",
-                    items_json=json.dumps([{"sku": "PEP-250ML-12", "quantity": 500}]),
-                    total_qty=500,
-                    notes="Urgent delivery required before weekend.",
-                    customer_po_ref="VB/PO/2026/0912",
-                    po_signed=1,
-                    po_signed_at=now - timedelta(days=14),
-                    po_signed_by="Anita Desai",
-                    dispatched_at=now - timedelta(days=10),
-                    created_at=now - timedelta(days=16),
-                )
-            )
-            # --- Varun: an UNSIGNED PO, so you can demo the other answer. ---
-            db.add(
-                Order(
-                    id="PO-1717000000-004",
-                    tenant_id="varun",
-                    supplier_id="sup-varun-001",
-                    status="pending",
-                    items_json=json.dumps([{"sku": "PEP-250ML-12", "quantity": 120}]),
-                    total_qty=120,
-                    notes="Awaiting credit approval before we counter-sign.",
-                    customer_po_ref="VB/PO/2026/1001",
-                    po_signed=0,
-                    created_at=now - timedelta(days=2),
-                )
-            )
-            # Sample PO for Amul
-            db.add(
-                Order(
-                    id="PO-1717000000-002",
-                    tenant_id="amul",
-                    supplier_id="sup-amul-001",
-                    status="pending",
-                    items_json=json.dumps([{"sku": "AML-BUTTER-500G", "quantity": 20}]),
-                    total_qty=20,
-                    notes="Requires refrigerated truck.",
-                    created_at=now - timedelta(days=1),
-                )
-            )
-            # Sample PO for Haldirams
-            db.add(
-                Order(
-                    id="PO-1717000000-003",
-                    tenant_id="haldirams",
-                    supplier_id="sup-hal-001",
-                    status="confirmed",
-                    # HAL-BHUJIA-400G, not the HAL-BHUJIA-1KG this used to say:
-                    # items_json is text with no FK, so nothing rejected the typo,
-                    # but the agent reads these SKUs back to the caller and would
-                    # have quoted a product that does not exist in the catalog.
-                    items_json=json.dumps([{"sku": "HAL-BHUJIA-400G", "quantity": 30}]),
-                    total_qty=30,
-                    notes="Express dispatch",
-                    created_at=now - timedelta(hours=12),
-                )
-            )
-            log.info("seed.orders")
+    with session_scope() as db:
+        now = datetime.now(timezone.utc)
+        demo_orders = [
+            Order(
+                id="PO-1717000000-001",
+                tenant_id="varun",
+                supplier_id="sup-varun-001",
+                status="shipped",
+                items_json=json.dumps([{"sku": "PEP-250ML-12", "quantity": 500}]),
+                total_qty=500,
+                notes="Urgent delivery required before weekend.",
+                customer_po_ref="VB/PO/2026/0912",
+                po_signed=1,
+                po_signed_at=now - timedelta(days=14),
+                po_signed_by="Anita Desai",
+                dispatched_at=now - timedelta(days=10),
+                created_at=now - timedelta(days=16),
+            ),
+            Order(
+                id="PO-1717000000-004",
+                tenant_id="varun",
+                supplier_id="sup-varun-001",
+                status="pending",
+                items_json=json.dumps([{"sku": "PEP-250ML-12", "quantity": 120}]),
+                total_qty=120,
+                notes="Awaiting credit approval before we counter-sign.",
+                customer_po_ref="VB/PO/2026/1001",
+                po_signed=0,
+                created_at=now - timedelta(days=2),
+            ),
+            Order(
+                id="PO-1717000000-002",
+                tenant_id="amul",
+                supplier_id="sup-amul-001",
+                status="pending",
+                items_json=json.dumps([{"sku": "AML-BUTTER-500G", "quantity": 20}]),
+                total_qty=20,
+                notes="Requires refrigerated truck.",
+                created_at=now - timedelta(days=1),
+            ),
+            Order(
+                id="PO-1717000000-003",
+                tenant_id="haldirams",
+                supplier_id="sup-hal-001",
+                status="confirmed",
+                items_json=json.dumps([{"sku": "HAL-BHUJIA-400G", "quantity": 30}]),
+                total_qty=30,
+                notes="Express dispatch",
+                created_at=now - timedelta(hours=12),
+            ),
+        ]
+        for ord_item in demo_orders:
+            if not db.get(Order, ord_item.id):
+                db.add(ord_item)
+        log.info("seed.orders")
 
     # ---- Stage 5: shipments (shipments.order_id is a FK to orders.id) ------
     # Same rule as tenants -> products: Shipment -> Order is a bare ForeignKey
