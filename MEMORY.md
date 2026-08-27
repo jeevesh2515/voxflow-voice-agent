@@ -4,10 +4,31 @@
 
 ## Current position
 
-**Last updated:** 2026-08-26
-**Current milestone:** **Day 46 Complete — Exact DID Routing & Secure Caller Verification.** Active inbound routes require an exact E.164 provider/DID match; only Amazon Connect has a live inbound resolution route, and unknown/inactive/wrong-provider numbers fail closed with no default-tenant fallback. Owners can manage route policy and per-contact 4–8 digit PINs through canonical tenant APIs and the settings UI. PINs use uniquely salted PBKDF2-HMAC-SHA256 hashes, constant-time verification, migration-on-success for legacy rows, timestamps, and end-to-end redaction (including LLM tool-call traces, without breaking the tool-calling protocol). A persistent, per-contact lockout (`Supplier.pin_failed_attempts`/`pin_locked_until`) survives across brand-new sessions/calls, not just within one call. Self-serve signup only provisions a workspace after a live authenticated session is confirmed, so a caller can never be silently stranded owning an unclaimable placeholder tenant. Verified with **351 passing backend tests** and **25 compiled frontend routes**.
+**Last updated:** 2026-08-27
+**Current milestone:** **Day 46 Complete — Exact DID Routing & Secure Caller Verification.** Baseline benchmark locked.
 **Next implementation:** **Day 47 — Per-Tenant Agent Settings.**
 **Master Day-Wise Tracker:** See [`DAY_TRACKER.md`](DAY_TRACKER.md) for full day-by-day logs from Day 1 to current.
+
+## Day 46 Production Baseline Benchmark (Frozen & Validated)
+
+The foundation across Days 1–46 is fully operational, verified, and locked in:
+1. **Database & Schema**: Migrations `000` through `017` are synchronized, idempotent, and validated on both PostgreSQL 17 and SQLite with legacy in-place upgrades.
+2. **Telephony & Inbound Routing**: Amazon Connect exact DID matching, fail-closed isolation, Lex V2 bridge, bilingual engine (`hi`/`en`), standard & enhanced caller PIN verification with PBKDF2-HMAC-SHA256, tool-trace redaction, and cross-session lockout.
+3. **Workspace & Auth**: Self-serve workspace provisioning, session-gated signup, JWT identity, tenant isolation, and member management.
+4. **Data Management**: Entity catalog, schema templates, bulk CSV import/export for Products (composite `(sku, tenant_id)`), Suppliers, Stock, Orders, and Shipments.
+5. **Campaigns & Pilot Guardrails**: Staged side-effect worker, fail-closed pilot readiness, and immutable policy decisions.
+6. **Frontend Suite**: All 25 Next.js routes compiled and prerendering cleanly.
+7. **CI/CD Baseline**: All 351 Pytest tests, Ruff linter, ESLint, and Next.js production builds are passing green in GitHub Actions (`33038162691`).
+
+## Lean Verification Protocol for Day 47+
+
+To build and iterate efficiently without redundant full-application re-testing:
+- **Scope-Focused Testing**: Test only the specific schemas, endpoints, business logic, and UI views introduced in the active day's scope.
+- **Targeted Integration Wiring Check**: Verify the day's feature connects into the system at 3 precise integration points:
+  1. API router mounted in `apps/api/voxflow_api/main.py` with valid OpenAPI schema.
+  2. Frontend navigation, state, and dashboard views correctly wired in `apps/web`.
+  3. Database migration / model DDL aligned with `000_base_schema.sql` (if schema changes exist).
+- **Fast Automated Safety Gate**: Run targeted tests during development (`pytest -k <module>`), followed by the automated suite (`pytest -q` + `npm run lint`) to confirm zero regression on the 351 baseline tests before commit. No repetitive manual re-testing of frozen legacy pages.
 
 The durable campaign, observability, callback-certification, typed side-effect, pilot-readiness, and evidence-led pilot-operations programme for Days 25–36 is implemented, CI-validated, and browser-verified. The codebase includes a complete production deployment configuration for an Always-Free Oracle ARM VM running Docker + Caddy (`deploy/ORACLE_DEPLOY.md`), Render API backend, and Vercel Next.js edge frontend. No real outbound provider call, notification, provider subscription, signing-secret configuration, provider ping, CRM webhook, Gmail fetch, or recording download has been performed during any milestone or verification.
 
