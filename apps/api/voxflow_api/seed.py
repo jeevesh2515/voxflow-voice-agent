@@ -175,7 +175,15 @@ def seed(reset: bool = False) -> None:
         if db.query(Supplier).count() == 0:
             for tid, sups in TENANT_SUPPLIERS.items():
                 for s in sups:
-                    db.add(Supplier(tenant_id=tid, **s))
+                    db.add(
+                        Supplier(
+                            tenant_id=tid,
+                            auth_pin=None,
+                            auth_pin_hash=None,
+                            pin_updated_at=None,
+                            **s,
+                        )
+                    )
             log.info("seed.suppliers")
 
     # ---- Stage 3: stock (stock.sku is a FK to products.sku) ---------------

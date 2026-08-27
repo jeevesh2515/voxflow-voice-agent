@@ -320,11 +320,9 @@ CREATE TABLE IF NOT EXISTS products (
 	category VARCHAR(128) NOT NULL,
 	pack_size VARCHAR(64) NOT NULL,
 	mrp_inr FLOAT NOT NULL,
-	PRIMARY KEY (sku),
+	PRIMARY KEY (sku, tenant_id),
 	FOREIGN KEY(tenant_id) REFERENCES tenants (id)
 );
-
-CREATE INDEX IF NOT EXISTS ix_products_tenant_id ON products (tenant_id);
 
 CREATE TABLE IF NOT EXISTS provider_callback_adapter_audits (
 	id VARCHAR(64) NOT NULL,
@@ -427,6 +425,21 @@ CREATE INDEX IF NOT EXISTS ix_reliability_slos_metric_type ON reliability_slos (
 
 CREATE INDEX IF NOT EXISTS ix_reliability_slos_tenant_id ON reliability_slos (tenant_id);
 
+CREATE TABLE IF NOT EXISTS stock (
+	id SERIAL NOT NULL,
+	tenant_id VARCHAR(64) NOT NULL,
+	sku VARCHAR(64) NOT NULL,
+	warehouse VARCHAR(128) NOT NULL,
+	quantity INTEGER NOT NULL,
+	updated_at TIMESTAMP WITH TIME ZONE NOT NULL,
+	PRIMARY KEY (id),
+	FOREIGN KEY(tenant_id) REFERENCES tenants (id)
+);
+
+CREATE INDEX IF NOT EXISTS ix_stock_sku ON stock (sku);
+
+CREATE INDEX IF NOT EXISTS ix_stock_tenant_id ON stock (tenant_id);
+
 CREATE TABLE IF NOT EXISTS suppliers (
 	id VARCHAR(64) NOT NULL,
 	tenant_id VARCHAR(64) NOT NULL,
@@ -437,7 +450,11 @@ CREATE TABLE IF NOT EXISTS suppliers (
 	pincode VARCHAR(16) NOT NULL,
 	contact_person VARCHAR(255) NOT NULL,
 	gstin VARCHAR(32) NOT NULL,
-	auth_pin VARCHAR(16) NOT NULL,
+	auth_pin VARCHAR(16),
+	auth_pin_hash VARCHAR(255),
+	pin_updated_at TIMESTAMP WITH TIME ZONE,
+	pin_failed_attempts INTEGER NOT NULL DEFAULT 0,
+	pin_locked_until TIMESTAMP WITH TIME ZONE,
 	contact_type VARCHAR(16) NOT NULL,
 	active INTEGER NOT NULL,
 	created_at TIMESTAMP WITH TIME ZONE NOT NULL,
@@ -520,13 +537,24 @@ CREATE TABLE IF NOT EXISTS tenant_phone_numbers (
 	tenant_id VARCHAR(64) NOT NULL,
 	label VARCHAR(128) NOT NULL,
 	provider VARCHAR(32) DEFAULT 'twilio' NOT NULL,
+	verification_mode VARCHAR(16) DEFAULT 'standard' NOT NULL,
+	route_language VARCHAR(16) DEFAULT 'tenant_default' NOT NULL,
 	active INTEGER NOT NULL,
 	created_at TIMESTAMP WITH TIME ZONE NOT NULL,
+	updated_at TIMESTAMP WITH TIME ZONE NOT NULL,
 	PRIMARY KEY (phone_number),
+	CONSTRAINT ck_tenant_phone_e164 CHECK (phone_number LIKE '+%%' AND length(phone_number) BETWEEN 9 AND 16),
+	CONSTRAINT ck_tenant_phone_provider CHECK (provider IN ('connect', 'twilio', 'telnyx')),
+	CONSTRAINT ck_tenant_phone_verification_mode CHECK (verification_mode IN ('standard', 'enhanced')),
+	CONSTRAINT ck_tenant_phone_route_language CHECK (route_language IN ('tenant_default', 'en', 'hi')),
 	FOREIGN KEY(tenant_id) REFERENCES tenants (id)
 );
 
 CREATE INDEX IF NOT EXISTS ix_tenant_phone_numbers_tenant_id ON tenant_phone_numbers (tenant_id);
+
+CREATE INDEX IF NOT EXISTS ix_tenant_phone_provider_active ON tenant_phone_numbers (provider, phone_number, active);
+
+CREATE INDEX IF NOT EXISTS ix_tenant_phone_tenant_active ON tenant_phone_numbers (tenant_id, active);
 
 CREATE TABLE IF NOT EXISTS tenant_privacy_policies (
 	tenant_id VARCHAR(64) NOT NULL,
@@ -769,22 +797,6 @@ CREATE INDEX IF NOT EXISTS ix_side_effect_intents_job_id ON side_effect_intents 
 CREATE INDEX IF NOT EXISTS ix_side_effect_intents_status ON side_effect_intents (status);
 
 CREATE INDEX IF NOT EXISTS ix_side_effect_intents_tenant_id ON side_effect_intents (tenant_id);
-
-CREATE TABLE IF NOT EXISTS stock (
-	id SERIAL NOT NULL,
-	tenant_id VARCHAR(64) NOT NULL,
-	sku VARCHAR(64) NOT NULL,
-	warehouse VARCHAR(128) NOT NULL,
-	quantity INTEGER NOT NULL,
-	updated_at TIMESTAMP WITH TIME ZONE NOT NULL,
-	PRIMARY KEY (id),
-	FOREIGN KEY(tenant_id) REFERENCES tenants (id),
-	FOREIGN KEY(sku) REFERENCES products (sku)
-);
-
-CREATE INDEX IF NOT EXISTS ix_stock_sku ON stock (sku);
-
-CREATE INDEX IF NOT EXISTS ix_stock_tenant_id ON stock (tenant_id);
 
 CREATE TABLE IF NOT EXISTS campaign_policy_decisions (
 	id VARCHAR(64) NOT NULL,

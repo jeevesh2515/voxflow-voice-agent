@@ -16,7 +16,7 @@ from fastapi.testclient import TestClient
 from voxflow_api import auth
 from voxflow_api.auth import AuthUser, normalized_email_hash
 from voxflow_api.config import get_settings
-from voxflow_api.db import TenantMember, reset_db, session_scope
+from voxflow_api.db import Tenant, TenantMember, reset_db, session_scope
 from voxflow_api.main import create_app
 from voxflow_api.seed import seed
 
@@ -83,6 +83,85 @@ def test_membership_discovery_requires_identity_and_returns_only_active_authoriz
     assert [row["tenant_id"] for row in owner.json()["memberships"]] == ["varun"]
     assert outsider.status_code == 200
     assert outsider.json()["memberships"] == []
+
+
+def test_production_auth_rejects_spoofed_identity_headers_and_bearer_ids(secured_client):
+    header_spoof = secured_client.get(
+        "/api/tenants/memberships",
+        headers={"X-VoxFlow-User-Id": "owner-subject"},
+    )
+    bearer_spoof = secured_client.get(
+        "/api/tenants/memberships",
+        headers=_headers("usr-owner-subject"),
+    )
+    header_signup = secured_client.post(
+        "/api/auth/signup",
+        headers={"X-VoxFlow-User-Id": "spoofed-owner"},
+        json={
+            "company_name": "Header Spoof Ltd",
+            "email": "attacker@example.test",
+            "user_id": "spoofed-owner",
+            "seed_starter_data": False,
+        },
+    )
+    bearer_signup = secured_client.post(
+        "/api/auth/signup",
+        headers=_headers("user-spoofed-owner"),
+        json={
+            "company_name": "Bearer Spoof Ltd",
+            "email": "attacker@example.test",
+            "user_id": "user-spoofed-owner",
+            "seed_starter_data": False,
+        },
+    )
+
+    assert header_spoof.status_code == 401
+    assert bearer_spoof.status_code == 401
+    assert header_signup.status_code == 401
+    assert bearer_signup.status_code == 401
+    with session_scope() as db:
+        assert db.get(Tenant, "header-spoof-ltd") is None
+        assert db.get(Tenant, "bearer-spoof-ltd") is None
+
+
+def test_signup_owner_must_match_verified_bearer_subject(secured_client):
+    mismatch = secured_client.post(
+        "/api/auth/signup",
+        headers=_headers("outsider-token"),
+        json={
+            "company_name": "Mismatched Identity Ltd",
+            "email": "submitted@example.test",
+            "user_id": "someone-else",
+            "seed_starter_data": False,
+        },
+    )
+    matched = secured_client.post(
+        "/api/auth/signup",
+        headers=_headers("outsider-token"),
+        json={
+            "company_name": "Verified Identity Ltd",
+            "email": "submitted@example.test",
+            "user_id": "outsider-subject",
+            "seed_starter_data": False,
+        },
+    )
+
+    assert mismatch.status_code == 403
+    assert mismatch.json()["detail"] == "signup_user_id_mismatch"
+    assert matched.status_code == 200
+    assert matched.json()["owner_user_id"] == "outsider-subject"
+    with session_scope() as db:
+        assert db.get(Tenant, "mismatched-identity-ltd") is None
+        member = (
+            db.query(TenantMember)
+            .filter(TenantMember.tenant_id == "verified-identity-ltd")
+            .one()
+        )
+        assert member.user_id == "outsider-subject"
+        assert member.subject_email_hash == normalized_email_hash(
+            "outsider@example.test"
+        )
+        assert member.role == "owner"
 
 
 def test_owner_invite_persists_only_hashed_identity_and_recipient_accepts(secured_client):

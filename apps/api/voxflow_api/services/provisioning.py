@@ -13,6 +13,7 @@ import uuid
 from typing import Any
 
 from sqlalchemy import select
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from ..auth import ROLE_OWNER, normalized_email_hash
@@ -28,7 +29,17 @@ from ..db import (
 )
 from ..logging import get_logger
 
+from .telephony_routing import normalize_e164
+
 log = get_logger(__name__)
+
+
+class PhoneNumberConflictError(ValueError):
+    """Raised when provisioning would transfer a DID between tenants."""
+
+
+class TenantSlugConflictError(ValueError):
+    """Raised when a concurrent insert takes a newly selected tenant slug."""
 
 
 def sanitize_slug(name: str) -> str:
@@ -39,18 +50,17 @@ def sanitize_slug(name: str) -> str:
 
 
 def generate_unique_tenant_slug(db: Session, base_name: str) -> str:
-    """Generate a unique URL-safe slug for a tenant without collisions."""
-    base_slug = sanitize_slug(base_name)
+    """Generate a unique URL-safe slug bounded to the tenant ID column."""
+
+    base_slug = sanitize_slug(base_name)[:64].rstrip("-") or "workspace"
     slug = base_slug
     counter = 1
 
     while db.get(Tenant, slug) is not None:
         counter += 1
-        if counter <= 50:
-            slug = f"{base_slug}-{counter}"
-        else:
-            slug = f"{base_slug}-{uuid.uuid4().hex[:6]}"
-            break
+        suffix = f"-{counter}" if counter <= 50 else f"-{uuid.uuid4().hex[:6]}"
+        stem = base_slug[: 64 - len(suffix)].rstrip("-") or "workspace"
+        slug = f"{stem}{suffix}"
 
     return slug
 
@@ -77,102 +87,72 @@ def provision_tenant(
 ) -> dict[str, Any]:
     """Provision a complete, isolated tenant workspace and owner membership."""
     company_name = name.strip() or "Voice Operations Workspace"
+    owner_user_id = owner_user_id.strip()
+    if not owner_user_id:
+        raise ValueError("owner_user_id_required")
 
-    # 1. Resolve slug
-    if tenant_id and tenant_id.strip():
-        slug = sanitize_slug(tenant_id)
-    else:
-        slug = generate_unique_tenant_slug(db, company_name)
-
+    # Every provisioning request creates a new workspace. In particular, a
+    # caller-supplied slug is only a preferred base and can never select an
+    # existing tenant for update or membership attachment.
+    slug = generate_unique_tenant_slug(db, tenant_id or company_name)
     now = datetime.now(timezone.utc)
 
-    # 2. Create or update Tenant record
-    tenant = db.get(Tenant, slug)
-    if not tenant:
-        tenant = Tenant(
-            id=slug,
-            name=company_name,
-            agent_name=agent_name or "Vaani",
-            default_language=default_language or "en",
-            plan=plan or "pro",
-            active=active,
-            system_prompt_override=system_prompt_override or None,
-            welcome_message=welcome_message or f"Hello, and welcome to {company_name}. How can I help you today?",
-            webhook_url=webhook_url or None,
-            webhook_secret=webhook_secret or None,
-            created_at=now,
-        )
-        db.add(tenant)
-        db.flush()
-        log.info("provisioning.tenant_created", tenant_id=slug, name=company_name, plan=plan)
-    else:
-        tenant.active = active
-        if name:
-            tenant.name = company_name
-        if agent_name:
-            tenant.agent_name = agent_name
-        if default_language:
-            tenant.default_language = default_language
-        if plan:
-            tenant.plan = plan
-        if system_prompt_override:
-            tenant.system_prompt_override = system_prompt_override
-        if welcome_message:
-            tenant.welcome_message = welcome_message
-        if webhook_url:
-            tenant.webhook_url = webhook_url
-        if webhook_secret:
-            tenant.webhook_secret = webhook_secret
-        db.flush()
-        log.info("provisioning.tenant_updated", tenant_id=slug, name=company_name)
-
-    # 3. Create or ensure Owner TenantMember record
-    email_hash = normalized_email_hash(owner_email, fallback_subject=owner_user_id)
-    existing_member = (
-        db.execute(
-            select(TenantMember).where(
-                TenantMember.tenant_id == slug,
-                (TenantMember.user_id == owner_user_id)
-                | (TenantMember.subject_email_hash == email_hash),
-            )
-        )
-        .scalars()
-        .first()
+    tenant = Tenant(
+        id=slug,
+        name=company_name,
+        agent_name=agent_name or "Vaani",
+        default_language=default_language or "en",
+        plan=plan or "pro",
+        active=active,
+        system_prompt_override=system_prompt_override or None,
+        welcome_message=welcome_message or f"Hello, and welcome to {company_name}. How can I help you today?",
+        webhook_url=webhook_url or None,
+        webhook_secret=webhook_secret or None,
+        created_at=now,
     )
+    db.add(tenant)
+    try:
+        db.flush()
+    except IntegrityError as exc:
+        raise TenantSlugConflictError("tenant_id_conflict") from exc
+    log.info("provisioning.tenant_created", tenant_id=slug, name=company_name, plan=plan)
 
-    if not existing_member:
-        owner_member = TenantMember(
-            id=f"tm-{slug[:24]}-{uuid.uuid4().hex[:12]}",
-            tenant_id=slug,
-            user_id=owner_user_id,
-            subject_email_hash=email_hash,
-            role=ROLE_OWNER,
-            status="active",
-            invited_by=invited_by,
-            activated_at=now,
-        )
-        db.add(owner_member)
-        db.flush()
-        log.info("provisioning.owner_membership_created", tenant_id=slug, user_id=owner_user_id)
-    elif existing_member.status != "active":
-        existing_member.status = "active"
-        existing_member.role = ROLE_OWNER
-        existing_member.user_id = owner_user_id
-        db.flush()
+    email_hash = normalized_email_hash(owner_email, fallback_subject=owner_user_id)
+    owner_member = TenantMember(
+        id=f"tm-{slug[:24]}-{uuid.uuid4().hex[:12]}",
+        tenant_id=slug,
+        user_id=owner_user_id,
+        subject_email_hash=email_hash,
+        role=ROLE_OWNER,
+        status="active",
+        invited_by=invited_by,
+        activated_at=now,
+    )
+    db.add(owner_member)
+    db.flush()
+    log.info("provisioning.owner_membership_created", tenant_id=slug, user_id=owner_user_id)
 
     # 4. Optional Phone Number Mapping
     clean_phone: str | None = None
     if phone_number and phone_number.strip():
-        clean_phone = phone_number.strip().replace(" ", "")
+        clean_phone = normalize_e164(phone_number)
         phone_entry = db.get(TenantPhoneNumber, clean_phone)
+        if phone_entry and phone_entry.tenant_id != slug:
+            raise PhoneNumberConflictError("phone_number_owned_by_another_tenant")
         if phone_entry:
-            phone_entry.tenant_id = slug
             phone_entry.label = phone_label or f"{company_name} Main Line"
+            phone_entry.active = 1
+            # Provisioning always assigns the only inbound provider with a
+            # live resolution route; without this, a freshly-provisioned
+            # tenant's phone number would silently fall back to the ORM
+            # default ("twilio") and never receive a call.
+            phone_entry.provider = "connect"
         else:
             phone_entry = TenantPhoneNumber(
                 phone_number=clean_phone,
                 tenant_id=slug,
                 label=phone_label or f"{company_name} Main Line",
+                provider="connect",
             )
             db.add(phone_entry)
         db.flush()
@@ -235,7 +215,9 @@ def provision_tenant(
                 state="Greater London",
                 pincode="EC1A 1BB",
                 contact_type="supplier",
-                auth_pin="1234",
+                auth_pin=None,
+                auth_pin_hash=None,
+                pin_updated_at=None,
                 active=1,
             )
             db.add(starter_supplier)

@@ -20,7 +20,8 @@ class SupplierOut(BaseModel):
     pincode: str
     contact_person: str
     gstin: str
-    auth_pin: str = "1234"
+    contact_type: str = "supplier"
+    pin_configured: bool = False
 
     model_config = ConfigDict(from_attributes=True)
 
@@ -33,7 +34,6 @@ class SupplierCreate(BaseModel):
     pincode: str = "122001"
     contact_person: str = ""
     gstin: str = ""
-    auth_pin: str = "1234"
 
 
 class AppointmentCreate(BaseModel):

@@ -17,6 +17,7 @@ from datetime import datetime, timezone
 from typing import AsyncIterator, Iterator
 
 from sqlalchemy import (
+    CheckConstraint,
     DateTime,
     Float,
     ForeignKey,
@@ -227,8 +228,18 @@ class Supplier(Base):
     pincode: Mapped[str] = mapped_column(String(16))
     contact_person: Mapped[str] = mapped_column(String(255), default="")
     gstin: Mapped[str] = mapped_column(String(32), default="")
-    # Tier 2 PIN authentication for order creation and sensitive updates
-    auth_pin: Mapped[str] = mapped_column(String(16), default="1234")
+    # Legacy plaintext is retained only so pre-Day-46 rows can be verified and
+    # upgraded in place. New and updated credentials use auth_pin_hash only.
+    auth_pin: Mapped[str | None] = mapped_column(String(16), nullable=True, default=None)
+    auth_pin_hash: Mapped[str | None] = mapped_column(String(255), nullable=True, default=None)
+    pin_updated_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    # Persistent, per-contact lockout state. A `CallSession`-scoped attempt
+    # counter alone cannot stop brute forcing across many fresh sessions (a new
+    # call, or a new unauthenticated /agent/run request, always starts at zero
+    # attempts). These two columns survive across sessions/calls so guessing a
+    # 4–8 digit PIN costs an attacker real lockout time, not just a new call.
+    pin_failed_attempts: Mapped[int] = mapped_column(Integer, default=0)
+    pin_locked_until: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     # Which side of the trade this contact sits on.
     # customer = they buy from us | supplier = they sell to us | both
     contact_type: Mapped[str] = mapped_column(String(16), default="customer", index=True)
@@ -236,6 +247,10 @@ class Supplier(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_utcnow)
 
     orders: Mapped[list["Order"]] = relationship(back_populates="supplier", cascade="all,delete")
+
+    @property
+    def pin_configured(self) -> bool:
+        return bool(self.auth_pin_hash or self.auth_pin)
 
 
 class Product(Base):
@@ -337,21 +352,38 @@ class Call(Base):
 
 
 class TenantPhoneNumber(Base):
-    """Maps an inbound Twilio number to the tenant that owns it.
-
-    Without this, every inbound call falls through to the default tenant —
-    which silently breaks multi-tenant isolation the moment a second
-    customer is onboarded.
-    """
+    """Owns one exact E.164 inbound DID and its automated call policy."""
 
     __tablename__ = "tenant_phone_numbers"
+    __table_args__ = (
+        # This constraint is deliberately looser than the Postgres migration's
+        # `^\+[1-9][0-9]{7,14}$` regex CHECK (016_telephony_routing_and_
+        # caller_pins.sql): SQLite CHECK constraints cannot use regular
+        # expressions. The strict format is authoritatively enforced by
+        # `services.telephony_routing.normalize_e164`, which every write path
+        # (admin routes, provisioning, CSV ingestion, the map_phone CLI) calls
+        # before persisting a phone number on either database backend; this
+        # constraint is only a coarse SQLite-side defense-in-depth backstop.
+        CheckConstraint(
+            "phone_number LIKE '+%' AND length(phone_number) BETWEEN 9 AND 16",
+            name="ck_tenant_phone_e164",
+        ),
+        CheckConstraint("provider IN ('connect', 'twilio', 'telnyx')", name="ck_tenant_phone_provider"),
+        CheckConstraint("verification_mode IN ('standard', 'enhanced')", name="ck_tenant_phone_verification_mode"),
+        CheckConstraint("route_language IN ('tenant_default', 'en', 'hi')", name="ck_tenant_phone_route_language"),
+        Index("ix_tenant_phone_provider_active", "provider", "phone_number", "active"),
+        Index("ix_tenant_phone_tenant_active", "tenant_id", "active"),
+    )
 
     phone_number: Mapped[str] = mapped_column(String(32), primary_key=True)  # E.164, e.g. +14155551234
     tenant_id: Mapped[str] = mapped_column(String(64), ForeignKey("tenants.id"), index=True)
     label: Mapped[str] = mapped_column(String(128), default="")
     provider: Mapped[str] = mapped_column(String(32), default="twilio", server_default="twilio")
+    verification_mode: Mapped[str] = mapped_column(String(16), default="standard", server_default="standard")
+    route_language: Mapped[str] = mapped_column(String(16), default="tenant_default", server_default="tenant_default")
     active: Mapped[int] = mapped_column(Integer, default=1)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_utcnow)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_utcnow, onupdate=_utcnow)
 
 
 class Appointment(Base):
@@ -969,6 +1001,16 @@ def _ensure_day28_outbox_columns() -> None:
         "ALTER TABLE job_outbox ADD COLUMN IF NOT EXISTS last_error_json TEXT",
         "CREATE INDEX IF NOT EXISTS ix_job_outbox_claim ON job_outbox (published_at, relay_lease_expires_at, created_at)",
         "ALTER TABLE calls ADD COLUMN IF NOT EXISTS avg_turn_latency_ms INTEGER NOT NULL DEFAULT 0",
+        "ALTER TABLE suppliers ADD COLUMN IF NOT EXISTS auth_pin_hash VARCHAR(255)",
+        "ALTER TABLE suppliers ADD COLUMN IF NOT EXISTS pin_updated_at TIMESTAMP WITH TIME ZONE",
+        "ALTER TABLE suppliers ADD COLUMN IF NOT EXISTS pin_failed_attempts INTEGER NOT NULL DEFAULT 0",
+        "ALTER TABLE suppliers ADD COLUMN IF NOT EXISTS pin_locked_until TIMESTAMP WITH TIME ZONE",
+        "ALTER TABLE tenant_phone_numbers ADD COLUMN IF NOT EXISTS verification_mode VARCHAR(16) NOT NULL DEFAULT 'standard'",
+        "ALTER TABLE tenant_phone_numbers ADD COLUMN IF NOT EXISTS updated_at TIMESTAMP WITH TIME ZONE",
+        "UPDATE tenant_phone_numbers SET updated_at = created_at WHERE updated_at IS NULL",
+        "ALTER TABLE tenant_phone_numbers ADD COLUMN IF NOT EXISTS route_language VARCHAR(16) NOT NULL DEFAULT 'tenant_default'",
+        "CREATE INDEX IF NOT EXISTS ix_tenant_phone_provider_active ON tenant_phone_numbers (provider, phone_number, active)",
+        "CREATE INDEX IF NOT EXISTS ix_tenant_phone_tenant_active ON tenant_phone_numbers (tenant_id, active)",
     ]
     if _engine.dialect.name == "sqlite":
         # SQLite supports ADD COLUMN but not PostgreSQL's IF NOT EXISTS form.
@@ -985,6 +1027,101 @@ def _ensure_day28_outbox_columns() -> None:
                 if _engine.dialect.name == "sqlite" and "duplicate column name" in str(exc).lower():
                     continue
                 raise
+
+
+def _ensure_supplier_auth_pin_nullable_sqlite() -> None:
+    """Relax a legacy SQLite ``suppliers.auth_pin NOT NULL`` constraint in place.
+
+    Pre-Day-46 local SQLite databases created ``auth_pin`` as ``NOT NULL``.
+    SQLite cannot drop a NOT NULL constraint with a simple ALTER statement, so
+    an untouched local database from before this change would reject every
+    new supplier insert that intentionally omits a plaintext PIN. Production
+    always runs PostgreSQL through the reviewed
+    ``016_telephony_routing_and_caller_pins.sql`` migration, which already
+    handles this with a real ``ALTER COLUMN ... DROP NOT NULL``; this path
+    only protects local SQLite development databases that were not reset.
+    """
+
+    if _engine.dialect.name != "sqlite":
+        return
+
+    with _engine.begin() as conn:
+        columns = conn.execute(text("PRAGMA table_info(suppliers)")).mappings().all()
+        if not columns:
+            return  # table does not exist yet; create_all() will define it correctly
+        auth_pin_column = next((c for c in columns if c["name"] == "auth_pin"), None)
+        if auth_pin_column is None or not auth_pin_column["notnull"]:
+            return  # already nullable
+
+        log.warning("db.sqlite_legacy_auth_pin_upgrade_started")
+        existing_column_names = {c["name"] for c in columns}
+        copy_columns = [
+            name
+            for name in (
+                "id",
+                "tenant_id",
+                "name",
+                "phone",
+                "city",
+                "state",
+                "pincode",
+                "contact_person",
+                "gstin",
+                "auth_pin",
+                "auth_pin_hash",
+                "pin_updated_at",
+                "pin_failed_attempts",
+                "pin_locked_until",
+                "contact_type",
+                "active",
+                "created_at",
+            )
+            if name in existing_column_names
+        ]
+        columns_sql = ", ".join(copy_columns)
+
+        # This engine never enables SQLite foreign-key enforcement (no
+        # `PRAGMA foreign_keys=ON` connect-time listener exists anywhere in
+        # this module), so a DROP/rename dance needs no FK toggle here. The
+        # constraint is still declared below for schema fidelity with
+        # `000_base_schema.sql` and to stay correct if that ever changes.
+        conn.execute(
+            text(
+                "CREATE TABLE suppliers__day46_upgrade ("
+                "id VARCHAR(64) NOT NULL PRIMARY KEY, "
+                "tenant_id VARCHAR(64) NOT NULL, "
+                "name VARCHAR(255) NOT NULL, "
+                "phone VARCHAR(32) NOT NULL, "
+                "city VARCHAR(128) NOT NULL, "
+                "state VARCHAR(128) NOT NULL, "
+                "pincode VARCHAR(16) NOT NULL, "
+                "contact_person VARCHAR(255) NOT NULL DEFAULT '', "
+                "gstin VARCHAR(32) NOT NULL DEFAULT '', "
+                "auth_pin VARCHAR(16), "
+                "auth_pin_hash VARCHAR(255), "
+                "pin_updated_at DATETIME, "
+                "pin_failed_attempts INTEGER NOT NULL DEFAULT 0, "
+                "pin_locked_until DATETIME, "
+                "contact_type VARCHAR(16) NOT NULL DEFAULT 'customer', "
+                "active INTEGER NOT NULL DEFAULT 1, "
+                "created_at DATETIME NOT NULL, "
+                "FOREIGN KEY(tenant_id) REFERENCES tenants (id)"
+                ")"
+            )
+        )
+        conn.execute(
+            text(
+                f"INSERT INTO suppliers__day46_upgrade ({columns_sql}) "
+                f"SELECT {columns_sql} FROM suppliers"
+            )
+        )
+        conn.execute(text("DROP TABLE suppliers"))
+        conn.execute(text("ALTER TABLE suppliers__day46_upgrade RENAME TO suppliers"))
+        conn.execute(text("CREATE INDEX IF NOT EXISTS ix_suppliers_contact_type ON suppliers (contact_type)"))
+        conn.execute(text("CREATE INDEX IF NOT EXISTS ix_suppliers_name ON suppliers (name)"))
+        conn.execute(text("CREATE INDEX IF NOT EXISTS ix_suppliers_phone ON suppliers (phone)"))
+        conn.execute(text("CREATE INDEX IF NOT EXISTS ix_suppliers_tenant_id ON suppliers (tenant_id)"))
+        log.warning("db.sqlite_legacy_auth_pin_upgrade_completed")
 
 
 def should_bootstrap_schema(*, mode: str, dialect_name: str) -> bool:
@@ -1046,6 +1183,7 @@ def init_db() -> bool:
     if should_bootstrap:
         Base.metadata.create_all(_engine, checkfirst=True)
         _ensure_day28_outbox_columns()
+        _ensure_supplier_auth_pin_nullable_sqlite()
         log.info(
             "db.schema_bootstrap_applied mode=%s dialect=%s",
             settings.db_schema_bootstrap_mode,

@@ -13,7 +13,7 @@
 
 <p align="center">
   <img src="https://img.shields.io/badge/CI%2FCD-100%25%20PASSING-success?style=for-the-badge&logo=githubactions&logoColor=white&labelColor=111827" alt="CI Status" />
-  <img src="https://img.shields.io/badge/TESTS-305%20PASSED-10B981?style=for-the-badge&logo=pytest&logoColor=white&labelColor=111827" alt="305 Pytest Tests Passed" />
+  <img src="https://img.shields.io/badge/TESTS-347%20PASSED-10B981?style=for-the-badge&logo=pytest&logoColor=white&labelColor=111827" alt="347 Pytest Tests Passed" />
   <img src="https://img.shields.io/badge/FRONTEND-25%20ROUTES-6366F1?style=for-the-badge&logo=nextdotjs&logoColor=white&labelColor=111827" alt="25 Next.js Routes" />
   <img src="https://img.shields.io/badge/VOICE-ENGLISH%20%28UK%29%20%2B%20HINDI-F97316?style=for-the-badge&labelColor=111827" alt="English (UK) + Hindi Multilingual" />
 </p>
@@ -103,11 +103,12 @@ flowchart TB
     subgraph Telephony["📞 Inbound Telephony Layer"]
         PSTN["Inbound PSTN Call"] --> Connect["Amazon Connect Contact Center\n(en-GB / Multilingual)"]
         Connect --> Lambda["AWS Lambda Bridge\n(HMAC-SHA256 Auth)"]
+        Lambda --> RouteGate["Exact Provider + DID Route\nFail Closed on No Match"]
         WebMic["Web Audio Simulator\n(Interactive Browser Mic)"] --> WebWS["FastAPI WebAudio WS\n/api/connect/turn"]
     end
 
     subgraph CoreEngine["⚡ Real-Time Voice Pipeline (<600ms Glass-to-Glass)"]
-        Lambda --> FastAPITurn["FastAPI Voice Gateway\nPOST /api/connect/turn"]
+        RouteGate --> FastAPITurn["FastAPI Voice Gateway\nPOST /api/connect/turn"]
         FastAPITurn --> LexSTT["Amazon Lex V2 / Whisper\nStreaming STT"]
         LexSTT --> AgentRunner["AgentRunner\nBilingual System Context"]
         AgentRunner --> LLMGroq["Groq openai/gpt-oss-20b\n~130 tokens/sec & TTFT 148ms"]
@@ -200,7 +201,7 @@ flowchart LR
 - **5 Core Entity Schemas**:
   - `products`: `sku` (PK), `name`, `category`, `pack_size`, `mrp_inr`
   - `stock`: `sku`, `warehouse`, `quantity` (≥ 0)
-  - `suppliers`: `name`, `phone` (E.164 sanitization), `contact_person`, `gstin`, `auth_pin`
+  - `suppliers`: `name`, `phone` (E.164 sanitization), `contact_person`, `gstin`, optional caller PIN input (redacted in previews and stored only as a salted verifier)
 
   - `orders`: `id`, `supplier_id`, `status`, `customer_po_ref`, `total_qty`, `items` (JSON)
   - `shipments`: `id`, `order_id`, `status`, `carrier`, `tracking_no`, `expected_delivery`
@@ -231,18 +232,21 @@ flowchart LR
 
 ### 4. 🏢 Multi-Tenant SaaS Workspace & Self-Serve Provisioning
 - **Instant Tenant Onboarding**: Self-serve registration with automatic tenant slug generation, owner membership provisioning, and starter supply-chain data seeding.
-- **Organization & Role-Based Isolation**: Distinct workspaces for individual companies with dedicated phone numbers and isolated data partitions.
-- **Full Operational Dashboard**: 25 compiled Next.js routes covering Calls, Escalations, Appointments, Inventory, Shipments, Data Hub & CSV, Campaigns, and Web-based Call Simulators.
+- **Exact DID Tenant Isolation**: Active E.164 destination numbers are globally owned and matched with the inbound provider; unknown, inactive, or mismatched routes fail closed instead of falling back to another workspace.
+- **Secure Caller Verification**: Standard and enhanced policies combine knowledge verification with owner-configured 4–8 digit PINs stored as uniquely salted PBKDF2-HMAC-SHA256 verifiers, plus a persistent cross-session lockout that stops brute-force guessing across many separate calls, not just within one.
+- **Owner-Only Telephony Control Plane**: `/dashboard/settings` manages provider, route language, verification mode, activation state, and masked caller-PIN posture without displaying secrets or hashes.
+- **Session-Gated Self-Serve Signup**: Workspace provisioning only completes after a live authenticated session is confirmed, so a new sign-up can never be silently stranded owning an unclaimable placeholder-owned tenant.
+- **Full Operational Dashboard**: 25 compiled Next.js routes covering Calls, Escalations, Appointments, Inventory, Shipments, Data Hub & CSV, Campaigns, Settings, and Web-based Call Simulators.
 
 ---
 
 ## 📞 Telephony & Voice Channels
 
-VoxFlow provides flexible voice interfaces for enterprise operations and rapid testing:
+VoxFlow provides flexible voice interfaces for enterprise operations and rapid testing. Tenant context is created only after an active exact E.164 destination-number and provider match. Route policy selects `tenant_default`, English, or Hindi and applies either standard verification (knowledge for protected reads, PIN for writes) or enhanced verification (knowledge plus PIN for protected reads and writes).
 
 | Provider / Channel | Inbound Routing | Capabilities | Integration Mechanism |
 |---|---|---|---|
-| **Amazon Connect (AWS)** | Dedicated Enterprise DID *(Assigned per tenant)* | 90 Free Min/Mo, Global Contact Center, AWS Polly Neural Voices | AWS Lambda Bridge (`VoxFlow-Connect-Bridge`) + Amazon Lex V2 STT + REST Turns |
+| **Amazon Connect (AWS)** | Active exact DID/provider mapping; unknown and inactive destinations return `unknown_connect_did` | Global contact center, route-specific language and verification policy, AWS Polly Neural Voices | HMAC-authenticated AWS Lambda bridge + Amazon Lex V2 STT + REST turns |
 | **In-Browser Simulator** | Interactive Web Microphone | 100% Free, Zero Telecom Setup, Direct Streaming | WebAudio WebSocket at `/dashboard/simulator` |
 
 ---
@@ -295,19 +299,21 @@ npm run dev
 Run all automated test suites locally:
 
 ```bash
-# 1. Run full backend test suite (305 unit, integration & resilience tests)
+# 1. Run full backend test suite (347 unit, integration & resilience tests)
 cd apps/api
-pytest tests/ -v
+.venv/bin/python -m pytest -q
 
 # 2. Run backend linter
-ruff check .
+.venv/bin/ruff check voxflow_api tests
 
 # 3. Run mock audio stream feeder (simulates real-time 16kHz PCM streaming & latency telemetry)
 python3 ../../scripts/test_audio_stream.py
 
-# 4. Run frontend typecheck and static build
+# 4. Run frontend lint, typecheck, and production build
 cd ../web
-npm run build
+npm run lint
+npx tsc --noEmit --incremental false
+npx next build --webpack
 ```
 
 ---

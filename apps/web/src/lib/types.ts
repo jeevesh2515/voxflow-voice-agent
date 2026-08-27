@@ -475,6 +475,54 @@ export interface RecoveryPreview {
 export type TenantRole = "owner" | "operator" | "viewer";
 export type TenantMembershipStatus = "invited" | "active" | "revoked";
 
+export type TelephonyRoutingMode = "exact_did";
+export type TelephonyProvider = "connect" | "twilio" | "telnyx";
+export type CallerVerificationMode = "standard" | "enhanced";
+export type TelephonyLanguage = "tenant_default" | "en" | "hi";
+
+export interface TelephonyPhoneNumber {
+  phone_number: string;
+  tenant_id: string;
+  label: string;
+  provider: TelephonyProvider;
+  verification_mode: CallerVerificationMode;
+  route_language: TelephonyLanguage;
+  active: boolean;
+  created_at: string | null;
+  updated_at: string | null;
+}
+
+export interface VerificationContact {
+  supplier_id: string;
+  name: string;
+  phone_masked: string;
+  pin_configured: boolean;
+  pin_updated_at: string | null;
+  requires_rotation: boolean;
+  locked: boolean;
+}
+
+export interface TelephonySettings {
+  tenant_id: string;
+  routing_mode: TelephonyRoutingMode;
+  phone_numbers: TelephonyPhoneNumber[];
+  verification_contacts: VerificationContact[];
+}
+
+export interface TelephonyPhoneNumberInput {
+  phone_number: string;
+  label: string;
+  provider: TelephonyProvider;
+  verification_mode: CallerVerificationMode;
+  route_language: TelephonyLanguage;
+  active: boolean;
+}
+
+export interface CallerVerificationPinInput {
+  pin: string;
+  confirm_pin: string;
+}
+
 export interface TenantMembership {
   id: string;
   tenant_id: string;

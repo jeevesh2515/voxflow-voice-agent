@@ -38,10 +38,18 @@ from .routes import connect as connect_routes
 from .routes import ws as ws_routes
 from .routes.ws import get_pipeline
 from .schemas import ChatRequest, ChatResponse
+from .services.pin_security import redact_pin_data, redact_pin_text
 
 
 setup_logging()
 log = get_logger(__name__)
+
+
+class AgentRunRequest(BaseModel):
+    text: str
+    caller_phone: str = ""
+    caller_name: str = ""
+    language: str | None = None
 
 
 @asynccontextmanager
@@ -114,6 +122,7 @@ def create_app() -> FastAPI:
     # Mount routers
     app.include_router(data_routes.router, prefix="/api", tags=["data"])
     app.include_router(admin_routes.router, prefix="/api/admin", tags=["admin"])
+    app.include_router(admin_routes.tenant_settings_router)
     app.include_router(analytics_routes.router)
     app.include_router(campaign_routes.router)
     app.include_router(campaign_policy_routes.router)
@@ -151,8 +160,8 @@ def create_app() -> FastAPI:
             max_tokens=req.max_tokens,
         )
         return ChatResponse(
-            content=resp.content,
-            tool_calls=resp.tool_calls,
+            content=redact_pin_text(resp.content),
+            tool_calls=redact_pin_data(resp.tool_calls),
             finish_reason=resp.finish_reason,
             provider=resp.provider,
             model=resp.model,
@@ -173,12 +182,6 @@ def create_app() -> FastAPI:
         return StreamingResponse(iter([res.audio_bytes]), media_type=res.mime)
 
     # ----- Quick "agent run" endpoint (text-in/text-out) -----
-    class AgentRunRequest(BaseModel):
-        text: str
-        caller_phone: str = ""
-        caller_name: str = ""
-        language: str | None = None
-
     @app.post("/agent/run")
     async def agent_run(req: AgentRunRequest) -> dict[str, Any]:
         pipeline = get_pipeline()
@@ -193,16 +196,20 @@ def create_app() -> FastAPI:
         session.transcript.append(CallTurn(role="caller", text=req.text, at=datetime.now(timezone.utc)))
         runner = AgentRunner()
         result = await runner.handle_turn(session=session, user_text=req.text)
-        session.transcript.append(CallTurn(role="agent", text=result.reply, at=datetime.now(timezone.utc)))
-        for a in result.actions:
+        safe_user_text = redact_pin_text(req.text)
+        reply = redact_pin_text(result.reply)
+        safe_actions = redact_pin_data(result.actions)
+        session.transcript[-1].text = safe_user_text
+        session.transcript.append(CallTurn(role="agent", text=reply, at=datetime.now(timezone.utc)))
+        for a in safe_actions:
             session.actions.append(a)
         # Persist immediately (don't wait for end_session)
         await pipeline._persist(session)
         pipeline._sessions.pop(session.call_id, None)
         return {
             "call_id": session.call_id,
-            "reply": result.reply,
-            "actions": result.actions,
+            "reply": reply,
+            "actions": safe_actions,
             "language": session.language,
         }
 

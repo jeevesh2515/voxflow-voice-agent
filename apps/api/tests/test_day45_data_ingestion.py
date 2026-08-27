@@ -26,6 +26,7 @@ from voxflow_api.services.data_ingestion import (
     ingest_csv_data,
     validate_csv_data,
 )
+from voxflow_api.services.pin_security import verify_pin_hash
 
 
 @pytest.fixture(autouse=True)
@@ -263,7 +264,9 @@ def test_supplier_order_shipment_ingestion():
         ).scalars().first()
         assert s is not None
         assert s.phone == "+447700911222"
-        assert s.auth_pin == "5566"
+        assert s.auth_pin is None
+        assert s.auth_pin_hash is not None
+        assert verify_pin_hash("5566", s.auth_pin_hash)
         assert s.contact_type == "supplier"
 
     # 2. Orders

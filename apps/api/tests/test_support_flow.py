@@ -17,6 +17,7 @@ import pytest
 
 from voxflow_api.integrations.gsheets import GoogleSheetsClient
 from voxflow_api.agent import tools
+from voxflow_api.agent.tools import _KNOWLEDGE_BINDING_KEY
 from voxflow_api.db import (
     Order,
     Shipment,
@@ -142,10 +143,16 @@ def seed_support_data():
 
 
 def _session(verified: bool = False, supplier_id: str | None = "cust-1") -> CallSession:
+    """Build a session, binding knowledge authorization to `supplier_id` when
+    `verified=True` — simulating that `verify_caller` already succeeded for
+    this exact contact, which is what the current fail-closed binding requires.
+    """
     s = CallSession(call_id=f"test-{id(object())}", tenant_id=TENANT)
     s.supplier_id = supplier_id
     s.verified = verified
     s.caller_phone = "+919876500001"
+    if verified and supplier_id:
+        s.route_policy[_KNOWLEDGE_BINDING_KEY] = supplier_id
     return s
 
 
@@ -308,12 +315,18 @@ def test_cannot_read_another_tenants_order():
 
 
 def test_cannot_read_another_customers_order_within_the_same_tenant():
-    """Scoping is per contact, not just per tenant."""
+    """Scoping is per contact, not just per tenant.
+
+    Authorization is bound to the exact supplier that passed `verify_caller`.
+    Manually reassigning `supplier_id` without a fresh verification for that
+    contact must not be treated as still-verified — it must fail closed
+    rather than fall through to a tenant-scoped lookup.
+    """
     s = _session(verified=True)
-    s.supplier_id = "cust-2"  # a different customer
+    s.supplier_id = "cust-2"  # a different customer, never verified on this session
     r = asyncio.run(tools.check_po_status(s, order_id="PO-SIGNED-1"))
     assert r["ok"] is False
-    assert r["error"] == "not_found"
+    assert r["error"] == "not_verified"
 
 
 # --------------------------------------------------------------- outcome log

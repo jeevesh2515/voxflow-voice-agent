@@ -6,9 +6,10 @@ workspace IDs and mutable JWT metadata never grant access on their own.
 """
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from hashlib import sha256
 import json
+import os
 import time
 from typing import Iterable, Optional
 import urllib.request
@@ -35,6 +36,7 @@ class AuthUser:
     tenant_id: Optional[str] = None
     role: str = "anon"
     is_demo: bool = False
+    identity_verified: bool = False
 
 
 # In-memory JWKS cache (refreshes every 5 minutes).
@@ -102,6 +104,24 @@ def _verify_token(token: str) -> Optional[AuthUser]:
         # is never used by role checks below.
         tenant_id=str(metadata.get("tenant_id") or app_metadata.get("tenant_id") or "") or None,
         role="authenticated",
+        identity_verified=True,
+    )
+
+
+def _synthetic_local_identity_enabled() -> bool:
+    """Allow deterministic test identities only in an explicit offline test mode."""
+
+    settings = get_settings()
+    explicit_test_runtime = bool(os.environ.get("PYTEST_CURRENT_TEST")) or (
+        os.environ.get("VOXFLOW_TESTING", "").strip().lower()
+        in {"1", "true", "yes"}
+    )
+    return (
+        explicit_test_runtime
+        and not settings.tenant_authorization_enforced
+        and settings.database_url.startswith("sqlite:")
+        and not settings.supabase_url
+        and not settings.supabase_jwks_url
     )
 
 
@@ -122,12 +142,14 @@ class AuthMiddleware:
         if auth_header.lower().startswith("bearer "):
             token = auth_header[7:].strip()
             verified = _verify_token(token)
-            if verified:
-                auth = verified
-            elif token.startswith("usr-") or token.startswith("user-") or token == "demo-user-token":
+            if verified and verified.user_id:
+                auth = replace(verified, identity_verified=True)
+            elif _synthetic_local_identity_enabled() and (
+                token.startswith("usr-") or token.startswith("user-")
+            ):
                 auth = AuthUser(user_id=token, role="authenticated")
         user_id_hdr = request.headers.get("x-voxflow-user-id", "").strip()
-        if user_id_hdr and not auth.user_id:
+        if user_id_hdr and not auth.user_id and _synthetic_local_identity_enabled():
             auth = AuthUser(user_id=user_id_hdr, role="authenticated")
         request.state.auth = auth
         await self.app(scope, receive, send)

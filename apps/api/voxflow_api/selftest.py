@@ -152,7 +152,8 @@ _EXPECTED_TABLES = [
 _MIGRATION_COLUMNS = {
     "orders": ["customer_po_ref", "po_signed", "po_signed_at", "dispatched_at"],
     "calls": ["reason", "solution", "resolution_status", "satisfaction", "verified"],
-    "suppliers": ["contact_type"],
+    "suppliers": ["contact_type", "auth_pin_hash"],
+    "tenant_phone_numbers": ["provider", "verification_mode", "route_language", "active"],
 }
 
 

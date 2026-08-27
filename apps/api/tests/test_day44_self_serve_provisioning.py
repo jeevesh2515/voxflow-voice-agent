@@ -113,6 +113,9 @@ def test_provision_tenant_service_creates_isolated_tenant_and_owner_member():
         phone = db.get(TenantPhoneNumber, "+447700900555")
         assert phone is not None
         assert phone.tenant_id == "apex-cold-chain-uk-ltd"
+        # Provisioning must assign the only inbound provider with a live
+        # resolution route; otherwise the line would silently never ring.
+        assert phone.provider == "connect"
 
         # Verify Seeded Catalog
         products = (
@@ -167,7 +170,100 @@ def test_post_auth_signup_endpoint_creates_workspace(client):
     assert data["tenant_id"] == "zenith-freight-solutions-ltd"
     assert data["name"] == "Zenith Freight Solutions Ltd"
     assert data["owner_membership_created"] is True
+    assert data["owner_user_id"].startswith("pending-signup-")
     assert data["starter_data_seeded"] is True
+
+
+def test_anonymous_signup_collision_creates_new_tenant_without_touching_existing(client):
+    with session_scope() as db:
+        db.add(
+            Tenant(
+                id="protected-workspace",
+                name="Protected Workspace",
+                agent_name="Original Agent",
+                default_language="hi",
+                plan="enterprise",
+            )
+        )
+        db.add(
+            TenantMember(
+                id="tm-protected-owner",
+                tenant_id="protected-workspace",
+                user_id="protected-owner",
+                subject_email_hash=normalized_email_hash("owner@protected.test"),
+                role=ROLE_OWNER,
+                status="active",
+                invited_by="platform_admin",
+            )
+        )
+
+    response = client.post(
+        "/api/auth/signup",
+        json={
+            "company_name": "Attacker Controlled Name",
+            "email": "attacker@example.test",
+            "tenant_id": "protected-workspace",
+            "agent_name": "Attacker Agent",
+            "default_language": "en",
+            "plan": "starter",
+            "seed_starter_data": False,
+        },
+    )
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["tenant_id"] == "protected-workspace-2"
+    assert body["owner_user_id"].startswith("pending-signup-")
+
+    with session_scope() as db:
+        protected = db.get(Tenant, "protected-workspace")
+        assert protected is not None
+        assert protected.name == "Protected Workspace"
+        assert protected.agent_name == "Original Agent"
+        assert protected.default_language == "hi"
+        assert protected.plan == "enterprise"
+        protected_members = (
+            db.execute(
+                select(TenantMember).where(
+                    TenantMember.tenant_id == "protected-workspace"
+                )
+            )
+            .scalars()
+            .all()
+        )
+        assert [(member.user_id, member.role) for member in protected_members] == [
+            ("protected-owner", ROLE_OWNER)
+        ]
+
+
+def test_anonymous_signup_rejects_caller_controlled_owner_user_id(client):
+    response = client.post(
+        "/api/auth/signup",
+        json={
+            "company_name": "Spoofed Owner Ltd",
+            "email": "attacker@example.test",
+            "user_id": "protected-owner",
+            "seed_starter_data": False,
+        },
+    )
+
+    assert response.status_code == 401
+    assert response.json()["detail"] == "verified_identity_required_for_user_id"
+    with session_scope() as db:
+        assert db.get(Tenant, "spoofed-owner-ltd") is None
+
+
+def test_signup_rejects_unimplemented_language(client):
+    response = client.post(
+        "/api/auth/signup",
+        json={
+            "company_name": "Unsupported Language Ltd",
+            "email": "owner@example.test",
+            "default_language": "es",
+        },
+    )
+
+    assert response.status_code == 422
 
 
 def test_turnstile_challenge_rejection_on_signup(monkeypatch, client):
@@ -272,6 +368,7 @@ def test_cli_onboard_tenant_script(monkeypatch):
         phone = db.get(TenantPhoneNumber, "+447700900999")
         assert phone is not None
         assert phone.tenant_id == "cli-test-corp"
+        assert phone.provider == "connect"
 
         member = (
             db.execute(select(TenantMember).where(TenantMember.tenant_id == "cli-test-corp"))

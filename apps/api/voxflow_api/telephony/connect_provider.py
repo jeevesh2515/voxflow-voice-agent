@@ -10,6 +10,8 @@ from __future__ import annotations
 
 import hashlib
 import hmac
+import math
+import os
 import time
 from typing import Any
 
@@ -21,6 +23,29 @@ from .base import IncomingCall, MediaStart, TelephonyProvider
 
 log = get_logger(__name__)
 
+_MAX_SIGNATURE_AGE_SECONDS = 300
+
+
+def _is_production(settings: Any) -> bool:
+    """Best-effort production detection for the fail-closed secret gate.
+
+    An explicit ``ENVIRONMENT``/``APP_ENV``/Sentry environment always wins.
+    If none is set, also treat a non-SQLite ``DATABASE_URL`` as production:
+    per SETUP.md, SQLite is only ever used for local development and the
+    isolated test suite, so a deployment an operator forgot to label with
+    ``ENVIRONMENT=production`` but pointed at a real Postgres database must
+    still fail closed rather than silently accepting unsigned requests.
+    """
+    environment = (
+        os.environ.get("ENVIRONMENT")
+        or os.environ.get("APP_ENV")
+        or settings.sentry_environment
+    )
+    if environment.strip().lower() in {"prod", "production"}:
+        return True
+    database_url = getattr(settings, "database_url", "") or ""
+    return bool(database_url) and not database_url.startswith("sqlite")
+
 
 class ConnectProvider(TelephonyProvider):
     name = "connect"
@@ -28,32 +53,58 @@ class ConnectProvider(TelephonyProvider):
     def validate_webhook(
         self, request: Request, form: dict[str, Any], path: str,
     ) -> bool:
-        """Verify HMAC signature sent by VoxFlow AWS Lambda bridge."""
-        s = get_settings()
-        secret = getattr(s, "connect_lambda_secret", "") or s.provider_callback_shared_secret
+        """Verify the Lambda HMAC over timestamp, path, and exact request bytes."""
+        settings = get_settings()
+        secret = (
+            getattr(settings, "connect_lambda_secret", "")
+            or settings.provider_callback_shared_secret
+        )
+        production = _is_production(settings)
+        if production and not secret:
+            log.error("connect.signing_secret_missing")
+            return False
         if not secret:
-            return True  # Dev mode / unconfigured
+            return True
+        if not production and not settings.provider_callback_validate_signature:
+            return True
 
         signature = request.headers.get("x-voxflow-signature", "")
         timestamp = request.headers.get("x-voxflow-timestamp", "")
-        if not signature or not timestamp:
+        raw_body = getattr(request.state, "connect_raw_body", None)
+        if not signature or not timestamp or not isinstance(raw_body, bytes):
             return False
 
         try:
-            ts = float(timestamp)
-            if abs(time.time() - ts) > 300:
-                log.warning("connect.stale_request", age=abs(time.time() - ts))
-                return False
-        except (ValueError, TypeError):
+            sent_at = float(timestamp)
+        except (TypeError, ValueError):
+            return False
+        if not math.isfinite(sent_at):
             return False
 
-        # Verify signature over timestamp + path
+        max_age = max(
+            1,
+            min(
+                int(settings.provider_callback_max_age_seconds),
+                _MAX_SIGNATURE_AGE_SECONDS,
+            ),
+        )
+        age = abs(time.time() - sent_at)
+        if age > max_age:
+            log.warning("connect.stale_request", age=round(age, 3))
+            return False
+
+        message = (
+            timestamp.encode("utf-8")
+            + b":"
+            + path.encode("utf-8")
+            + b":"
+            + raw_body
+        )
         expected = hmac.new(
             secret.encode("utf-8"),
-            f"{timestamp}:{path}".encode("utf-8"),
+            message,
             hashlib.sha256,
         ).hexdigest()
-
         return hmac.compare_digest(expected, signature)
 
     def parse_incoming_call(self, form: dict[str, Any]) -> IncomingCall:

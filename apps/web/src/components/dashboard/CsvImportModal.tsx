@@ -222,7 +222,7 @@ export default function CsvImportModal({
                 </span>
               </h2>
               <p className="text-xs text-[#a098b0]">
-                Populate your voice agent's real-time knowledge base with transactional guarantees
+                Populate your voice agent’s real-time knowledge base with transactional guarantees
               </p>
             </div>
           </div>

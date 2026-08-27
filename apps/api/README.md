@@ -6,10 +6,11 @@ FastAPI backend for VoxFlow voice operations, tenant-scoped operational APIs, in
 
 | Area | Implementation |
 |---|---|
-| Voice and operations API | Inbound voice/webhook/media-stream paths, dashboard APIs, operational tools, tenant-aware data access. |
+| Voice and operations API | Inbound voice/webhook/media-stream paths, dashboard APIs, operational tools, tenant-aware data access, and exact provider/DID route selection. |
 | Durable jobs | Job ledger, transactional outbox, atomic claim/lease, retries, attempt history, stale-worker protection, graceful drain, and typed redacted side-effect intents. |
 | Campaign dispatch | Feature-gated worker handler, dry run, provider-operation idempotency, reconciliation/no-redial behavior. |
-| Tenant safety | Job/campaign/policy reads scoped by tenant; explicit policy, consent, opt-out, quota, and capacity gate dispatch. |
+| Tenant safety | Job/campaign/policy reads scoped by tenant; exact inbound DID ownership; owner-only telephony mutation; explicit policy, consent, opt-out, quota, and capacity gate dispatch. |
+| Caller verification | Standard/enhanced route policy, 4–8 digit PBKDF2 PINs, constant-time checks, legacy migration, timestamps, and end-to-end redaction. |
 | Auditability | Job attempts, provider operations, policy decisions, immutable provider events, quarantined unknown callbacks, redacted provider-adapter audit receipts, health/read models, and cancellation reason codes. |
 | Provider callbacks | Fail-closed normalized ingress plus disabled-by-default Dial sandbox HMAC adapter, tenant-derived lookup, event deduplication, terminal reconciliation, rollout gate, and lifecycle aggregates. |
 | Operational side effects | Separate Day 34 worker service for Sheets, email scans, CRM sync, notifications, worksheet writes, and recording retrieval; all request paths persist intent only. |
@@ -34,7 +35,7 @@ The default local database is SQLite. Production uses a PostgreSQL-compatible da
 .venv/bin/pytest -q
 ```
 
-At the Day 36 local milestone, the full backend suite has **222 passing tests** and API lint is clean.
+The full backend suite has **347 passing tests** and API lint is clean.
 
 ## Durable campaign migration sequence
 
@@ -47,6 +48,12 @@ At the Day 36 local milestone, the full backend suite has **222 passing tests** 
 008_typed_durable_side_effect_jobs.sql
 009_controlled_pilot_readiness.sql
 010_pilot_operations_evidence.sql
+011_reliability_slos_drills.sql
+012_tenant_memberships.sql
+013_privacy_lifecycle_controls.sql
+014_telephony_provider.sql
+015_call_latency.sql
+016_telephony_routing_and_caller_pins.sql
 ```
 
 Use the migration files for production schema changes. Local test setup creates current SQLAlchemy metadata automatically.
@@ -88,6 +95,10 @@ Day 36 adds `GET /api/pilot-operations/{tenant_id}/preflight` and `GET /api/pilo
 | Path | Purpose |
 |---|---|
 | `voxflow_api/db.py` | SQLAlchemy models and database setup. |
+| `voxflow_api/services/telephony_routing.py` | E.164 normalization and exact provider/DID route policy. |
+| `voxflow_api/services/pin_security.py` | PBKDF2 hashing, constant-time verification, PIN validation, and redaction. |
+| `voxflow_api/routes/admin.py` | Legacy admin compatibility plus canonical owner-only tenant telephony settings APIs. |
+| `tests/test_day46_telephony_routing.py` | Exact route, tenant isolation, authorization, PIN storage/redaction, and verification-policy coverage. |
 | `voxflow_api/jobs/` | Ledger, outbox, worker, provider operations, reconciliation, policy, and typed side-effect intent services. |
 | `voxflow_api/routes/campaigns.py` | Campaign command/read APIs and policy decision audit read. |
 | `voxflow_api/routes/campaign_policies.py` | Tenant policy and recipient preference APIs. |

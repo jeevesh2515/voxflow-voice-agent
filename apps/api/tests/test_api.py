@@ -154,10 +154,20 @@ async def test_check_stock_tool():
 
 @pytest.mark.asyncio(loop_scope="module")
 async def test_shipment_status_tool():
-    from voxflow_api.agent.tools import execute_tool
+    """Shipment reads are a protected lookup and now require the same
+    knowledge-verification binding as any other protected read — an
+    unverified session must not be able to fetch it."""
+    from voxflow_api.agent.tools import execute_tool, lookup_supplier, verify_caller
+    from voxflow_api.cache import supplier_cache
     from voxflow_api.voice.pipeline import CallSession
 
-    s = CallSession(call_id="test")
+    supplier_cache.clear()
+    s = CallSession(call_id="test-shipment-status")
+    found = await lookup_supplier(s, phone="+919876543210")
+    assert found["found"] is True
+    verified = await verify_caller(s, company="Sharma Beverages Wholesale", city_or_gstin="Gurgaon")
+    assert verified["verified"] is True
+
     res = await execute_tool("get_shipment_status", {"order_id": "PO-1717000000-001"}, s)
     assert res["found"] is True
     assert res["status"] == "in_transit"
@@ -165,12 +175,28 @@ async def test_shipment_status_tool():
 
 @pytest.mark.asyncio(loop_scope="module")
 async def test_create_po_tool():
-    from voxflow_api.agent.tools import execute_tool
+    """Tier-2 writes require a PIN bound to the exact verified supplier —
+    directly toggling `pin_verified` no longer authorizes the write."""
+    from voxflow_api.agent.tools import execute_tool, lookup_supplier, verify_caller, verify_pin
+    from voxflow_api.cache import supplier_cache
+    from voxflow_api.db import Supplier, session_scope
+    from voxflow_api.services.pin_security import hash_pin
     from voxflow_api.voice.pipeline import CallSession
 
-    s = CallSession(call_id="test")
-    s.supplier_id = "sup-varun-001"
-    s.pin_verified = True
+    with session_scope() as db:
+        supplier = db.get(Supplier, "sup-varun-001")
+        supplier.auth_pin_hash = hash_pin("4321")
+        supplier.auth_pin = None
+
+    supplier_cache.clear()
+    s = CallSession(call_id="test-create-po")
+    found = await lookup_supplier(s, phone="+919876543210")
+    assert found["found"] is True
+    verified = await verify_caller(s, company="Sharma Beverages Wholesale", city_or_gstin="Gurgaon")
+    assert verified["verified"] is True
+    pin_result = await verify_pin(s, pin="4321")
+    assert pin_result["verified"] is True
+
     res = await execute_tool(
         "create_po",
         {"items": [{"sku": "PEP-250ML-12", "quantity": 25}, {"sku": "7UP-500ML-24", "quantity": 10}]},

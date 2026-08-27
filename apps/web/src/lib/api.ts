@@ -17,6 +17,9 @@ import type {
   PrivacyRequestStatus,
   PrivacyRequestType,
   DesignPartnerReadiness,
+  CallerVerificationPinInput,
+  TelephonyPhoneNumberInput,
+  TelephonySettings,
 } from "./types";
 
 const LOCAL_API_URL = "http://localhost:8000";
@@ -107,7 +110,10 @@ async function http<T>(path: string, init?: RequestInit): Promise<T> {
       const body = await r.text();
       throw new Error(`${r.status} ${r.statusText}: ${body}`);
     }
-    return r.json();
+    if (r.status === 204) return undefined as T;
+    const body = await r.text();
+    if (!body) return undefined as T;
+    return JSON.parse(body) as T;
   } catch (err) {
     // Graceful fallback for empty/cold-start state
     if (path.includes("/api/calls") || path.includes("/api/active-calls")) {
@@ -222,6 +228,27 @@ export const api = {
     http<any>(`/api/admin/tenants/${tenant_id}/phone-numbers`, {
       method: "POST",
       body: JSON.stringify({ phone_number, label }),
+    }),
+  telephonySettings: (tenant_id: string) =>
+    http<TelephonySettings>(`/api/tenants/${encodeURIComponent(tenant_id)}/telephony`),
+  createPhoneNumber: (tenant_id: string, payload: TelephonyPhoneNumberInput) =>
+    http<unknown>(`/api/tenants/${encodeURIComponent(tenant_id)}/phone-numbers`, {
+      method: "POST",
+      body: JSON.stringify(payload),
+    }),
+  updatePhoneNumber: (tenant_id: string, phone_number: string, payload: TelephonyPhoneNumberInput) =>
+    http<unknown>(`/api/tenants/${encodeURIComponent(tenant_id)}/phone-numbers/${encodeURIComponent(phone_number)}`, {
+      method: "PATCH",
+      body: JSON.stringify(payload),
+    }),
+  deactivatePhoneNumber: (tenant_id: string, phone_number: string) =>
+    http<unknown>(`/api/tenants/${encodeURIComponent(tenant_id)}/phone-numbers/${encodeURIComponent(phone_number)}`, {
+      method: "DELETE",
+    }),
+  setCallerVerificationPin: (tenant_id: string, supplier_id: string, payload: CallerVerificationPinInput) =>
+    http<unknown>(`/api/tenants/${encodeURIComponent(tenant_id)}/caller-verification/${encodeURIComponent(supplier_id)}/pin`, {
+      method: "PUT",
+      body: JSON.stringify(payload),
     }),
 
   summary: (tenant_id?: string) => http<any>(`/api/summary${tenant_id ? `?tenant_id=${tenant_id}` : ""}`),
@@ -347,7 +374,7 @@ export const api = {
     tenant_id?: string;
     phone_number?: string;
     agent_name?: string;
-    default_language?: "en" | "hi" | "es";
+    default_language?: "en" | "hi";
     plan?: "starter" | "pro" | "enterprise";
     seed_starter_data?: boolean;
     turnstile_token?: string | null;

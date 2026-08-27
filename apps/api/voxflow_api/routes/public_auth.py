@@ -15,7 +15,11 @@ from pydantic import BaseModel, Field, field_validator
 from ..auth import get_auth
 from ..config import get_settings
 from ..db import session_scope
-from ..services.provisioning import provision_tenant
+from ..services.provisioning import (
+    PhoneNumberConflictError,
+    TenantSlugConflictError,
+    provision_tenant,
+)
 from ..turnstile import validate_turnstile_token
 
 
@@ -35,7 +39,7 @@ class SelfServeSignupIn(BaseModel):
     tenant_id: str | None = Field(default=None, max_length=64, description="Optional custom tenant slug")
     phone_number: str | None = Field(default=None, max_length=32, description="Optional phone number")
     agent_name: str = Field(default="Vaani", max_length=64, description="Voice agent persona name")
-    default_language: Literal["en", "hi", "es"] = Field(default="en", description="Default voice language")
+    default_language: Literal["en", "hi"] = Field(default="en", description="Default voice language")
     plan: Literal["starter", "pro", "enterprise"] = Field(default="pro", description="Subscription plan")
     seed_starter_data: bool = Field(default=True, description="Prepopulate with starter catalog for immediate testing")
     turnstile_token: str | None = Field(default=None, description="Cloudflare Turnstile token")
@@ -94,21 +98,36 @@ async def self_serve_signup(payload: SelfServeSignupIn, request: Request) -> dic
             raise HTTPException(status_code=403, detail="challenge_verification_failed")
 
     auth = get_auth(request)
-    owner_user_id = auth.user_id if auth.user_id else (payload.user_id or f"usr-{uuid.uuid4().hex[:16]}")
-    owner_email = auth.email if auth.email else payload.email
+    claimed_user_id = (payload.user_id or "").strip()
+    if claimed_user_id and not auth.identity_verified:
+        raise HTTPException(status_code=401, detail="verified_identity_required_for_user_id")
+    if claimed_user_id and claimed_user_id != auth.user_id:
+        raise HTTPException(status_code=403, detail="signup_user_id_mismatch")
 
-    with session_scope() as db:
-        result = provision_tenant(
-            db,
-            name=payload.company_name,
-            owner_user_id=owner_user_id,
-            tenant_id=payload.tenant_id,
-            owner_email=owner_email,
-            agent_name=payload.agent_name,
-            default_language=payload.default_language,
-            plan=payload.plan,
-            phone_number=payload.phone_number,
-            seed_starter_data=payload.seed_starter_data,
-            invited_by="self_serve_signup",
-        )
-        return result
+    owner_user_id = (
+        auth.user_id
+        if auth.identity_verified
+        else f"pending-signup-{uuid.uuid4().hex}"
+    )
+    owner_email = auth.email if auth.identity_verified and auth.email else payload.email
+
+    try:
+        with session_scope() as db:
+            result = provision_tenant(
+                db,
+                name=payload.company_name,
+                owner_user_id=owner_user_id,
+                tenant_id=payload.tenant_id,
+                owner_email=owner_email,
+                agent_name=payload.agent_name,
+                default_language=payload.default_language,
+                plan=payload.plan,
+                phone_number=payload.phone_number,
+                seed_starter_data=payload.seed_starter_data,
+                invited_by="self_serve_signup",
+            )
+            return result
+    except (PhoneNumberConflictError, TenantSlugConflictError) as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc

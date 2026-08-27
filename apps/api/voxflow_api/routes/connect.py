@@ -13,11 +13,14 @@ from typing import Any, Optional
 
 from fastapi import APIRouter, HTTPException, Request
 from pydantic import BaseModel
+from sqlalchemy import select
 
 from ..agent.runner import AgentRunner
 from ..config import get_settings
-from ..db import TenantPhoneNumber, async_session_scope
+from ..db import Tenant, TenantPhoneNumber, async_session_scope
 from ..logging import get_logger
+from ..services.pin_security import redact_pin_text
+from ..services.telephony_routing import normalize_e164
 from ..schemas import CallTurn
 from ..telephony.registry import get_telephony_provider
 from .ws import get_pipeline
@@ -49,29 +52,52 @@ class ConnectEndRequest(BaseModel):
     outcome: str = "resolved"
 
 
-async def _resolve_connect_tenant(system_phone: str) -> str:
-    s = get_settings()
-    if not system_phone:
-        return s.default_tenant_id
+async def _resolve_connect_route(system_phone: str) -> dict[str, str]:
+    """Resolve one active Connect DID exactly; all other values fail closed."""
+    settings = get_settings()
+    if not system_phone.strip():
+        raise HTTPException(status_code=404, detail="unknown_connect_did")
 
-    from sqlalchemy import select
+    try:
+        normalized_did = normalize_e164(system_phone)
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
 
     try:
         async with async_session_scope() as db:
-            row = (
-                await db.execute(
-                    select(TenantPhoneNumber).where(
-                        TenantPhoneNumber.phone_number == system_phone,
-                        TenantPhoneNumber.active == 1,
-                    )
+            result = await db.execute(
+                select(TenantPhoneNumber, Tenant)
+                .join(Tenant, Tenant.id == TenantPhoneNumber.tenant_id)
+                .where(
+                    TenantPhoneNumber.phone_number == normalized_did,
+                    TenantPhoneNumber.provider == "connect",
+                    TenantPhoneNumber.active == 1,
+                    Tenant.active == 1,
                 )
-            ).scalars().first()
-            if row:
-                return row.tenant_id
-    except Exception as e:
-        log.error("connect.tenant_lookup_failed", to=system_phone, error=str(e))
+            )
+            matched = result.first()
+    except Exception as exc:
+        log.error("connect.tenant_lookup_failed", error_type=type(exc).__name__)
+        raise HTTPException(status_code=503, detail="inbound_route_lookup_unavailable") from exc
 
-    return s.default_tenant_id
+    if matched is None:
+        raise HTTPException(status_code=404, detail="unknown_connect_did")
+    row, tenant = matched
+    route_language = row.route_language or "tenant_default"
+    language = tenant.default_language if route_language == "tenant_default" else route_language
+    return {
+        "tenant_id": row.tenant_id,
+        "phone_number": row.phone_number,
+        "provider": row.provider,
+        "verification_mode": row.verification_mode or "standard",
+        "route_language": route_language,
+        "language": language or settings.tts_default_lang,
+    }
+
+
+async def _resolve_connect_tenant(system_phone: str) -> str:
+    """Backward-compatible tenant-only resolver for internal callers."""
+    return (await _resolve_connect_route(system_phone))["tenant_id"]
 
 
 @router.post("/turn", response_model=ConnectTurnResponse)
@@ -84,22 +110,31 @@ async def connect_turn(
     start_time = time.perf_counter()
 
     provider = get_telephony_provider("connect")
+    request.state.connect_raw_body = await request.body()
     form_dict = req.model_dump()
     if not provider.validate_webhook(request, form_dict, "/api/connect/turn"):
         log.warning("connect.invalid_signature", contact_id=req.contact_id)
         raise HTTPException(status_code=403, detail="invalid_signature")
 
+    route = await _resolve_connect_route(req.system_phone)
     pipeline = get_pipeline()
     session = pipeline.get_session(req.contact_id)
 
     if session is None:
-        tenant_id = await _resolve_connect_tenant(req.system_phone)
         session = pipeline.start_session(
             caller_phone=req.customer_phone,
-            language=req.language or get_settings().tts_default_lang,
-            tenant_id=tenant_id,
+            language=route["language"],
+            tenant_id=route["tenant_id"],
             call_id=req.contact_id,
+            route_policy=route,
         )
+    elif (
+        session.tenant_id != route["tenant_id"]
+        or session.inbound_did != route["phone_number"]
+        or session.telephony_provider != "connect"
+    ):
+        log.warning("connect.session_route_mismatch", contact_id=req.contact_id)
+        raise HTTPException(status_code=403, detail="connect_route_mismatch")
 
     user_text = req.user_text.strip()
     if not user_text:
@@ -147,6 +182,9 @@ async def connect_turn(
         agent_result = await runner.handle_turn(session=session, user_text=user_text)
         agent_reply = agent_result.reply
         actions = agent_result.actions
+        if any(action.get("name") == "verify_pin" for action in actions):
+            session.transcript[-1].text = redact_pin_text(user_text)
+            agent_reply = redact_pin_text(agent_reply)
 
         session.transcript.append(CallTurn(role="agent", text=agent_reply, at=datetime.now(timezone.utc)))
         for a in actions:
@@ -162,9 +200,7 @@ async def connect_turn(
     log.info(
         "connect.turn_completed",
         contact_id=req.contact_id,
-        caller=user_text or "[silence]",
         silence_count=session.silence_count,
-        agent=agent_reply,
         escalated=session.escalated,
         latency_ms=latency_ms,
     )
@@ -187,6 +223,7 @@ async def connect_end(
 ) -> dict[str, Any]:
     """Finalize an Amazon Connect session upon call completion."""
     provider = get_telephony_provider("connect")
+    request.state.connect_raw_body = await request.body()
     if not provider.validate_webhook(request, req.model_dump(), "/api/connect/end"):
         raise HTTPException(status_code=403, detail="invalid_signature")
 

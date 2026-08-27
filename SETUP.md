@@ -1,6 +1,6 @@
 # VoxFlow Setup and Deployment Guide
 
-**Last updated:** 2026-08-21
+**Last updated:** 2026-08-26
 **Current deployment:** FastAPI API on the Render Free Web Service and Next.js dashboard on Vercel. Vercel Production REST and WebSocket origins both target Render. Render is request-driven and may take about a minute to wake after idle time; this posture is for safe demonstrations, not a continuous telephony SLA.
 **Campaign and side-effect safety:** `DURABLE_CAMPAIGN_WORKER_ENABLED=false` and `DURABLE_SIDE_EFFECTS_WORKER_ENABLED=false` must remain set in production unless a separately approved controlled pilot is being operated.
 
@@ -71,9 +71,15 @@ migrations/007_dial_sandbox_callback_adapter.sql
 migrations/008_typed_durable_side_effect_jobs.sql
 migrations/009_controlled_pilot_readiness.sql
 migrations/010_pilot_operations_evidence.sql
+migrations/011_reliability_slos_drills.sql
+migrations/012_tenant_memberships.sql
+migrations/013_privacy_lifecycle_controls.sql
+migrations/014_telephony_provider.sql
+migrations/015_call_latency.sql
+migrations/016_telephony_routing_and_caller_pins.sql
 ```
 
-Run migrations through an approved PostgreSQL migration procedure. Do not run a campaign worker merely to validate migration success. Use API health, test suites, and safe job-health reads instead.
+Run migrations through an approved PostgreSQL migration procedure. Migration `016` backfills route `updated_at`, adds exact route policy fields and PIN verifier timestamps, and must be applied before the matching API revision. Do not run a campaign worker merely to validate migration success. Use API health, test suites, and safe job-health reads instead.
 
 ## 4. Backend deployment and free-tier operation
 
@@ -126,6 +132,12 @@ curl -fsS "$API_ORIGIN/api/pilot-operations/varun/hold-point"
 The health response also reports `db_schema_bootstrap_mode: "auto"` on the active Render deployment. Its startup log should report `db.schema_verified dialect=postgresql`; this is a read-only migration check, not table creation or compatibility DDL.
 
 Expected Day 36 posture is `activation_mode: "staged"`, `canary_allowed: false`, campaign dry-run true, an unconfigured tenant policy, generic normalized callback ingress returning `503`, and Dial ingress returning `503 dial_callback_adapter_disabled` before body parsing. The analytics response must include `dial_sandbox_adapter` and `durable_side_effects`; the latter must show `activation_mode="staged"`, `dry_run=true`, `tenant_allowed=false`, and zero unplanned intent/error counts in an untouched deployment. Day 36 preflight and hold-point responses must be **blocked** for a tenant without configuration, show `no_auto_expansion=true`, `expansion_permitted=false`, and perform no mutation. These checks are intentionally malformed/read-only; they must never be replaced with a live Dial callback, configured secret, provider ping, Sheets write, Gmail fetch, CRM post, notification, recording retrieval, or side-effect-worker enablement during deployment verification.
+
+### Tenant telephony configuration
+
+After migration and API deployment, an authenticated tenant owner configures inbound lines from `/dashboard/settings`. Use E.164 numbers only. The destination number is immutable after creation; add a new line and deactivate the old one to change DID ownership. Unknown, inactive, or wrong-provider DIDs must return `404 unknown_connect_did` rather than falling back to a default tenant.
+
+Caller PINs are set/reset per contact in the same owner-only settings page. Use 4–8 digits and confirmation. The browser never receives the stored verifier, and production onboarding/import paths do not assign a predictable default PIN when none is supplied. Operators, viewers, and demo sessions may inspect masked posture only. A contact locks for 15 minutes after 10 failed PIN attempts persisted across calls (not just within one call); an owner can immediately clear a lockout by setting a new PIN.
 
 ## 5. Vercel frontend deployment
 

@@ -15,7 +15,7 @@ type AuthContextType = {
   user: User | null;
   loading: boolean;
   signIn: (email: string, password: string) => Promise<{ error?: string }>;
-  signUp: (email: string, password: string, metadata?: Record<string, any>) => Promise<{ error?: string }>;
+  signUp: (email: string, password: string, metadata?: Record<string, any>) => Promise<{ error?: string; hasSession?: boolean }>;
   demoSignIn: (tenantId?: string) => void;
   signOut: () => Promise<void>;
 };
@@ -24,7 +24,7 @@ const AuthContext = createContext<AuthContextType>({
   user: null,
   loading: true,
   signIn: async () => ({}),
-  signUp: async () => ({}),
+  signUp: async () => ({ hasSession: false }),
   demoSignIn: () => {},
   signOut: async () => {},
 });
@@ -161,7 +161,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     });
 
     if (error) {
-      return { error: error.message };
+      return { error: error.message, hasSession: false };
     }
 
     if (data.user) {
@@ -173,10 +173,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         tenant_id: userMetadata.tenant_id || "varun",
       };
       setUser(authUser);
-      return {};
+      // Supabase projects with email confirmation enabled (a common default)
+      // return a `user` but no `session` until the address is confirmed. A
+      // caller with no live session has no bearer token to attach to the
+      // subsequent backend request, so the backend must treat it as
+      // unauthenticated — the workspace-provisioning caller needs to know
+      // this rather than silently proceeding as if sign-up fully succeeded.
+      return { hasSession: Boolean(data.session) };
     }
 
-    return { error: "Failed to create user." };
+    return { error: "Failed to create user.", hasSession: false };
   };
 
   const demoSignIn = (_tenantId = "varun") => {

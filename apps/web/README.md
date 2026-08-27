@@ -19,7 +19,7 @@ npm run lint
 npm run build
 ```
 
-The Day 36 production build generates 20 routes without TypeScript/build errors.
+The current production build generates **25 routes** without TypeScript/build errors.
 
 ## Main pages
 
@@ -38,7 +38,11 @@ The Day 36 production build generates 20 routes without TypeScript/build errors.
 | `/dashboard/escalations` | Escalation review and resolution workflow. |
 | `/dashboard/campaigns` | Campaign staging, target queue, durable job health, and policy-stop visibility. |
 | `/dashboard/analytics` | Tenant-safe KPIs, monitoring attention queue, redacted CSV reporting, aggregate provider lifecycle counts, Dial sandbox-adapter readiness, Day 34 durable side-effect health, Day 35 controlled-pilot readiness, and Day 36 pilot-operations evidence. |
-| `/dashboard/settings` | Agent, telephony, and operations settings. |
+| `/dashboard/settings` | Server-authoritative exact-DID routing, provider/language/verification policy, line deactivation, masked PIN posture, and owner-only caller PIN set/reset. |
+
+## Telephony settings safety
+
+The settings page reads `GET /api/tenants/{tenant_id}/telephony`. An active exact-DID status is treated as the only valid routing posture. Owners can add/update/deactivate line policy and set/reset a per-contact 4–8 digit PIN; operators, viewers, and demo sessions are read-only. DID identity is immutable during edit, phone contacts are masked, and neither plaintext PINs nor stored hashes are rendered or retained by the page.
 
 ## Analytics and callback lifecycle visibility
 

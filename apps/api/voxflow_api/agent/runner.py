@@ -25,6 +25,7 @@ from ..db import Tenant, session_scope
 from ..llm import get_llm
 from ..llm.base import ChatTurn, LLMProvider
 from ..logging import get_logger
+from ..services.pin_security import redact_pin_data, redact_pin_text, redact_tool_calls_for_trace
 from .prompts import build_system_prompt, build_tenant_prompt
 from .tools import TOOL_DEFINITIONS, execute_tool
 
@@ -38,6 +39,35 @@ except ImportError:  # pragma: no cover
 
 
 log = get_logger(__name__)
+
+
+def _redacted_trace_inputs(inputs: dict[str, Any]) -> dict[str, Any]:
+    """Keep caller credentials and full session transcripts out of LangSmith."""
+    session = inputs.get("session")
+    return {
+        "call_id": redact_pin_text(str(getattr(session, "call_id", ""))),
+        "tenant_id": redact_pin_text(str(getattr(session, "tenant_id", ""))),
+        "user_text": redact_pin_text(str(inputs.get("user_text", ""))),
+    }
+
+
+def _redacted_trace_outputs(outputs: dict[str, Any]) -> dict[str, Any]:
+    """Keep replies, actions, and tool traces PIN-free in LangSmith."""
+    redacted = redact_pin_data(outputs)
+    return redacted if isinstance(redacted, dict) else {"output": redacted}
+
+
+def _redact_session_evidence(session: CallSession) -> None:
+    """Scrub transient caller/tool data before any caller can persist the session."""
+    for turn in getattr(session, "transcript", []):
+        turn.text = redact_pin_text(turn.text)
+    session.actions = redact_pin_data(getattr(session, "actions", []))
+    session.route_policy = redact_pin_data(getattr(session, "route_policy", {}))
+    for attr in ("caller_name", "company_name", "intent", "reason", "solution", "related_order"):
+        value = getattr(session, attr, None)
+        if isinstance(value, str):
+            setattr(session, attr, redact_pin_text(value))
+
 
 # Configure LangSmith environment if keys are configured
 _settings = get_settings()
@@ -57,6 +87,12 @@ class AgentTurnResult:
     actions: list[dict[str, Any]] = field(default_factory=list)
     tool_calls: list[dict[str, Any]] = field(default_factory=list)
     finish_reason: str = "stop"
+
+    def __post_init__(self) -> None:
+        """Make every shared caller-facing result safe, including Connect responses."""
+        self.reply = redact_pin_text(self.reply)
+        self.actions = redact_pin_data(self.actions)
+        self.tool_calls = redact_pin_data(self.tool_calls)
 
 
 class AgentRunner:
@@ -81,7 +117,11 @@ class AgentRunner:
                     self._prompt_cache[cache_key] = (now, prompt)
                     return prompt
         except Exception as e:
-            log.warning("runner.tenant_prompt_fallback", tenant_id=tenant_id, error=str(e))
+            log.warning(
+                "runner.tenant_prompt_fallback",
+                tenant_id=redact_pin_text(tenant_id),
+                error=redact_pin_text(str(e)),
+            )
 
         s = get_settings()
         prompt = build_system_prompt(
@@ -95,6 +135,13 @@ class AgentRunner:
     def _call_context(session: CallSession) -> str:
         """Facts about THIS call, as a system message."""
         active_lang = session.language or "en"
+        verification_mode = getattr(session, "verification_mode", "standard")
+        pin_verified = bool(getattr(session, "pin_verified", False))
+        verification_policy = (
+            "Enhanced mode: complete knowledge verification and verify the caller PIN before any protected order read or write."
+            if verification_mode == "enhanced"
+            else "Standard mode: complete knowledge verification before protected reads; caller PIN verification is still required for writes."
+        )
         return (
             "CALL CONTEXT (facts about this call — not spoken by the caller):\n"
             f"- Tenant ID: {session.tenant_id}\n"
@@ -102,6 +149,9 @@ class AgentRunner:
             f"- Caller's number: {session.caller_phone or 'withheld / not available'}\n"
             f"- Caller's company: {session.company_name or 'unidentified'}\n"
             f"- Verified so far: {'YES' if session.verified else 'NO — disclose no order details yet'}\n"
+            f"- Inbound verification mode: {verification_mode}\n"
+            f"- PIN verified so far: {'YES' if pin_verified else 'NO'}\n"
+            f"- Route verification policy: {verification_policy}\n"
             f"- Verification attempts used: {session.verify_attempts} of 3\n"
             "Pass the caller's number to lookup_supplier exactly as written above. "
             "If it says withheld, do not invent one — ask the caller for their company name "
@@ -125,7 +175,12 @@ class AgentRunner:
             turns.append(ChatTurn(role=role, content=t.text))
         return turns
 
-    @traceable(name="voxflow_voice_turn", run_type="chain")
+    @traceable(
+        name="voxflow_voice_turn",
+        run_type="chain",
+        process_inputs=_redacted_trace_inputs,
+        process_outputs=_redacted_trace_outputs,
+    )
     async def handle_turn(self, session: CallSession, user_text: str) -> AgentTurnResult:
         llm = self._llm or get_llm()
         history = self._history(session)
@@ -142,10 +197,11 @@ class AgentRunner:
                 # and do not synthesize or queue any operational side effect.
                 log.warning(
                     "llm.turn_unavailable",
-                    tenant=session.tenant_id,
-                    provider=getattr(llm, "name", "unknown"),
+                    tenant=redact_pin_text(session.tenant_id),
+                    provider=redact_pin_text(str(getattr(llm, "name", "unknown"))),
                     exception_type=type(exc).__name__,
                 )
+                _redact_session_evidence(session)
                 is_hindi = getattr(session, "language", "en") == "hi"
                 return AgentTurnResult(
                     reply=(
@@ -157,27 +213,31 @@ class AgentRunner:
                     tool_calls=all_tool_calls,
                     finish_reason="provider_unavailable",
                 )
+            _redact_session_evidence(session)
             log.info(
                 "llm.turn",
                 iter=iteration,
-                tenant=session.tenant_id,
-                provider=resp.provider,
-                model=resp.model,
-                finish=resp.finish_reason,
+                tenant=redact_pin_text(session.tenant_id),
+                provider=redact_pin_text(resp.provider),
+                model=redact_pin_text(resp.model),
+                finish=redact_pin_text(resp.finish_reason),
                 tools=len(resp.tool_calls or []),
                 ms=int((time.time() - t0) * 1000),
             )
 
-            # Add assistant message
+            tool_calls = resp.tool_calls or []
+            # Preserve id/type/function.name so the tool-calling protocol
+            # round-trips correctly on the next turn; only the arguments
+            # string is redacted.
+            safe_tool_calls = redact_tool_calls_for_trace(tool_calls)
             history.append(
                 ChatTurn(
                     role="assistant",
-                    content=resp.content or "",
-                    tool_calls=resp.tool_calls or None,
+                    content=redact_pin_text(resp.content or ""),
+                    tool_calls=safe_tool_calls or None,
                 )
             )
 
-            tool_calls = resp.tool_calls or []
             if not tool_calls:
                 return AgentTurnResult(
                     reply=resp.content.strip() if resp.content else "...",
@@ -197,19 +257,30 @@ class AgentRunner:
                     args = {}
                 tool_call_id = tc.get("id") or f"call_{iteration}_{len(actions)}"
 
-                log.info("tool.call", tenant=session.tenant_id, name=name, args=args)
+                safe_args = redact_pin_data(args)
+                log.info(
+                    "tool.call",
+                    tenant=redact_pin_text(session.tenant_id),
+                    name=redact_pin_text(name),
+                    args=safe_args,
+                )
                 t_tool = time.time()
-                result = await execute_tool(name, args, session)
-                log.info("timing.tool", name=name, ms=int((time.time() - t_tool) * 1000))
+                result = redact_pin_data(await execute_tool(name, args, session))
+                _redact_session_evidence(session)
+                log.info(
+                    "timing.tool",
+                    name=redact_pin_text(name),
+                    ms=int((time.time() - t_tool) * 1000),
+                )
                 actions.append(
                     {
                         "name": name,
-                        "args": args,
+                        "args": safe_args,
                         "result": result,
                         "at": time.time(),
                     }
                 )
-                all_tool_calls.append({"name": name, "args": args})
+                all_tool_calls.append({"name": name, "args": safe_args})
 
                 history.append(
                     ChatTurn(

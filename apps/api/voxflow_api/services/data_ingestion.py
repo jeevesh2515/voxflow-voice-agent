@@ -29,6 +29,8 @@ from ..db import (
     Supplier,
 )
 from ..logging import get_logger
+from .pin_security import hash_pin, validate_pin
+from .telephony_routing import normalize_e164
 
 log = get_logger(__name__)
 
@@ -106,7 +108,7 @@ ENTITY_SCHEMAS: dict[str, dict[str, Any]] = {
                 "pincode": "EC1A 1BB",
                 "contact_person": "Arthur Pendelton",
                 "gstin": "GB123456789",
-                "auth_pin": "4321",
+                "auth_pin": "",
                 "contact_type": "supplier",
             },
             {
@@ -118,7 +120,7 @@ ENTITY_SCHEMAS: dict[str, dict[str, Any]] = {
                 "pincode": "B1 1AA",
                 "contact_person": "Sarah Jenkins",
                 "gstin": "GB987654321",
-                "auth_pin": "1234",
+                "auth_pin": "",
                 "contact_type": "customer",
             },
         ],
@@ -370,8 +372,16 @@ def validate_csv_data(entity: str, csv_text: str, tenant_id: str = "") -> Ingest
             phone = row.get("phone", "").strip()
             if not name:
                 errors.append(RowError(idx, "name", "Supplier name cannot be empty", name))
-            if not phone or len(phone) < 5:
-                errors.append(RowError(idx, "phone", "Phone number must be at least 5 digits/characters", phone))
+            try:
+                normalize_e164(phone)
+            except ValueError:
+                errors.append(RowError(idx, "phone", "Phone number must be valid E.164", phone))
+            configured_pin = row.get("auth_pin", "").strip()
+            if configured_pin:
+                try:
+                    validate_pin(configured_pin)
+                except ValueError:
+                    errors.append(RowError(idx, "auth_pin", "PIN must be 4 to 8 digits", "[REDACTED]"))
 
         elif entity == "orders":
             order_id = row.get("id", "").strip()
@@ -395,7 +405,10 @@ def validate_csv_data(entity: str, csv_text: str, tenant_id: str = "") -> Ingest
                 errors.append(RowError(idx, "order_id", "Order ID reference cannot be empty", order_id))
 
         if len(preview_rows) < 10:
-            preview_rows.append(dict(row))
+            preview = dict(row)
+            if "auth_pin" in preview and preview["auth_pin"]:
+                preview["auth_pin"] = "[REDACTED]"
+            preview_rows.append(preview)
 
     valid_count = len(rows) - len({e.row_number for e in errors})
     is_valid = len(errors) == 0
@@ -527,7 +540,7 @@ def ingest_csv_data(
         elif entity == "suppliers":
             for row in rows:
                 name = row["name"].strip()
-                phone = row["phone"].strip()
+                phone = normalize_e164(row["phone"])
                 raw_id = row.get("id", "").strip()
                 supp_id = raw_id if raw_id else f"sup-{re.sub(r'[^a-zA-Z0-9]+', '-', name.lower()).strip('-')}"
 
@@ -536,7 +549,7 @@ def ingest_csv_data(
                 pincode = row.get("pincode", "").strip() or "EC1A 1BB"
                 contact_person = row.get("contact_person", "").strip()
                 gstin = row.get("gstin", "").strip()
-                auth_pin = row.get("auth_pin", "").strip() or "1234"
+                configured_pin = row.get("auth_pin", "").strip()
                 contact_type = row.get("contact_type", "").strip().lower() or "supplier"
                 if contact_type not in ("supplier", "customer", "both"):
                     contact_type = "supplier"
@@ -553,7 +566,10 @@ def ingest_csv_data(
                     existing_supp.pincode = pincode
                     existing_supp.contact_person = contact_person
                     existing_supp.gstin = gstin
-                    existing_supp.auth_pin = auth_pin
+                    if configured_pin:
+                        existing_supp.auth_pin_hash = hash_pin(configured_pin)
+                        existing_supp.auth_pin = None
+                        existing_supp.pin_updated_at = datetime.now(timezone.utc)
                     existing_supp.contact_type = contact_type
                     updated += 1
                 else:
@@ -567,7 +583,9 @@ def ingest_csv_data(
                         pincode=pincode,
                         contact_person=contact_person,
                         gstin=gstin,
-                        auth_pin=auth_pin,
+                        auth_pin=None,
+                        auth_pin_hash=hash_pin(configured_pin) if configured_pin else None,
+                        pin_updated_at=datetime.now(timezone.utc) if configured_pin else None,
                         contact_type=contact_type,
                         active=1,
                     )
@@ -596,7 +614,9 @@ def ingest_csv_data(
                         city="London",
                         state="Greater London",
                         pincode="EC1A 1BB",
-                        auth_pin="1234",
+                        auth_pin=None,
+                        auth_pin_hash=None,
+                        pin_updated_at=None,
                         active=1,
                     ))
                     db.flush()

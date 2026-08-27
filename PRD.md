@@ -1,6 +1,6 @@
 # VoxFlow Product Requirements Document
 
-**Status:** Living product document; Phase 10 Bulk Company Data Ingestion, Self-Serve SaaS Onboarding & UK Telephony is verified locally with **305 passing backend tests**, **25 compiled frontend routes**, Oracle Cloud Always-Free ARM VM deployment with Caddy auto-TLS reverse proxy, Amazon Connect en-GB voice integration, streaming CSV validation engine, and automated self-serve tenant provisioning. Full day-by-day logs are in [`DAY_TRACKER.md`](DAY_TRACKER.md).  
+**Status:** Living product document; Phase 10 onboarding, bulk ingestion, exact inbound routing, and secure caller verification are verified locally with **347 passing backend tests** and **25 compiled frontend routes**. The platform includes Amazon Connect en-GB voice integration, tenant-owned DID policy, PBKDF2 caller PIN controls with persistent cross-session lockout, streaming CSV validation, and automated self-serve tenant provisioning that only completes once a real authenticated session is confirmed. Full day-by-day logs are in [`DAY_TRACKER.md`](DAY_TRACKER.md).
 **Last updated:** 2026-08-26  
 **Repository:** <https://github.com/jeevesh2515/voxflow-voice-agent>
 
@@ -43,6 +43,15 @@ VoxFlow provides automated, zero-touch tenant onboarding:
   - Step 2: Starter Catalog verification.
   - Step 3: Interactive live simulator test prompts.
   - Step 4: One-click launch into the operations dashboard.
+
+### Exact inbound routing and caller verification
+
+- Each inbound E.164 number is globally owned by one tenant and carries provider, active state, route language, and verification mode. Amazon Connect is the only inbound provider currently wired to a live resolution route; the owner-facing API only accepts `connect` when creating or updating a line, so a tenant cannot create a mapping that will never receive a call.
+- Unknown, inactive, or provider-mismatched destination numbers fail closed; a request cannot fall back into another tenant.
+- `standard` mode requires knowledge verification for protected reads and a PIN for writes. `enhanced` mode requires knowledge verification plus PIN verification for protected reads and writes.
+- Owners alone can create, update, deactivate, or set/reset caller PINs. Operators, viewers, demo users, and cross-tenant identities receive read-only or denied behavior.
+- New PINs are 4–8 ASCII digits, confirmation-matched, stored only as uniquely salted PBKDF2-HMAC-SHA256 verifiers, and redacted from responses, logs, traces, actions, transcripts, and CSV previews — including LLM tool-call traces, without corrupting the tool-calling protocol's identifiers.
+- A persistent, per-contact failed-attempt counter and lockout window (independent of any single call session) stop brute-force guessing across many fresh calls; a deliberate owner PIN reset clears it immediately.
 
 ### Inbound operations
 

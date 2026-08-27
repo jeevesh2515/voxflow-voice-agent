@@ -12,6 +12,7 @@ import sys
 from voxflow_api.config import get_settings
 from voxflow_api.db import TenantPhoneNumber, session_scope, init_db
 from voxflow_api.logging import get_logger
+from voxflow_api.services.telephony_routing import normalize_e164, validate_provider
 
 log = get_logger("map_phone")
 
@@ -74,19 +75,31 @@ def configure_twilio_webhook(phone_number: str, webhook_url: str) -> bool:
         return False
 
 
-def map_tenant_phone_number(phone_number: str, tenant_id: str, label: str):
-    """Inserts or updates the phone number to tenant mapping in Postgres/SQLite database."""
+def map_tenant_phone_number(phone_number: str, tenant_id: str, label: str, provider: str = "connect"):
+    """Insert or update one exact inbound mapping without cross-tenant transfer."""
     init_db()
+    normalized_phone = normalize_e164(phone_number)
+    normalized_provider = validate_provider(provider)
     with session_scope() as db:
-        existing = db.get(TenantPhoneNumber, phone_number)
+        existing = db.get(TenantPhoneNumber, normalized_phone)
+        if existing and existing.tenant_id != tenant_id:
+            raise ValueError("phone_number_owned_by_another_tenant")
         if existing:
-            existing.tenant_id = tenant_id
             existing.label = label
+            existing.provider = normalized_provider
             existing.active = 1
-            print(f"✅ Updated existing database mapping: {phone_number} -> tenant '{tenant_id}' ({label})")
+            print(f"✅ Updated existing database mapping: {normalized_phone} -> tenant '{tenant_id}' ({label})")
         else:
-            db.add(TenantPhoneNumber(phone_number=phone_number, tenant_id=tenant_id, label=label, active=1))
-            print(f"✅ Inserted new database mapping: {phone_number} -> tenant '{tenant_id}' ({label})")
+            db.add(
+                TenantPhoneNumber(
+                    phone_number=normalized_phone,
+                    tenant_id=tenant_id,
+                    label=label,
+                    provider=normalized_provider,
+                    active=1,
+                )
+            )
+            print(f"✅ Inserted new database mapping: {normalized_phone} -> tenant '{tenant_id}' ({label})")
 
 
 def main():
@@ -94,6 +107,11 @@ def main():
     parser.add_argument("--phone", type=str, help="Phone number in E.164 format (e.g. +15551234567)")
     parser.add_argument("--tenant", type=str, default="varun", help="Tenant ID (default: varun)")
     parser.add_argument("--label", type=str, default="Customer Support Line", help="Label for this line")
+    # "connect" (Amazon Connect) is the only provider with a live inbound
+    # resolution route; it is the default so this tool cannot silently
+    # create a phone mapping that will never receive a call. "twilio" and
+    # "telnyx" remain selectable for forward-compatible schema storage only.
+    parser.add_argument("--provider", choices=("connect", "twilio", "telnyx"), default="connect")
     parser.add_argument("--url", type=str, default=None, help="Webhook URL (default: PUBLIC_BASE_URL/twilio/voice)")
     parser.add_argument("--auto", action="store_true", help="Auto-detect first Twilio number and map it")
 
@@ -127,11 +145,15 @@ def main():
     print(f"   Webhook URL:   {webhook_url}")
     print("==========================================================================")
 
-    # 1. Update Twilio Webhook
-    configure_twilio_webhook(phone, webhook_url)
+    # 1. Update Twilio Webhook (only meaningful if this line is actually a
+    #    Twilio-provider line; Amazon Connect routing does not use it).
+    if args.provider == "twilio":
+        configure_twilio_webhook(phone, webhook_url)
+    else:
+        print(f"ℹ️  Skipping Twilio webhook configuration (provider={args.provider}).")
 
     # 2. Update Database
-    map_tenant_phone_number(phone, args.tenant, args.label)
+    map_tenant_phone_number(phone, args.tenant, args.label, args.provider)
 
     print("\n🎉 Complete! Test by calling the number from your phone.")
 

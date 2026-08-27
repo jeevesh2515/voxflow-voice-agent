@@ -37,9 +37,80 @@ from ..jobs.side_effects import (
 )
 from ..integrations.gsheets import get_sheets_client
 from ..logging import get_logger
+from ..services.pin_security import hash_pin, verify_legacy_pin, verify_pin_hash
 
 
 log = get_logger(__name__)
+
+
+_KNOWLEDGE_BINDING_KEY = "_knowledge_verified_supplier_id"
+_PIN_BINDING_KEY = "_pin_verified_supplier_id"
+
+
+def _authorization_policy(session: CallSession) -> dict[str, str]:
+    """Return the session-persisted authorization binding store."""
+    if not isinstance(session.route_policy, dict):
+        session.route_policy = {}
+    return session.route_policy
+
+
+def _bound_supplier_id(session: CallSession, key: str) -> str | None:
+    supplier_id = _authorization_policy(session).get(key)
+    return supplier_id if isinstance(supplier_id, str) and supplier_id else None
+
+
+def _bind_authorization(session: CallSession, key: str, supplier_id: str) -> None:
+    _authorization_policy(session)[key] = supplier_id
+
+
+def _clear_authorization(session: CallSession) -> None:
+    """Invalidate both factors and their contact bindings."""
+    session.verified = False
+    session.pin_verified = False
+    policy = _authorization_policy(session)
+    policy.pop(_KNOWLEDGE_BINDING_KEY, None)
+    policy.pop(_PIN_BINDING_KEY, None)
+
+
+def _identify_supplier(
+    session: CallSession,
+    supplier_id: str | None,
+    *,
+    caller_name: str = "",
+    identified_by_phone: bool = False,
+) -> None:
+    """Set the identified contact, invalidating authorization on any change."""
+    if supplier_id is None or supplier_id != session.supplier_id:
+        _clear_authorization(session)
+        session.company_name = ""
+    session.supplier_id = supplier_id
+    session.identified_by_phone = identified_by_phone if supplier_id else False
+    if supplier_id:
+        session.caller_name = caller_name
+    else:
+        session.caller_name = ""
+
+
+def _knowledge_authorized_supplier_id(session: CallSession) -> str | None:
+    supplier_id = session.supplier_id
+    if (
+        supplier_id
+        and session.verified
+        and _bound_supplier_id(session, _KNOWLEDGE_BINDING_KEY) == supplier_id
+    ):
+        return supplier_id
+    return None
+
+
+def _pin_authorized_supplier_id(session: CallSession) -> str | None:
+    supplier_id = session.supplier_id
+    if (
+        supplier_id
+        and session.pin_verified
+        and _bound_supplier_id(session, _PIN_BINDING_KEY) == supplier_id
+    ):
+        return supplier_id
+    return None
 
 
 # ---------- Tool implementations ----------
@@ -47,20 +118,34 @@ log = get_logger(__name__)
 
 async def lookup_supplier(session: CallSession, phone: str | None = None, name: str | None = None) -> dict[str, Any]:
     """Find a supplier by phone number or partial name within the active tenant."""
-    # `session.verified` MUST be part of the key. The result is redacted before
-    # verification and complete after it, so a key that ignores verification
-    # state serves one call's data to another: a verified call caches the full
-    # record including gstin, and the next unverified caller on the same number
-    # is handed it straight out of the cache. Found by
-    # tests/test_caller_identification.py, not by inspection.
-    cache_key_parts = [session.tenant_id, phone or "", name or "",
-                       "v" if session.verified else "u"]
+    # The exact knowledge-verification binding MUST be part of the key. The
+    # result is redacted before verification and complete afterward, so a key
+    # that ignores the binding can serve a verified caller's GSTIN to another
+    # call or to the wrong identified contact.
+    verified_supplier_id = _knowledge_authorized_supplier_id(session)
+    cache_key_parts = [
+        session.tenant_id,
+        phone or "",
+        name or "",
+        verified_supplier_id or "u",
+    ]
     cached = supplier_cache.get(*cache_key_parts)
     if cached is not None:
-        if cached.get("found"):
-            session.supplier_id = cached["id"]
-            session.caller_name = cached.get("contact_person", "") or cached["name"]
-        return cached
+        if not cached.get("found"):
+            _identify_supplier(session, None)
+            return cached
+
+        result = dict(cached)
+        _identify_supplier(
+            session,
+            result["id"],
+            caller_name=result.get("contact_person", "") or result["name"],
+            identified_by_phone=result.get("matched_by") == "phone",
+        )
+        if _knowledge_authorized_supplier_id(session) != result["id"]:
+            for field in ("phone", "city", "state", "gstin", "contact_person"):
+                result.pop(field, None)
+        return result
 
     # The model is not reliably given the caller's number, and when it is not it
     # invents a placeholder — we observed it pass the literal string
@@ -91,11 +176,15 @@ async def lookup_supplier(session: CallSession, phone: str | None = None, name: 
             sup = (await db.execute(q_name)).scalars().first()
 
         if not sup:
+            _identify_supplier(session, None)
             return {"found": False, "phone": phone, "name": name}
 
-        session.supplier_id = sup.id
-        session.caller_name = sup.contact_person or sup.name
-        session.identified_by_phone = matched_by_phone
+        _identify_supplier(
+            session,
+            sup.id,
+            caller_name=sup.contact_person or sup.name,
+            identified_by_phone=matched_by_phone,
+        )
         if not session.caller_phone:
             session.caller_phone = sup.phone
 
@@ -117,9 +206,15 @@ async def lookup_supplier(session: CallSession, phone: str | None = None, name: 
             "name": sup.name,
             "matched_by": "phone" if matched_by_phone else "name",
         }
-        if session.verified:
-            result.update({"phone": sup.phone, "city": sup.city,
-                           "state": sup.state, "gstin": sup.gstin})
+        if _knowledge_authorized_supplier_id(session) == sup.id:
+            result.update(
+                {
+                    "phone": sup.phone,
+                    "city": sup.city,
+                    "state": sup.state,
+                    "gstin": sup.gstin,
+                }
+            )
         supplier_cache.set(*cache_key_parts, value=result)
         return result
 
@@ -176,8 +271,15 @@ async def verify_caller(
     session.verify_attempts += 1
 
     async with async_session_scope() as db:
-        sup = await db.get(Supplier, session.supplier_id)
-        if not sup or sup.tenant_id != session.tenant_id:
+        sup = (
+            await db.execute(
+                select(Supplier).where(
+                    Supplier.tenant_id == session.tenant_id,
+                    Supplier.id == session.supplier_id,
+                )
+            )
+        ).scalars().first()
+        if not sup:
             return {"verified": False, "reason": "contact_not_found"}
 
         company_ok = False
@@ -203,6 +305,10 @@ async def verify_caller(
 
         if company_ok and detail_ok:
             session.verified = True
+            _bind_authorization(session, _KNOWLEDGE_BINDING_KEY, sup.id)
+            if _bound_supplier_id(session, _PIN_BINDING_KEY) != sup.id:
+                session.pin_verified = False
+                _authorization_policy(session).pop(_PIN_BINDING_KEY, None)
             session.company_name = sup.name
             if contact_name:
                 session.caller_name = contact_name
@@ -247,10 +353,17 @@ async def verify_caller(
 
 
 MAX_PIN_ATTEMPTS = 3
+# A `CallSession`-scoped counter alone cannot stop brute forcing across many
+# fresh calls/sessions — every new call (and every unauthenticated /agent/run
+# request) starts with zero attempts. These two constants back a persistent,
+# per-contact lockout stored on the `Supplier` row itself, so guessing a
+# 4–8 digit PIN costs an attacker real lockout time, not just a new call.
+PERSISTENT_MAX_FAILED_PIN_ATTEMPTS = 10
+PERSISTENT_PIN_LOCKOUT_MINUTES = 15
 
 
 async def verify_pin(session: CallSession, pin: str | None = None) -> dict[str, Any]:
-    """Tier 2 Security Authentication: verifies caller's 4-digit security PIN before write actions."""
+    """Verify a caller's 4–8 digit security PIN for protected reads and writes."""
     if not session.supplier_id:
         return {"verified": False, "reason": "caller_not_identified", "message": "Caller record not identified yet."}
 
@@ -265,16 +378,57 @@ async def verify_pin(session: CallSession, pin: str | None = None) -> dict[str, 
         }
 
     session.pin_attempts += 1
-    clean_pin = _norm(pin)
+    submitted_pin = (pin or "").strip()
 
     async with async_session_scope() as db:
-        sup = await db.get(Supplier, session.supplier_id)
-        if not sup or sup.tenant_id != session.tenant_id:
+        # Lock the row for the remainder of this transaction on Postgres so
+        # concurrent guesses against the same contact (many parallel calls,
+        # or scripted /agent/run requests) serialize through the persistent
+        # attempt counter instead of racing on a stale read. SQLite has no
+        # equivalent row-level lock and does not need one: its writer
+        # transactions are already serialized at the database-file level.
+        pin_lookup_query = select(Supplier).where(
+            Supplier.tenant_id == session.tenant_id,
+            Supplier.id == session.supplier_id,
+        )
+        if db.get_bind().dialect.name != "sqlite":
+            pin_lookup_query = pin_lookup_query.with_for_update()
+        sup = (await db.execute(pin_lookup_query)).scalars().first()
+        if not sup:
             return {"verified": False, "reason": "contact_not_found"}
 
-        expected_pin = _norm(sup.auth_pin or "1234")
-        if clean_pin and clean_pin == expected_pin:
+        now = datetime.now(timezone.utc)
+        locked_until = sup.pin_locked_until
+        if locked_until is not None and locked_until.tzinfo is None:
+            locked_until = locked_until.replace(tzinfo=timezone.utc)
+        if locked_until is not None and locked_until > now:
+            session.escalated = True
+            log.warning(
+                "verify_pin.persistent_lock_active",
+                call_id=session.call_id,
+                supplier_id=sup.id,
+                locked_until=locked_until.isoformat(),
+            )
+            return {
+                "verified": False,
+                "reason": "too_many_attempts",
+                "locked": True,
+                "message": "This contact's PIN is temporarily locked after repeated failed attempts. Transferring to human agent.",
+            }
+
+        hash_verified = verify_pin_hash(submitted_pin, sup.auth_pin_hash)
+        legacy_verified = not sup.auth_pin_hash and verify_legacy_pin(submitted_pin, sup.auth_pin)
+        if hash_verified or legacy_verified:
+            if legacy_verified:
+                # Successful use is the safest opportunity to migrate a legacy
+                # plaintext credential without breaking existing callers.
+                sup.auth_pin_hash = hash_pin(submitted_pin)
+                sup.auth_pin = None
+                sup.pin_updated_at = now
+            sup.pin_failed_attempts = 0
+            sup.pin_locked_until = None
             session.pin_verified = True
+            _bind_authorization(session, _PIN_BINDING_KEY, sup.id)
             log.info("verify_pin.success", call_id=session.call_id, supplier_id=sup.id)
             return {
                 "verified": True,
@@ -282,13 +436,22 @@ async def verify_pin(session: CallSession, pin: str | None = None) -> dict[str, 
                 "attempts_used": session.pin_attempts,
             }
 
+        sup.pin_failed_attempts = (sup.pin_failed_attempts or 0) + 1
+        if sup.pin_failed_attempts >= PERSISTENT_MAX_FAILED_PIN_ATTEMPTS:
+            sup.pin_locked_until = now + timedelta(minutes=PERSISTENT_PIN_LOCKOUT_MINUTES)
+            log.warning(
+                "verify_pin.persistent_lock_engaged",
+                call_id=session.call_id,
+                supplier_id=sup.id,
+                locked_until=sup.pin_locked_until.isoformat(),
+            )
         log.warning("verify_pin.failed", call_id=session.call_id, attempt=session.pin_attempts)
         return {
             "verified": False,
             "reason": "invalid_pin",
             "attempts_used": session.pin_attempts,
             "attempts_remaining": MAX_PIN_ATTEMPTS - session.pin_attempts,
-            "message": "Incorrect PIN provided. Please ask the caller to double check their 4-digit PIN.",
+            "message": "Incorrect PIN provided. Please ask the caller to double check their 4–8 digit PIN.",
         }
 
 
@@ -319,10 +482,42 @@ async def check_stock(session: CallSession, sku: str | None = None, warehouse: s
         return result
 
 
+def _sensitive_read_denial(session: CallSession) -> dict[str, Any] | None:
+    """Require authorization factors bound to the currently identified contact."""
+    supplier_id = _knowledge_authorized_supplier_id(session)
+    if supplier_id is None:
+        return {
+            "ok": False,
+            "error": "not_verified",
+            "message": "Verify the caller before sharing order data.",
+        }
+    if (
+        session.verification_mode == "enhanced"
+        and _pin_authorized_supplier_id(session) != supplier_id
+    ):
+        return {
+            "ok": False,
+            "error": "pin_required",
+            "message": "Enhanced verification requires a valid PIN before sharing order data.",
+        }
+    return None
+
+
 async def get_shipment_status(session: CallSession, order_id: str | None = None, supplier_phone: str | None = None) -> dict[str, Any]:
-    """Get latest shipment for an order within the active tenant."""
+    """Get the identified caller's latest shipment for an order."""
+    if denial := _sensitive_read_denial(session):
+        return denial
+    supplier_id = _knowledge_authorized_supplier_id(session)
     async with async_session_scope() as db:
-        q = select(Shipment).where(Shipment.tenant_id == session.tenant_id)
+        q = (
+            select(Shipment)
+            .join(Order, Shipment.order_id == Order.id)
+            .where(
+                Shipment.tenant_id == session.tenant_id,
+                Order.tenant_id == session.tenant_id,
+                Order.supplier_id == supplier_id,
+            )
+        )
         if order_id:
             q = q.where(Shipment.order_id == order_id)
         q = q.order_by(Shipment.last_update.desc())
@@ -351,19 +546,29 @@ async def create_po(
     notes: str = "",
 ) -> dict[str, Any]:
     """Create a new purchase order within the active tenant."""
-    if not session.pin_verified:
-        log.warning("security.tier2_blocked", call_id=session.call_id, tenant_id=session.tenant_id, supplier_id=session.supplier_id)
+    authorized_supplier_id = _pin_authorized_supplier_id(session)
+    if authorized_supplier_id is None:
+        log.warning(
+            "security.tier2_blocked",
+            call_id=session.call_id,
+            tenant_id=session.tenant_id,
+            supplier_id=session.supplier_id,
+        )
         return {
             "ok": False,
             "error": "pin_required",
             "verified_pin": False,
-            "message": "Tier 2 PIN verification is required before placing a purchase order. Please ask the caller for their 4-digit security PIN and call verify_pin.",
+            "message": "Tier 2 PIN verification is required before placing a purchase order. Please ask the caller for their 4–8 digit security PIN and call verify_pin.",
         }
 
     if not supplier_id:
-        supplier_id = session.supplier_id
-    if not supplier_id:
-        return {"ok": False, "error": "supplier_unknown"}
+        supplier_id = authorized_supplier_id
+    if supplier_id != authorized_supplier_id:
+        return {
+            "ok": False,
+            "error": "supplier_mismatch",
+            "message": "A purchase order can only be created for the PIN-verified supplier.",
+        }
     if not items:
         return {"ok": False, "error": "no_items"}
 
@@ -387,7 +592,14 @@ async def create_po(
     stock_cache.clear()
 
     async with async_session_scope() as db:
-        sup = await db.get(Supplier, supplier_id)
+        sup = (
+            await db.execute(
+                select(Supplier).where(
+                    Supplier.tenant_id == session.tenant_id,
+                    Supplier.id == supplier_id,
+                )
+            )
+        ).scalars().first()
         if not sup:
             return {"ok": False, "error": "supplier_not_found"}
         order = Order(
@@ -429,9 +641,17 @@ async def create_po(
 
 async def verify_po(session: CallSession, order_id: str) -> dict[str, Any]:
     """Confirm that a PO exists in the tenant's records."""
+    if denial := _sensitive_read_denial(session):
+        return denial
+    supplier_id = _knowledge_authorized_supplier_id(session)
     async with async_session_scope() as db:
-        o = await db.get(Order, order_id)
-        if not o or o.tenant_id != session.tenant_id:
+        query = select(Order).where(
+            Order.tenant_id == session.tenant_id,
+            Order.supplier_id == supplier_id,
+            Order.id == order_id,
+        )
+        o = (await db.execute(query)).scalars().first()
+        if not o:
             return {"ok": False, "error": "not_found", "order_id": order_id}
         return {
             "ok": True,
@@ -451,9 +671,13 @@ async def _resolve_order(db: Any, session: CallSession, order_id: str | None, cu
     a verified caller from company A must never be able to read company B's
     order by guessing an ID.
     """
-    q = select(Order).where(Order.tenant_id == session.tenant_id)
-    if session.supplier_id:
-        q = q.where(Order.supplier_id == session.supplier_id)
+    supplier_id = _knowledge_authorized_supplier_id(session)
+    if supplier_id is None:
+        return None
+    q = select(Order).where(
+        Order.tenant_id == session.tenant_id,
+        Order.supplier_id == supplier_id,
+    )
 
     if order_id:
         oid = order_id.strip()
@@ -478,8 +702,8 @@ async def check_po_status(
     This is the "have we signed your PO yet?" question — the most common
     inbound B2B query.
     """
-    if not session.verified:
-        return {"ok": False, "error": "not_verified", "message": "Verify the caller before sharing order data."}
+    if denial := _sensitive_read_denial(session):
+        return denial
     if not order_id and not customer_po_ref:
         return {"ok": False, "error": "no_reference", "message": "Ask the caller for their PO number."}
 
@@ -513,8 +737,8 @@ async def get_order_details(
     Answers "when did you send it and where has it got to?" in one tool call,
     so the agent doesn't need two round-trips mid-conversation.
     """
-    if not session.verified:
-        return {"ok": False, "error": "not_verified", "message": "Verify the caller before sharing order data."}
+    if denial := _sensitive_read_denial(session):
+        return denial
     if not order_id and not customer_po_ref:
         return {"ok": False, "error": "no_reference", "message": "Ask the caller for their PO number."}
 
@@ -1015,13 +1239,13 @@ TOOL_DEFINITIONS: list[dict[str, Any]] = [
         "type": "function",
         "function": {
             "name": "verify_pin",
-            "description": "Verify the caller's 4-digit security PIN before creating purchase orders or performing write actions.",
+            "description": "Verify the caller's 4–8 digit security PIN before protected reads in enhanced mode or any protected write.",
             "parameters": {
                 "type": "object",
                 "properties": {
                     "pin": {
                         "type": "string",
-                        "description": "The 4-digit security PIN provided by the caller.",
+                        "description": "The 4–8 digit security PIN provided by the caller.",
                     },
                 },
                 "required": ["pin"],
@@ -1046,7 +1270,7 @@ TOOL_DEFINITIONS: list[dict[str, Any]] = [
         "type": "function",
         "function": {
             "name": "get_shipment_status",
-            "description": "Get latest shipment status for a PO.",
+            "description": "Get the verified caller's latest shipment status for a PO.",
             "parameters": {
                 "type": "object",
                 "properties": {
@@ -1085,7 +1309,7 @@ TOOL_DEFINITIONS: list[dict[str, Any]] = [
         "type": "function",
         "function": {
             "name": "verify_po",
-            "description": "Verify PO status.",
+            "description": "Verify a PO for the knowledge-verified caller.",
             "parameters": {
                 "type": "object",
                 "properties": {"order_id": {"type": "string"}},

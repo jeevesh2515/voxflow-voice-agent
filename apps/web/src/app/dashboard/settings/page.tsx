@@ -1,152 +1,101 @@
 "use client";
 
-import { useState } from "react";
-import { Bell, User, Shield, Palette, Globe, Volume2, Save } from "lucide-react";
+import { Globe2, Palette, Settings2 } from "lucide-react";
+import TelephonySettings from "@/components/settings/TelephonySettings";
 import { useTenant } from "@/lib/tenant-context";
 import { useTheme } from "@/lib/theme-context";
 
-export default function SettingsPage() {
-  const { activeTenant, tenants, setActiveTenantId } = useTenant();
-  const { theme, setTheme } = useTheme();
-  const [saving, setSaving] = useState(false);
-  const [notifications, setNotifications] = useState({
-    email: true,
-    whatsapp: true,
-    escalation: true,
-    daily: false,
-  });
+function titleCase(value: string): string {
+  return value.charAt(0).toUpperCase() + value.slice(1);
+}
 
-  const handleSave = () => {
-    setSaving(true);
-    setTimeout(() => setSaving(false), 800);
-  };
+export default function SettingsPage() {
+  const { activeTenant, tenants, setActiveTenantId, demoMode } = useTenant();
+  const { theme, setTheme } = useTheme();
+  const nextTheme = theme === "dark" ? "light" : "dark";
 
   return (
-    <div className="space-y-6">
-      <div className="px-6 pt-6 pb-2">
-        <h1 className="text-xl font-bold text-[#e8e0f0]">Settings</h1>
-        <p className="text-xs text-[#a098b0] mt-1">Manage your workspace preferences</p>
-      </div>
+    <div className="mx-auto max-w-7xl space-y-6 pb-16">
+      <header className="rounded-2xl border border-[#28283c] bg-[#141422] p-5 sm:p-6">
+        <div className="flex items-start gap-3">
+          <div className="rounded-xl border border-[#ff2d78]/25 bg-[#ff2d78]/10 p-2.5 text-[#ff2d78]">
+            <Settings2 size={20} />
+          </div>
+          <div>
+            <p className="text-xs font-mono text-[#94a3b8]">Workspace settings / {activeTenant.name}</p>
+            <h1 className="mt-1 text-2xl font-bold text-white">Settings</h1>
+            <p className="mt-2 max-w-3xl text-sm leading-6 text-[#94a3b8]">
+              Review server-authoritative telephony controls and adjust local workspace appearance. Routing and caller-verification changes are restricted to workspace owners.
+            </p>
+          </div>
+        </div>
+      </header>
 
-      <div className="px-6 grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Workspace */}
-        <div className="lg:col-span-2 space-y-6">
-          <div className="rounded-2xl border border-[#302840]/60 bg-[#141422]/40 overflow-hidden">
-            <div className="px-6 py-4 border-b border-[#302840]/40 flex items-center gap-3">
-              <Globe size={18} className="text-[#00ffcc]" />
-              <div>
-                <h3 className="font-bold text-[#e8e0f0] text-sm">Workspace</h3>
-                <p className="text-[10px] text-[#a098b0]">Manage your companies</p>
-              </div>
+      <TelephonySettings />
+
+      <section className="grid gap-6 lg:grid-cols-[minmax(0,1.4fr)_minmax(280px,0.6fr)]">
+        <div className="overflow-hidden rounded-2xl border border-[#302840]/60 bg-[#141422]/40">
+          <div className="flex items-center gap-3 border-b border-[#302840]/40 bg-[#0f0f1a]/60 px-5 py-4 sm:px-6">
+            <Globe2 size={18} className="text-[#00ffcc]" />
+            <div>
+              <h2 className="text-sm font-bold text-[#e8e0f0]">Workspace</h2>
+              <p className="text-[10px] text-[#a098b0]">Switch between server-authorized companies</p>
             </div>
-            <div className="p-6 space-y-4">
-              <div className="flex flex-wrap gap-2">
-                {tenants.map((t) => (
+          </div>
+          <div className="p-5 sm:p-6">
+            <div className="flex flex-wrap gap-2" aria-label="Authorized workspaces">
+              {tenants.map((tenant) => {
+                const isActive = tenant.id === activeTenant.id;
+                return (
                   <button
-                    key={t.id}
-                    onClick={() => setActiveTenantId(t.id)}
-                    className={`px-3 py-1.5 rounded-lg text-xs font-medium border transition-all ${
-                      t.id === activeTenant?.id
-                        ? "bg-[#ff2d78]/10 border-[#ff2d78]/30 text-[#ff2d78]"
-                        : "bg-[#1e1e30] border-[#302840] text-[#a098b0] hover:border-[#ff2d78]/30"
+                    key={tenant.id}
+                    type="button"
+                    aria-pressed={isActive}
+                    onClick={() => setActiveTenantId(tenant.id)}
+                    className={`rounded-lg border px-3 py-2 text-left text-xs font-medium transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#ff2d78]/50 ${
+                      isActive
+                        ? "border-[#ff2d78]/35 bg-[#ff2d78]/10 text-[#ff8db5]"
+                        : "border-[#302840] bg-[#1e1e30] text-[#a098b0] hover:border-[#ff2d78]/30 hover:text-white"
                     }`}
                   >
-                    {t.name}
+                    <span className="block">{tenant.name}</span>
+                    <span className="mt-0.5 block text-[9px] font-mono uppercase tracking-wider opacity-70">{demoMode ? "Demo" : titleCase(tenant.role)}</span>
                   </button>
-                ))}
-              </div>
-              <p className="rounded-lg border border-[#00ffcc]/20 bg-[#00ffcc]/5 px-3 py-2 text-xs text-[#a098b0]">Workspaces are granted through server-authorized memberships. An owner can invite approved users from Workspace Access.</p>
+                );
+              })}
             </div>
-          </div>
-
-          <div className="rounded-2xl border border-[#302840]/60 bg-[#141422]/40 overflow-hidden">
-            <div className="px-6 py-4 border-b border-[#302840]/40 flex items-center gap-3">
-              <Bell size={18} className="text-[#ffe04a]" />
-              <div>
-                <h3 className="font-bold text-[#e8e0f0] text-sm">Notifications</h3>
-                <p className="text-[10px] text-[#a098b0]">Configure alert preferences</p>
-              </div>
-            </div>
-            <div className="p-6 space-y-4">
-              {Object.entries(notifications).map(([key, val]) => (
-                <div key={key} className="flex items-center justify-between">
-                  <div>
-                    <p className="text-sm text-[#e8e0f0] capitalize">{key}</p>
-                    <p className="text-[10px] text-[#a098b0]">Receive {key} notifications</p>
-                  </div>
-                  <button
-                    onClick={() => setNotifications((prev) => ({ ...prev, [key]: !val }))}
-                    className={`w-10 h-6 rounded-full transition-colors relative ${val ? "bg-[#00ffcc]" : "bg-[#302840]"}`}
-                  >
-                    <div className={`absolute top-1 w-4 h-4 rounded-full bg-white transition-transform ${val ? "translate-x-5" : "translate-x-1"}`} />
-                  </button>
-                </div>
-              ))}
-            </div>
+            {tenants.length === 0 && <p className="text-sm text-[#a098b0]">No authorized workspaces are available.</p>}
+            <p className="mt-4 rounded-lg border border-[#00ffcc]/20 bg-[#00ffcc]/5 px-3 py-2 text-xs leading-5 text-[#a098b0]">
+              Workspaces are granted through server-authorized memberships. Selecting a workspace changes the tenant-scoped settings loaded above; it does not grant additional access.
+            </p>
           </div>
         </div>
 
-        {/* Sidebar */}
-        <div className="space-y-6">
-          <div className="rounded-2xl border border-[#302840]/60 bg-[#141422]/40 overflow-hidden">
-            <div className="px-6 py-4 border-b border-[#302840]/40 flex items-center gap-3">
-              <Palette size={18} className="text-[#ff2d78]" />
-              <div>
-                <h3 className="font-bold text-[#e8e0f0] text-sm">Appearance</h3>
-                <p className="text-[10px] text-[#a098b0]">Theme settings</p>
-              </div>
-            </div>
-            <div className="p-6 space-y-4">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm text-[#e8e0f0]">Dark Mode</p>
-                  <p className="text-[10px] text-[#a098b0]">Current: {theme}</p>
-                </div>
-                <button
-                  onClick={() => setTheme(theme === "dark" ? "light" : "dark")}
-                  className="px-3 py-1.5 rounded-lg bg-[#1e1e30] border border-[#302840] text-xs text-[#e8e0f0] hover:border-[#ff2d78] transition-all"
-                >
-                  Toggle
-                </button>
-              </div>
+        <div className="overflow-hidden rounded-2xl border border-[#302840]/60 bg-[#141422]/40">
+          <div className="flex items-center gap-3 border-b border-[#302840]/40 bg-[#0f0f1a]/60 px-5 py-4 sm:px-6">
+            <Palette size={18} className="text-[#ff2d78]" />
+            <div>
+              <h2 className="text-sm font-bold text-[#e8e0f0]">Appearance</h2>
+              <p className="text-[10px] text-[#a098b0]">Local dashboard theme</p>
             </div>
           </div>
-
-          <div className="rounded-2xl border border-[#302840]/60 bg-[#141422]/40 overflow-hidden">
-            <div className="px-6 py-4 border-b border-[#302840]/40 flex items-center gap-3">
-              <Shield size={18} className="text-[#00ffcc]" />
+          <div className="p-5 sm:p-6">
+            <div className="flex items-center justify-between gap-4">
               <div>
-                <h3 className="font-bold text-[#e8e0f0] text-sm">Security</h3>
-                <p className="text-[10px] text-[#a098b0]">Account settings</p>
+                <p className="text-sm font-medium text-[#e8e0f0]">{titleCase(theme)} mode</p>
+                <p className="mt-1 text-[10px] leading-4 text-[#a098b0]">This preference is stored in this browser.</p>
               </div>
-            </div>
-            <div className="p-6">
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-lg bg-[#1e1e30] border border-[#302840] flex items-center justify-center text-[#00ffcc]">
-                  <User size={18} />
-                </div>
-                <div>
-                  <p className="text-sm font-medium text-[#e8e0f0]">{activeTenant?.name || "User"}</p>
-                  <p className="text-[10px] text-[#a098b0] font-mono">admin@voxflow.ai</p>
-                </div>
-              </div>
+              <button
+                type="button"
+                onClick={() => setTheme(nextTheme)}
+                className="shrink-0 rounded-lg border border-[#302840] bg-[#1e1e30] px-3 py-2 text-xs font-semibold text-[#e8e0f0] transition hover:border-[#ff2d78]/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#ff2d78]/50"
+              >
+                Use {nextTheme}
+              </button>
             </div>
           </div>
-
-          <button
-            onClick={handleSave}
-            disabled={saving}
-            className="w-full py-3 rounded-xl bg-[#ff2d78] text-[#1a0010] font-bold text-sm hover:scale-[1.02] active:scale-[0.98] transition-all shadow-[0_0_16px_rgba(255,45,120,0.3)] flex items-center justify-center gap-2"
-          >
-            {saving ? (
-              <div className="w-4 h-4 border-2 border-[#1a0010] border-t-transparent rounded-full animate-spin" />
-            ) : (
-              <Save size={16} />
-            )}
-            {saving ? "Saving..." : "Save Changes"}
-          </button>
         </div>
-      </div>
+      </section>
     </div>
   );
 }

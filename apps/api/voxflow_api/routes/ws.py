@@ -10,6 +10,7 @@ from fastapi import APIRouter, WebSocket, WebSocketDisconnect
 
 from ..config import get_settings
 from ..logging import get_logger
+from ..services.pin_security import redact_pin_data, redact_pin_text
 from ..voice.pipeline import CallSession, VoicePipeline
 
 
@@ -94,7 +95,7 @@ async def call_socket(ws: WebSocket) -> None:
                     await ws.send_json({"type": "error", "message": "session_not_started"})
                     continue
                 result = await pipeline.commit_audio(session)
-                await ws.send_json(result)
+                await ws.send_json(redact_pin_data(result))
 
             elif t == "text":
                 if session is None:
@@ -113,10 +114,16 @@ async def call_socket(ws: WebSocket) -> None:
                 runner = AgentRunner()
                 t_turn = time.perf_counter()
                 agent_result = await runner.handle_turn(session=session, user_text=user_text)
+                safe_user_text = redact_pin_text(user_text)
+                safe_agent_text = redact_pin_text(agent_result.reply)
+                safe_actions = redact_pin_data(agent_result.actions)
+                session.transcript[-1].text = safe_user_text
                 latency_ms = round((time.perf_counter() - t_turn) * 1000, 2)
                 session.turn_latencies.append(latency_ms)
-                session.transcript.append(CallTurn(role="agent", text=agent_result.reply, at=datetime.now(timezone.utc)))
-                for a in agent_result.actions:
+                session.transcript.append(
+                    CallTurn(role="agent", text=safe_agent_text, at=datetime.now(timezone.utc))
+                )
+                for a in safe_actions:
                     session.actions.append(a)
                     if a.get("name") == "escalate_to_human":
                         session.escalated = True
@@ -124,20 +131,24 @@ async def call_socket(ws: WebSocket) -> None:
                 # The browser uses native speech synthesis when this enhancement is unavailable.
                 tts_res = None
                 try:
-                    tts_res = await pipeline.tts.synth(agent_result.reply, lang_hint=session.language)
+                    tts_res = await pipeline.tts.synth(safe_agent_text, lang_hint=session.language)
                 except Exception as exc:
-                    log.warning("tts.browser_fallback", error=str(exc), text_len=len(agent_result.reply))
+                    log.warning(
+                        "tts.browser_fallback",
+                        error=redact_pin_text(str(exc)),
+                        text_len=len(safe_agent_text),
+                    )
                 await ws.send_json(
                     {
                         "type": "turn",
-                        "user_text": user_text,
+                        "user_text": safe_user_text,
                         "user_language": session.language,
                         "user_confidence": 1.0,
-                        "agent_text": agent_result.reply,
+                        "agent_text": safe_agent_text,
                         "agent_audio_b64": base64.b64encode(tts_res.audio_bytes).decode("ascii") if tts_res else None,
                         "agent_audio_mime": tts_res.mime if tts_res else None,
                         "audio_fallback": tts_res is None,
-                        "actions": agent_result.actions,
+                        "actions": safe_actions,
                     }
                 )
 
@@ -148,15 +159,17 @@ async def call_socket(ws: WebSocket) -> None:
                 break
 
             else:
-                await ws.send_json({"type": "error", "message": f"unknown_type:{t}"})
+                await ws.send_json(
+                    {"type": "error", "message": redact_pin_text(f"unknown_type:{t}")}
+                )
 
     except WebSocketDisconnect:
         if session is not None:
             await pipeline.end_session(session.call_id, outcome="abandoned")
     except Exception as e:
-        log.error("ws.error", error=str(e))
+        log.error("ws.error", error=redact_pin_text(str(e)))
         try:
-            await ws.send_json({"type": "error", "message": str(e)})
+            await ws.send_json({"type": "error", "message": "internal_error"})
         except Exception:
             pass
         if session is not None:

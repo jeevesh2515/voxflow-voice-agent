@@ -4,9 +4,9 @@
 
 ## Current position
 
-**Last updated:** 2026-08-24  
-**Current milestone:** **Day 43 Complete — Latency Tuning, Groq 429 Resilience, VAD Silence Re-Prompts & Backups.** Persistent Groq connection pooling, jittered 429 backoff with secondary model fallback (`llama-3.1-8b-instant`), progressive silence re-prompting and auto-termination, Supabase keep-alive heartbeat script, and AES-256 encrypted `pg_dump`/SQLite backup & restore verification drill. Verified with **289 passing backend tests** and **23 compiled frontend routes**.  
-**Next implementation:** **Day 44 — Self-Serve Signup & Tenant Provisioning.**  
+**Last updated:** 2026-08-26
+**Current milestone:** **Day 46 Complete — Exact DID Routing & Secure Caller Verification.** Active inbound routes require an exact E.164 provider/DID match; only Amazon Connect has a live inbound resolution route, and unknown/inactive/wrong-provider numbers fail closed with no default-tenant fallback. Owners can manage route policy and per-contact 4–8 digit PINs through canonical tenant APIs and the settings UI. PINs use uniquely salted PBKDF2-HMAC-SHA256 hashes, constant-time verification, migration-on-success for legacy rows, timestamps, and end-to-end redaction (including LLM tool-call traces, without breaking the tool-calling protocol). A persistent, per-contact lockout (`Supplier.pin_failed_attempts`/`pin_locked_until`) survives across brand-new sessions/calls, not just within one call. Self-serve signup only provisions a workspace after a live authenticated session is confirmed, so a caller can never be silently stranded owning an unclaimable placeholder tenant. Verified with **347 passing backend tests** and **25 compiled frontend routes**.
+**Next implementation:** **Day 47 — Per-Tenant Agent Settings.**
 **Master Day-Wise Tracker:** See [`DAY_TRACKER.md`](DAY_TRACKER.md) for full day-by-day logs from Day 1 to current.
 
 The durable campaign, observability, callback-certification, typed side-effect, pilot-readiness, and evidence-led pilot-operations programme for Days 25–36 is implemented, CI-validated, and browser-verified. The codebase includes a complete production deployment configuration for an Always-Free Oracle ARM VM running Docker + Caddy (`deploy/ORACLE_DEPLOY.md`), Render API backend, and Vercel Next.js edge frontend. No real outbound provider call, notification, provider subscription, signing-secret configuration, provider ping, CRM webhook, Gmail fetch, or recording download has been performed during any milestone or verification.
@@ -15,10 +15,10 @@ The durable campaign, observability, callback-certification, typed side-effect, 
 
 | Area | Verified state |
 |---|---|
-| Backend quality | `ruff check .` clean; **289 tests passing** (`pytest tests/ -q` in 60.3s). Comprehensive coverage across DB models, agents, tools, workers, callbacks, resilience fallbacks, Amazon Connect bridge, latency & TTFT benchmarks, Day 42 Sheets call logging, and Day 43 latency/pooling/429/silence/backup resilience. |
-| Frontend quality | ESLint clean; Next.js 16.3.1 production build completed with **23 compiled routes** (Turbopack, 0 errors), including full dark/light theme redesign, WCAG AA accessibility, and zero layout shift. |
+| Backend quality | `ruff check voxflow_api tests` clean; **347 tests passing** (`pytest -q` in ~75s), including exact DID, canonical telephony API, cross-tenant denial, contact-bound authorization, PIN hashing/redaction/persistent lockout, Connect HMAC/body-binding, session-gated signup, provisioning, ingestion, schema, and resilience coverage. |
+| Frontend quality | ESLint and `tsc --noEmit` clean; Next.js 16.3.1 Webpack production build completed with **25 compiled routes**, including the owner-only telephony settings control plane. Default Turbopack validation is blocked only by the editor sandbox’s CSS-worker port restriction. |
 | Oracle VM Deployment | Documented and configured in `deploy/ORACLE_DEPLOY.md`, `deploy/Caddyfile`, `deploy/docker-compose.prod.yml`, with automated helper scripts (`deploy/diagnose-api.sh`, `deploy/sync-vm.sh`, `deploy/verify-vm.sh`, `scripts/preflight.sh`). |
-| Telephony & Speech | Amazon Connect AWS Contact Center UK DID (`+44 20 4640 4552`) with Amazon Lex V2 `en-GB` speech front door and HMAC-authenticated Lambda bridge (`deploy/aws/lambda_handler.py`). |
+| Telephony & Speech | Amazon Connect with Lex V2 `en-GB` and an HMAC-authenticated Lambda bridge; tenant context is selected only by active exact provider/DID mapping, with route-specific language and standard/enhanced caller verification. |
 | Turn Latency Telemetry | Server-side handler execution timing (`time.perf_counter()`) on `POST /api/connect/turn` emitting `latency_ms` in logs and `ConnectTurnResponse`, plus `avg_turn_latency_ms` persisted in `calls` table. |
 | Durable Call Logging | Dual-destination persistence: Postgres `calls` table as source of truth + detached, non-blocking Google Sheets mirror gated by `SHEETS_CALL_LOG_TENANTS` allow-list. |
 | LLM Resilience & Pooling | Persistent HTTP client pooling, jittered 429 backoff, secondary fallback model (`llama-3.1-8b-instant`), non-blocking spoken error fallbacks, and bounded retry delays in `apps/api/voxflow_api/llm/groq.py`. |
@@ -110,7 +110,7 @@ The active Render API returned analytics with `durable_side_effects.activation_m
 
 ## Immediate next session
 
-1. Begin **Day 37**: add tenant-scoped reliability SLO scorecards, deterministic database-only fault drills, read-only drill-result APIs/dashboard evidence, and a recovery-plan preview; do not change activation posture.
+1. Begin **Day 47**: add owner-managed per-tenant prompt templates, voice persona, business hours, and fallback escalation settings without weakening exact-DID routing or caller-verification gates.
 2. Preserve the hard safety boundary: both workers disabled; campaign and side-effect dry run; empty pilot/worker/adapter allow-lists; no callback signing secret; no provider/integration action.
 3. Preserve Render’s Free Web Service posture: use **Prepare Simulator** (or warm `/api/health`) before a browser-only session, keep both Vercel origins aligned to Render, and do not add billing or configure always-on capacity.
 4. Keep Fly stopped unless a future owner-approved rollback is required; if a backend origin changes, safely re-verify health, analytics, callback 503 responses, pilot scorecard/rollback-preview, Day 36 evidence APIs, and live Vercel panels first.

@@ -18,26 +18,33 @@ import hmac
 import json
 import os
 import time
-import urllib.error
 import urllib.request
 
 
-def _sign_request(secret: str, timestamp: str, path: str) -> str:
-    message = f"{timestamp}:{path}".encode("utf-8")
+def _sign_request(secret: str, timestamp: str, path: str, body: bytes) -> str:
+    message = (
+        timestamp.encode("utf-8")
+        + b":"
+        + path.encode("utf-8")
+        + b":"
+        + body
+    )
     return hmac.new(secret.encode("utf-8"), message, hashlib.sha256).hexdigest()
 
 
 def _post_json(url: str, payload: dict, secret: str, path: str) -> dict:
+    if not secret:
+        raise RuntimeError("VOXFLOW_SECRET is required")
+
     data = json.dumps(payload).encode("utf-8")
     timestamp = str(time.time())
+    signature = _sign_request(secret, timestamp, path, data)
     headers = {
         "Content-Type": "application/json",
         "User-Agent": "VoxFlow-AWS-Connect-Bridge/1.0",
+        "x-voxflow-signature": signature,
+        "x-voxflow-timestamp": timestamp,
     }
-    if secret:
-        signature = _sign_request(secret, timestamp, path)
-        headers["x-voxflow-signature"] = signature
-        headers["x-voxflow-timestamp"] = timestamp
 
     req = urllib.request.Request(url, data=data, headers=headers, method="POST")
     with urllib.request.urlopen(req, timeout=8) as resp:
@@ -45,8 +52,6 @@ def _post_json(url: str, payload: dict, secret: str, path: str) -> dict:
 
 
 def lambda_handler(event, context):
-    print("Received event:", json.dumps(event))
-
     # Default to the always-on Oracle VM. Amazon Connect gives this Lambda ~8s;
     # a Render Free cold start blows that budget and drops the call. Override in
     # AWS with the VOXFLOW_API_URL env var (env wins; this is only a safety net).
@@ -73,7 +78,7 @@ def lambda_handler(event, context):
     if action == "end":
         outcome = parameters.get("outcome", "resolved")
         try:
-            res = _post_json(
+            _post_json(
                 f"{api_url}/api/connect/end",
                 {"contact_id": contact_id, "outcome": outcome},
                 secret,
@@ -84,9 +89,8 @@ def lambda_handler(event, context):
                 "status": "ended",
                 "contact_id": contact_id,
             }
-        except Exception as e:
-            print("Error ending session:", str(e))
-            return {"statusCode": 500, "error": str(e)}
+        except Exception:
+            return {"statusCode": 500, "error": "connect_api_request_failed"}
 
     # Conversational turn
     if not user_text.strip():
@@ -126,12 +130,11 @@ def lambda_handler(event, context):
             "end_call": end_call,
             "language": language,
         }
-    except Exception as e:
-        print("Error processing turn:", str(e))
+    except Exception:
         return {
             "statusCode": 200,
             "agent_reply": "Sorry, I'm having a technical problem and can't help right now. Please call back in a few minutes.",
             "escalate": "true",
             "end_call": "true",
-            "error": str(e),
+            "error": "connect_api_request_failed",
         }

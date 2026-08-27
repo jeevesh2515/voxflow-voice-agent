@@ -1,6 +1,6 @@
 # VoxFlow Database Schema Reference
 
-**Last updated:** 2026-08-21
+**Last updated:** 2026-08-26
 **Authoritative implementation:** `apps/api/voxflow_api/db.py` and the ordered SQL files in `migrations/`.
 **Purpose of this document:** Explain tenant boundaries, durable execution, policy controls, provider callback evidence, typed side-effect intent evidence, Day 35 controlled-pilot readiness, and Day 36 operational-evidence records. It is not a substitute for applying production migrations.
 
@@ -19,6 +19,7 @@ Local SQLite development/tests create the SQLAlchemy metadata. Production Postgr
 010_pilot_operations_evidence.sql
 014_telephony_provider.sql
 015_call_latency.sql
+016_telephony_routing_and_caller_pins.sql
 ```
 
 The initial tenant/core schema (`000_base_schema.sql`) and prior feature migrations must already be present. Do not copy partial DDL from this document into a production database; use the migration files so indexes and constraints remain aligned with code.
@@ -45,9 +46,23 @@ Every operational, campaign, durable-job, provider-operation, and policy record 
 | `calls` | `tenant_id` | Voice transcript, outcome, verification, and resolution evidence. |
 | `appointments` | `tenant_id` | Dock/meeting scheduling records. |
 | `communication_logs` | `tenant_id` | Email/SMS/WhatsApp-related operational communication history. |
-| `tenant_phone_numbers` | `tenant_id` | Inbound number-to-tenant mapping for telephony routing. |
+| `tenant_phone_numbers` | `tenant_id` | Globally unique exact E.164 DID ownership plus provider, active state, verification mode, route language, and created/updated timestamps. |
 | `outbound_campaigns` | `tenant_id` | Campaign configuration and aggregate target/call counters. |
 | `campaign_queue` | `tenant_id` | Individual campaign targets, status, call ID, retry time, and transcript summary. |
+
+### Telephony routing and caller-PIN fields
+
+| Table/field | Rule |
+|---|---|
+| `tenant_phone_numbers.phone_number` | Global primary key in E.164 form; cross-tenant reassignment is rejected. |
+| `tenant_phone_numbers.provider` | Stored as `connect`, `twilio`, or `telnyx` for forward-compatible schema storage, but only `connect` (Amazon Connect) has a live inbound resolution route today; the owner-facing API only accepts `connect` when creating or updating a line. Inbound lookup matches provider and active state exactly. |
+| `verification_mode` | `standard` or `enhanced`; controls whether protected reads also require a verified PIN. |
+| `route_language` | `tenant_default`, `en`, or `hi`; selected when the call session starts. |
+| `suppliers.auth_pin_hash` | Salted PBKDF2-HMAC-SHA256 verifier; never returned through application APIs. |
+| `suppliers.auth_pin` | Nullable legacy compatibility field, cleared after owner reset or successful migration-on-verification. |
+| `suppliers.pin_updated_at` | Latest set/reset/import/migration timestamp shown only as posture metadata. |
+| `suppliers.pin_failed_attempts` | Persistent failed-PIN counter that survives across sessions/calls; resets to 0 on success or owner reset. Independent of the per-call session's own short-lived attempt counter. |
+| `suppliers.pin_locked_until` | When set and in the future, `verify_pin` fails closed regardless of the submitted PIN. Engaged after 10 persistent failures for a 15-minute window; cleared on success or owner reset. |
 
 ## 4. Durable execution tables (Days 25–29)
 
@@ -187,7 +202,8 @@ erDiagram
 12. Pilot cohort records must use stable recipient hashes and consent-evidence references; no dashboard/read-only API may return raw E.164 data from the cohort ledger.
 13. A Day 35 readiness scorecard reports fixed formulas and observed values only; it must not imply an approval or activation.
 14. Day 36 operational evidence must contain only aggregate/redacted state, be unique per pilot version/evidence key, and never itself grant expansion or execution permission.
-15. Schema changes that affect policy, consent, jobs, provider operations, provider events, side-effect intents, pilot readiness, or pilot operations require migration review, targeted tests, and a `schema.md` update.
+15. Telephony settings APIs may return route policy, masked phone posture, and PIN timestamps only; plaintext PINs and hashes are prohibited.
+16. Schema changes that affect telephony routing, caller verification, policy, consent, jobs, provider operations, provider events, side-effect intents, pilot readiness, or pilot operations require migration review, targeted tests, and a `schema.md` update.
 
 ## References
 

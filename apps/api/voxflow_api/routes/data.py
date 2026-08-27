@@ -59,8 +59,11 @@ from ..services.data_ingestion import (
     SUPPORTED_ENTITIES,
     get_csv_template,
     ingest_csv_data,
+    parse_csv_content,
     validate_csv_data,
 )
+
+from ..services.telephony_routing import normalize_e164
 
 
 router = APIRouter()
@@ -266,7 +269,8 @@ def provision_workspace(payload: WorkspaceProvisionIn, request: Request) -> Work
                         pincode="122001",
                         contact_person=payload.admin_name or "Rajesh Kumar",
                         gstin="06AAAAA0000A1Z5",
-                        auth_pin="1234",
+                        auth_pin_hash=None,
+                        pin_updated_at=None,
                         contact_type="customer",
                         active=1,
                     ),
@@ -280,7 +284,8 @@ def provision_workspace(payload: WorkspaceProvisionIn, request: Request) -> Work
                         pincode="110001",
                         contact_person="Amit Sharma",
                         gstin="07BBBBB1111B1Z2",
-                        auth_pin="1234",
+                        auth_pin_hash=None,
+                        pin_updated_at=None,
                         contact_type="customer",
                         active=1,
                     ),
@@ -294,7 +299,8 @@ def provision_workspace(payload: WorkspaceProvisionIn, request: Request) -> Work
                         pincode="201301",
                         contact_person="Sanjay Verma",
                         gstin="09CCCCC2222C1Z9",
-                        auth_pin="1234",
+                        auth_pin_hash=None,
+                        pin_updated_at=None,
                         contact_type="supplier",
                         active=1,
                     ),
@@ -368,10 +374,14 @@ def provision_workspace(payload: WorkspaceProvisionIn, request: Request) -> Work
 
         # 3. Map phone number if provided
         if payload.phone_number:
-            clean_phone = payload.phone_number.strip()
+            try:
+                clean_phone = normalize_e164(payload.phone_number)
+            except ValueError as exc:
+                raise HTTPException(status_code=422, detail=str(exc)) from exc
             existing_phone = db.get(TenantPhoneNumber, clean_phone)
+            if existing_phone and existing_phone.tenant_id != slug:
+                raise HTTPException(status_code=409, detail="phone_number_owned_by_another_tenant")
             if existing_phone:
-                existing_phone.tenant_id = slug
                 existing_phone.label = f"{company_name} Inbound Line"
                 existing_phone.active = 1
             else:
@@ -447,8 +457,13 @@ def list_suppliers(
 def get_supplier(request: Request, supplier_id: str) -> Supplier:
     tenant = _tenant_id(request)
     with session_scope() as db:
-        s = db.get(Supplier, supplier_id)
-        if not s or s.tenant_id != tenant:
+        s = db.execute(
+            select(Supplier).where(
+                Supplier.tenant_id == tenant,
+                Supplier.id == supplier_id,
+            )
+        ).scalars().first()
+        if not s:
             raise HTTPException(status_code=404, detail="supplier_not_found")
         return s
 
@@ -460,7 +475,10 @@ def create_supplier(
     tenant_id: str | None = Query(default=None),
 ) -> dict[str, Any]:
     tenant = _tenant_id(request, tenant_id, write=True)
-    clean_phone = payload.phone.strip().replace(" ", "")
+    try:
+        clean_phone = normalize_e164(payload.phone)
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
     sup_id = f"sup-{tenant}-{int(datetime.now(timezone.utc).timestamp()) % 100000}"
     with session_scope() as db:
         s = Supplier(
@@ -473,7 +491,8 @@ def create_supplier(
             pincode=payload.pincode.strip(),
             contact_person=payload.contact_person.strip(),
             gstin=payload.gstin.strip().upper(),
-            auth_pin=payload.auth_pin.strip() or "1234",
+            auth_pin=None,
+            auth_pin_hash=None,
             contact_type="supplier",
             active=1,
         )
@@ -488,7 +507,8 @@ def create_supplier(
             "pincode": s.pincode,
             "contact_person": s.contact_person,
             "gstin": s.gstin,
-            "auth_pin": s.auth_pin,
+            "contact_type": s.contact_type,
+            "pin_configured": False,
         }
 
 
@@ -561,7 +581,12 @@ def create_order(request: Request, payload: OrderCreate, tenant_id: str | None =
         raise HTTPException(status_code=400, detail="no_items")
     total_qty = sum(i["quantity"] for i in items)
     with session_scope() as db:
-        sup = db.get(Supplier, payload.supplier_id)
+        sup = db.execute(
+            select(Supplier).where(
+                Supplier.tenant_id == tenant,
+                Supplier.id == payload.supplier_id,
+            )
+        ).scalars().first()
         if not sup:
             raise HTTPException(status_code=404, detail="supplier_not_found")
         o = Order(
@@ -582,8 +607,13 @@ def create_order(request: Request, payload: OrderCreate, tenant_id: str | None =
 def get_order(request: Request, order_id: str) -> dict[str, Any]:
     tenant = _tenant_id(request)
     with session_scope() as db:
-        o = db.get(Order, order_id)
-        if not o or o.tenant_id != tenant:
+        o = db.execute(
+            select(Order).where(
+                Order.tenant_id == tenant,
+                Order.id == order_id,
+            )
+        ).scalars().first()
+        if not o:
             raise HTTPException(status_code=404, detail="order_not_found")
         return _order_out(o)
 
@@ -1098,6 +1128,17 @@ async def import_csv(
 
     if not content.strip():
         raise HTTPException(status_code=400, detail="csv_content_required")
+
+    if entity_key == "suppliers":
+        _, supplier_rows = parse_csv_content(content)
+        if any(row.get("auth_pin", "").strip() for row in supplier_rows):
+            with session_scope() as authorization_db:
+                require_tenant_role(
+                    request,
+                    authorization_db,
+                    tenant_id=resolved_tenant,
+                    allowed_roles={ROLE_OWNER},
+                )
 
     with session_scope() as db:
         res = ingest_csv_data(

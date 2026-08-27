@@ -2,7 +2,7 @@
 from __future__ import annotations
 
 from datetime import datetime, timezone
-from typing import Any
+from typing import Any, Literal
 import uuid
 
 from fastapi import APIRouter, HTTPException, Query, Request
@@ -17,13 +17,16 @@ from ..auth import (
     require_platform_admin,
     require_tenant_role,
 )
-from ..db import Call, Tenant, TenantMember, TenantPhoneNumber, session_scope
+from ..db import Call, Supplier, Tenant, TenantMember, TenantPhoneNumber, session_scope
 from ..jobs.side_effects import EMAIL_SUMMARIZATION_SCAN, enqueue_side_effect
 from ..logging import get_logger
+from ..services.pin_security import hash_pin
+from ..services.telephony_routing import normalize_e164
 
 
 log = get_logger(__name__)
 router = APIRouter()
+tenant_settings_router = APIRouter(prefix="/api/tenants", tags=["tenant-telephony-settings"])
 
 
 class TenantCreateIn(BaseModel):
@@ -53,8 +56,32 @@ class TenantUpdateIn(BaseModel):
 
 
 class PhoneNumberMapIn(BaseModel):
+    # Only "connect" is exposed for creation today: Amazon Connect is the only
+    # provider with a wired inbound resolution route (routes/connect.py). The
+    # database column still accepts "twilio"/"telnyx" for forward-compatible
+    # storage, but the owner-facing API must not let a tenant create a mapping
+    # that will never receive a call, so it is not offered here yet.
     phone_number: str = Field(..., description="E.164 phone number, e.g. +14155550199")
     label: str = ""
+    provider: Literal["connect"] = "connect"
+    verification_mode: Literal["standard", "enhanced"] = "standard"
+    route_language: Literal["tenant_default", "en", "hi"] = "tenant_default"
+    active: bool = True
+
+
+class PhoneNumberUpdateIn(BaseModel):
+    label: str | None = None
+    provider: Literal["connect"] | None = None
+    verification_mode: Literal["standard", "enhanced"] | None = None
+    route_language: Literal["tenant_default", "en", "hi"] | None = None
+    active: bool | None = None
+
+
+class CallerPinSetIn(BaseModel):
+    # Validation is intentionally performed in the route. Pydantic validation
+    # errors include rejected input values, which would echo a raw PIN.
+    pin: Any
+    confirm_pin: Any = None
 
 
 def _tenant_summary(tenant: Tenant) -> dict[str, object]:
@@ -178,34 +205,285 @@ def update_tenant(tenant_id: str, payload: TenantUpdateIn, request: Request) -> 
 # ---------- Phone Mapping ----------
 
 
+def _phone_number_summary(row: TenantPhoneNumber) -> dict[str, Any]:
+    return {
+        "phone_number": row.phone_number,
+        "tenant_id": row.tenant_id,
+        "label": row.label,
+        "provider": row.provider,
+        "verification_mode": row.verification_mode,
+        "route_language": row.route_language,
+        "active": bool(row.active),
+        "created_at": row.created_at.isoformat() if row.created_at else None,
+        "updated_at": row.updated_at.isoformat() if row.updated_at else None,
+    }
+
+
+def _masked_phone(phone_number: str) -> str:
+    digits = "".join(character for character in phone_number if character.isdigit())
+    if len(digits) < 4:
+        return "••••"
+    return f"+{'•' * max(0, len(digits) - 4)}{digits[-4:]}"
+
+
+def _is_pin_locked(supplier: Supplier) -> bool:
+    """Report persistent lockout state without exposing the PIN or hash.
+
+    SQLite returns naive datetimes even for timezone-aware columns, so a
+    direct comparison against an aware ``now`` must normalize first.
+    """
+    locked_until = supplier.pin_locked_until
+    if locked_until is None:
+        return False
+    if locked_until.tzinfo is None:
+        locked_until = locked_until.replace(tzinfo=timezone.utc)
+    return locked_until > datetime.now(timezone.utc)
+
+
+@tenant_settings_router.get("/{tenant_id}/telephony")
+def get_tenant_telephony_settings(tenant_id: str, request: Request) -> dict[str, Any]:
+    """Return the tenant's exact-DID routing and redacted PIN posture."""
+    with session_scope() as db:
+        tenant = db.get(Tenant, tenant_id)
+        if tenant is None:
+            raise HTTPException(status_code=404, detail="tenant_not_found")
+        require_tenant_role(
+            request,
+            db,
+            tenant_id=tenant_id,
+            allowed_roles={ROLE_OWNER, ROLE_OPERATOR, ROLE_VIEWER},
+            allow_demo=True,
+        )
+        phone_rows = db.execute(
+            select(TenantPhoneNumber)
+            .where(TenantPhoneNumber.tenant_id == tenant_id)
+            .order_by(TenantPhoneNumber.phone_number)
+        ).scalars().all()
+        contacts = db.execute(
+            select(Supplier)
+            .where(Supplier.tenant_id == tenant_id, Supplier.active == 1)
+            .order_by(Supplier.name)
+        ).scalars().all()
+        return {
+            "tenant_id": tenant_id,
+            "routing_mode": "exact_did",
+            "phone_numbers": [_phone_number_summary(row) for row in phone_rows],
+            "verification_contacts": [
+                {
+                    "supplier_id": row.id,
+                    "name": row.name,
+                    "phone_masked": _masked_phone(row.phone),
+                    "pin_configured": row.pin_configured,
+                    "pin_updated_at": row.pin_updated_at.isoformat() if row.pin_updated_at else None,
+                    "requires_rotation": bool(row.auth_pin and not row.auth_pin_hash),
+                    "locked": _is_pin_locked(row),
+                }
+                for row in contacts
+            ],
+        }
+
+
+@router.get("/tenants/{tenant_id}/phone-numbers")
+def list_tenant_phone_numbers(tenant_id: str, request: Request) -> list[dict[str, Any]]:
+    """List only this tenant's inbound routing rules; no credential data is returned."""
+    with session_scope() as db:
+        require_tenant_role(
+            request,
+            db,
+            tenant_id=tenant_id,
+            allowed_roles={ROLE_OWNER, ROLE_OPERATOR, ROLE_VIEWER},
+            allow_demo=True,
+        )
+        rows = db.execute(
+            select(TenantPhoneNumber)
+            .where(TenantPhoneNumber.tenant_id == tenant_id)
+            .order_by(TenantPhoneNumber.phone_number)
+        ).scalars().all()
+        return [_phone_number_summary(row) for row in rows]
+
+
+@tenant_settings_router.post("/{tenant_id}/phone-numbers")
 @router.post("/tenants/{tenant_id}/phone-numbers")
 def map_phone_number_to_tenant(
     tenant_id: str,
     payload: PhoneNumberMapIn,
     request: Request,
 ) -> dict[str, Any]:
-    """Assign an inbound number only as an owner-controlled configuration change."""
+    """Create or update an exact inbound route without allowing tenant takeover."""
+    try:
+        clean_phone = normalize_e164(payload.phone_number)
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
 
-    clean_phone = payload.phone_number.strip().replace(" ", "")
     with session_scope() as db:
         tenant = db.get(Tenant, tenant_id)
         if not tenant:
             raise HTTPException(status_code=404, detail="tenant_not_found")
         require_tenant_role(request, db, tenant_id=tenant_id, allowed_roles={ROLE_OWNER})
         existing = db.get(TenantPhoneNumber, clean_phone)
+        if existing and existing.tenant_id != tenant_id:
+            raise HTTPException(status_code=409, detail="phone_number_owned_by_another_tenant")
         if existing:
-            existing.tenant_id = tenant_id
             existing.label = payload.label or existing.label
+            existing.provider = payload.provider
+            existing.verification_mode = payload.verification_mode
+            existing.route_language = payload.route_language
+            existing.active = int(payload.active)
+            row = existing
         else:
-            db.add(
-                TenantPhoneNumber(
-                    phone_number=clean_phone,
-                    tenant_id=tenant_id,
-                    label=payload.label or f"{tenant.name} Support Line",
-                )
+            row = TenantPhoneNumber(
+                phone_number=clean_phone,
+                tenant_id=tenant_id,
+                label=payload.label or f"{tenant.name} Support Line",
+                provider=payload.provider,
+                verification_mode=payload.verification_mode,
+                route_language=payload.route_language,
+                active=int(payload.active),
             )
-        log.info("admin.phone_mapped", tenant_id=tenant_id)
-        return {"ok": True, "phone_number": clean_phone, "tenant_id": tenant_id}
+            db.add(row)
+        db.flush()
+        log.info("admin.phone_mapped", tenant_id=tenant_id, provider=row.provider)
+        return {"ok": True, **_phone_number_summary(row)}
+
+
+@tenant_settings_router.patch("/{tenant_id}/phone-numbers/{phone_number}")
+@router.patch("/tenants/{tenant_id}/phone-numbers/{phone_number}")
+def update_tenant_phone_number(
+    tenant_id: str,
+    phone_number: str,
+    payload: PhoneNumberUpdateIn,
+    request: Request,
+) -> dict[str, Any]:
+    """Update an automated route policy as a tenant owner."""
+    try:
+        clean_phone = normalize_e164(phone_number)
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+    with session_scope() as db:
+        require_tenant_role(request, db, tenant_id=tenant_id, allowed_roles={ROLE_OWNER})
+        row = db.execute(
+            select(TenantPhoneNumber).where(
+                TenantPhoneNumber.tenant_id == tenant_id,
+                TenantPhoneNumber.phone_number == clean_phone,
+            )
+        ).scalars().first()
+        if row is None:
+            raise HTTPException(status_code=404, detail="phone_number_not_found")
+        changes = payload.model_dump(exclude_unset=True)
+        if "active" in changes:
+            changes["active"] = int(changes["active"])
+        for key, value in changes.items():
+            setattr(row, key, value)
+        db.flush()
+        log.info("admin.phone_route_updated", tenant_id=tenant_id, provider=row.provider)
+        return {"ok": True, **_phone_number_summary(row)}
+
+
+@tenant_settings_router.delete("/{tenant_id}/phone-numbers/{phone_number}")
+def deactivate_tenant_phone_number(
+    tenant_id: str,
+    phone_number: str,
+    request: Request,
+) -> dict[str, Any]:
+    """Deactivate a tenant route without deleting its ownership/audit history."""
+    try:
+        clean_phone = normalize_e164(phone_number)
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+    with session_scope() as db:
+        require_tenant_role(request, db, tenant_id=tenant_id, allowed_roles={ROLE_OWNER})
+        row = db.execute(
+            select(TenantPhoneNumber).where(
+                TenantPhoneNumber.tenant_id == tenant_id,
+                TenantPhoneNumber.phone_number == clean_phone,
+            )
+        ).scalars().first()
+        if row is None:
+            raise HTTPException(status_code=404, detail="phone_number_not_found")
+        row.active = 0
+        row.updated_at = datetime.now(timezone.utc)
+        db.flush()
+        log.info("admin.phone_route_deactivated", tenant_id=tenant_id, provider=row.provider)
+        return {"ok": True, **_phone_number_summary(row)}
+
+
+# ---------- Caller verification PINs ----------
+
+
+@router.get("/tenants/{tenant_id}/caller-pins")
+@router.get("/tenants/{tenant_id}/verification-pins")
+def list_caller_pin_statuses(tenant_id: str, request: Request) -> list[dict[str, Any]]:
+    """Return redacted per-contact PIN status to authorized tenant members."""
+    with session_scope() as db:
+        require_tenant_role(
+            request,
+            db,
+            tenant_id=tenant_id,
+            allowed_roles={ROLE_OWNER, ROLE_OPERATOR, ROLE_VIEWER},
+            allow_demo=True,
+        )
+        rows = db.execute(
+            select(Supplier)
+            .where(Supplier.tenant_id == tenant_id)
+            .order_by(Supplier.name)
+        ).scalars().all()
+        return [
+            {
+                "supplier_id": row.id,
+                "name": row.name,
+                "pin_configured": row.pin_configured,
+                "phone_masked": _masked_phone(row.phone),
+                "pin_updated_at": row.pin_updated_at.isoformat() if row.pin_updated_at else None,
+                "requires_rotation": bool(row.auth_pin and not row.auth_pin_hash),
+                "locked": _is_pin_locked(row),
+            }
+            for row in rows
+        ]
+
+
+@tenant_settings_router.put("/{tenant_id}/caller-verification/{supplier_id}/pin")
+@router.put("/tenants/{tenant_id}/suppliers/{supplier_id}/caller-pin")
+@router.put("/tenants/{tenant_id}/suppliers/{supplier_id}/verification-pin")
+def set_caller_pin(
+    tenant_id: str,
+    supplier_id: str,
+    payload: CallerPinSetIn,
+    request: Request,
+) -> dict[str, Any]:
+    """Set a caller PIN as an owner, storing only a salted PBKDF2 hash."""
+    with session_scope() as db:
+        actor = require_tenant_role(request, db, tenant_id=tenant_id, allowed_roles={ROLE_OWNER})
+        supplier = db.execute(
+            select(Supplier).where(
+                Supplier.tenant_id == tenant_id,
+                Supplier.id == supplier_id,
+            )
+        ).scalars().first()
+        if supplier is None:
+            raise HTTPException(status_code=404, detail="supplier_not_found")
+        if not isinstance(payload.pin, str) or not isinstance(payload.confirm_pin, str):
+            raise HTTPException(status_code=422, detail="pin_and_confirmation_required")
+        if payload.pin != payload.confirm_pin:
+            raise HTTPException(status_code=422, detail="pin_confirmation_mismatch")
+        try:
+            encoded_pin = hash_pin(payload.pin)
+        except ValueError as exc:
+            raise HTTPException(status_code=422, detail="pin_must_be_4_to_8_digits") from exc
+        supplier.auth_pin_hash = encoded_pin
+        supplier.auth_pin = None
+        supplier.pin_updated_at = datetime.now(timezone.utc)
+        # An owner-initiated reset is a deliberate credential rotation; it must
+        # also clear any persistent brute-force lockout so the new PIN works
+        # immediately rather than staying locked from the prior credential.
+        supplier.pin_failed_attempts = 0
+        supplier.pin_locked_until = None
+        log.info(
+            "admin.caller_pin_updated",
+            tenant_id=tenant_id,
+            supplier_id=supplier_id,
+            actor_user_id=actor.user_id,
+        )
+        return {"ok": True, "supplier_id": supplier_id, "pin_configured": True}
 
 
 # ---------- Usage & Billing Stats ----------

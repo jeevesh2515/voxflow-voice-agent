@@ -1,8 +1,8 @@
 # VoxFlow Security and Safety Audit
 
-**Last updated:** 2026-08-21
-**Scope:** Current repository controls through Day 36.
-**Status:** The temporary Fly backend and Vercel dashboard are operational; outbound campaign execution and operational side-effect execution are intentionally safe-staged and are **not approved for general live activation**. Render remains outage-blocked and is not the current browser API origin.
+**Last updated:** 2026-08-26
+**Scope:** Current repository controls through Day 46.
+**Status:** Exact inbound DID routing and secure caller-PIN configuration are implemented and locally verified. Outbound campaign execution and operational side-effect execution remain intentionally safe-staged and are **not approved for general live activation**.
 
 ## 1. Security posture summary
 
@@ -19,7 +19,14 @@ VoxFlow applies layered controls to tenant-aware voice and campaign operations. 
 | Application tenant filters | Required | Every business/job/policy query must be filtered by owning tenant. |
 | Database RLS | Production requirement | Maintain PostgreSQL RLS as a second boundary where the deployment access model supports it. |
 | Twilio webhook validation | Implemented for inbound voice | Incoming telephony webhook signature validation remains required. |
-| Provider callback trust | Implemented normalized ingress | Fresh HMAC/timestamp validation, tenant-derived operation lookup, immutable event deduplication, terminal guards, and quarantine are implemented; provider-specific adapter certification remains pending. |
+| Provider callback trust | Implemented normalized ingress | Fresh HMAC/timestamp validation, tenant-derived operation lookup, immutable event deduplication, terminal guards, and quarantine are implemented. |
+| Inbound DID ownership | Implemented, fail closed | One global E.164 mapping owns one tenant; provider mismatch, inactive route, unknown DID, and cross-tenant takeover are rejected. |
+| Telephony configuration authorization | Owner only | Operators, viewers, demo users, and cross-tenant identities cannot mutate line policy or caller PINs. |
+| Caller PIN storage | Implemented | New values use uniquely salted PBKDF2-HMAC-SHA256 and constant-time verification; legacy plaintext is cleared after successful verification or owner reset. |
+| Caller PIN brute-force lockout | Implemented, persistent | A per-contact failed-attempt counter and lockout window survive across sessions/calls (10 failures → 15-minute lock on the `Supplier` row), not just within one call; the row is locked for update on Postgres during the check-and-increment to prevent a concurrent-guess race. Cleared on success or owner reset. |
+| Caller authorization contact binding | Implemented, fail closed | Knowledge and PIN verification are bound to the exact identified contact for the lifetime of the session; verifying contact A can never authorize a protected read/write against contact B, and any supplier switch or failed re-identification clears both factors. |
+| Amazon Connect ingress authentication | Implemented, fail closed | The Lambda bridge and API sign/verify the exact timestamp, path, and raw request body with HMAC-SHA256; an unset production secret rejects every request rather than falling through to an unsigned-request bypass. Missing/unknown/inactive/wrong-provider destination numbers never fall back to a default tenant. |
+| Self-serve signup identity verification | Implemented, fail closed | An anonymous or unverified caller can never claim/update an existing tenant or set an arbitrary owner identity; the workspace-provisioning frontend only calls the backend once a live authenticated session is confirmed, so a caller cannot be silently left owning an unclaimable placeholder-owned tenant. |
 
 ## 3. Campaign side-effect controls
 
@@ -69,6 +76,7 @@ VoxFlow applies layered controls to tenant-aware voice and campaign operations. 
 | Pilot cohort member | Tenant/cohort-scoped SHA-256 recipient hash plus bounded consent evidence reference | Raw E.164 data is never returned from pilot readiness endpoints or dashboard panels. |
 | Pilot configuration | Bounded names/roles, capacity, expiry, metric version, cohort count | No escalation contact channel, provider secret, recipient number, or activation control is stored or returned. |
 | Pilot operational evidence | Pilot/version/evidence kind/key, bounded decision/reason, aggregate snapshot, recorder/time | Never store E.164 values, transcripts, raw callbacks, signatures, secrets, job payloads, or external request bodies. |
+| Caller PIN input/output | 4–8 ASCII digits, confirmation match, owner-only mutation, redaction | Plaintext and hashes are excluded from supplier responses, telephony posture, logs, traces, actions, transcripts, and CSV previews. |
 | SQL | SQLAlchemy parameterized queries | Raw interpolated SQL is prohibited. |
 
 ## 5. Secrets and deployment configuration
@@ -86,6 +94,7 @@ VoxFlow applies layered controls to tenant-aware voice and campaign operations. 
 | Pilot admission remains enforced with empty tenant list | Required until the signed, one-tenant operating package is independently reviewed and deployed. |
 | Day 36 hold-point evidence gate remains enabled | Required in Fly and any restored Render deployment; missing/stale/pause/version-drift evidence must remain fail-closed. |
 | Learning journals contain no credentials | Required; `.learning/` is local and gitignored. |
+| Caller PINs are not environment secrets or shared defaults | Required; owners set per-contact values through the authenticated API/UI and production provisioning leaves PINs unconfigured. |
 
 ## 6. Network and browser boundary
 
@@ -138,7 +147,7 @@ curl -fsS "$API_ORIGIN/api/pilot-operations/varun/hold-point"
 curl -I https://voxflow-voice-agent.vercel.app/dashboard/analytics
 ```
 
-Expected Day 36 live result is staged rollout with campaign and side-effect workers disabled, empty pilot/worker/adapter allow-lists, normalized callback ingress returning `503` while its secret is intentionally absent, and Dial sandbox ingress returning `503 dial_callback_adapter_disabled` before body parsing. Analytics should include `dial_sandbox_adapter` and `durable_side_effects`; pilot readiness and Day 36 preflight/hold-point should return **blocked** evidence with no configuration until a human-owned package exists. Do not treat a passing dashboard load, job-health read, analytics response, pilot scorecard, preflight/hold-point response, or callback rejection as authorization to enable outbound dispatch, configure a Dial secret, fire a provider ping, register a live callback URL, send an integration request, or create a live side-effect intent. Restore Render only after rerunning these checks and the dashboard verification, then retire Fly under recorded operator ownership.
+Expected live result is staged rollout with campaign and side-effect workers disabled, empty pilot/worker/adapter allow-lists, normalized callback ingress returning `503` while its secret is intentionally absent, and Dial sandbox ingress returning `503 dial_callback_adapter_disabled` before body parsing. Analytics should include `dial_sandbox_adapter` and `durable_side_effects`; pilot readiness and Day 36 preflight/hold-point should return **blocked** evidence with no configuration until a human-owned package exists. Do not treat a passing dashboard load, job-health read, analytics response, pilot scorecard, preflight/hold-point response, or callback rejection as authorization to enable outbound dispatch, configure a Dial secret, fire a provider ping, register a live callback URL, send an integration request, or create a live side-effect intent. Restore Render only after rerunning these checks and the dashboard verification, then retire Fly under recorded operator ownership.
 
 ## References
 

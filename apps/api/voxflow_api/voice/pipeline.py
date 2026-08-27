@@ -27,6 +27,7 @@ from ..config import get_settings
 from ..db import Call, async_session_scope
 from ..logging import get_logger
 from ..schemas import CallTurn
+from ..services.pin_security import redact_pin_data, redact_pin_text
 
 
 log = get_logger(__name__)
@@ -39,6 +40,18 @@ def _json_default(value: Any) -> str:
     return str(value)
 
 
+def _redact_session_evidence(session: CallSession) -> None:
+    """Redact caller-controlled text before snapshots, persistence, or mirrors."""
+    for turn in session.transcript:
+        turn.text = redact_pin_text(turn.text)
+    session.actions = redact_pin_data(session.actions)
+    session.route_policy = redact_pin_data(session.route_policy)
+    for attr in ("caller_name", "company_name", "intent", "reason", "solution", "related_order"):
+        value = getattr(session, attr, None)
+        if isinstance(value, str):
+            setattr(session, attr, redact_pin_text(value))
+
+
 def _sessions_dir() -> str:
     s = get_settings()
     d = os.path.join(s.resolved_data_dir, "sessions")
@@ -48,6 +61,7 @@ def _sessions_dir() -> str:
 
 def _snapshot_session(session: CallSession) -> None:
     try:
+        _redact_session_evidence(session)
         sdir = _sessions_dir()
         fpath = os.path.join(sdir, f"{session.call_id}.json")
         data = {
@@ -55,7 +69,11 @@ def _snapshot_session(session: CallSession) -> None:
             "tenant_id": session.tenant_id,
             "language": session.language,
             "supplier_id": session.supplier_id,
-            "caller_name": session.caller_name,
+            "caller_name": redact_pin_text(session.caller_name),
+            # caller_phone is structured telephony metadata (an E.164-style
+            # number), never caller free-text speech. The 4-8 digit PIN
+            # redaction regex would otherwise mangle every phone number's
+            # digit groups into "[REDACTED PIN]" placeholders.
             "caller_phone": session.caller_phone,
             "intent": session.intent,
             "started_at": session.started_at,
@@ -65,6 +83,11 @@ def _snapshot_session(session: CallSession) -> None:
             "verified": session.verified,
             "company_name": session.company_name,
             "pin_verified": session.pin_verified,
+            "route_policy": session.route_policy,
+            "telephony_provider": session.telephony_provider,
+            "inbound_did": session.inbound_did,
+            "verification_mode": session.verification_mode,
+            "route_language": session.route_language,
             "reason": session.reason,
             "solution": session.solution,
             "resolution_status": session.resolution_status,
@@ -72,13 +95,20 @@ def _snapshot_session(session: CallSession) -> None:
             "follow_up_required": session.follow_up_required,
             "related_order": session.related_order,
             "recording_url": session.recording_url,
-            "transcript": [{"role": t.role, "text": t.text, "at": t.at} for t in session.transcript],
-            "actions": session.actions,
+            "transcript": [
+                {"role": t.role, "text": redact_pin_text(t.text), "at": t.at}
+                for t in session.transcript
+            ],
+            "actions": redact_pin_data(session.actions),
         }
         with open(fpath, "w", encoding="utf-8") as f:
             json.dump(data, f, default=_json_default)
     except Exception as e:
-        log.warning("session.snapshot_failed", call_id=session.call_id, error=str(e))
+        log.warning(
+            "session.snapshot_failed",
+            call_id=redact_pin_text(session.call_id),
+            error=redact_pin_text(str(e)),
+        )
 
 
 def _remove_snapshot(call_id: str) -> None:
@@ -87,7 +117,11 @@ def _remove_snapshot(call_id: str) -> None:
         if os.path.exists(fpath):
             os.remove(fpath)
     except Exception as e:
-        log.warning("session.snapshot_remove_failed", call_id=call_id, error=str(e))
+        log.warning(
+            "session.snapshot_remove_failed",
+            call_id=redact_pin_text(call_id),
+            error=redact_pin_text(str(e)),
+        )
 
 
 @dataclass
@@ -118,6 +152,13 @@ class CallSession:
     known_caller: bool = False
     recording_url: str | None = None
     identified_by_phone: bool = False
+
+    # ---- Inbound line route policy ----
+    route_policy: dict[str, str] = field(default_factory=dict)
+    telephony_provider: str = ""
+    inbound_did: str = ""
+    verification_mode: str = "standard"
+    route_language: str = "tenant_default"
 
     # ---- Structured outcome, filled by the log_call_outcome tool ----
     reason: str = ""
@@ -166,21 +207,36 @@ class VoicePipeline:
         language: str | None = None,
         tenant_id: str | None = None,
         call_id: str | None = None,
+        route_policy: dict[str, str] | None = None,
     ) -> CallSession:
 
         s = get_settings()
         call_id = call_id or f"call_{int(time.time() * 1000)}_{uuid.uuid4().hex[:6]}"
         lang = language or s.tts_default_lang
+        policy = dict(route_policy or {})
         session = CallSession(
             call_id=call_id,
             tenant_id=tenant_id or "varun",
             language=lang,
             caller_phone=caller_phone,
             caller_name=caller_name,
+            route_policy=policy,
+            telephony_provider=policy.get("provider", ""),
+            inbound_did=policy.get("phone_number", ""),
+            verification_mode=policy.get("verification_mode", "standard"),
+            route_language=policy.get("route_language", "tenant_default"),
         )
         self._sessions[call_id] = session
         _snapshot_session(session)
-        log.info("call.started", call_id=call_id, tenant_id=session.tenant_id, language=lang, caller_phone=caller_phone)
+        log.info(
+            "call.started",
+            call_id=redact_pin_text(call_id),
+            tenant_id=redact_pin_text(session.tenant_id),
+            language=redact_pin_text(lang),
+            # caller_phone is structured telephony metadata, not free-text
+            # caller speech; redacting it would corrupt real phone numbers.
+            caller_phone=caller_phone,
+        )
         return session
 
     def get_session(self, call_id: str) -> CallSession | None:
@@ -203,9 +259,9 @@ class VoicePipeline:
         self._schedule_sheet_mirror(session)
         log.info(
             "call.ended",
-            call_id=call_id,
+            call_id=redact_pin_text(call_id),
             duration=int(session.ended_at - session.started_at),
-            outcome=outcome,
+            outcome=redact_pin_text(outcome),
             escalated=session.escalated,
             turns=len(session.transcript),
         )
@@ -228,7 +284,12 @@ class VoicePipeline:
             lambda: self.stt.transcribe_pcm(pcm, sample_rate=session.pcm_sample_rate),
         )
         user_text = transcription.text.strip()
-        log.info("timing.stt", ms=int((time.time() - t0) * 1000), confidence=transcription.confidence, lang=transcription.language)
+        log.info(
+            "timing.stt",
+            ms=int((time.time() - t0) * 1000),
+            confidence=transcription.confidence,
+            lang=redact_pin_text(transcription.language),
+        )
         if not user_text:
             return {"type": "info", "message": "empty_transcript"}
 
@@ -242,12 +303,15 @@ class VoicePipeline:
             session=session,
             user_text=user_text,
         )
+        safe_user_text = redact_pin_text(user_text)
+        session.transcript[-1].text = safe_user_text
         latency_ms = round((time.perf_counter() - t_turn) * 1000, 2)
         session.turn_latencies.append(latency_ms)
 
-        agent_text = agent_result.reply
+        agent_text = redact_pin_text(agent_result.reply)
+        safe_actions = redact_pin_data(agent_result.actions)
         session.transcript.append(CallTurn(role="agent", text=agent_text, at=time.time()))
-        for a in agent_result.actions:
+        for a in safe_actions:
             session.actions.append(a)
             if a.get("name") == "escalate_to_human":
                 session.escalated = True
@@ -264,18 +328,22 @@ class VoicePipeline:
             tts_result = await self.tts.synth(agent_text, lang_hint=session.language)
             log.info("timing.tts", ms=int((time.time() - t0) * 1000), text_len=len(agent_text))
         except Exception as exc:
-            log.warning("tts.browser_fallback", error=str(exc), text_len=len(agent_text))
+            log.warning(
+                "tts.browser_fallback",
+                error=redact_pin_text(str(exc)),
+                text_len=len(agent_text),
+            )
 
         return {
             "type": "turn",
-            "user_text": user_text,
+            "user_text": safe_user_text,
             "user_language": transcription.language,
             "user_confidence": transcription.confidence,
             "agent_text": agent_text,
             "agent_audio_b64": _b64(tts_result.audio_bytes) if tts_result else None,
             "agent_audio_mime": tts_result.mime if tts_result else None,
             "audio_fallback": tts_result is None,
-            "actions": agent_result.actions,
+            "actions": safe_actions,
         }
 
     # ---------- Persistence ----------
@@ -291,14 +359,22 @@ class VoicePipeline:
             if not session.sheet_synced:
                 log.warning(
                     "call.sheet_not_synced",
-                    call_id=session.call_id,
-                    reason=result.get("reason"),
+                    call_id=redact_pin_text(session.call_id),
+                    reason=redact_pin_data(result.get("reason")),
                 )
         except asyncio.TimeoutError:
-            log.warning("call.sheet_timeout", call_id=session.call_id, timeout=timeout)
+            log.warning(
+                "call.sheet_timeout",
+                call_id=redact_pin_text(session.call_id),
+                timeout=timeout,
+            )
             session.sheet_synced = False
         except Exception as e:
-            log.warning("call.sheet_failed", call_id=session.call_id, error=str(e))
+            log.warning(
+                "call.sheet_failed",
+                call_id=redact_pin_text(session.call_id),
+                error=redact_pin_text(str(e)),
+            )
             session.sheet_synced = False
 
     async def _log_abandoned_if_needed(self, session: CallSession) -> None:
@@ -350,21 +426,21 @@ class VoicePipeline:
             "timestamp": datetime.now(ist).strftime("%Y-%m-%d %H:%M:%S"),
             "call_id": session.call_id,
             "caller_phone": session.caller_phone,
-            "caller_name": session.caller_name,
-            "company": session.company_name,
+            "caller_name": redact_pin_text(session.caller_name),
+            "company": redact_pin_text(session.company_name),
             "verified": session.verified,
             "language": session.language,
-            "reason": session.reason,
-            "solution": session.solution,
+            "reason": redact_pin_text(session.reason),
+            "solution": redact_pin_text(session.solution),
             "resolution_status": session.resolution_status,
             "satisfaction": session.satisfaction,
             "follow_up_required": session.follow_up_required,
             "escalated": session.escalated,
             "duration_sec": int((session.ended_at or time.time()) - session.started_at),
-            "related_order": session.related_order,
+            "related_order": redact_pin_text(session.related_order),
             "tenant": session.tenant_id,
-            "question": question,
-            "answer": answer,
+            "question": redact_pin_text(question),
+            "answer": redact_pin_text(answer),
             "turn_latency_ms": avg_latency,
         }
 
@@ -381,7 +457,11 @@ class VoicePipeline:
             VoicePipeline._background_tasks.add(task)
             task.add_done_callback(VoicePipeline._background_tasks.discard)
         except Exception as e:
-            log.warning("call.sheet_schedule_failed", call_id=session.call_id, error=str(e))
+            log.warning(
+                "call.sheet_schedule_failed",
+                call_id=redact_pin_text(session.call_id),
+                error=redact_pin_text(str(e)),
+            )
             VoicePipeline._sheet_inflight.discard(session.call_id)
 
     async def _mirror_sheet(self, session: CallSession) -> None:
@@ -395,7 +475,10 @@ class VoicePipeline:
             async with async_session_scope() as db:
                 row = (await db.execute(select(Call).where(Call.id == call_id))).scalars().first()
                 if row is None:
-                    log.warning("call.sheet_mirror_missing_db_row", call_id=call_id)
+                    log.warning(
+                        "call.sheet_mirror_missing_db_row",
+                        call_id=redact_pin_text(call_id),
+                    )
                     return
                 if row.sheet_synced:
                     return  # already mirrored (crash/retry safety)
@@ -405,15 +488,23 @@ class VoicePipeline:
             if result.get("ok"):
                 await gsheets._mark_call_sheet_synced(call_id)
                 session.sheet_synced = True
-                log.info("call.sheet_synced", call_id=call_id, tab=result.get("tab"))
+                log.info(
+                    "call.sheet_synced",
+                    call_id=redact_pin_text(call_id),
+                    tab=redact_pin_data(result.get("tab")),
+                )
             else:
                 log.warning(
                     "call.sheet_not_synced",
-                    call_id=call_id,
-                    reason=result.get("reason"),
+                    call_id=redact_pin_text(call_id),
+                    reason=redact_pin_data(result.get("reason")),
                 )
         except Exception as e:
-            log.error("call.sheet_failed", call_id=call_id, error=str(e))
+            log.error(
+                "call.sheet_failed",
+                call_id=redact_pin_text(call_id),
+                error=redact_pin_text(str(e)),
+            )
         finally:
             VoicePipeline._sheet_inflight.discard(call_id)
 
@@ -427,6 +518,7 @@ class VoicePipeline:
         t0 = time.time()
         latencies = [ms for ms in session.turn_latencies if ms > 0]
         try:
+            _redact_session_evidence(session)
             async with async_session_scope() as db:
                 row = Call(
                     id=session.call_id,
@@ -436,8 +528,11 @@ class VoicePipeline:
                     duration_sec=int((session.ended_at or session.started_at) - session.started_at),
                     avg_turn_latency_ms=round(sum(latencies) / len(latencies)) if latencies else 0,
                     supplier_id=session.supplier_id,
+                    # caller_phone is structured telephony metadata, not
+                    # free-text caller speech; redacting it would corrupt the
+                    # persisted phone number's digit groups.
                     caller_phone=session.caller_phone,
-                    caller_name=session.caller_name,
+                    caller_name=redact_pin_text(session.caller_name),
                     language=session.language,
                     intent=session.intent,
                     outcome=session.outcome,
@@ -452,17 +547,25 @@ class VoicePipeline:
                     recording_url=session.recording_url,
                     transcript_json=json.dumps(
                         [
-                            {"role": t.role, "text": t.text, "at": t.at}
+                            {"role": t.role, "text": redact_pin_text(t.text), "at": t.at}
                             for t in session.transcript
                         ],
                         default=_json_default,
                     ),
-                    actions_json=json.dumps(session.actions, default=_json_default),
+                    actions_json=json.dumps(redact_pin_data(session.actions), default=_json_default),
                 )
                 await db.merge(row)
-            log.info("timing.persist", call_id=session.call_id, ms=int((time.time() - t0) * 1000))
+            log.info(
+                "timing.persist",
+                call_id=redact_pin_text(session.call_id),
+                ms=int((time.time() - t0) * 1000),
+            )
         except Exception as e:
-            log.error("call.persist_failed", call_id=session.call_id, error=str(e))
+            log.error(
+                "call.persist_failed",
+                call_id=redact_pin_text(session.call_id),
+                error=redact_pin_text(str(e)),
+            )
 
     async def recover_orphaned_sessions(self) -> int:
         """Scan session snapshots from disk and recover unpersisted sessions."""
@@ -503,6 +606,11 @@ class VoicePipeline:
                     verified=data.get("verified", False),
                     company_name=data.get("company_name", ""),
                     pin_verified=data.get("pin_verified", False),
+                    route_policy=data.get("route_policy", {}),
+                    telephony_provider=data.get("telephony_provider", ""),
+                    inbound_did=data.get("inbound_did", ""),
+                    verification_mode=data.get("verification_mode", "standard"),
+                    route_language=data.get("route_language", "tenant_default"),
                     reason=data.get("reason", "Interrupted/Recovered session"),
                     solution=data.get("solution", ""),
                     resolution_status=data.get("resolution_status", "unresolved"),
@@ -514,9 +622,16 @@ class VoicePipeline:
                 await self._persist(session)
                 _remove_snapshot(call_id)
                 recovered += 1
-                log.info("session.recovered_orphaned", call_id=call_id)
+                log.info(
+                    "session.recovered_orphaned",
+                    call_id=redact_pin_text(call_id),
+                )
             except Exception as e:
-                log.warning("session.recovery_failed", file=os.path.basename(fpath), error=str(e))
+                log.warning(
+                    "session.recovery_failed",
+                    file=redact_pin_text(os.path.basename(fpath)),
+                    error=redact_pin_text(str(e)),
+                )
 
         return recovered
 

@@ -18,13 +18,17 @@ from pathlib import Path
 import pytest
 
 ROOT = Path(__file__).resolve().parent.parent
+REPO_ROOT = ROOT.parent.parent
 sys.path.insert(0, str(ROOT))
+sys.path.insert(0, str(REPO_ROOT))
 
-# Deterministic, fully offline test configuration.
+# Deterministic, fully offline test configuration. Each pytest process receives
+# a fresh database so schema state cannot leak between runs or working folders.
+TEST_DATA_DIR = Path(tempfile.mkdtemp(prefix="voxflow-test-data-"))
 os.environ["LLM_PROVIDER"] = "ollama"
-os.environ["DATABASE_URL"] = "sqlite:///./voxflow_test.db"
+os.environ["DATABASE_URL"] = f"sqlite:///{TEST_DATA_DIR / 'voxflow_test.db'}"
 os.environ["CONNECT_LAMBDA_SECRET"] = ""
-os.environ["DATA_DIR"] = tempfile.mkdtemp(prefix="voxflow-test-data-")
+os.environ["DATA_DIR"] = str(TEST_DATA_DIR)
 os.environ["STT_PROVIDER"] = "groq"
 os.environ["GROQ_API_KEY"] = "test-key-never-used"
 os.environ["SHEETS_ENABLED"] = "false"
@@ -32,7 +36,10 @@ os.environ["PILOT_READINESS_ENFORCED"] = "false"
 os.environ["TENANT_AUTHORIZATION_ENFORCED"] = "false"
 
 from voxflow_api.config import get_settings  # noqa: E402
+from voxflow_api.db import init_db  # noqa: E402
+
 get_settings.cache_clear()
+init_db()
 
 
 @pytest.fixture(autouse=True)

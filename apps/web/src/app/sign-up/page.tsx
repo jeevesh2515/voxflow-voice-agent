@@ -42,13 +42,37 @@ export default function SignUpPage() {
     setLoading(true);
 
     try {
-      // 1. Attempt Supabase Auth user registration (non-blocking if external auth is offline)
-      await signUp(email.trim(), password.trim(), {
+      // 1. Register with Supabase Auth. A workspace must never be provisioned
+      //    for a caller with no live, verified session — that caller has no
+      //    bearer token to attach to the request below, so the backend would
+      //    provision the workspace under a placeholder owner identity that
+      //    the real signed-up user can never reconcile with afterward.
+      const authResult = await signUp(email.trim(), password.trim(), {
         name: name.trim(),
         company_name: company.trim(),
-      }).catch((e) => {
-        console.warn("Supabase auth warning:", e);
       });
+
+      if (authResult.error) {
+        setSignUpError(authResult.error);
+        setLoading(false);
+        if (turnstileEnabled()) setTurnstileReset((v) => v + 1);
+        return;
+      }
+
+      if (!authResult.hasSession) {
+        // Most commonly: the Supabase project requires email confirmation.
+        // Try signing in immediately in case confirmation isn't actually
+        // required for this project; only block provisioning if that fails.
+        const signInResult = await signIn(email.trim(), password.trim());
+        if (signInResult.error) {
+          setSignUpError(
+            "Your account was created, but we couldn't start a session automatically. " +
+              "Please check your email to confirm your address, then sign in to launch your workspace."
+          );
+          setLoading(false);
+          return;
+        }
+      }
 
       // 2. Call backend self-serve signup provisioning endpoint
       const provisionRes = await api.signupTenant({

@@ -50,3 +50,5 @@ When deploying VoxFlow Voice Agent in staging or production environments:
 - Always use encrypted database backups (`scripts/db_backup.sh`) with strong `BACKUP_ENCRYPTION_KEY` passphrases.
 - Restrict database ingress to the session pooler and enforce Row Level Security (RLS).
 - Rotate webhook HMAC secrets (`CONNECT_LAMBDA_SECRET`, `DIAL_CALLBACK_SHARED_SECRET`) periodically.
+- Apply migration `016_telephony_routing_and_caller_pins.sql` before deploying exact-DID routing and verify unknown/inactive DIDs fail closed.
+- Never seed predictable production caller PINs. Set per-contact 4–8 digit values through the authenticated owner workflow; do not log, export, or return plaintext PINs or verifier hashes.

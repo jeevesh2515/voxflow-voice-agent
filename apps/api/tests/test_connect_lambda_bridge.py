@@ -192,19 +192,24 @@ def test_end_action_finalises_the_session(bridge, captured):
 # -------------------------------------------------------------------- signature
 
 
-def test_signature_matches_what_the_api_verifies(bridge, monkeypatch):
-    """The HMAC must be over '{timestamp}:{path}' — the API rejects anything else."""
+def test_signature_matches_what_the_api_verifies(bridge):
+    """The HMAC binds the timestamp, path, and exact serialized request body."""
     secret = "shared-secret-abc123"
     timestamp = "1700000000.0"
     path = "/api/connect/turn"
+    body = b'{"user_text":"PIN 1234"}'
 
     expected = hmac.new(
         secret.encode("utf-8"),
-        f"{timestamp}:{path}".encode("utf-8"),
+        timestamp.encode("utf-8")
+        + b":"
+        + path.encode("utf-8")
+        + b":"
+        + body,
         hashlib.sha256,
     ).hexdigest()
 
-    assert bridge._sign_request(secret, timestamp, path) == expected
+    assert bridge._sign_request(secret, timestamp, path, body) == expected
 
 
 def test_secret_is_read_from_env_and_passed_to_the_signer(bridge, captured, monkeypatch):
@@ -230,6 +235,7 @@ def test_request_carries_signature_headers_when_a_secret_is_set(bridge, monkeypa
             return False
 
     def fake_urlopen(req, timeout=None):
+        sent["body"] = req.data
         sent["headers"] = {k.lower(): v for k, v in req.headers.items()}
         sent["timeout"] = timeout
         return FakeResponse()
@@ -245,5 +251,35 @@ def test_request_carries_signature_headers_when_a_secret_is_set(bridge, monkeypa
 
     assert "x-voxflow-signature" in sent["headers"]
     assert "x-voxflow-timestamp" in sent["headers"]
+    assert sent["headers"]["x-voxflow-signature"] == bridge._sign_request(
+        "a-secret",
+        sent["headers"]["x-voxflow-timestamp"],
+        "/api/connect/turn",
+        sent["body"],
+    )
     # Connect's own limit is ~8s; the HTTP call must not outlive it.
     assert sent["timeout"] <= 8
+
+
+def test_handler_does_not_log_event_transcript_or_pin(bridge, captured, capsys, monkeypatch):
+    monkeypatch.setenv("VOXFLOW_SECRET", "configured-secret")
+    transcript = "My caller PIN is 8642"
+
+    bridge.lambda_handler(_event(transcript), None)
+
+    output = capsys.readouterr()
+    assert transcript not in output.out
+    assert transcript not in output.err
+    assert "8642" not in output.out
+    assert "8642" not in output.err
+    assert "Received event" not in output.out
+
+
+def test_post_json_fails_closed_without_secret(bridge):
+    with pytest.raises(RuntimeError, match="VOXFLOW_SECRET is required"):
+        bridge._post_json(
+            "https://example.com/api/connect/turn",
+            {"user_text": "do not send"},
+            "",
+            "/api/connect/turn",
+        )

@@ -120,8 +120,13 @@ async def test_unverified_result_withholds_every_second_factor(two_contacts) -> 
 
 @pytest.mark.asyncio
 async def test_verified_result_may_include_details(two_contacts) -> None:
+    """Authorization is bound to the exact contact `verify_caller` confirmed —
+    directly flipping `session.verified` is no longer sufficient on its own."""
     s = _session()
-    s.verified = True
+    await lookup_supplier(s, phone="+919000000001")
+    verified = await verify_caller(s, company="Aardvark Traders", city_or_gstin="Pune")
+    assert verified["verified"] is True
+
     r = await lookup_supplier(s, phone="+919000000001")
     assert r["city"] == "Pune" and r["gstin"] == "27AAAAA0000A1Z5"
 
@@ -190,7 +195,9 @@ async def test_cache_does_not_leak_a_verified_record_to_an_unverified_call(two_c
     contact.
     """
     verified = _session()
-    verified.verified = True
+    await lookup_supplier(verified, phone="+919000000001")
+    bound = await verify_caller(verified, company="Aardvark Traders", city_or_gstin="Pune")
+    assert bound["verified"] is True
     full = await lookup_supplier(verified, phone="+919000000001")
     assert "gstin" in full  # cached in its complete form
 

@@ -1,7 +1,7 @@
 # VoxFlow Architecture
 
 **Last updated:** 2026-08-26  
-**Current milestone:** **Phase 10 Bulk Company Data Ingestion, Self-Serve SaaS Onboarding & UK Telephony complete.** 305 backend tests passing, 25 compiled frontend routes, Oracle Cloud Always-Free ARM VM containerized architecture with Caddy auto-TLS reverse proxy, and high-precision latency & TTFT benchmarking harness. Comprehensive day-by-day implementation tracking is recorded in [`DAY_TRACKER.md`](DAY_TRACKER.md).  
+**Current milestone:** **Phase 10 Self-Serve SaaS Onboarding, Bulk Data Ingestion, Exact DID Routing & Secure Caller Verification complete.** 347 backend tests passing, 25 compiled frontend routes, tenant-owned Amazon Connect DID policy, PBKDF2 caller PIN controls with persistent cross-session lockout, and the existing Oracle/Render/Vercel deployment architecture. Comprehensive day-by-day implementation tracking is recorded in [`DAY_TRACKER.md`](DAY_TRACKER.md).
 **Operating mode:** Inbound voice, self-serve tenant onboarding, bulk data ingestion engine, and dashboard functions are deployed. Campaign dispatch and operational side-effect workers are independently safe-staged; Day 35 admission and Day 36 current-version evidence are both fail-closed with an empty tenant allow-list.
 
 
@@ -277,13 +277,13 @@ flowchart LR
 | Surface | Command | Verified Outcome |
 |---|---|---|
 | Backend lint | `cd apps/api && ruff check voxflow_api tests` | Clean (0 errors) |
-| Backend tests | `cd apps/api && pytest -q` | **305 passed** (in 106.3s) |
+| Backend tests | `cd apps/api && pytest -q` | **347 passed** (in ~80s) |
 | Latency benchmark harness | `python3 scripts/benchmark_latency.py` | Verified P50/P90/P99 latency distributions |
 | Frontend lint | `npm run lint --workspace=apps/web` | Clean (0 errors) |
-| Frontend production build | `npm run build --workspace=apps/web` | **25 static compiled routes** (Turbopack) |
+| Frontend production build | `cd apps/web && npx next build --webpack` | **25 compiled routes** |
 | Live job posture | `GET /api/jobs/health?tenant_id=varun` | Staged / safe |
 
-At the current delivery point, the backend suite has **305 passing tests**, API lint is clean, and the frontend production build generates 25 routes cleanly. GitHub CI validates API lint, API test, and web lint/build on every `main` delivery. Detailed historical day-by-day logs are available in [`DAY_TRACKER.md`](DAY_TRACKER.md).
+At the current delivery point, the backend suite has **347 passing tests**, API lint is clean, and the frontend production build generates 25 routes cleanly. GitHub CI validates API lint, API test, and web lint/build on every `main` delivery. Detailed historical day-by-day logs are available in [`DAY_TRACKER.md`](DAY_TRACKER.md).
 
 ## References
 
