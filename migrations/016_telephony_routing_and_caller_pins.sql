@@ -19,7 +19,7 @@ ALTER TABLE tenant_phone_numbers
   ADD COLUMN IF NOT EXISTS updated_at TIMESTAMP WITH TIME ZONE;
 
 UPDATE tenant_phone_numbers
-SET updated_at = created_at
+SET updated_at = COALESCE(created_at, CURRENT_TIMESTAMP)
 WHERE updated_at IS NULL;
 
 ALTER TABLE tenant_phone_numbers

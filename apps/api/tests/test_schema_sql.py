@@ -84,3 +84,13 @@ def test_file_is_idempotent(sql_text: str) -> None:
         assert f"DROP POLICY IF EXISTS {stmt[0]} ON {stmt[1]};" in sql_text, (
             f"CREATE POLICY {stmt[0]} ON {stmt[1]} has no preceding DROP POLICY IF EXISTS"
         )
+
+
+def test_schema_sql_matches_table_ddl_exactly(sql_text: str) -> None:
+    """Zero drift between gen_schema.table_ddl() and migrations/000_base_schema.sql."""
+    generated = table_ddl().strip()
+    assert sql_text.strip() == generated, (
+        "000_base_schema.sql differs from table_ddl(). "
+        "Regenerate with: python -m voxflow_api.gen_schema > migrations/000_base_schema.sql"
+    )
+

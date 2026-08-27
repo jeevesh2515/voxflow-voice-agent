@@ -238,7 +238,7 @@ class Supplier(Base):
     # call, or a new unauthenticated /agent/run request, always starts at zero
     # attempts). These two columns survive across sessions/calls so guessing a
     # 4–8 digit PIN costs an attacker real lockout time, not just a new call.
-    pin_failed_attempts: Mapped[int] = mapped_column(Integer, default=0)
+    pin_failed_attempts: Mapped[int] = mapped_column(Integer, default=0, server_default=text("0"))
     pin_locked_until: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     # Which side of the trade this contact sits on.
     # customer = they buy from us | supplier = they sell to us | both
@@ -1124,6 +1124,69 @@ def _ensure_supplier_auth_pin_nullable_sqlite() -> None:
         log.warning("db.sqlite_legacy_auth_pin_upgrade_completed")
 
 
+def _ensure_product_composite_key_sqlite() -> None:
+    """Migrate legacy SQLite ``products`` single-column PK to composite (sku, tenant_id).
+
+    Pre-Day-45 local SQLite databases created ``products`` with ``PRIMARY KEY (sku)``.
+    SQLite cannot alter a primary key in place, so an un-reset local database
+    from before this change would reject duplicate SKUs across different tenants.
+    """
+
+    if _engine.dialect.name != "sqlite":
+        return
+
+    with _engine.begin() as conn:
+        columns = conn.execute(text("PRAGMA table_info(products)")).mappings().all()
+        if not columns:
+            return  # table does not exist yet; create_all() will define it correctly
+
+        pk_columns = {c["name"] for c in columns if c["pk"] > 0}
+        # If already composite (both sku and tenant_id are PKs), nothing to do
+        if "sku" in pk_columns and "tenant_id" in pk_columns:
+            return
+
+        log.warning("db.sqlite_legacy_product_composite_key_upgrade_started")
+        existing_column_names = {c["name"] for c in columns}
+        copy_columns = [
+            name
+            for name in (
+                "sku",
+                "tenant_id",
+                "name",
+                "category",
+                "pack_size",
+                "mrp_inr",
+            )
+            if name in existing_column_names
+        ]
+        columns_sql = ", ".join(copy_columns)
+
+        conn.execute(
+            text(
+                "CREATE TABLE products__day46_upgrade ("
+                "sku VARCHAR(64) NOT NULL, "
+                "tenant_id VARCHAR(64) NOT NULL, "
+                "name VARCHAR(255) NOT NULL, "
+                "category VARCHAR(128) NOT NULL, "
+                "pack_size VARCHAR(64) NOT NULL, "
+                "mrp_inr FLOAT NOT NULL, "
+                "PRIMARY KEY (sku, tenant_id), "
+                "FOREIGN KEY(tenant_id) REFERENCES tenants (id)"
+                ")"
+            )
+        )
+        conn.execute(
+            text(
+                f"INSERT INTO products__day46_upgrade ({columns_sql}) "
+                f"SELECT {columns_sql} FROM products"
+            )
+        )
+        conn.execute(text("DROP TABLE products"))
+        conn.execute(text("ALTER TABLE products__day46_upgrade RENAME TO products"))
+        log.warning("db.sqlite_legacy_product_composite_key_upgrade_completed")
+
+
+
 def should_bootstrap_schema(*, mode: str, dialect_name: str) -> bool:
     """Return whether a process may apply compatibility DDL at startup.
 
@@ -1184,6 +1247,7 @@ def init_db() -> bool:
         Base.metadata.create_all(_engine, checkfirst=True)
         _ensure_day28_outbox_columns()
         _ensure_supplier_auth_pin_nullable_sqlite()
+        _ensure_product_composite_key_sqlite()
         log.info(
             "db.schema_bootstrap_applied mode=%s dialect=%s",
             settings.db_schema_bootstrap_mode,

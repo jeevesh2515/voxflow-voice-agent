@@ -77,9 +77,10 @@ migrations/013_privacy_lifecycle_controls.sql
 migrations/014_telephony_provider.sql
 migrations/015_call_latency.sql
 migrations/016_telephony_routing_and_caller_pins.sql
+migrations/017_product_tenant_composite_key.sql
 ```
 
-Run migrations through an approved PostgreSQL migration procedure. Migration `016` backfills route `updated_at`, adds exact route policy fields and PIN verifier timestamps, and must be applied before the matching API revision. Do not run a campaign worker merely to validate migration success. Use API health, test suites, and safe job-health reads instead.
+Run migrations through an approved PostgreSQL migration procedure. Migration `016` backfills route `updated_at`, adds exact route policy fields and PIN verifier timestamps, and migration `017` upgrades the product catalog to a composite primary key `(sku, tenant_id)`. Do not run a campaign worker merely to validate migration success. Use API health, test suites, and safe job-health reads instead.
 
 ## 4. Backend deployment and free-tier operation
 

@@ -20,6 +20,7 @@ Local SQLite development/tests create the SQLAlchemy metadata. Production Postgr
 014_telephony_provider.sql
 015_call_latency.sql
 016_telephony_routing_and_caller_pins.sql
+017_product_tenant_composite_key.sql
 ```
 
 The initial tenant/core schema (`000_base_schema.sql`) and prior feature migrations must already be present. Do not copy partial DDL from this document into a production database; use the migration files so indexes and constraints remain aligned with code.

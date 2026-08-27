@@ -21,6 +21,7 @@ out/
 *.sqlite
 *.sqlite3
 data/*.local.json
+apps/api/data/
 uploads/
 recordings/
 

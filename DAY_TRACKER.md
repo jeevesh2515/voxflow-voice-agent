@@ -2,7 +2,7 @@
 
 **Project:** VoxFlow — Voice Operations for Modern Supply Chains  
 **Repository:** `jeevesh2515/voxflow-voice-agent`  
-**Current Test Suite:** **347 Passing Tests** (`pytest tests/ -q`)
+**Current Test Suite:** **351 Passing Tests** (`pytest tests/ -q`)
 **Frontend Surface:** **25 Compiled Routes** (Next.js 16 App Router, Webpack production validation)
 **Deployment Infrastructure:** Oracle Cloud Always-Free ARM VM (Caddy Auto-TLS + Docker) / Render Free API / Vercel Edge Frontend  
 **Last Updated:** 2026-08-26
@@ -573,15 +573,15 @@
   2. Added owner-only canonical tenant APIs for telephony posture, line creation/update/deactivation, and caller PIN set/reset; operators, viewers, demo users, and cross-tenant identities remain read-only or denied.
   3. Replaced new plaintext PIN storage with uniquely salted PBKDF2-HMAC-SHA256 hashes, constant-time verification, migration-on-success for legacy rows, 4–8 digit validation, confirmation checks, timestamps, and PIN redaction in CSV previews, tool traces, actions, logs, and transcripts.
   4. Added the `/dashboard/settings` telephony control plane with exact-DID posture, route/provider/language controls, immutable DID identity on edit, masked verification contacts, rotation warnings, and secret-free PIN reset UX.
-  5. Added migration `016_telephony_routing_and_caller_pins.sql`, current base-schema coverage, ephemeral deterministic test databases, and end-to-end routing/security regressions.
-  6. **Independent security re-review hardening** (post-implementation): closed anonymous tenant-takeover in self-serve signup, removed the spoofable `X-VoxFlow-User-Id`/`usr-*` bearer identity bypass in production, bound the Amazon Connect Lambda HMAC to the exact raw request body, removed default-tenant fallback for a missing/unknown Connect DID, bound caller authorization (`verify_caller`/`verify_pin`) to the exact identified contact so verifying contact A can never authorize access to contact B, made PIN redaction proactive across replies/traces/transcripts/logs regardless of tool-call order, removed predictable seeded PINs, added a persistent cross-session caller-PIN lockout (`Supplier.pin_failed_attempts`/`pin_locked_until`, 10 failures → 15-minute lock, cleared on success or owner reset) with row-level locking on Postgres, restricted the owner-facing phone-number API to the one provider with a live inbound route, fixed a legacy SQLite `auth_pin NOT NULL` upgrade path (including its dropped foreign key), excluded structured `caller_phone` data from free-text PIN redaction, protected LLM tool-call identifiers from redaction so the tool-calling protocol never breaks, and gated self-serve signup on a confirmed authenticated session so a caller can never be silently left owning an unclaimable placeholder-owned tenant.
+  5. Added migrations `016_telephony_routing_and_caller_pins.sql` and `017_product_tenant_composite_key.sql`, current base-schema coverage, ephemeral deterministic test databases, and end-to-end routing/security regressions.
+  6. **Independent security re-review hardening** (post-implementation): closed anonymous tenant-takeover in self-serve signup, removed the spoofable `X-VoxFlow-User-Id`/`usr-*` bearer identity bypass in production, bound the Amazon Connect Lambda HMAC to the exact raw request body, removed default-tenant fallback for a missing/unknown Connect DID, bound caller authorization (`verify_caller`/`verify_pin`) to the exact identified contact so verifying contact A can never authorize access to contact B, made PIN redaction proactive across replies/traces/transcripts/logs regardless of tool-call order, removed predictable seeded PINs, added a persistent cross-session caller-PIN lockout (`Supplier.pin_failed_attempts`/`pin_locked_until`, 10 failures → 15-minute lock, cleared on success or owner reset) with row-level locking on Postgres, restricted the owner-facing phone-number API to the one provider with a live inbound route, fixed a legacy SQLite `auth_pin NOT NULL` upgrade path (including its dropped foreign key), excluded structured `caller_phone` data from free-text PIN redaction, protected LLM tool-call identifiers from redaction so the tool-calling protocol never breaks, gated self-serve signup on a confirmed authenticated session so a caller can never be silently left owning an unclaimable placeholder-owned tenant, and added `017_product_tenant_composite_key.sql` + `_ensure_product_composite_key_sqlite` to reconcile multi-tenant product composite keys across existing deployed databases.
 - **Verification Evidence:**
-  - ✅ **347/347 Passing Backend Tests** (`.venv/bin/python -m pytest -q`).
-  - ✅ **79/79 Adjacent Telephony/Auth/Tenancy/Ingestion/Schema Tests**, **6/6 focused routing tests**, and **5 new focused test files** covering persistent PIN lockout, PIN redaction, verification-authorization binding, and the SQLite legacy upgrade path.
+  - ✅ **351/351 Passing Backend Tests** (`.venv/bin/python -m pytest -q`).
+  - ✅ **79/79 Adjacent Telephony/Auth/Tenancy/Ingestion/Schema Tests**, **6/6 focused routing tests**, and **6 new focused test files** covering persistent PIN lockout, PIN redaction, verification-authorization binding, the SQLite legacy auth_pin upgrade path, and SQLite legacy product composite-key upgrade path.
   - ✅ **Zero Ruff or ESLint Errors**; TypeScript `tsc --noEmit` passed.
-  - ✅ **25/25 Compiled Next.js Routes** (`next build --webpack`); default Turbopack was sandbox-blocked from binding its CSS worker port.
+  - ✅ **25/25 Compiled Next.js Routes** (`next build`).
   - ✅ Two independent full-diff security reviews found no remaining Critical/High findings before push.
-- **Artifacts:** `migrations/016_telephony_routing_and_caller_pins.sql`, `voxflow_api/services/pin_security.py`, `voxflow_api/services/telephony_routing.py`, `voxflow_api/routes/admin.py`, `voxflow_api/routes/connect.py`, `voxflow_api/telephony/connect_provider.py`, `deploy/aws/lambda_handler.py`, `voxflow_api/auth.py`, `voxflow_api/routes/public_auth.py`, `voxflow_api/services/provisioning.py`, `apps/web/src/lib/auth-context.tsx`, `apps/web/src/app/sign-up/page.tsx`, `apps/web/src/components/settings/TelephonySettings.tsx`, `apps/api/tests/test_day46_telephony_routing.py`, `apps/api/tests/test_pin_persistent_lockout.py`, `apps/api/tests/test_pin_redaction.py`, `apps/api/tests/test_verification_authorization_binding.py`, `apps/api/tests/test_sqlite_legacy_auth_pin_upgrade.py`.
+- **Artifacts:** `migrations/016_telephony_routing_and_caller_pins.sql`, `migrations/017_product_tenant_composite_key.sql`, `voxflow_api/services/pin_security.py`, `voxflow_api/services/telephony_routing.py`, `voxflow_api/routes/admin.py`, `voxflow_api/routes/connect.py`, `voxflow_api/telephony/connect_provider.py`, `deploy/aws/lambda_handler.py`, `voxflow_api/auth.py`, `voxflow_api/routes/public_auth.py`, `voxflow_api/services/provisioning.py`, `apps/web/src/lib/auth-context.tsx`, `apps/web/src/app/sign-up/page.tsx`, `apps/web/src/components/settings/TelephonySettings.tsx`, `apps/api/tests/test_day46_telephony_routing.py`, `apps/api/tests/test_pin_persistent_lockout.py`, `apps/api/tests/test_pin_redaction.py`, `apps/api/tests/test_verification_authorization_binding.py`, `apps/api/tests/test_sqlite_legacy_auth_pin_upgrade.py`, `apps/api/tests/test_sqlite_legacy_product_upgrade.py`.
 
 ---
 
@@ -589,11 +589,11 @@
 
 | Metric | Target | Current Value | Status |
 |---|---|---|---|
-| **Backend Unit & Integration Tests** | $\ge 200$ | **347 Passed** | ✅ Green |
+| **Backend Unit & Integration Tests** | $\ge 200$ | **351 Passed** | ✅ Green |
 | **Frontend Static Routes** | $\ge 15$ | **25 Compiled Pages** | ✅ Green |
 | **Lint & Static Analysis** | 0 warnings | `ruff check .` clean, ESLint clean | ✅ Clean |
 | **Latency & TTFT Benchmarks** | Sub-second P50 | **P50 ~566ms glass-to-glass** | ✅ Verified |
-| **Database Migrations** | Staged & Verified | 17 Migrations (`000`–`016`) | ✅ Current |
+| **Database Migrations** | Staged & Verified | 18 Migrations (`000`–`017`) | ✅ Current |
 | **Telephony Providers Supported** | Enterprise Voice | Amazon Connect (AWS) + Amazon Lex STT + WebAudio Simulator | ✅ Verified |
 | **Call Persistence & Mirroring** | Durable Logging | Postgres `calls` + Gated Google Sheets Mirror | ✅ Verified |
 | **Multi-Tenant Isolation** | Strict Composite Keys | 100% tenant-scoped queries & imports | ✅ Verified |

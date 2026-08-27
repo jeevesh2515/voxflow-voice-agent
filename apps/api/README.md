@@ -35,7 +35,7 @@ The default local database is SQLite. Production uses a PostgreSQL-compatible da
 .venv/bin/pytest -q
 ```
 
-The full backend suite has **347 passing tests** and API lint is clean.
+The full backend suite has **351 passing tests** and API lint is clean.
 
 ## Durable campaign migration sequence
 
@@ -54,6 +54,7 @@ The full backend suite has **347 passing tests** and API lint is clean.
 014_telephony_provider.sql
 015_call_latency.sql
 016_telephony_routing_and_caller_pins.sql
+017_product_tenant_composite_key.sql
 ```
 
 Use the migration files for production schema changes. Local test setup creates current SQLAlchemy metadata automatically.

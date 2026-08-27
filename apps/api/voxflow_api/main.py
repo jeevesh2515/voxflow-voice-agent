@@ -52,6 +52,12 @@ class AgentRunRequest(BaseModel):
     language: str | None = None
 
 
+class TTSRequest(BaseModel):
+    text: str
+    lang: str | None = None
+
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     settings = get_settings()
@@ -168,10 +174,6 @@ def create_app() -> FastAPI:
         )
 
     # ----- TTS test endpoint (POST /tts) -----
-    class TTSRequest(BaseModel):
-        text: str
-        lang: str | None = None
-
     @app.post("/tts")
     async def tts(req: TTSRequest) -> StreamingResponse:
         if not req.text.strip():

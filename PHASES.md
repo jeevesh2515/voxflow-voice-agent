@@ -1,7 +1,7 @@
 # VoxFlow Delivery Phases
 
 **Last updated:** 2026-08-26
-**Current position:** **Day 46 Complete — Exact DID Routing & Secure Caller Verification.** Verified with **347/347 passing backend tests**, clean Ruff/ESLint/TypeScript checks, and **25/25 compiled Next.js routes**. Inbound tenant context now requires an active exact provider/DID match against Amazon Connect (the only wired inbound provider); owners can manage line policy and salted caller PINs, with a persistent cross-session lockout, through canonical tenant APIs and a secret-free settings UI. Comprehensive day-by-day logs are catalogued in [`DAY_TRACKER.md`](DAY_TRACKER.md).
+**Current position:** **Day 46 Complete — Exact DID Routing & Secure Caller Verification.** Verified with **351/351 passing backend tests**, clean Ruff/ESLint/TypeScript checks, and **25/25 compiled Next.js routes**. Inbound tenant context now requires an active exact provider/DID match against Amazon Connect (the only wired inbound provider); owners can manage line policy and salted caller PINs, with a persistent cross-session lockout, through canonical tenant APIs and a secret-free settings UI. Comprehensive day-by-day logs are catalogued in [`DAY_TRACKER.md`](DAY_TRACKER.md).
 **Planning rule:** A milestone is complete only when its implementation, automated verification, deployment result, and safety boundary are recorded.
 
 ## Programme status
@@ -29,7 +29,7 @@
 |---:|---|---|
 | 44 | Complete | Transactional self-serve tenant provisioning, owner membership, starter data, and onboarding flow. |
 | 45 | Complete | Tenant-scoped streaming CSV validation/import across five operational entities. |
-| 46 | Complete | Exact Amazon Connect DID routing, owner-only telephony APIs, PBKDF2 caller PINs with persistent cross-session lockout, redaction, session-gated self-serve signup, and settings UI; 347 tests and 25-route build pass. |
+| 46 | Complete | Exact Amazon Connect DID routing, owner-only telephony APIs, PBKDF2 caller PINs with persistent cross-session lockout, redaction, session-gated self-serve signup, and settings UI; 351 tests and 25-route build pass. |
 | 47 | Next | Per-tenant prompt, persona, business-hours, and fallback settings with owner-only mutation. |
 | 48 | Planned | Closed-loop escalation ownership, SLA, and operator resolution workflow. |
 

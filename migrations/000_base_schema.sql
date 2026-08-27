@@ -453,7 +453,7 @@ CREATE TABLE IF NOT EXISTS suppliers (
 	auth_pin VARCHAR(16),
 	auth_pin_hash VARCHAR(255),
 	pin_updated_at TIMESTAMP WITH TIME ZONE,
-	pin_failed_attempts INTEGER NOT NULL DEFAULT 0,
+	pin_failed_attempts INTEGER DEFAULT 0 NOT NULL,
 	pin_locked_until TIMESTAMP WITH TIME ZONE,
 	contact_type VARCHAR(16) NOT NULL,
 	active INTEGER NOT NULL,
