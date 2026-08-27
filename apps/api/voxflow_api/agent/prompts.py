@@ -122,13 +122,44 @@ One tool call at a time. Wait for the result before speaking. After each result,
 """
 
 
+PERSONA_GUIDELINES: dict[str, str] = {
+    "professional": (
+        "Tone: Polished, courteous, and business-focused. Speak with clear, respectful clarity. "
+        "Be direct and reassuring without conversational fluff."
+    ),
+    "friendly": (
+        "Tone: Warm, conversational, and approachable. Be empathetic, polite, and helpful "
+        "while keeping replies crisp and actionable."
+    ),
+    "concise": (
+        "Tone: Ultra-concise and high-efficiency. Give the direct answer immediately with zero preamble. "
+        "Prioritize speed and clarity."
+    ),
+    "assertive": (
+        "Tone: Authoritative, structured, and confident. Focus firmly on operational procedures, "
+        "identity verification, and accurate record retrieval."
+    ),
+}
+
+
 def build_system_prompt(
     business_name: str = "VoxFlow",
     agent_name: str = "Vaani",
     default_language: str = "en",
     custom_instructions: str | None = None,
+    voice_persona: str = "professional",
+    business_hours_enabled: int = 0,
+    business_hours_start: str = "09:00",
+    business_hours_end: str = "18:00",
+    business_hours_timezone: str = "Asia/Kolkata",
+    business_days: str = "mon,tue,wed,thu,fri",
+    out_of_hours_message: str | None = None,
+    fallback_escalation_mode: str = "human_callback",
+    fallback_phone: str | None = None,
+    fallback_email: str | None = None,
+    max_verification_failures: int = 3,
 ) -> str:
-    """Build a tailored system prompt for a specific tenant."""
+    """Build a tailored system prompt for a specific tenant with persona, hours, and fallback rules."""
     if default_language == "hi":
         lang_instructions = (
             "Speak Hindi (Devanagari script). You MUST converse in natural Hindi in Devanagari script. "
@@ -141,15 +172,51 @@ def build_system_prompt(
             "If the caller specifically speaks Hindi, you may switch to Hindi. Never announce a language switch."
         )
 
-    custom_block = ""
+    # Persona styling
+    persona_text = PERSONA_GUIDELINES.get(voice_persona, PERSONA_GUIDELINES["professional"])
+
+    # Custom instructions block
+    blocks: list[str] = []
+    blocks.append(f"# Voice Persona & Demeanor\n{persona_text}")
+
+    if business_hours_enabled:
+        hours_desc = (
+            f"Operating hours for {business_name}: {business_hours_start} to {business_hours_end} ({business_hours_timezone}) on [{business_days}].\n"
+            "If the caller asks about business hours or requires immediate warehouse dispatch outside operating hours, explain our operating schedule politely."
+        )
+        if out_of_hours_message and out_of_hours_message.strip():
+            hours_desc += f"\nOut of hours advisory: {out_of_hours_message.strip()}"
+        blocks.append(f"# Operating Hours\n{hours_desc}")
+
+    # Fallback escalation guidance
+    if fallback_escalation_mode == "transfer" and fallback_phone:
+        escalation_guide = (
+            f"When human escalation is required, explain to the caller that you are initiating a live transfer to our operations desk at {fallback_phone}, "
+            "and call escalate_to_human."
+        )
+    elif fallback_escalation_mode == "voicemail" and fallback_email:
+        escalation_guide = (
+            f"When human escalation is required, explain that a message will be dispatched to the dispatch team at {fallback_email}, "
+            "and call escalate_to_human."
+        )
+    else:
+        escalation_guide = (
+            "When human escalation is required, reassure the caller that an operations specialist will call them back at their verified contact number, "
+            "and call escalate_to_human."
+        )
+    escalation_guide += f"\nIdentity verification allows up to {max_verification_failures} attempts before locking and escalating."
+    blocks.append(f"# Escalation Routing\n{escalation_guide}")
+
     if custom_instructions and custom_instructions.strip():
-        custom_block = f"# Company Specific Guidelines\n{custom_instructions.strip()}\n"
+        blocks.append(f"# Company Specific Guidelines\n{custom_instructions.strip()}")
+
+    custom_instructions_block = "\n\n".join(blocks)
 
     return BASE_PROMPT_TEMPLATE.format(
         business_name=business_name,
         agent_name=agent_name or "Vaani",
         default_language_instructions=lang_instructions,
-        custom_instructions_block=custom_block,
+        custom_instructions_block=custom_instructions_block,
     )
 
 
@@ -160,17 +227,39 @@ def build_tenant_prompt(tenant: Any, session_language: str | None = None) -> str
 
     business_name = getattr(tenant, "name", "VoxFlow")
     agent_name = getattr(tenant, "agent_name", "Vaani") or "Vaani"
-    # Prioritize active session language if provided (e.g. "en" or "hi")
     default_language = session_language or getattr(tenant, "default_language", "en") or "en"
     custom_instructions = getattr(tenant, "system_prompt_override", None)
+    voice_persona = getattr(tenant, "voice_persona", "professional") or "professional"
+    business_hours_enabled = int(getattr(tenant, "business_hours_enabled", 0) or 0)
+    business_hours_start = getattr(tenant, "business_hours_start", "09:00") or "09:00"
+    business_hours_end = getattr(tenant, "business_hours_end", "18:00") or "18:00"
+    business_hours_timezone = getattr(tenant, "business_hours_timezone", "Asia/Kolkata") or "Asia/Kolkata"
+    business_days = getattr(tenant, "business_days", "mon,tue,wed,thu,fri") or "mon,tue,wed,thu,fri"
+    out_of_hours_message = getattr(tenant, "out_of_hours_message", None)
+    fallback_escalation_mode = getattr(tenant, "fallback_escalation_mode", "human_callback") or "human_callback"
+    fallback_phone = getattr(tenant, "fallback_phone", None)
+    fallback_email = getattr(tenant, "fallback_email", None)
+    max_verification_failures = int(getattr(tenant, "max_verification_failures", 3) or 3)
 
     return build_system_prompt(
         business_name=business_name,
         agent_name=agent_name,
         default_language=default_language,
         custom_instructions=custom_instructions,
+        voice_persona=voice_persona,
+        business_hours_enabled=business_hours_enabled,
+        business_hours_start=business_hours_start,
+        business_hours_end=business_hours_end,
+        business_hours_timezone=business_hours_timezone,
+        business_days=business_days,
+        out_of_hours_message=out_of_hours_message,
+        fallback_escalation_mode=fallback_escalation_mode,
+        fallback_phone=fallback_phone,
+        fallback_email=fallback_email,
+        max_verification_failures=max_verification_failures,
     )
 
 
 # Default constant for legacy tests and fallback usage
 SYSTEM_PROMPT = build_system_prompt()
+

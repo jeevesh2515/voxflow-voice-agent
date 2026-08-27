@@ -20,6 +20,8 @@ import type {
   CallerVerificationPinInput,
   TelephonyPhoneNumberInput,
   TelephonySettings,
+  AgentSettings,
+  AgentSettingsUpdateInput,
 } from "./types";
 
 const LOCAL_API_URL = "http://localhost:8000";
@@ -248,6 +250,13 @@ export const api = {
   setCallerVerificationPin: (tenant_id: string, supplier_id: string, payload: CallerVerificationPinInput) =>
     http<unknown>(`/api/tenants/${encodeURIComponent(tenant_id)}/caller-verification/${encodeURIComponent(supplier_id)}/pin`, {
       method: "PUT",
+      body: JSON.stringify(payload),
+    }),
+  agentSettings: (tenant_id: string) =>
+    http<AgentSettings>(`/api/tenants/${encodeURIComponent(tenant_id)}/agent-settings`),
+  updateAgentSettings: (tenant_id: string, payload: AgentSettingsUpdateInput) =>
+    http<AgentSettings>(`/api/tenants/${encodeURIComponent(tenant_id)}/agent-settings`, {
+      method: "PATCH",
       body: JSON.stringify(payload),
     }),
 

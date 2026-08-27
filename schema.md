@@ -21,6 +21,7 @@ Local SQLite development/tests create the SQLAlchemy metadata. Production Postgr
 015_call_latency.sql
 016_telephony_routing_and_caller_pins.sql
 017_product_tenant_composite_key.sql
+018_tenant_agent_settings.sql
 ```
 
 The initial tenant/core schema (`000_base_schema.sql`) and prior feature migrations must already be present. Do not copy partial DDL from this document into a production database; use the migration files so indexes and constraints remain aligned with code.
@@ -64,6 +65,21 @@ Every operational, campaign, durable-job, provider-operation, and policy record 
 | `suppliers.pin_updated_at` | Latest set/reset/import/migration timestamp shown only as posture metadata. |
 | `suppliers.pin_failed_attempts` | Persistent failed-PIN counter that survives across sessions/calls; resets to 0 on success or owner reset. Independent of the per-call session's own short-lived attempt counter. |
 | `suppliers.pin_locked_until` | When set and in the future, `verify_pin` fails closed regardless of the submitted PIN. Engaged after 10 persistent failures for a 15-minute window; cleared on success or owner reset. |
+
+### Per-Tenant Agent Settings & Voice Persona Fields (Day 47)
+
+| Table/field | Rule |
+|---|---|
+| `tenants.voice_persona` | Persona style guideline: `professional`, `friendly`, `concise`, or `assertive` (default: `professional`). Injected into dynamic system prompt. |
+| `tenants.business_hours_enabled` | `1` if operating hours are enforced and injected into prompt context; `0` otherwise. |
+| `tenants.business_hours_start` / `business_hours_end` | Opening and closing times in 24-hour `HH:MM` format (e.g. `09:00`, `18:00`). |
+| `tenants.business_hours_timezone` | IANA timezone identifier (e.g. `Asia/Kolkata`, `Europe/London`, `America/New_York`). |
+| `tenants.business_days` | Comma-separated list of active weekdays (e.g. `mon,tue,wed,thu,fri`). |
+| `tenants.out_of_hours_message` | Custom instructions/advisory spoken when receiving calls outside operating schedule. |
+| `tenants.fallback_escalation_mode` | Escalation routing mode: `human_callback`, `transfer`, or `voicemail`. |
+| `tenants.fallback_phone` | E.164 destination telephone number for live call transfers. |
+| `tenants.fallback_email` | Destination email address for dispatch ticket/voicemail notifications. |
+| `tenants.max_verification_failures` | Integer (1–5, default 3) configuring maximum identity verification attempts before lockout/escalation. |
 
 ## 4. Durable execution tables (Days 25–29)
 

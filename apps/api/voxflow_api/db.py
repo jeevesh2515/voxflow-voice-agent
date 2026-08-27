@@ -182,6 +182,17 @@ class Tenant(Base):
     webhook_secret: Mapped[str | None] = mapped_column(String(128), nullable=True)
     plan: Mapped[str] = mapped_column(String(32), default="pro")
     total_minutes_used: Mapped[float] = mapped_column(Float, default=0.0)
+    voice_persona: Mapped[str] = mapped_column(String(32), default="professional", server_default=text("'professional'"))
+    business_hours_enabled: Mapped[int] = mapped_column(Integer, default=0, server_default=text("0"))
+    business_hours_start: Mapped[str] = mapped_column(String(8), default="09:00", server_default=text("'09:00'"))
+    business_hours_end: Mapped[str] = mapped_column(String(8), default="18:00", server_default=text("'18:00'"))
+    business_hours_timezone: Mapped[str] = mapped_column(String(64), default="Asia/Kolkata", server_default=text("'Asia/Kolkata'"))
+    business_days: Mapped[str] = mapped_column(String(64), default="mon,tue,wed,thu,fri", server_default=text("'mon,tue,wed,thu,fri'"))
+    out_of_hours_message: Mapped[str | None] = mapped_column(Text, nullable=True)
+    fallback_escalation_mode: Mapped[str] = mapped_column(String(32), default="human_callback", server_default=text("'human_callback'"))
+    fallback_phone: Mapped[str | None] = mapped_column(String(32), nullable=True)
+    fallback_email: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    max_verification_failures: Mapped[int] = mapped_column(Integer, default=3, server_default=text("3"))
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_utcnow)
 
 
@@ -1011,6 +1022,17 @@ def _ensure_day28_outbox_columns() -> None:
         "ALTER TABLE tenant_phone_numbers ADD COLUMN IF NOT EXISTS route_language VARCHAR(16) NOT NULL DEFAULT 'tenant_default'",
         "CREATE INDEX IF NOT EXISTS ix_tenant_phone_provider_active ON tenant_phone_numbers (provider, phone_number, active)",
         "CREATE INDEX IF NOT EXISTS ix_tenant_phone_tenant_active ON tenant_phone_numbers (tenant_id, active)",
+        "ALTER TABLE tenants ADD COLUMN IF NOT EXISTS voice_persona VARCHAR(32) NOT NULL DEFAULT 'professional'",
+        "ALTER TABLE tenants ADD COLUMN IF NOT EXISTS business_hours_enabled INTEGER NOT NULL DEFAULT 0",
+        "ALTER TABLE tenants ADD COLUMN IF NOT EXISTS business_hours_start VARCHAR(8) NOT NULL DEFAULT '09:00'",
+        "ALTER TABLE tenants ADD COLUMN IF NOT EXISTS business_hours_end VARCHAR(8) NOT NULL DEFAULT '18:00'",
+        "ALTER TABLE tenants ADD COLUMN IF NOT EXISTS business_hours_timezone VARCHAR(64) NOT NULL DEFAULT 'Asia/Kolkata'",
+        "ALTER TABLE tenants ADD COLUMN IF NOT EXISTS business_days VARCHAR(64) NOT NULL DEFAULT 'mon,tue,wed,thu,fri'",
+        "ALTER TABLE tenants ADD COLUMN IF NOT EXISTS out_of_hours_message TEXT",
+        "ALTER TABLE tenants ADD COLUMN IF NOT EXISTS fallback_escalation_mode VARCHAR(32) NOT NULL DEFAULT 'human_callback'",
+        "ALTER TABLE tenants ADD COLUMN IF NOT EXISTS fallback_phone VARCHAR(32)",
+        "ALTER TABLE tenants ADD COLUMN IF NOT EXISTS fallback_email VARCHAR(255)",
+        "ALTER TABLE tenants ADD COLUMN IF NOT EXISTS max_verification_failures INTEGER NOT NULL DEFAULT 3",
     ]
     if _engine.dialect.name == "sqlite":
         # SQLite supports ADD COLUMN but not PostgreSQL's IF NOT EXISTS form.

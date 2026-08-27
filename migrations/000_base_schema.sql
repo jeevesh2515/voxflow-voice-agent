@@ -33,6 +33,17 @@ CREATE TABLE IF NOT EXISTS tenants (
 	webhook_secret VARCHAR(128),
 	plan VARCHAR(32) NOT NULL,
 	total_minutes_used FLOAT NOT NULL,
+	voice_persona VARCHAR(32) DEFAULT 'professional' NOT NULL,
+	business_hours_enabled INTEGER DEFAULT 0 NOT NULL,
+	business_hours_start VARCHAR(8) DEFAULT '09:00' NOT NULL,
+	business_hours_end VARCHAR(8) DEFAULT '18:00' NOT NULL,
+	business_hours_timezone VARCHAR(64) DEFAULT 'Asia/Kolkata' NOT NULL,
+	business_days VARCHAR(64) DEFAULT 'mon,tue,wed,thu,fri' NOT NULL,
+	out_of_hours_message TEXT,
+	fallback_escalation_mode VARCHAR(32) DEFAULT 'human_callback' NOT NULL,
+	fallback_phone VARCHAR(32),
+	fallback_email VARCHAR(255),
+	max_verification_failures INTEGER DEFAULT 3 NOT NULL,
 	created_at TIMESTAMP WITH TIME ZONE NOT NULL,
 	PRIMARY KEY (id)
 );

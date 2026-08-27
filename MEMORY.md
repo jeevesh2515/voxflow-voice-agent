@@ -5,20 +5,21 @@
 ## Current position
 
 **Last updated:** 2026-08-27
-**Current milestone:** **Day 46 Complete — Exact DID Routing & Secure Caller Verification.** Baseline benchmark locked.
-**Next implementation:** **Day 47 — Per-Tenant Agent Settings.**
+**Current milestone:** **Day 47 Complete — Per-Tenant Agent Settings & Voice Persona Configuration.** Baseline benchmark locked at **370 passing tests**.
+**Next implementation:** **Day 48 — Closed-Loop Escalation Ownership, SLAs, & Operator Resolution.**
 **Master Day-Wise Tracker:** See [`DAY_TRACKER.md`](DAY_TRACKER.md) for full day-by-day logs from Day 1 to current.
 
-## Day 46 Production Baseline Benchmark (Frozen & Validated)
+## Day 47 Production Baseline Benchmark (Frozen & Validated)
 
-The foundation across Days 1–46 is fully operational, verified, and locked in:
-1. **Database & Schema**: Migrations `000` through `017` are synchronized, idempotent, and validated on both PostgreSQL 17 and SQLite with legacy in-place upgrades.
+The foundation across Days 1–47 is fully operational, verified, and locked in:
+1. **Database & Schema**: Migrations `000` through `018` are synchronized, idempotent, and validated on both PostgreSQL 17 and SQLite with legacy in-place upgrades.
 2. **Telephony & Inbound Routing**: Amazon Connect exact DID matching, fail-closed isolation, Lex V2 bridge, bilingual engine (`hi`/`en`), standard & enhanced caller PIN verification with PBKDF2-HMAC-SHA256, tool-trace redaction, and cross-session lockout.
-3. **Workspace & Auth**: Self-serve workspace provisioning, session-gated signup, JWT identity, tenant isolation, and member management.
-4. **Data Management**: Entity catalog, schema templates, bulk CSV import/export for Products (composite `(sku, tenant_id)`), Suppliers, Stock, Orders, and Shipments.
-5. **Campaigns & Pilot Guardrails**: Staged side-effect worker, fail-closed pilot readiness, and immutable policy decisions.
-6. **Frontend Suite**: All 25 Next.js routes compiled and prerendering cleanly.
-7. **CI/CD Baseline**: All 351 Pytest tests, Ruff linter, ESLint, and Next.js production builds are passing green in GitHub Actions (`33038162691`).
+3. **Per-Tenant Agent Persona & Settings**: 4 Voice Personas (`professional`, `friendly`, `concise`, `assertive`), prompt guideline injection, business operating hours with timezone awareness, fallback escalation modes (`human_callback`, `transfer`, `voicemail`), and instant in-memory prompt cache invalidation.
+4. **Workspace & Auth**: Self-serve workspace provisioning, session-gated signup, JWT identity, tenant isolation, and member management.
+5. **Data Management**: Entity catalog, schema templates, bulk CSV import/export for Products (composite `(sku, tenant_id)`), Suppliers, Stock, Orders, and Shipments.
+6. **Campaigns & Pilot Guardrails**: Staged side-effect worker, fail-closed pilot readiness, and immutable policy decisions.
+7. **Frontend Suite**: All 25 Next.js routes compiled and prerendering cleanly.
+8. **CI/CD Baseline**: All 370 Pytest tests, Ruff linter, ESLint, and Next.js production builds are passing green.
 
 ## Lean Verification Protocol for Day 47+
 

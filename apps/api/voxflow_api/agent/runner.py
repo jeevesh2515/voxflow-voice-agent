@@ -95,11 +95,26 @@ class AgentTurnResult:
         self.tool_calls = redact_pin_data(self.tool_calls)
 
 
+_GLOBAL_PROMPT_CACHE: dict[str, tuple[float, str]] = {}
+
+
+def clear_tenant_prompt_cache(tenant_id: str | None = None) -> None:
+    """Invalidate prompt cache entries for a specific tenant or entirely."""
+    global _GLOBAL_PROMPT_CACHE
+    if tenant_id:
+        prefix = f"{tenant_id}:"
+        keys_to_del = [k for k in _GLOBAL_PROMPT_CACHE if k.startswith(prefix)]
+        for k in keys_to_del:
+            _GLOBAL_PROMPT_CACHE.pop(k, None)
+    else:
+        _GLOBAL_PROMPT_CACHE.clear()
+
+
 class AgentRunner:
     def __init__(self, llm: LLMProvider | None = None) -> None:
         self._llm = llm
         self.max_iterations = 5  # safety: prevent infinite tool loops
-        self._prompt_cache: dict[str, tuple[float, str]] = {}
+        self._prompt_cache: dict[str, tuple[float, str]] = _GLOBAL_PROMPT_CACHE
 
     def _resolve_tenant_prompt(self, tenant_id: str, session_language: str | None = None) -> str:
         """Fetch and compile the dynamic system prompt for this tenant with caching."""

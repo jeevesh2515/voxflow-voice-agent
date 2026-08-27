@@ -583,17 +583,31 @@
   - ✅ Two independent full-diff security reviews found no remaining Critical/High findings before push.
 - **Artifacts:** `migrations/016_telephony_routing_and_caller_pins.sql`, `migrations/017_product_tenant_composite_key.sql`, `voxflow_api/services/pin_security.py`, `voxflow_api/services/telephony_routing.py`, `voxflow_api/routes/admin.py`, `voxflow_api/routes/connect.py`, `voxflow_api/telephony/connect_provider.py`, `deploy/aws/lambda_handler.py`, `voxflow_api/auth.py`, `voxflow_api/routes/public_auth.py`, `voxflow_api/services/provisioning.py`, `apps/web/src/lib/auth-context.tsx`, `apps/web/src/app/sign-up/page.tsx`, `apps/web/src/components/settings/TelephonySettings.tsx`, `apps/api/tests/test_day46_telephony_routing.py`, `apps/api/tests/test_pin_persistent_lockout.py`, `apps/api/tests/test_pin_redaction.py`, `apps/api/tests/test_verification_authorization_binding.py`, `apps/api/tests/test_sqlite_legacy_auth_pin_upgrade.py`, `apps/api/tests/test_sqlite_legacy_product_upgrade.py`.
 
+#### 🗓️ Day 47: Per-Tenant Agent Settings & Voice Persona Configuration
+- **Objective:** Allow workspace owners to configure custom voice personas, prompt guidelines, business operating hours with timezone awareness, and fallback escalation rules per tenant without weakening exact-DID routing or caller-verification gates.
+- **Implementation:**
+  1. **Data Model & Schema Extensions (`Tenant`):** Extended `tenants` table with `voice_persona` (professional | friendly | concise | assertive), `business_hours_enabled`, `business_hours_start`, `business_hours_end`, `business_hours_timezone`, `business_days`, `out_of_hours_message`, `fallback_escalation_mode` (human_callback | transfer | voicemail), `fallback_phone`, `fallback_email`, and `max_verification_failures`.
+  2. **Database Migrations:** Authored migration `018_tenant_agent_settings.sql`, updated `000_base_schema.sql`, and added automatic SQLite upgrade shims in `db.py` for local and staging environments.
+  3. **Dynamic Prompt & Persona Engine (`prompts.py`, `runner.py`):** Added persona demeanor guidelines (Professional, Friendly, Concise, Assertive), operating hours schedule injection, out-of-hours response handling, fallback escalation routing rules, and instant in-memory prompt cache invalidation (`clear_tenant_prompt_cache`) upon configuration updates.
+  4. **Server-Authoritative REST Endpoints (`admin.py`):** Added `GET /api/tenants/{tenant_id}/agent-settings` (accessible by all authorized workspace members) and `PATCH /api/tenants/{tenant_id}/agent-settings` (strictly restricted to `ROLE_OWNER` with E.164, time format, persona, and email validation).
+  5. **Interactive Dashboard UI (`apps/web`):** Built `AgentSettings.tsx` and integrated it into `/dashboard/settings` with live persona cards, language selection, guidelines editor, weekday schedule chips, timezone dropdown, escalation mode picker, and real-time persona preview.
+- **Verification Evidence:**
+  - ✅ **370/370 Passing Backend Tests** (`python3 -m pytest tests/ -q` with 19 new focused Day 47 tests).
+  - ✅ **25/25 Compiled Next.js Production Routes** (`next build`).
+  - ✅ **Zero Lint / Static Analysis Errors** (`ruff check .` clean, ESLint clean, `tsc --noEmit` clean).
+- **Artifacts:** `migrations/018_tenant_agent_settings.sql`, `migrations/000_base_schema.sql`, `apps/api/voxflow_api/db.py`, `apps/api/voxflow_api/agent/prompts.py`, `apps/api/voxflow_api/agent/runner.py`, `apps/api/voxflow_api/routes/admin.py`, `apps/web/src/lib/types.ts`, `apps/web/src/lib/api.ts`, `apps/web/src/components/settings/AgentSettings.tsx`, `apps/web/src/app/dashboard/settings/page.tsx`, `apps/api/tests/test_agent_settings.py`.
+
 ---
 
 ## 🎯 Verification & Test Summary Matrix
 
 | Metric | Target | Current Value | Status |
 |---|---|---|---|
-| **Backend Unit & Integration Tests** | $\ge 200$ | **351 Passed** | ✅ Green |
+| **Backend Unit & Integration Tests** | $\ge 200$ | **370 Passed** | ✅ Green |
 | **Frontend Static Routes** | $\ge 15$ | **25 Compiled Pages** | ✅ Green |
 | **Lint & Static Analysis** | 0 warnings | `ruff check .` clean, ESLint clean | ✅ Clean |
 | **Latency & TTFT Benchmarks** | Sub-second P50 | **P50 ~566ms glass-to-glass** | ✅ Verified |
-| **Database Migrations** | Staged & Verified | 18 Migrations (`000`–`017`) | ✅ Current |
+| **Database Migrations** | Staged & Verified | 19 Migrations (`000`–`018`) | ✅ Current |
 | **Telephony Providers Supported** | Enterprise Voice | Amazon Connect (AWS) + Amazon Lex STT + WebAudio Simulator | ✅ Verified |
 | **Call Persistence & Mirroring** | Durable Logging | Postgres `calls` + Gated Google Sheets Mirror | ✅ Verified |
 | **Multi-Tenant Isolation** | Strict Composite Keys | 100% tenant-scoped queries & imports | ✅ Verified |
@@ -601,14 +615,15 @@
 | **Bulk Data Ingestion** | Streaming CSV Engine | Pre-flight validation + Upsert semantics | ✅ Verified |
 | **Authentication & Auth Gate** | Unauth Redirects | HTTP 307 $\rightarrow$ `/sign-in` | ✅ Verified |
 | **Public Simulator Execution** | Hindi/English turns | Text turn + read-only tool | ✅ Verified |
+| **Per-Tenant Agent Persona** | Custom Settings | 4 Personas + Business Hours + Escalation Policy | ✅ Verified |
 
 ---
 
-## 🧭 Next Recommended Actions (Day 47+)
+## 🧭 Next Recommended Actions (Day 48+)
 
-1. **Per-Tenant Agent Settings (Day 47):** Custom prompt templates, voice persona selection, business hours, and fallback escalation rules per tenant.
-2. **Escalation Workflow Completion (Day 48):** Tenant-owned escalation policy, assignments, SLAs, and closed-loop operator resolution.
-3. **Reviewed Production Migration & Deployment:** Apply migration `016` through the approved PostgreSQL procedure before deploying the matching API/UI revision; do not enable campaign or side-effect workers.
+1. **Escalation Workflow Completion (Day 48):** Tenant-owned escalation policy, assignments, SLAs, and closed-loop operator resolution.
+2. **Voice Quality, RBAC & Lifecycle (Days 49–53):** Voice eval harness, tenant RBAC, observability, GDPR/retention, Stripe billing.
+
 
 
 

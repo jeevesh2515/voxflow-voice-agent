@@ -1,7 +1,7 @@
 # VoxFlow Delivery Phases
 
-**Last updated:** 2026-08-26
-**Current position:** **Day 46 Complete — Exact DID Routing & Secure Caller Verification.** Verified with **351/351 passing backend tests**, clean Ruff/ESLint/TypeScript checks, and **25/25 compiled Next.js routes**. Inbound tenant context now requires an active exact provider/DID match against Amazon Connect (the only wired inbound provider); owners can manage line policy and salted caller PINs, with a persistent cross-session lockout, through canonical tenant APIs and a secret-free settings UI. Comprehensive day-by-day logs are catalogued in [`DAY_TRACKER.md`](DAY_TRACKER.md).
+**Last updated:** 2026-08-27
+**Current position:** **Day 47 Complete — Per-Tenant Agent Settings & Voice Persona Configuration.** Verified with **370/370 passing backend tests**, clean Ruff/ESLint/TypeScript checks, and **25/25 compiled Next.js routes**. Workspace owners can now configure custom voice personas (Professional, Friendly, Concise, Assertive), custom prompt guidelines, business operating hours with timezone awareness, and fallback escalation rules per tenant with instant prompt cache invalidation. Comprehensive day-by-day logs are catalogued in [`DAY_TRACKER.md`](DAY_TRACKER.md).
 **Planning rule:** A milestone is complete only when its implementation, automated verification, deployment result, and safety boundary are recorded.
 
 ## Programme status
@@ -18,7 +18,7 @@
 | Production Infrastructure & Resilience Hardening | 37–40 | Complete | Oracle Cloud ARM VM + Caddy auto-TLS stack, Amazon Connect AWS + Lex V2 en-GB STT, 265 backend tests, 23 frontend routes. |
 | Live Telephony & Durable Logging | 41–42 | Complete | Server-side turn latency telemetry, live UK DID routing, Postgres `calls` + Google Sheets mirroring, 282 tests. |
 | Latency, Resilience & Backups | 43 | Complete | Groq persistent connection pooling, 429 jitter backoff + fallback model, silence re-prompts, Supabase keep-alive, encrypted backups, 289 tests. |
-| SaaS Polish & Onboarding | 44–48 | In Progress | Days 44–46 complete: self-serve signup, CSV ingest, exact DID routing, and secure caller PIN settings; tenant agent settings and escalation loops remain. |
+| SaaS Polish & Onboarding | 44–48 | In Progress | Days 44–47 complete: self-serve signup, CSV ingest, exact DID routing, secure caller PINs, and per-tenant agent settings; Day 48 escalation loops remain. |
 | Voice Quality, RBAC & Lifecycle | 49–53 | Planned | Voice eval harness, tenant RBAC, observability, GDPR/retention, Stripe billing. |
 
 > For the comprehensive, day-by-day implementation log from Day 1 to current, see [`DAY_TRACKER.md`](DAY_TRACKER.md).
@@ -30,8 +30,8 @@
 | 44 | Complete | Transactional self-serve tenant provisioning, owner membership, starter data, and onboarding flow. |
 | 45 | Complete | Tenant-scoped streaming CSV validation/import across five operational entities. |
 | 46 | Complete | Exact Amazon Connect DID routing, owner-only telephony APIs, PBKDF2 caller PINs with persistent cross-session lockout, redaction, session-gated self-serve signup, and settings UI; 351 tests and 25-route build pass. |
-| 47 | Next | Per-tenant prompt, persona, business-hours, and fallback settings with owner-only mutation. |
-| 48 | Planned | Closed-loop escalation ownership, SLA, and operator resolution workflow. |
+| 47 | Complete | Per-tenant prompt, persona (4 styles), business-hours with timezone awareness, and fallback escalation settings with owner-only mutation; 370 tests and 25-route build pass. |
+| 48 | Next | Closed-loop escalation ownership, SLA, and operator resolution workflow. |
 
 ## Historical foundation: Days 1–24
 

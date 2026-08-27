@@ -1,6 +1,7 @@
 "use client";
 
 import { Globe2, Palette, Settings2 } from "lucide-react";
+import AgentSettings from "@/components/settings/AgentSettings";
 import TelephonySettings from "@/components/settings/TelephonySettings";
 import { useTenant } from "@/lib/tenant-context";
 import { useTheme } from "@/lib/theme-context";
@@ -25,11 +26,13 @@ export default function SettingsPage() {
             <p className="text-xs font-mono text-[#94a3b8]">Workspace settings / {activeTenant.name}</p>
             <h1 className="mt-1 text-2xl font-bold text-white">Settings</h1>
             <p className="mt-2 max-w-3xl text-sm leading-6 text-[#94a3b8]">
-              Review server-authoritative telephony controls and adjust local workspace appearance. Routing and caller-verification changes are restricted to workspace owners.
+              Configure agent persona demeanor, operating hours, and fallback policies, review server-authoritative telephony controls, and adjust local workspace appearance. Settings mutations are restricted to workspace owners.
             </p>
           </div>
         </div>
       </header>
+
+      <AgentSettings />
 
       <TelephonySettings />
 

@@ -9,6 +9,7 @@ from fastapi import APIRouter, HTTPException, Query, Request
 from pydantic import BaseModel, Field
 from sqlalchemy import select
 
+from ..agent.runner import clear_tenant_prompt_cache
 from ..auth import (
     ROLE_OPERATOR,
     ROLE_OWNER,
@@ -53,6 +54,58 @@ class TenantUpdateIn(BaseModel):
     webhook_secret: str | None = None
     plan: str | None = None
     active: int | None = None
+
+
+VALID_VOICE_PERSONAS = frozenset({"professional", "friendly", "concise", "assertive"})
+VALID_ESCALATION_MODES = frozenset({"human_callback", "transfer", "voicemail"})
+VALID_LANGUAGES = frozenset({"en", "hi"})
+
+
+def _is_valid_time(val: str) -> bool:
+    if not isinstance(val, str) or len(val) != 5 or val[2] != ":":
+        return False
+    hh, mm = val[:2], val[3:]
+    if not (hh.isdigit() and mm.isdigit()):
+        return False
+    return 0 <= int(hh) <= 23 and 0 <= int(mm) <= 59
+
+
+class TenantAgentSettingsOut(BaseModel):
+    tenant_id: str
+    name: str
+    agent_name: str
+    voice_persona: str
+    default_language: str
+    welcome_message: str | None = None
+    system_prompt_override: str | None = None
+    business_hours_enabled: bool
+    business_hours_start: str
+    business_hours_end: str
+    business_hours_timezone: str
+    business_days: str
+    out_of_hours_message: str | None = None
+    fallback_escalation_mode: str
+    fallback_phone: str | None = None
+    fallback_email: str | None = None
+    max_verification_failures: int
+
+
+class TenantAgentSettingsUpdateIn(BaseModel):
+    agent_name: str | None = None
+    voice_persona: str | None = None
+    default_language: str | None = None
+    welcome_message: str | None = None
+    system_prompt_override: str | None = None
+    business_hours_enabled: bool | None = None
+    business_hours_start: str | None = None
+    business_hours_end: str | None = None
+    business_hours_timezone: str | None = None
+    business_days: str | None = None
+    out_of_hours_message: str | None = None
+    fallback_escalation_mode: str | None = None
+    fallback_phone: str | None = None
+    fallback_email: str | None = None
+    max_verification_failures: int | None = None
 
 
 class PhoneNumberMapIn(BaseModel):
@@ -238,6 +291,187 @@ def _is_pin_locked(supplier: Supplier) -> bool:
     if locked_until.tzinfo is None:
         locked_until = locked_until.replace(tzinfo=timezone.utc)
     return locked_until > datetime.now(timezone.utc)
+
+
+@tenant_settings_router.get("/{tenant_id}/agent-settings", response_model=TenantAgentSettingsOut)
+@router.get("/tenants/{tenant_id}/agent-settings", response_model=TenantAgentSettingsOut)
+def get_tenant_agent_settings(tenant_id: str, request: Request) -> TenantAgentSettingsOut:
+    """Return the tenant's persona, business hours, prompt templates, and fallback rules."""
+    with session_scope() as db:
+        tenant = db.get(Tenant, tenant_id)
+        if tenant is None:
+            raise HTTPException(status_code=404, detail="tenant_not_found")
+        require_tenant_role(
+            request,
+            db,
+            tenant_id=tenant_id,
+            allowed_roles={ROLE_OWNER, ROLE_OPERATOR, ROLE_VIEWER},
+            allow_demo=True,
+        )
+        return TenantAgentSettingsOut(
+            tenant_id=tenant.id,
+            name=tenant.name,
+            agent_name=tenant.agent_name or "Vaani",
+            voice_persona=tenant.voice_persona or "professional",
+            default_language=tenant.default_language or "en",
+            welcome_message=tenant.welcome_message,
+            system_prompt_override=tenant.system_prompt_override,
+            business_hours_enabled=bool(tenant.business_hours_enabled),
+            business_hours_start=tenant.business_hours_start or "09:00",
+            business_hours_end=tenant.business_hours_end or "18:00",
+            business_hours_timezone=tenant.business_hours_timezone or "Asia/Kolkata",
+            business_days=tenant.business_days or "mon,tue,wed,thu,fri",
+            out_of_hours_message=tenant.out_of_hours_message,
+            fallback_escalation_mode=tenant.fallback_escalation_mode or "human_callback",
+            fallback_phone=tenant.fallback_phone,
+            fallback_email=tenant.fallback_email,
+            max_verification_failures=tenant.max_verification_failures or 3,
+        )
+
+
+@tenant_settings_router.patch("/{tenant_id}/agent-settings", response_model=TenantAgentSettingsOut)
+@router.patch("/tenants/{tenant_id}/agent-settings", response_model=TenantAgentSettingsOut)
+def update_tenant_agent_settings(
+    tenant_id: str,
+    payload: TenantAgentSettingsUpdateIn,
+    request: Request,
+) -> TenantAgentSettingsOut:
+    """Update tenant agent settings as an owner with server-authoritative validation."""
+    with session_scope() as db:
+        tenant = db.get(Tenant, tenant_id)
+        if tenant is None:
+            raise HTTPException(status_code=404, detail="tenant_not_found")
+        actor = require_tenant_role(
+            request,
+            db,
+            tenant_id=tenant_id,
+            allowed_roles={ROLE_OWNER},
+            allow_demo=True,
+        )
+
+        if payload.agent_name is not None:
+            cleaned = payload.agent_name.strip()
+            if not cleaned:
+                raise HTTPException(status_code=422, detail="agent_name_cannot_be_empty")
+            tenant.agent_name = cleaned
+
+        if payload.voice_persona is not None:
+            if payload.voice_persona not in VALID_VOICE_PERSONAS:
+                raise HTTPException(
+                    status_code=422,
+                    detail=f"invalid_voice_persona: must be one of {sorted(VALID_VOICE_PERSONAS)}",
+                )
+            tenant.voice_persona = payload.voice_persona
+
+        if payload.default_language is not None:
+            if payload.default_language not in VALID_LANGUAGES:
+                raise HTTPException(
+                    status_code=422,
+                    detail=f"invalid_default_language: must be one of {sorted(VALID_LANGUAGES)}",
+                )
+            tenant.default_language = payload.default_language
+
+        if payload.welcome_message is not None:
+            tenant.welcome_message = payload.welcome_message.strip() or None
+
+        if payload.system_prompt_override is not None:
+            tenant.system_prompt_override = payload.system_prompt_override.strip() or None
+
+        if payload.business_hours_enabled is not None:
+            tenant.business_hours_enabled = 1 if payload.business_hours_enabled else 0
+
+        if payload.business_hours_start is not None:
+            start = payload.business_hours_start.strip()
+            if not _is_valid_time(start):
+                raise HTTPException(status_code=422, detail="invalid_business_hours_start: expected HH:MM")
+            tenant.business_hours_start = start
+
+        if payload.business_hours_end is not None:
+            end = payload.business_hours_end.strip()
+            if not _is_valid_time(end):
+                raise HTTPException(status_code=422, detail="invalid_business_hours_end: expected HH:MM")
+            tenant.business_hours_end = end
+
+        if payload.business_hours_timezone is not None:
+            tz = payload.business_hours_timezone.strip()
+            if not tz:
+                raise HTTPException(status_code=422, detail="business_hours_timezone_cannot_be_empty")
+            tenant.business_hours_timezone = tz
+
+        if payload.business_days is not None:
+            days = payload.business_days.strip()
+            if not days:
+                raise HTTPException(status_code=422, detail="business_days_cannot_be_empty")
+            tenant.business_days = days
+
+        if payload.out_of_hours_message is not None:
+            tenant.out_of_hours_message = payload.out_of_hours_message.strip() or None
+
+        if payload.fallback_escalation_mode is not None:
+            if payload.fallback_escalation_mode not in VALID_ESCALATION_MODES:
+                raise HTTPException(
+                    status_code=422,
+                    detail=f"invalid_fallback_escalation_mode: must be one of {sorted(VALID_ESCALATION_MODES)}",
+                )
+            tenant.fallback_escalation_mode = payload.fallback_escalation_mode
+
+        if payload.fallback_phone is not None:
+            phone_val = payload.fallback_phone.strip()
+            if phone_val:
+                try:
+                    tenant.fallback_phone = normalize_e164(phone_val)
+                except ValueError as exc:
+                    raise HTTPException(status_code=422, detail="invalid_fallback_phone: must be valid E.164") from exc
+            else:
+                tenant.fallback_phone = None
+
+        if payload.fallback_email is not None:
+            email_val = payload.fallback_email.strip()
+            if email_val:
+                if "@" not in email_val or "." not in email_val.split("@")[-1]:
+                    raise HTTPException(status_code=422, detail="invalid_fallback_email")
+                tenant.fallback_email = email_val
+            else:
+                tenant.fallback_email = None
+
+        if payload.max_verification_failures is not None:
+            if not (1 <= payload.max_verification_failures <= 5):
+                raise HTTPException(
+                    status_code=422,
+                    detail="max_verification_failures_must_be_between_1_and_5",
+                )
+            tenant.max_verification_failures = payload.max_verification_failures
+
+        # Invalidate prompt cache immediately so the next call uses the updated configuration
+        clear_tenant_prompt_cache(tenant.id)
+
+        log.info(
+            "admin.tenant_agent_settings_updated",
+            tenant_id=tenant.id,
+            actor_user_id=actor.user_id,
+            voice_persona=tenant.voice_persona,
+            language=tenant.default_language,
+        )
+
+        return TenantAgentSettingsOut(
+            tenant_id=tenant.id,
+            name=tenant.name,
+            agent_name=tenant.agent_name or "Vaani",
+            voice_persona=tenant.voice_persona or "professional",
+            default_language=tenant.default_language or "en",
+            welcome_message=tenant.welcome_message,
+            system_prompt_override=tenant.system_prompt_override,
+            business_hours_enabled=bool(tenant.business_hours_enabled),
+            business_hours_start=tenant.business_hours_start or "09:00",
+            business_hours_end=tenant.business_hours_end or "18:00",
+            business_hours_timezone=tenant.business_hours_timezone or "Asia/Kolkata",
+            business_days=tenant.business_days or "mon,tue,wed,thu,fri",
+            out_of_hours_message=tenant.out_of_hours_message,
+            fallback_escalation_mode=tenant.fallback_escalation_mode or "human_callback",
+            fallback_phone=tenant.fallback_phone,
+            fallback_email=tenant.fallback_email,
+            max_verification_failures=tenant.max_verification_failures or 3,
+        )
 
 
 @tenant_settings_router.get("/{tenant_id}/telephony")

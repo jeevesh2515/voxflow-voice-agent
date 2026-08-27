@@ -523,6 +523,47 @@ export interface CallerVerificationPinInput {
   confirm_pin: string;
 }
 
+export type VoicePersona = "professional" | "friendly" | "concise" | "assertive";
+export type FallbackEscalationMode = "human_callback" | "transfer" | "voicemail";
+
+export interface AgentSettings {
+  tenant_id: string;
+  name: string;
+  agent_name: string;
+  voice_persona: VoicePersona;
+  default_language: "en" | "hi";
+  welcome_message: string | null;
+  system_prompt_override: string | null;
+  business_hours_enabled: boolean;
+  business_hours_start: string;
+  business_hours_end: string;
+  business_hours_timezone: string;
+  business_days: string;
+  out_of_hours_message: string | null;
+  fallback_escalation_mode: FallbackEscalationMode;
+  fallback_phone: string | null;
+  fallback_email: string | null;
+  max_verification_failures: number;
+}
+
+export interface AgentSettingsUpdateInput {
+  agent_name?: string;
+  voice_persona?: VoicePersona;
+  default_language?: "en" | "hi";
+  welcome_message?: string | null;
+  system_prompt_override?: string | null;
+  business_hours_enabled?: boolean;
+  business_hours_start?: string;
+  business_hours_end?: string;
+  business_hours_timezone?: string;
+  business_days?: string;
+  out_of_hours_message?: string | null;
+  fallback_escalation_mode?: FallbackEscalationMode;
+  fallback_phone?: string | null;
+  fallback_email?: string | null;
+  max_verification_failures?: number;
+}
+
 export interface TenantMembership {
   id: string;
   tenant_id: string;
