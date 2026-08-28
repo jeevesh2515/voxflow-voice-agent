@@ -2,10 +2,10 @@
 
 **Project:** VoxFlow — Voice Operations for Modern Supply Chains  
 **Repository:** `jeevesh2515/voxflow-voice-agent`  
-**Current Test Suite:** **351 Passing Tests** (`pytest tests/ -q`)
+**Current Test Suite:** **391 Passing Tests** (`pytest tests/ -q`)
 **Frontend Surface:** **25 Compiled Routes** (Next.js 16 App Router, Webpack production validation)
 **Deployment Infrastructure:** Oracle Cloud Always-Free ARM VM (Caddy Auto-TLS + Docker) / Render Free API / Vercel Edge Frontend  
-**Last Updated:** 2026-08-26
+**Last Updated:** 2026-08-28
 
 ---
 
@@ -612,15 +612,33 @@
   - ✅ **Zero Lint / Static Analysis Errors** (`ruff check .` clean, ESLint clean, `tsc --noEmit` clean).
 - **Artifacts:** `migrations/019_escalation_lifecycle_and_sla.sql`, `migrations/000_base_schema.sql`, `apps/api/voxflow_api/services/escalation_service.py`, `apps/api/voxflow_api/routes/escalations.py`, `apps/api/voxflow_api/voice/pipeline.py`, `apps/web/src/components/dashboard/ResolutionDrawer.tsx`, `apps/web/src/app/dashboard/escalations/page.tsx`, `apps/web/src/lib/types.ts`, `apps/web/src/lib/api.ts`, `apps/api/tests/test_escalation_workflow.py`.
 
+#### 🗓️ Day 49: Voice Eval Harness & Release Thresholds
+- **Objective:** Build a repeatable, CI-integrated automated evaluation harness that scores the VoxFlow voice agent against 30 structured scenarios and enforces Release Gate #5 — "Never leak data before caller verification" — as a non-negotiable hard gate blocking any deployment.
+- **Implementation:**
+  1. **Scenario Dataset (`evals/scenarios.json`):** Authored 30 versioned, PII-free structured test cases across 7 categories: `security_adversarial` (7 hard-gate scenarios), `verification` (5), `order_inquiry` (5), `stock_inquiry` (4), `shipment_tracking` (3), `escalation_disputes` (4), and `out_of_scope` (2). Each scenario defines multi-turn dialogue, per-turn forbidden phrases, forbidden tool calls, must-call tools, and expected phrase assertions.
+  2. **Eval Domain Engine (`services/eval_service.py`):** Implemented dataclasses `TurnResult`, `ScenarioResult`, `CategoryScore`, `ThresholdEval`, and `EvalReport` plus the full `run_voice_eval()` async orchestrator. Hard Gate assertions: `no_unverified_data_leak` (regex + phrase scanner), `no_cross_tenant_leak`, `no_system_prompt_leak`, `forbidden_tools_not_called`. Soft metrics: tool selection accuracy, expected phrase containment, spoken brevity (≤35 words/turn), P95 latency (≤3,500ms). Configurable `ReleaseThresholds` dataclass with 6 tunable thresholds. `release_ready = hard_gate_passed AND all_soft_thresholds_pass`.
+  3. **REST API (`routes/evals.py`):** `GET /api/evals/scenarios` (metadata listing), `GET /api/evals/scorecard` (latest run, in-memory cache), `POST /api/evals/run` (on-demand harness execution with category/tenant/scenario-ID filters and custom threshold overrides), `GET /api/tenants/{tenant_id}/evals/scorecard` (tenant-scoped scorecard with RBAC).
+  4. **CLI Tooling (`scripts/run_evals.py`):** Full-featured CLI with `--category`, `--strict` (exit code 1 on any threshold breach for CI/CD gating), `--output-json`, `--mock`, and colorized tabular scorecard output.
+  5. **Frontend Dashboard (`VoiceEvalScorecard.tsx`, `readiness/page.tsx`):** 562-line premium dashboard component featuring a Release Gate #5 status banner (green/red), 5-metric scorecards (Hard Gates, Correctness, Security Compliance, Escalation, Avg Words/Turn), category performance table, and expandable scenario inspector with input text, expected vs actual tools, spoken replies, and assertion violations. Embedded into the `/dashboard/readiness` Pilot Gates view.
+  6. **TypeScript Types & API Client (`types.ts`, `api.ts`):** Added `VoiceEvalScorecard`, `ScenarioResultOut`, `CategoryScoreOut`, `ReleaseGateStatus` interfaces; `getVoiceEvals()` and `runVoiceEvals()` API client methods.
+  7. **Automated Test Suite (`tests/test_eval_harness.py`):** 8 pytest cases: scenario dataset schema integrity, hard gate trip on deliberate leak injection, hard gate hold when guardrails hold, tool selection and phrase assertions, category score aggregation, API scenario listing, API scorecard and run endpoint, and tenant-scoped scorecard endpoint.
+- **Verification Evidence:**
+  - ✅ **391/391 Passing Backend Tests** (`python3 -m pytest tests/ -q` in 148.7s with 8 new Day 49 eval harness tests).
+  - ✅ **TypeScript Clean** (`npx tsc --noEmit` — 0 errors).
+  - ✅ **Zero Lint / Static Analysis Errors** (`ruff check .` clean, ESLint clean).
+  - ✅ **Hard Gate Trip Proven** — `test_hard_gate_blocks_release_on_data_leak` injects a pre-verification data leak and confirms gate trips with `release_ready=False` and non-zero CLI exit.
+  - ✅ **Committed & Pushed** — `206589f feat(evals): Day 49 voice eval harness, release thresholds & scorecard dashboard`.
+- **Artifacts:** `evals/scenarios.json`, `apps/api/voxflow_api/services/eval_service.py`, `apps/api/voxflow_api/routes/evals.py`, `apps/api/voxflow_api/main.py`, `scripts/run_evals.py`, `apps/web/src/components/VoiceEvalScorecard.tsx`, `apps/web/src/app/dashboard/readiness/page.tsx`, `apps/web/src/lib/types.ts`, `apps/web/src/lib/api.ts`, `apps/api/tests/test_eval_harness.py`, `.learning/day-49-voice-eval-harness-and-release-thresholds.md`.
+
 ---
 
 ## 🎯 Verification & Test Summary Matrix
 
 | Metric | Target | Current Value | Status |
 |---|---|---|---|
-| **Backend Unit & Integration Tests** | $\ge 200$ | **383 Passed** | ✅ Green |
+| **Backend Unit & Integration Tests** | $\ge 200$ | **391 Passed** | ✅ Green |
 | **Frontend Static Routes** | $\ge 15$ | **25 Compiled Pages** | ✅ Green |
-| **Lint & Static Analysis** | 0 warnings | `ruff check .` clean, ESLint clean | ✅ Clean |
+| **Lint & Static Analysis** | 0 warnings | `ruff check .` clean, ESLint clean, `tsc --noEmit` clean | ✅ Clean |
 | **Latency & TTFT Benchmarks** | Sub-second P50 | **P50 ~566ms glass-to-glass** | ✅ Verified |
 | **Database Migrations** | Staged & Verified | 20 Migrations (`000`–`019`) | ✅ Current |
 | **Telephony Providers Supported** | Enterprise Voice | Amazon Connect (AWS) + Amazon Lex STT + WebAudio Simulator | ✅ Verified |
@@ -632,14 +650,17 @@
 | **Public Simulator Execution** | Hindi/English turns | Text turn + read-only tool | ✅ Verified |
 | **Per-Tenant Agent Persona** | Custom Settings | 4 Personas + Business Hours + Escalation Policy | ✅ Verified |
 | **Closed-Loop Escalations** | SLA & Resolution | 5 KPI Metrics + Queue + Resolution Drawer | ✅ Verified |
+| **Voice Eval Harness** | Release Gate #5 | 30 Scenarios × 7 Categories, Hard Gate 100% enforced | ✅ Verified |
+| **CI/CD Eval Gate** | Exit 1 on leak | `--strict` mode trips on any pre-verification data leak | ✅ Verified |
 
 ---
 
-## 🧭 Next Recommended Actions (Day 49+)
+## 🧭 Next Recommended Actions (Day 50+)
 
-1. **Voice Eval Harness & Release Thresholds (Day 49):** Automated synthetic audio test suite, WER/CER and intent accuracy evaluation, latency budgets, and regression gating.
-2. **RBAC & Cross-Tenant Isolation Hardening (Day 50):** Fine-grained permission matrices, team invitations, audit log streams.
-3. **Observability, Alerting & Go-Live (Days 51–53):** CloudWatch/Datadog dashboards, PagerDuty webhooks, Stripe billing, and production go-live dry run.
+1. **RBAC & Cross-Tenant Isolation Hardening (Day 50):** Fine-grained permission matrices, team member invitations, audit log streams, and read-only viewer enforcement across all routes.
+2. **Observability & Alerting (Day 51):** CloudWatch / Datadog dashboards, PagerDuty webhook integration, structured alert policies, and SLO burn-rate monitors.
+3. **Security & Data Lifecycle (Day 52):** GDPR data-subject export & deletion pipelines, encryption at rest, secret rotation automation, and penetration test remediation.
+4. **Billing, Landing & Go-Live Dry Run (Day 53):** Stripe subscription billing, public landing page, and full production go-live simulation.
 
 
 
