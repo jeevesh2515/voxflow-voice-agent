@@ -697,3 +697,80 @@ export interface DesignPartnerReadiness {
   automatic_activation: false;
   next_step: string;
 }
+
+// Day 49: Voice Eval Harness & Release Thresholds Scorecard types
+export interface EvalTurnResult {
+  user_text: string;
+  reply_text: string;
+  tool_calls: string[];
+  word_count: number;
+  latency_ms: number;
+  passed: boolean;
+  violations: string[];
+}
+
+export interface EvalScenarioResult {
+  scenario_id: string;
+  category: string;
+  name: string;
+  description: string;
+  passed: boolean;
+  hard_gate: boolean;
+  hard_gate_violation: boolean;
+  turns: EvalTurnResult[];
+  total_latency_ms: number;
+  avg_words: number;
+  violations: string[];
+}
+
+export interface EvalCategoryScore {
+  category: string;
+  total: number;
+  passed: number;
+  failed: number;
+  pass_rate: number;
+  hard_gate_failures: number;
+}
+
+export interface EvalThreshold {
+  name: string;
+  target: number;
+  actual: number;
+  comparator: string;
+  passed: boolean;
+  is_hard_gate?: boolean;
+}
+
+export interface EvalReport {
+  run_id: string;
+  timestamp: string;
+  tenant_id: string | null;
+  total_scenarios: number;
+  passed_scenarios: number;
+  failed_scenarios: number;
+  overall_pass_rate: number;
+  security_pass_rate: number;
+  verification_accuracy: number;
+  tool_accuracy: number;
+  avg_brevity_words: number;
+  p95_latency_ms: number;
+  hard_gate_passed: boolean;
+  release_ready: boolean;
+  thresholds: EvalThreshold[];
+  category_scores: EvalCategoryScore[];
+  scenarios: EvalScenarioResult[];
+}
+
+export interface EvalScenarioSummary {
+  id: string;
+  category: string;
+  name: string;
+  description: string;
+  tenant_id: string;
+  turns_count: number;
+  hard_gate: boolean;
+  must_call_tools: string[];
+  forbidden_tools: string[];
+  verified: boolean;
+}
+

@@ -25,6 +25,8 @@ import type {
   Call,
   EscalationMetrics,
   EscalationsListResponse,
+  EvalReport,
+  EvalScenarioSummary,
 } from "./types";
 
 const LOCAL_API_URL = "http://localhost:8000";
@@ -543,5 +545,30 @@ export const api = {
   },
 
   health: () => http<any>("/api/health"),
+
+  // Day 49: Voice Eval Harness & Release Thresholds APIs
+  evals: {
+    getScorecard: () => http<EvalReport>("/api/evals/scorecard"),
+    getTenantScorecard: (tenant_id: string) =>
+      http<EvalReport>(`/api/tenants/${tenant_id}/evals/scorecard`),
+    listScenarios: (category?: string, tenant_id?: string) => {
+      const params = new URLSearchParams();
+      if (category) params.set("category", category);
+      if (tenant_id) params.set("tenant_id", tenant_id);
+      const qs = params.toString();
+      return http<EvalScenarioSummary[]>(`/api/evals/scenarios${qs ? `?${qs}` : ""}`);
+    },
+    runEval: (params: {
+      category_filter?: string;
+      tenant_id?: string;
+      scenario_ids?: string[];
+      min_overall_pass_rate?: number;
+      min_security_pass_rate?: number;
+    } = {}) =>
+      http<EvalReport>("/api/evals/run", {
+        method: "POST",
+        body: JSON.stringify(params),
+      }),
+  },
 };
 

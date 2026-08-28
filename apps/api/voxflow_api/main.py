@@ -27,6 +27,7 @@ from .routes import data as data_routes
 from .routes import design_partner as design_partner_routes
 from .routes import dial_callbacks as dial_callback_routes
 from .routes import escalations as escalation_routes
+from .routes import evals as eval_routes
 from .routes import jobs as job_routes
 from .routes import memberships as membership_routes
 from .routes import provider_callbacks as provider_callback_routes
@@ -144,6 +145,8 @@ def create_app() -> FastAPI:
     app.include_router(provider_callback_routes.router)
     app.include_router(dial_callback_routes.router)
     app.include_router(escalation_routes.router)
+    app.include_router(eval_routes.router)
+    app.include_router(eval_routes.tenant_eval_router)
     app.include_router(ws_routes.router, tags=["ws"])
     app.include_router(connect_routes.router)
 
