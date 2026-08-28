@@ -597,17 +597,32 @@
   - ✅ **Zero Lint / Static Analysis Errors** (`ruff check .` clean, ESLint clean, `tsc --noEmit` clean).
 - **Artifacts:** `migrations/018_tenant_agent_settings.sql`, `migrations/000_base_schema.sql`, `apps/api/voxflow_api/db.py`, `apps/api/voxflow_api/agent/prompts.py`, `apps/api/voxflow_api/agent/runner.py`, `apps/api/voxflow_api/routes/admin.py`, `apps/web/src/lib/types.ts`, `apps/web/src/lib/api.ts`, `apps/web/src/components/settings/AgentSettings.tsx`, `apps/web/src/app/dashboard/settings/page.tsx`, `apps/api/tests/test_agent_settings.py`.
 
+#### 🗓️ Day 48: Closed-Loop Escalation Ownership, SLAs & Operator Resolution
+- **Objective:** Establish a closed-loop human escalation management system with priority calculations, configurable SLA breach deadlines, ticket assignment, and operator resolution actions.
+- **Implementation:**
+  1. **Data Model & Schema Extensions (`Call` & `Tenant`):** Extended `calls` with `escalation_priority` (critical | high | medium | low), `escalation_status` (none | pending | in_progress | resolved | dismissed), `assigned_to_user_id`, `assigned_at`, `sla_due_at`, `resolved_by_user_id`, and `resolution_category`. Extended `tenants` with `escalation_sla_minutes` (default 60).
+  2. **Database Migrations:** Authored migration `019_escalation_lifecycle_and_sla.sql` with composite indexes (`idx_calls_tenant_escalation_sla`, `idx_calls_tenant_escalation_assigned`) and updated `000_base_schema.sql`.
+  3. **Escalation Domain Service (`escalation_service.py`):** Added priority matrix (`derive_escalation_priority`), priority-weighted dynamic SLA due date calculator (`compute_sla_due_at`), SLA compliance metrics and queue aggregations (`get_escalation_kpis`), and atomic ticket claiming/resolution with audit tracking (`assign_escalation`, `resolve_escalation`).
+  4. **Server-Authoritative REST Router (`routes/escalations.py`):** Mounted `/api/tenants/{tenant_id}/escalations` providing queue filtering (`status`, `priority`, `breached_only`), real-time KPI metrics (`/metrics`), single ticket detail (`/{call_id}`), claim/assign (`/{call_id}/assign`), and resolve/dismiss (`/{call_id}/resolve`), all protected by strict tenant RBAC (`ROLE_OWNER` & `ROLE_OPERATOR` write, `ROLE_VIEWER` read-only).
+  5. **Interactive Dashboard UI (`apps/web`):** Built `ResolutionDrawer.tsx` slide-over modal for staff resolution notes, category tagging, and status transitions. Redesigned `/dashboard/escalations` with 5 KPI scorecards (Total, Open, SLA Breaches with pulse badge, Compliance %, Avg Resolution Time), status tabs, priority filters, search, quick claim actions, and ticket assignment.
+  6. **Voice Pipeline Automatic SLA Initialization (`pipeline.py`):** Automatically initializes escalation state, priority, and target SLA timestamp during live call persistence whenever an escalation occurs.
+- **Verification Evidence:**
+  - ✅ **383/383 Passing Backend Tests** (`python3 -m pytest tests/ -q` with 13 new focused Day 48 tests).
+  - ✅ **25/25 Compiled Next.js Production Routes** (`next build` including redesigned `/dashboard/escalations`).
+  - ✅ **Zero Lint / Static Analysis Errors** (`ruff check .` clean, ESLint clean, `tsc --noEmit` clean).
+- **Artifacts:** `migrations/019_escalation_lifecycle_and_sla.sql`, `migrations/000_base_schema.sql`, `apps/api/voxflow_api/services/escalation_service.py`, `apps/api/voxflow_api/routes/escalations.py`, `apps/api/voxflow_api/voice/pipeline.py`, `apps/web/src/components/dashboard/ResolutionDrawer.tsx`, `apps/web/src/app/dashboard/escalations/page.tsx`, `apps/web/src/lib/types.ts`, `apps/web/src/lib/api.ts`, `apps/api/tests/test_escalation_workflow.py`.
+
 ---
 
 ## 🎯 Verification & Test Summary Matrix
 
 | Metric | Target | Current Value | Status |
 |---|---|---|---|
-| **Backend Unit & Integration Tests** | $\ge 200$ | **370 Passed** | ✅ Green |
+| **Backend Unit & Integration Tests** | $\ge 200$ | **383 Passed** | ✅ Green |
 | **Frontend Static Routes** | $\ge 15$ | **25 Compiled Pages** | ✅ Green |
 | **Lint & Static Analysis** | 0 warnings | `ruff check .` clean, ESLint clean | ✅ Clean |
 | **Latency & TTFT Benchmarks** | Sub-second P50 | **P50 ~566ms glass-to-glass** | ✅ Verified |
-| **Database Migrations** | Staged & Verified | 19 Migrations (`000`–`018`) | ✅ Current |
+| **Database Migrations** | Staged & Verified | 20 Migrations (`000`–`019`) | ✅ Current |
 | **Telephony Providers Supported** | Enterprise Voice | Amazon Connect (AWS) + Amazon Lex STT + WebAudio Simulator | ✅ Verified |
 | **Call Persistence & Mirroring** | Durable Logging | Postgres `calls` + Gated Google Sheets Mirror | ✅ Verified |
 | **Multi-Tenant Isolation** | Strict Composite Keys | 100% tenant-scoped queries & imports | ✅ Verified |
@@ -616,13 +631,15 @@
 | **Authentication & Auth Gate** | Unauth Redirects | HTTP 307 $\rightarrow$ `/sign-in` | ✅ Verified |
 | **Public Simulator Execution** | Hindi/English turns | Text turn + read-only tool | ✅ Verified |
 | **Per-Tenant Agent Persona** | Custom Settings | 4 Personas + Business Hours + Escalation Policy | ✅ Verified |
+| **Closed-Loop Escalations** | SLA & Resolution | 5 KPI Metrics + Queue + Resolution Drawer | ✅ Verified |
 
 ---
 
-## 🧭 Next Recommended Actions (Day 48+)
+## 🧭 Next Recommended Actions (Day 49+)
 
-1. **Escalation Workflow Completion (Day 48):** Tenant-owned escalation policy, assignments, SLAs, and closed-loop operator resolution.
-2. **Voice Quality, RBAC & Lifecycle (Days 49–53):** Voice eval harness, tenant RBAC, observability, GDPR/retention, Stripe billing.
+1. **Voice Eval Harness & Release Thresholds (Day 49):** Automated synthetic audio test suite, WER/CER and intent accuracy evaluation, latency budgets, and regression gating.
+2. **RBAC & Cross-Tenant Isolation Hardening (Day 50):** Fine-grained permission matrices, team invitations, audit log streams.
+3. **Observability, Alerting & Go-Live (Days 51–53):** CloudWatch/Datadog dashboards, PagerDuty webhooks, Stripe billing, and production go-live dry run.
 
 
 

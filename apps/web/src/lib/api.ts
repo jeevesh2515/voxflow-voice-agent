@@ -22,6 +22,9 @@ import type {
   TelephonySettings,
   AgentSettings,
   AgentSettingsUpdateInput,
+  Call,
+  EscalationMetrics,
+  EscalationsListResponse,
 } from "./types";
 
 const LOCAL_API_URL = "http://localhost:8000";
@@ -313,6 +316,62 @@ export const api = {
     if (tenant_id) qs.set("tenant_id", tenant_id);
     return http<any[]>(`/api/calls?${qs}`);
   },
+  getEscalations: (
+    tenant_id: string,
+    params?: {
+      status?: string;
+      priority?: string;
+      breached_only?: boolean;
+      search?: string;
+      limit?: number;
+      offset?: number;
+    }
+  ) => {
+    const qs = new URLSearchParams();
+    if (params?.status && params.status !== "all") qs.set("status", params.status);
+    if (params?.priority && params.priority !== "all") qs.set("priority", params.priority);
+    if (params?.breached_only) qs.set("breached_only", "true");
+    if (params?.search) qs.set("search", params.search);
+    if (params?.limit) qs.set("limit", String(params.limit));
+    if (params?.offset) qs.set("offset", String(params.offset));
+    return http<EscalationsListResponse>(
+      `/api/tenants/${encodeURIComponent(tenant_id)}/escalations${qs.size ? `?${qs}` : ""}`
+    );
+  },
+  getEscalationMetrics: (tenant_id: string) =>
+    http<EscalationMetrics>(`/api/tenants/${encodeURIComponent(tenant_id)}/escalations/metrics`),
+  getEscalationDetail: (tenant_id: string, call_id: string) =>
+    http<Call>(`/api/tenants/${encodeURIComponent(tenant_id)}/escalations/${encodeURIComponent(call_id)}`),
+  assignEscalation: (tenant_id: string, call_id: string, assigned_to_user_id: string | null) =>
+    http<Call>(
+      `/api/tenants/${encodeURIComponent(tenant_id)}/escalations/${encodeURIComponent(call_id)}/assign`,
+      {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ assigned_to_user_id }),
+      }
+    ),
+  resolveEscalation: (
+    tenant_id: string,
+    call_id: string,
+    payload: {
+      status?: string;
+      resolution_category?: string;
+      staff_resolution: string;
+    }
+  ) =>
+    http<Call>(
+      `/api/tenants/${encodeURIComponent(tenant_id)}/escalations/${encodeURIComponent(call_id)}/resolve`,
+      {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          status: payload.status || "resolved",
+          resolution_category: payload.resolution_category || "callback_completed",
+          staff_resolution: payload.staff_resolution,
+        }),
+      }
+    ),
   call: (id: string) => http<any>(`/api/calls/${id}`),
   patchResolution: (call_id: string, staff_resolution: string) =>
     http<any>(`/api/calls/${call_id}/resolution`, {

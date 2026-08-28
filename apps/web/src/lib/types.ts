@@ -70,6 +70,16 @@ export interface CallAction {
 
 export type ResolutionStatus = "resolved" | "partial" | "unresolved" | "";
 export type Satisfaction = "happy" | "neutral" | "unhappy" | "";
+export type EscalationPriority = "critical" | "high" | "medium" | "low";
+export type EscalationStatus = "none" | "pending" | "in_progress" | "resolved" | "dismissed";
+export type ResolutionCategory =
+  | "callback_completed"
+  | "order_updated"
+  | "refund_issued"
+  | "quote_sent"
+  | "technical_fixed"
+  | "duplicate_or_invalid"
+  | "other";
 
 export interface Call {
   id: string;
@@ -94,9 +104,36 @@ export interface Call {
   follow_up_required: boolean;
   staff_resolution: string;
   staff_resolved_at: string | null;
+  escalation_priority?: EscalationPriority;
+  escalation_status?: EscalationStatus;
+  assigned_to_user_id?: string | null;
+  assigned_at?: string | null;
+  sla_due_at?: string | null;
+  resolved_by_user_id?: string | null;
+  resolution_category?: ResolutionCategory | string | null;
   sheet_synced: boolean;
   verified: boolean;
   recording_url?: string | null;
+}
+
+export interface EscalationMetrics {
+  tenant_id: string;
+  total_escalations: number;
+  open_count: number;
+  pending_count: number;
+  in_progress_count: number;
+  resolved_count: number;
+  dismissed_count: number;
+  breached_count: number;
+  sla_compliance_rate: number;
+  avg_resolution_min: number;
+}
+
+export interface EscalationsListResponse {
+  items: Call[];
+  total: number;
+  limit: number;
+  offset: number;
 }
 
 export interface OutboundCampaign {

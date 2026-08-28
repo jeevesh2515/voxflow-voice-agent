@@ -193,6 +193,7 @@ class Tenant(Base):
     fallback_phone: Mapped[str | None] = mapped_column(String(32), nullable=True)
     fallback_email: Mapped[str | None] = mapped_column(String(255), nullable=True)
     max_verification_failures: Mapped[int] = mapped_column(Integer, default=3, server_default=text("3"))
+    escalation_sla_minutes: Mapped[int] = mapped_column(Integer, default=60, server_default=text("60"))
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_utcnow)
 
 
@@ -353,6 +354,14 @@ class Call(Base):
     # Filled in by staff from the dashboard after following up on an escalation.
     staff_resolution: Mapped[str] = mapped_column(Text, default="")
     staff_resolved_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    # Day 48: Escalation Lifecycle, Priority, Assignee, and SLA deadline
+    escalation_priority: Mapped[str] = mapped_column(String(16), default="medium", server_default=text("'medium'"))
+    escalation_status: Mapped[str] = mapped_column(String(16), default="none", server_default=text("'none'"), index=True)
+    assigned_to_user_id: Mapped[str | None] = mapped_column(String(128), nullable=True)
+    assigned_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    sla_due_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True, index=True)
+    resolved_by_user_id: Mapped[str | None] = mapped_column(String(128), nullable=True)
+    resolution_category: Mapped[str | None] = mapped_column(String(64), nullable=True)
     # Whether this call's outcome row reached Google Sheets.
     sheet_synced: Mapped[int] = mapped_column(Integer, default=0)
     # Day 42: mean server-side processing time per agent turn (ms), 0 if unknown.
@@ -1033,6 +1042,16 @@ def _ensure_day28_outbox_columns() -> None:
         "ALTER TABLE tenants ADD COLUMN IF NOT EXISTS fallback_phone VARCHAR(32)",
         "ALTER TABLE tenants ADD COLUMN IF NOT EXISTS fallback_email VARCHAR(255)",
         "ALTER TABLE tenants ADD COLUMN IF NOT EXISTS max_verification_failures INTEGER NOT NULL DEFAULT 3",
+        "ALTER TABLE tenants ADD COLUMN IF NOT EXISTS escalation_sla_minutes INTEGER NOT NULL DEFAULT 60",
+        "ALTER TABLE calls ADD COLUMN IF NOT EXISTS escalation_priority VARCHAR(16) NOT NULL DEFAULT 'medium'",
+        "ALTER TABLE calls ADD COLUMN IF NOT EXISTS escalation_status VARCHAR(16) NOT NULL DEFAULT 'none'",
+        "ALTER TABLE calls ADD COLUMN IF NOT EXISTS assigned_to_user_id VARCHAR(128)",
+        "ALTER TABLE calls ADD COLUMN IF NOT EXISTS assigned_at TIMESTAMP WITH TIME ZONE",
+        "ALTER TABLE calls ADD COLUMN IF NOT EXISTS sla_due_at TIMESTAMP WITH TIME ZONE",
+        "ALTER TABLE calls ADD COLUMN IF NOT EXISTS resolved_by_user_id VARCHAR(128)",
+        "ALTER TABLE calls ADD COLUMN IF NOT EXISTS resolution_category VARCHAR(64)",
+        "CREATE INDEX IF NOT EXISTS ix_calls_escalation_status ON calls (escalation_status)",
+        "CREATE INDEX IF NOT EXISTS ix_calls_sla_due_at ON calls (sla_due_at)",
     ]
     if _engine.dialect.name == "sqlite":
         # SQLite supports ADD COLUMN but not PostgreSQL's IF NOT EXISTS form.

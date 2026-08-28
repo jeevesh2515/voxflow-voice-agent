@@ -44,6 +44,7 @@ CREATE TABLE IF NOT EXISTS tenants (
 	fallback_phone VARCHAR(32),
 	fallback_email VARCHAR(255),
 	max_verification_failures INTEGER DEFAULT 3 NOT NULL,
+	escalation_sla_minutes INTEGER DEFAULT 60 NOT NULL,
 	created_at TIMESTAMP WITH TIME ZONE NOT NULL,
 	PRIMARY KEY (id)
 );
@@ -628,6 +629,13 @@ CREATE TABLE IF NOT EXISTS calls (
 	follow_up_required INTEGER NOT NULL,
 	staff_resolution TEXT NOT NULL,
 	staff_resolved_at TIMESTAMP WITH TIME ZONE,
+	escalation_priority VARCHAR(16) DEFAULT 'medium' NOT NULL,
+	escalation_status VARCHAR(16) DEFAULT 'none' NOT NULL,
+	assigned_to_user_id VARCHAR(128),
+	assigned_at TIMESTAMP WITH TIME ZONE,
+	sla_due_at TIMESTAMP WITH TIME ZONE,
+	resolved_by_user_id VARCHAR(128),
+	resolution_category VARCHAR(64),
 	sheet_synced INTEGER NOT NULL,
 	avg_turn_latency_ms INTEGER NOT NULL,
 	recording_url VARCHAR(512),
@@ -637,9 +645,13 @@ CREATE TABLE IF NOT EXISTS calls (
 	FOREIGN KEY(supplier_id) REFERENCES suppliers (id)
 );
 
+CREATE INDEX IF NOT EXISTS ix_calls_escalation_status ON calls (escalation_status);
+
 CREATE INDEX IF NOT EXISTS ix_calls_resolution_status ON calls (resolution_status);
 
 CREATE INDEX IF NOT EXISTS ix_calls_satisfaction ON calls (satisfaction);
+
+CREATE INDEX IF NOT EXISTS ix_calls_sla_due_at ON calls (sla_due_at);
 
 CREATE INDEX IF NOT EXISTS ix_calls_tenant_id ON calls (tenant_id);
 

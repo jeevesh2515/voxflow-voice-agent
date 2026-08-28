@@ -150,6 +150,13 @@ class CallOut(BaseModel):
     follow_up_required: bool
     staff_resolution: str
     staff_resolved_at: datetime | None
+    escalation_priority: str = "medium"
+    escalation_status: str = "none"
+    assigned_to_user_id: str | None = None
+    assigned_at: datetime | None = None
+    sla_due_at: datetime | None = None
+    resolved_by_user_id: str | None = None
+    resolution_category: str | None = None
     sheet_synced: bool
     verified: bool
     recording_url: str | None = None

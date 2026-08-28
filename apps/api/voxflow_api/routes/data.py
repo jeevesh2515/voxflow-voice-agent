@@ -943,6 +943,17 @@ def _order_out(o: Order) -> dict[str, Any]:
     }
 
 
+def _parse_ts(val: Any, fallback_ts: float) -> datetime:
+    if isinstance(val, (int, float)):
+        return datetime.fromtimestamp(val, tz=timezone.utc)
+    if isinstance(val, str):
+        try:
+            return datetime.fromisoformat(val.replace("Z", "+00:00"))
+        except Exception:
+            pass
+    return datetime.fromtimestamp(fallback_ts, tz=timezone.utc)
+
+
 def _call_out(c: Call) -> dict[str, Any]:
     transcript_raw = json.loads(c.transcript_json or "[]")
     actions_raw = json.loads(c.actions_json or "[]")
@@ -951,7 +962,7 @@ def _call_out(c: Call) -> dict[str, Any]:
         CallTurn(
             role=t.get("role", "agent"),
             text=t.get("text", ""),
-            at=datetime.fromtimestamp(t.get("at", now_ts), tz=timezone.utc),
+            at=_parse_ts(t.get("at"), now_ts),
         )
         for t in transcript_raw
     ]
@@ -960,7 +971,7 @@ def _call_out(c: Call) -> dict[str, Any]:
             name=a.get("name", ""),
             args=a.get("args", {}),
             result=a.get("result"),
-            at=datetime.fromtimestamp(a.get("at", now_ts), tz=timezone.utc),
+            at=_parse_ts(a.get("at"), now_ts),
         )
         for a in actions_raw
     ]
@@ -985,6 +996,13 @@ def _call_out(c: Call) -> dict[str, Any]:
         "follow_up_required": bool(c.follow_up_required),
         "staff_resolution": c.staff_resolution or "",
         "staff_resolved_at": c.staff_resolved_at,
+        "escalation_priority": c.escalation_priority or "medium",
+        "escalation_status": c.escalation_status or "none",
+        "assigned_to_user_id": c.assigned_to_user_id,
+        "assigned_at": c.assigned_at,
+        "sla_due_at": c.sla_due_at,
+        "resolved_by_user_id": c.resolved_by_user_id,
+        "resolution_category": c.resolution_category,
         "sheet_synced": bool(c.sheet_synced),
         "verified": bool(c.verified),
         "recording_url": c.recording_url,

@@ -27,6 +27,7 @@ from ..config import get_settings
 from ..db import Call, async_session_scope
 from ..logging import get_logger
 from ..schemas import CallTurn
+from ..services.escalation_service import compute_sla_due_at, derive_escalation_priority
 from ..services.pin_security import redact_pin_data, redact_pin_text
 
 
@@ -518,12 +519,21 @@ class VoicePipeline:
         t0 = time.time()
         latencies = [ms for ms in session.turn_latencies if ms > 0]
         try:
-            _redact_session_evidence(session)
+            is_escalated = bool(session.escalated or session.follow_up_required)
+            esc_priority = derive_escalation_priority(
+                satisfaction=session.satisfaction,
+                reason=session.reason,
+                follow_up_required=bool(session.follow_up_required),
+                verified=bool(session.verified),
+            )
+            started_dt = datetime.fromtimestamp(session.started_at, tz=timezone.utc)
+            sla_due = compute_sla_due_at(priority=esc_priority, base_sla_minutes=60, from_time=started_dt) if is_escalated else None
+
             async with async_session_scope() as db:
                 row = Call(
                     id=session.call_id,
                     tenant_id=session.tenant_id,
-                    started_at=datetime.fromtimestamp(session.started_at, tz=timezone.utc),
+                    started_at=started_dt,
                     ended_at=datetime.fromtimestamp(session.ended_at or session.started_at, tz=timezone.utc),
                     duration_sec=int((session.ended_at or session.started_at) - session.started_at),
                     avg_turn_latency_ms=round(sum(latencies) / len(latencies)) if latencies else 0,
@@ -537,11 +547,14 @@ class VoicePipeline:
                     intent=session.intent,
                     outcome=session.outcome,
                     escalated=1 if session.escalated else 0,
-                    reason=session.reason,
-                    solution=session.solution,
+                    reason=redact_pin_text(session.reason),
+                    solution=redact_pin_text(session.solution),
                     resolution_status=session.resolution_status,
                     satisfaction=session.satisfaction,
                     follow_up_required=1 if session.follow_up_required else 0,
+                    escalation_priority=esc_priority if is_escalated else "medium",
+                    escalation_status="pending" if is_escalated else "none",
+                    sla_due_at=sla_due,
                     sheet_synced=1 if session.sheet_synced else 0,
                     verified=1 if session.verified else 0,
                     recording_url=session.recording_url,
