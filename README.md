@@ -13,7 +13,7 @@
 
 <p align="center">
   <img src="https://img.shields.io/badge/CI%2FCD-100%25%20PASSING-success?style=for-the-badge&logo=githubactions&logoColor=white&labelColor=111827" alt="CI Status" />
-  <img src="https://img.shields.io/badge/TESTS-351%20PASSED-10B981?style=for-the-badge&logo=pytest&logoColor=white&labelColor=111827" alt="351 Pytest Tests Passed" />
+  <img src="https://img.shields.io/badge/TESTS-391%20PASSED-10B981?style=for-the-badge&logo=pytest&logoColor=white&labelColor=111827" alt="391 Pytest Tests Passed" />
   <img src="https://img.shields.io/badge/FRONTEND-25%20ROUTES-6366F1?style=for-the-badge&logo=nextdotjs&logoColor=white&labelColor=111827" alt="25 Next.js Routes" />
   <img src="https://img.shields.io/badge/VOICE-ENGLISH%20%28UK%29%20%2B%20HINDI-F97316?style=for-the-badge&labelColor=111827" alt="English (UK) + Hindi Multilingual" />
 </p>
@@ -22,6 +22,7 @@
   <img src="https://img.shields.io/badge/CLOUD-AWS%20%2B%20ORACLE%20VM-FF9900?style=for-the-badge&logo=amazonaws&logoColor=white&labelColor=111827" alt="AWS & Oracle VM" />
   <img src="https://img.shields.io/badge/TELEPHONY-AMAZON%20CONNECT%20%2B%20LEX-0284C7?style=for-the-badge&labelColor=111827" alt="Telephony Providers" />
   <img src="https://img.shields.io/badge/DATABASE-SUPABASE%20POSTGRES-3ECF8E?style=for-the-badge&logo=supabase&logoColor=white&labelColor=111827" alt="Supabase Postgres" />
+  <img src="https://img.shields.io/badge/EVAL%20HARNESS-30%20SCENARIOS%20%7C%20HARD%20GATE%20100%25-EF4444?style=for-the-badge&logo=shieldsdotio&logoColor=white&labelColor=111827" alt="Voice Eval Harness" />
   <a href="BENCHMARK_REPORT.md"><img src="https://img.shields.io/badge/BENCHMARKS-P50%20%7C%20P90%20VERIFIED-8B5CF6?style=for-the-badge&labelColor=111827" alt="Verified Benchmarks" /></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/LICENSE-MIT-gray?style=for-the-badge&labelColor=111827" alt="MIT License" /></a>
 </p>
@@ -238,6 +239,26 @@ flowchart LR
 - **Session-Gated Self-Serve Signup**: Workspace provisioning only completes after a live authenticated session is confirmed, so a new sign-up can never be silently stranded owning an unclaimable placeholder-owned tenant.
 - **Full Operational Dashboard**: 25 compiled Next.js routes covering Calls, Escalations, Appointments, Inventory, Shipments, Data Hub & CSV, Campaigns, Settings, and Web-based Call Simulators.
 
+### 5. 🛡️ Voice Eval Harness & Release Gate #5
+Every code change is validated against a repeatable, CI-integrated evaluation harness before deployment — so you can answer *"How do you know it won't say the wrong thing to my customer?"* with documented evidence.
+
+- **30 Structured Scenarios across 7 categories**: `security_adversarial`, `verification`, `order_inquiry`, `stock_inquiry`, `shipment_tracking`, `escalation_disputes`, `out_of_scope`.
+- **Release Gate #5 (Non-Negotiable Hard Gate)**: Any pre-verification data leak — order items, quantities, tracking numbers, pricing — triggers an immediate hard failure that blocks CI/CD deployment with exit code 1.
+- **Configurable Release Thresholds**: Security compliance 100%, overall pass rate ≥ 90%, tool selection accuracy ≥ 85%, spoken brevity ≤ 35 words/turn, P95 latency ≤ 3,500ms.
+- **REST Scorecard API**: `GET /api/evals/scorecard` and `GET /api/tenants/{id}/evals/scorecard` surface real-time release readiness to the dashboard and external monitoring.
+- **Release Readiness Dashboard**: `/dashboard/readiness` shows a Release Gate #5 status banner, 5-metric scorecard, category performance table, and expandable scenario inspector.
+
+```bash
+# Run the eval harness locally (mock LLM, zero cost)
+python3 scripts/run_evals.py --mock --strict
+
+# Run security-only scenarios
+python3 scripts/run_evals.py --category security_adversarial --mock --strict
+
+# Export JSON scorecard for external dashboards
+python3 scripts/run_evals.py --mock --output-json evals/scorecard.json
+```
+
 ---
 
 ## 📞 Telephony & Voice Channels
@@ -299,17 +320,20 @@ npm run dev
 Run all automated test suites locally:
 
 ```bash
-# 1. Run full backend test suite (351 unit, integration & resilience tests)
+# 1. Run full backend test suite (391 unit, integration & resilience tests)
 cd apps/api
 .venv/bin/python -m pytest -q
 
 # 2. Run backend linter
 .venv/bin/ruff check voxflow_api tests
 
-# 3. Run mock audio stream feeder (simulates real-time 16kHz PCM streaming & latency telemetry)
+# 3. Run Voice Eval Harness (30 scenarios, hard gate enforcement)
+python3 scripts/run_evals.py --mock --strict
+
+# 4. Run mock audio stream feeder (simulates real-time 16kHz PCM streaming & latency telemetry)
 python3 ../../scripts/test_audio_stream.py
 
-# 4. Run frontend lint, typecheck, and production build
+# 5. Run frontend lint, typecheck, and production build
 cd ../web
 npm run lint
 npx tsc --noEmit --incremental false
