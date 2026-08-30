@@ -246,9 +246,9 @@ erDiagram
 - `migrations/005_campaign_policy_controls.sql`
 - `migrations/006_provider_callback_lifecycle.sql`
 - `migrations/007_dial_sandbox_callback_adapter.sql`
-- `migrations/008_typed_durable_side_effect_jobs.sql`
-- `migrations/009_controlled_pilot_readiness.sql`
-- `migrations/010_pilot_operations_evidence.sql`
+- `migrations/019_rbac_tenant_memberships.sql`
+- `migrations/020_per_tenant_google_sheets.sql`
+- `migrations/021_tenant_data_retention.sql`
 - `apps/api/voxflow_api/pilot_readiness.py`
 - `apps/api/voxflow_api/pilot_operations.py`
 - `apps/api/voxflow_api/jobs/side_effects.py`

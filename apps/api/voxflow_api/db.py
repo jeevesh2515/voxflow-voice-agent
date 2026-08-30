@@ -202,6 +202,10 @@ class Tenant(Base):
     google_sheet_connected_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     google_sheet_connected_by_user_id: Mapped[str | None] = mapped_column(String(128), nullable=True)
     google_sheet_status: Mapped[str] = mapped_column(String(32), default="disconnected", server_default=text("'disconnected'"))
+    call_retention_days: Mapped[int] = mapped_column(Integer, default=90, server_default=text("90"))
+    transcript_retention_days: Mapped[int] = mapped_column(Integer, default=30, server_default=text("30"))
+    pii_masking_enabled: Mapped[int] = mapped_column(Integer, default=1, server_default=text("1"))
+    data_residency_region: Mapped[str] = mapped_column(String(32), default="eu-west-2", server_default=text("'eu-west-2'"))
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_utcnow)
 
 
@@ -1008,6 +1012,24 @@ class ProviderCallbackAdapterAudit(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_utcnow)
 
 
+class RetentionPurgeLog(Base):
+    __tablename__ = "retention_purge_logs"
+    __table_args__ = (
+        Index("ix_retention_purge_logs_tenant_created", "tenant_id", "created_at"),
+        Index("ix_retention_purge_logs_execution_type", "execution_type"),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    tenant_id: Mapped[str] = mapped_column(String(64), ForeignKey("tenants.id"), index=True)
+    purged_by_user_id: Mapped[str | None] = mapped_column(String(128), nullable=True)
+    execution_type: Mapped[str] = mapped_column(String(32))  # automated_cron | manual_trigger
+    records_scanned: Mapped[int] = mapped_column(Integer, default=0)
+    calls_anonymized: Mapped[int] = mapped_column(Integer, default=0)
+    transcripts_purged: Mapped[int] = mapped_column(Integer, default=0)
+    dry_run: Mapped[int] = mapped_column(Integer, default=0)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_utcnow)
+
+
 # ---------- Helpers ----------
 
 
@@ -1236,6 +1258,29 @@ def _ensure_product_composite_key_sqlite() -> None:
 
 
 
+def _ensure_tenant_data_retention_columns_sqlite() -> None:
+    """Add Day 52 retention/GDPR columns to SQLite tenants table if missing."""
+    if _engine.dialect.name != "sqlite":
+        return
+    with _engine.begin() as conn:
+        columns = conn.execute(text("PRAGMA table_info(tenants)")).mappings().all()
+        if not columns:
+            return
+        existing = {c["name"] for c in columns}
+        new_cols = [
+            ("call_retention_days", "INTEGER DEFAULT 90"),
+            ("transcript_retention_days", "INTEGER DEFAULT 30"),
+            ("pii_masking_enabled", "INTEGER DEFAULT 1"),
+            ("data_residency_region", "VARCHAR(32) DEFAULT 'eu-west-2'"),
+        ]
+        for col_name, col_type in new_cols:
+            if col_name not in existing:
+                try:
+                    conn.execute(text(f"ALTER TABLE tenants ADD COLUMN {col_name} {col_type}"))
+                except Exception as e:
+                    log.warning("db.sqlite_add_column_failed", column=col_name, error=str(e))
+
+
 def _ensure_tenant_google_sheets_columns_sqlite() -> None:
     """Add per-tenant google sheets columns to SQLite tenants table if missing."""
     if _engine.dialect.name != "sqlite":
@@ -1325,6 +1370,7 @@ def init_db() -> bool:
         _ensure_supplier_auth_pin_nullable_sqlite()
         _ensure_product_composite_key_sqlite()
         _ensure_tenant_google_sheets_columns_sqlite()
+        _ensure_tenant_data_retention_columns_sqlite()
         log.info(
             "db.schema_bootstrap_applied mode=%s dialect=%s",
             settings.db_schema_bootstrap_mode,

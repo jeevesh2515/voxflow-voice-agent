@@ -142,6 +142,7 @@ def create_app() -> FastAPI:
     app.include_router(membership_routes.router)
     app.include_router(pilot_readiness_routes.router)
     app.include_router(privacy_routes.router)
+    app.include_router(privacy_routes.tenant_privacy_router)
     app.include_router(public_auth_routes.router)
     app.include_router(pilot_operations_routes.router)
     app.include_router(reliability_routes.router)

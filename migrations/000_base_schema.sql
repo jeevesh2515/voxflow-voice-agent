@@ -52,6 +52,10 @@ CREATE TABLE IF NOT EXISTS tenants (
 	google_sheet_connected_at TIMESTAMP WITH TIME ZONE,
 	google_sheet_connected_by_user_id VARCHAR(128),
 	google_sheet_status VARCHAR(32) DEFAULT 'disconnected' NOT NULL,
+	call_retention_days INTEGER DEFAULT 90 NOT NULL,
+	transcript_retention_days INTEGER DEFAULT 30 NOT NULL,
+	pii_masking_enabled INTEGER DEFAULT 1 NOT NULL,
+	data_residency_region VARCHAR(32) DEFAULT 'eu-west-2' NOT NULL,
 	created_at TIMESTAMP WITH TIME ZONE NOT NULL,
 	PRIMARY KEY (id)
 );
@@ -443,6 +447,26 @@ CREATE INDEX IF NOT EXISTS ix_reliability_slo_tenant_active ON reliability_slos 
 CREATE INDEX IF NOT EXISTS ix_reliability_slos_metric_type ON reliability_slos (metric_type);
 
 CREATE INDEX IF NOT EXISTS ix_reliability_slos_tenant_id ON reliability_slos (tenant_id);
+
+CREATE TABLE IF NOT EXISTS retention_purge_logs (
+	id SERIAL NOT NULL,
+	tenant_id VARCHAR(64) NOT NULL,
+	purged_by_user_id VARCHAR(128),
+	execution_type VARCHAR(32) NOT NULL,
+	records_scanned INTEGER NOT NULL,
+	calls_anonymized INTEGER NOT NULL,
+	transcripts_purged INTEGER NOT NULL,
+	dry_run INTEGER NOT NULL,
+	created_at TIMESTAMP WITH TIME ZONE NOT NULL,
+	PRIMARY KEY (id),
+	FOREIGN KEY(tenant_id) REFERENCES tenants (id)
+);
+
+CREATE INDEX IF NOT EXISTS ix_retention_purge_logs_execution_type ON retention_purge_logs (execution_type);
+
+CREATE INDEX IF NOT EXISTS ix_retention_purge_logs_tenant_created ON retention_purge_logs (tenant_id, created_at);
+
+CREATE INDEX IF NOT EXISTS ix_retention_purge_logs_tenant_id ON retention_purge_logs (tenant_id);
 
 CREATE TABLE IF NOT EXISTS stock (
 	id SERIAL NOT NULL,

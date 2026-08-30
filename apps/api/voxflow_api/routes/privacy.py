@@ -28,6 +28,9 @@ from ..privacy import (
 
 router = APIRouter(prefix="/api/privacy", tags=["privacy"])
 
+# Day 52 GDPR enterprise router — mounted under /api/tenants/{tenant_id}/privacy
+tenant_privacy_router = APIRouter(prefix="/api/tenants/{tenant_id}/privacy", tags=["privacy"])
+
 
 class PrivacyPolicyIn(BaseModel):
     call_transcript_retention_days: int = Field(30, ge=0, le=3650)
@@ -240,4 +243,209 @@ def create_demo_reset_request(
         "ok": True,
         "request": request_payload(request_row),
         "execution": "blocked_request_only_no_reset_performed",
+    }
+
+
+# ---------- Day 52 GDPR enterprise endpoints ----------
+
+
+class RetentionPatchIn(BaseModel):
+    call_retention_days: int | None = Field(None, ge=30, le=365)
+    transcript_retention_days: int | None = Field(None, ge=7, le=90)
+    pii_masking_enabled: int | None = Field(None, ge=0, le=1)
+    data_residency_region: str | None = Field(None, max_length=32)
+
+
+class ExportIn(BaseModel):
+    search_phone_or_email: str = Field(..., min_length=3, max_length=320)
+
+
+class EraseIn(BaseModel):
+    search_phone_or_email: str = Field(..., min_length=3, max_length=320)
+    confirmation_token: str = Field(..., min_length=1)
+
+
+@tenant_privacy_router.get("/retention")
+def get_retention(
+    tenant_id: str,
+    request: Request,
+    db: Session = Depends(get_session),
+) -> dict[str, object]:
+    _read_access(request, db, tenant_id)
+    tenant = db.get(Tenant, tenant_id)
+    assert tenant is not None
+    # also include purge history preview
+    from ..db import RetentionPurgeLog
+
+    last_logs = (
+        db.query(RetentionPurgeLog)
+        .filter(RetentionPurgeLog.tenant_id == tenant_id)
+        .order_by(RetentionPurgeLog.created_at.desc())
+        .limit(5)
+        .all()
+    )
+    return {
+        "tenant_id": tenant_id,
+        "retention": {
+            "call_retention_days": getattr(tenant, "call_retention_days", 90),
+            "transcript_retention_days": getattr(tenant, "transcript_retention_days", 30),
+            "pii_masking_enabled": bool(getattr(tenant, "pii_masking_enabled", 1)),
+            "data_residency_region": getattr(tenant, "data_residency_region", "eu-west-2"),
+        },
+        "last_purge": (
+            {
+                "id": last_logs[0].id,
+                "execution_type": last_logs[0].execution_type,
+                "records_scanned": last_logs[0].records_scanned,
+                "calls_anonymized": last_logs[0].calls_anonymized,
+                "transcripts_purged": last_logs[0].transcripts_purged,
+                "dry_run": bool(last_logs[0].dry_run),
+                "created_at": last_logs[0].created_at.isoformat() if last_logs[0].created_at else None,
+            }
+            if last_logs
+            else None
+        ),
+        "recent_purges": [
+            {
+                "id": log.id,
+                "execution_type": log.execution_type,
+                "records_scanned": log.records_scanned,
+                "calls_anonymized": log.calls_anonymized,
+                "transcripts_purged": log.transcripts_purged,
+                "dry_run": bool(log.dry_run),
+                "created_at": log.created_at.isoformat() if log.created_at else None,
+                "purged_by_user_id": log.purged_by_user_id,
+            }
+            for log in last_logs
+        ],
+    }
+
+
+@tenant_privacy_router.patch("/retention")
+def patch_retention(
+    tenant_id: str,
+    payload: RetentionPatchIn,
+    request: Request,
+    db: Session = Depends(get_session),
+) -> dict[str, object]:
+    actor_id = _owner_access(request, db, tenant_id)
+    _ = actor_id
+    tenant = db.get(Tenant, tenant_id)
+    assert tenant is not None
+    if payload.call_retention_days is not None:
+        tenant.call_retention_days = payload.call_retention_days
+    if payload.transcript_retention_days is not None:
+        tenant.transcript_retention_days = payload.transcript_retention_days
+    if payload.pii_masking_enabled is not None:
+        tenant.pii_masking_enabled = payload.pii_masking_enabled
+    if payload.data_residency_region is not None:
+        tenant.data_residency_region = payload.data_residency_region
+    db.commit()
+    db.refresh(tenant)
+    return {
+        "ok": True,
+        "retention": {
+            "call_retention_days": tenant.call_retention_days,
+            "transcript_retention_days": tenant.transcript_retention_days,
+            "pii_masking_enabled": bool(tenant.pii_masking_enabled),
+            "data_residency_region": tenant.data_residency_region,
+        },
+    }
+
+
+@tenant_privacy_router.post("/export")
+def post_export(
+    tenant_id: str,
+    payload: ExportIn,
+    request: Request,
+    db: Session = Depends(get_session),
+) -> dict[str, object]:
+    _require_tenant(db, tenant_id)
+    require_tenant_role(request, db, tenant_id=tenant_id, allowed_roles={ROLE_OWNER, ROLE_OPERATOR})
+    from ..services.privacy_service import export_data_subject
+
+    bundle = export_data_subject(db, tenant_id, payload.search_phone_or_email)
+    return {"ok": True, "export": bundle}
+
+
+@tenant_privacy_router.post("/erase")
+def post_erase(
+    tenant_id: str,
+    payload: EraseIn,
+    request: Request,
+    db: Session = Depends(get_session),
+) -> dict[str, object]:
+    actor_id = _owner_access(request, db, tenant_id)
+    if payload.confirmation_token.strip() != "DELETE DATA":
+        raise HTTPException(status_code=400, detail="confirmation_token must be 'DELETE DATA'")
+    from ..services.privacy_service import erase_data_subject
+
+    result = erase_data_subject(db, tenant_id, payload.search_phone_or_email, actor_id)
+    db.commit()
+    return {"ok": True, "result": result}
+
+
+@tenant_privacy_router.post("/purge")
+def post_purge(
+    tenant_id: str,
+    request: Request,
+    dry_run: bool = False,
+    db: Session = Depends(get_session),
+) -> dict[str, object]:
+    actor_id = _owner_access(request, db, tenant_id)
+    from ..services.retention_service import run_retention_purge
+
+    result = run_retention_purge(db, tenant_id=tenant_id, dry_run=dry_run, triggered_by_user_id=actor_id)
+    if not dry_run:
+        db.commit()
+    else:
+        from ..db import RetentionPurgeLog
+
+        log = RetentionPurgeLog(
+            tenant_id=tenant_id,
+            purged_by_user_id=actor_id,
+            execution_type="manual_trigger",
+            records_scanned=result["records_scanned"],
+            calls_anonymized=result["calls_anonymized"],
+            transcripts_purged=result["transcripts_purged"],
+            dry_run=1,
+        )
+        db.add(log)
+        db.commit()
+        result["dry_run_persisted"] = True
+    return {"ok": True, "purge": result}
+
+
+@tenant_privacy_router.get("/purge-logs")
+def get_purge_logs(
+    tenant_id: str,
+    request: Request,
+    db: Session = Depends(get_session),
+) -> dict[str, object]:
+    _read_access(request, db, tenant_id)
+    from ..db import RetentionPurgeLog
+
+    logs = (
+        db.query(RetentionPurgeLog)
+        .filter(RetentionPurgeLog.tenant_id == tenant_id)
+        .order_by(RetentionPurgeLog.created_at.desc())
+        .limit(50)
+        .all()
+    )
+    return {
+        "tenant_id": tenant_id,
+        "logs": [
+            {
+                "id": log.id,
+                "tenant_id": log.tenant_id,
+                "purged_by_user_id": log.purged_by_user_id,
+                "execution_type": log.execution_type,
+                "records_scanned": log.records_scanned,
+                "calls_anonymized": log.calls_anonymized,
+                "transcripts_purged": log.transcripts_purged,
+                "dry_run": bool(log.dry_run),
+                "created_at": log.created_at.isoformat() if log.created_at else None,
+            }
+            for log in logs
+        ],
     }

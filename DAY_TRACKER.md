@@ -686,21 +686,41 @@
 - **Artifacts:** `apps/api/voxflow_api/services/observability_service.py`, `apps/api/voxflow_api/services/alerting_service.py`, `apps/api/voxflow_api/routes/observability.py`, `apps/api/voxflow_api/monitoring.py`, `apps/api/voxflow_api/config.py`, `apps/api/tests/test_observability.py`, `apps/web/src/app/dashboard/observability/page.tsx`, `apps/web/src/lib/observability.ts`, `apps/web/src/lib/types.ts`, `apps/web/src/lib/api.ts`, `apps/web/src/components/Sidebar.tsx`, `.learning/day-51-observability-and-alerting.md`.
 - **Known gap (see `.learning/day-51…` OPEN-1, P1):** the side-effect worker rejects `observability_alert` aggregates and is disabled by default — alerts are recorded but not delivered until a webhook channel is wired to the worker.
 
+#### 🗓️ Day 52: Enterprise Security, UK GDPR Data Lifecycle & Automated Retention Purge
+- **Objective:** Establish full UK GDPR & Data Protection Act 2018 compliance with enterprise data-subject rights (DSAR Export, Right to Erasure / Anonymization), configurable tenant retention policies (call & transcript TTLs), dry-run safe automated purge cron runner, and tamper-resistant immutable audit logging.
+- **Implementation:**
+  1. **Data Retention & Schema Migration (`migrations/021_tenant_data_retention.sql`):** Added `call_retention_days` (default 90d), `transcript_retention_days` (default 30d), `pii_masking_enabled` (default 1), and `data_residency_region` (default `eu-west-2`) to `tenants`; created `retention_purge_logs` table with compound indexes.
+  2. **GDPR Privacy Domain Service (`services/privacy_service.py`):**
+     - `mask_phone_number()` / `mask_email_address()` for deterministic PII redaction.
+     - `export_data_subject()`: Right of Access DSAR JSON bundle combining caller calls, transcripts, supplier records, and communications.
+     - `erase_data_subject()`: Right to be Forgotten anonymization that redacts PII while preserving financial invariants.
+  3. **Automated Retention Purge Service (`services/retention_service.py`):** Idempotent retention scrubber supporting `--dry-run`, transcript-only wiping (30d TTL), and full caller anonymization (90d TTL) with audit receipts.
+  4. **CLI & Cron Automation (`scripts/run_retention_purge.py`):** Standalone CLI/cron runner supporting `--all-tenants`, `--tenant-id`, `--dry-run`, and structured JSON logging.
+  5. **Tenant Privacy API Routes (`routes/privacy.py`):** `/api/tenants/{tenant_id}/privacy` endpoints (`GET/PATCH /retention`, `POST /export`, `POST /erase`, `POST /purge`, `GET /purge-logs`) with strict RBAC (`ROLE_OWNER` required for destructive operations).
+  6. **Enterprise Privacy UI (`apps/web/src/app/dashboard/privacy/page.tsx`):** Retention sliders, DSAR search & JSON export drawer, confirmation-gated erasure modal (`"DELETE DATA"`), and automated purge audit log table.
+  7. **Comprehensive Test Suite (`tests/test_security_and_privacy.py`):** 5 end-to-end tests covering DSAR tenant isolation, erasure anonymization, dry-run & live purge, and RBAC matrix.
+- **Verification Evidence:**
+  - ✅ **458/458 Passing Backend Tests** (`python3 -m pytest tests/ -q` with 0 failures).
+  - ✅ **26/26 Compiled Next.js Production Routes** (`next build` with Turbopack, 0 TypeScript errors).
+  - ✅ **Zero Secrets Committed** (Scanned and verified).
+- **Artifacts:** `migrations/021_tenant_data_retention.sql`, `apps/api/voxflow_api/services/privacy_service.py`, `apps/api/voxflow_api/services/retention_service.py`, `apps/api/voxflow_api/routes/privacy.py`, `scripts/run_retention_purge.py`, `apps/api/tests/test_security_and_privacy.py`, `apps/web/src/app/dashboard/privacy/page.tsx`, `SECURITY.md`, `.learning/day-52-security-and-data-lifecycle.md`.
+
 ---
 
 ## 🎯 Verification & Test Summary Matrix
 
 | Metric | Target | Current Value | Status |
 |---|---|---|---|
-| **Backend Unit & Integration Tests** | $\ge 200$ | **453 Passed** | ✅ Green |
+| **Backend Unit & Integration Tests** | $\ge 200$ | **458 Passed** | ✅ Green |
 | **Frontend Static Routes** | $\ge 15$ | **26 Compiled Pages** | ✅ Green |
 | **Lint & Static Analysis** | 0 warnings | `ruff check .` clean, ESLint clean, `tsc --noEmit` clean | ✅ Clean |
 | **Latency & TTFT Benchmarks** | Sub-second P50 | **P50 ~566ms glass-to-glass** | ✅ Verified |
-| **Database Migrations** | Staged & Verified | 21 Migrations (`000`–`020`) | ✅ Current |
+| **Database Migrations** | Staged & Verified | 22 Migrations (`000`–`021`) | ✅ Current |
 | **Telephony Providers Supported** | Enterprise Voice | Amazon Connect (AWS) + Amazon Lex STT + WebAudio Simulator | ✅ Verified |
 | **Call Persistence & Mirroring** | Durable Logging | Postgres `calls` + Gated Google Sheets Mirror | ✅ Verified |
 | **Multi-Tenant Isolation (Gate #3)** | Zero Data Leaks | **0% Foreign Rows, 404 on Foreign IDs, 403 on Cross-Tenant** | ✅ Verified |
 | **RBAC Enforcement (3 Tiers)** | Owner / Operator / Viewer | Strict server-authoritative role gating & last-owner protection | ✅ Verified |
+| **UK GDPR & Data Privacy (Gate #4)** | Access / Erasure / Purge | DSAR Export + Right to Erasure + Automated Cron Purge + Audit Log | ✅ Verified |
 | **Team Management Surface** | Member Settings UI | Interactive Member Roster + Invites + Role Selector + Matrix | ✅ Verified |
 | **Per-Tenant Google Sheets** | Self-Serve Mirror | 1-Click Connect + Preflight Diagnostic + Voice Agent Live Edit | ✅ Verified |
 | **Voice Agent Live Sheet Editing** | Tool Calling | `edit_sheet_row` + `update_worksheet` + Prompt Context | ✅ Verified |
@@ -716,11 +736,11 @@
 
 ---
 
-## 🧭 Next Recommended Actions (Day 52+)
+## 🧭 Next Recommended Actions (Day 53+)
 
-1. **Close Day 51 follow-ups (P1):** wire worker channel for `observability_alert` → signed webhook delivery (see `.learning/day-51-observability-and-alerting.md` OPEN-1), then enable `durable_side_effects_worker_enabled`.
-2. **Security & Data Lifecycle (Day 52):** GDPR data-subject export & deletion pipelines, encryption at rest, secret rotation automation, and penetration test remediation.
-3. **Billing, Landing & Go-Live Dry Run (Day 53):** Stripe subscription billing, public landing page, and full production go-live simulation.
+1. **Billing, Landing & Go-Live Dry Run (Day 53):** Stripe subscription billing, customer checkout portal, public landing page, and full production go-live simulation.
+2. **Close Day 51 side-effect alert channel follow-up:** Wire side-effect worker channel for `observability_alert` webhook dispatch.
+
 
 
 

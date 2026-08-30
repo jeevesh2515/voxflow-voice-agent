@@ -681,6 +681,64 @@ export interface DemoResetPreview {
   data_deleted: false;
 }
 
+export interface PrivacyRetentionConfig {
+  call_retention_days: number;
+  transcript_retention_days: number;
+  pii_masking_enabled: boolean;
+  data_residency_region: string;
+}
+
+export interface DSARExportResponse {
+  ok: boolean;
+  export: {
+    tenant_id: string;
+    subject: string;
+    records: {
+      suppliers: any[];
+      calls: any[];
+      escalations: any[];
+      communication_logs: any[];
+      transcripts: any[];
+      audio_references: any[];
+    };
+    counts: Record<string, number>;
+  };
+}
+
+export interface ErasureResult {
+  ok: boolean;
+  result: {
+    tenant_id: string;
+    subject: string;
+    anonymized_calls: number;
+    anonymized_communications: number;
+    anonymized_suppliers: number;
+  };
+}
+
+export interface PurgeResult {
+  ok: boolean;
+  purge: {
+    tenant_id: string | null;
+    dry_run: boolean;
+    records_scanned: number;
+    calls_anonymized: number;
+    transcripts_purged: number;
+  };
+}
+
+export interface PurgeLogEntry {
+  id: number;
+  tenant_id: string;
+  purged_by_user_id: string | null;
+  execution_type: string;
+  records_scanned: number;
+  calls_anonymized: number;
+  transcripts_purged: number;
+  dry_run: boolean;
+  created_at: string | null;
+}
+
 export interface DesignPartnerReadiness {
   tenant_id: string;
   status: "blocked" | "attention" | "ready_for_human_review";

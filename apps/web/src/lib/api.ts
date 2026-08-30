@@ -28,6 +28,11 @@ import type {
   EvalReport,
   EvalScenarioSummary,
   TenantGoogleSheetsConfig,
+  PrivacyRetentionConfig,
+  DSARExportResponse,
+  ErasureResult,
+  PurgeResult,
+  PurgeLogEntry,
   ConnectGoogleSheetPayload,
   GoogleSheetsTestResult,
   ObservabilityKPIs,
@@ -214,6 +219,28 @@ export const api = {
     http<{ ok: boolean; request: PrivacyRequest; execution: string }>(`/api/privacy/${tenant_id}/demo-reset-requests`, {
       method: "POST",
     }),
+  // Day 52 GDPR enterprise privacy
+  privacyRetention: (tenant_id: string) => http<{ tenant_id: string; retention: PrivacyRetentionConfig; last_purge: any; recent_purges: any[] }>(`/api/tenants/${tenant_id}/privacy/retention`),
+  updatePrivacyRetention: (tenant_id: string, payload: Partial<PrivacyRetentionConfig>) =>
+    http<{ ok: boolean; retention: PrivacyRetentionConfig }>(`/api/tenants/${tenant_id}/privacy/retention`, {
+      method: "PATCH",
+      body: JSON.stringify(payload),
+    }),
+  dsarExport: (tenant_id: string, search_phone_or_email: string) =>
+    http<DSARExportResponse>(`/api/tenants/${tenant_id}/privacy/export`, {
+      method: "POST",
+      body: JSON.stringify({ search_phone_or_email }),
+    }),
+  eraseDataSubject: (tenant_id: string, payload: { search_phone_or_email: string; confirmation_token: string }) =>
+    http<ErasureResult>(`/api/tenants/${tenant_id}/privacy/erase`, {
+      method: "POST",
+      body: JSON.stringify(payload),
+    }),
+  triggerPurge: (tenant_id: string, dry_run: boolean = false) =>
+    http<PurgeResult>(`/api/tenants/${tenant_id}/privacy/purge?dry_run=${dry_run}`, {
+      method: "POST",
+    }),
+  purgeLogs: (tenant_id: string) => http<{ tenant_id: string; logs: PurgeLogEntry[] }>(`/api/tenants/${tenant_id}/privacy/purge-logs`),
   provisionWorkspace: (payload: {
     tenant_id: string;
     name: string;
