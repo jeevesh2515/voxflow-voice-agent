@@ -27,6 +27,9 @@ import type {
   EscalationsListResponse,
   EvalReport,
   EvalScenarioSummary,
+  TenantGoogleSheetsConfig,
+  ConnectGoogleSheetPayload,
+  GoogleSheetsTestResult,
 } from "./types";
 
 const LOCAL_API_URL = "http://localhost:8000";
@@ -574,6 +577,31 @@ export const api = {
         method: "POST",
         body: JSON.stringify(params),
       }),
+  },
+
+  // Google Sheets Workspace Integrations
+  googleSheets: {
+    getConfig: (tenant_id: string) =>
+      http<TenantGoogleSheetsConfig>(`/api/tenants/${encodeURIComponent(tenant_id)}/integrations/google-sheets`),
+    connect: (tenant_id: string, payload: ConnectGoogleSheetPayload) =>
+      http<{ ok: boolean; message: string; google_sheet_id: string; google_sheet_name: string; spreadsheet_url?: string }>(
+        `/api/tenants/${encodeURIComponent(tenant_id)}/integrations/google-sheets/connect`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload),
+        }
+      ),
+    test: (tenant_id: string) =>
+      http<GoogleSheetsTestResult>(
+        `/api/tenants/${encodeURIComponent(tenant_id)}/integrations/google-sheets/test`,
+        { method: "POST" }
+      ),
+    disconnect: (tenant_id: string) =>
+      http<{ ok: boolean; message: string }>(
+        `/api/tenants/${encodeURIComponent(tenant_id)}/integrations/google-sheets`,
+        { method: "DELETE" }
+      ),
   },
 };
 

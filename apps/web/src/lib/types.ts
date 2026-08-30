@@ -774,3 +774,40 @@ export interface EvalScenarioSummary {
   verified: boolean;
 }
 
+export interface TenantGoogleSheetsConfig {
+  ok: boolean;
+  tenant_id: string;
+  is_connected: boolean;
+  google_sheet_id: string;
+  google_sheet_name: string | null;
+  google_sheet_tab: string;
+  google_sheet_email_tab: string;
+  google_sheet_status: "connected" | "disconnected" | "error";
+  google_sheet_connected_at: string | null;
+  service_account_email: string;
+  spreadsheet_url: string | null;
+  global_fallback_configured: boolean;
+  service_account_configured: boolean;
+}
+
+export interface ConnectGoogleSheetPayload {
+  sheet_url_or_id: string;
+  sheet_name?: string;
+  call_tab?: string;
+  email_tab?: string;
+  auto_create_headers?: boolean;
+}
+
+export interface GoogleSheetsTestResult {
+  ok: boolean;
+  message?: string;
+  error?: string;
+  detail?: string;
+  latency_ms?: number;
+  sheet_id?: string;
+  title?: string;
+  tabs?: string[];
+  configured_call_tab?: string;
+  configured_email_tab?: string;
+}
+

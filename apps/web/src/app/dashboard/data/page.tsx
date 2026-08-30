@@ -22,6 +22,7 @@ import { useTenant } from "@/lib/tenant-context";
 import SectionCard from "@/components/dashboard/SectionCard";
 import StatCard from "@/components/dashboard/StatCard";
 import CsvImportModal, { EntityType } from "@/components/dashboard/CsvImportModal";
+import GoogleSheetsSettings from "@/components/settings/GoogleSheetsSettings";
 
 export default function DataCenterPage() {
   const { activeTenantId, activeTenant } = useTenant();
@@ -179,7 +180,10 @@ export default function DataCenterPage() {
         />
       </div>
 
-      {/* Entity Ingestion Cards Grid */}
+      {/* Google Sheets Integration Card */}
+      <GoogleSheetsSettings embedded={true} />
+
+      {/* CSV Bulk Ingestion Hub */}
       <div className="space-y-4">
         <div className="flex items-center justify-between">
           <div>

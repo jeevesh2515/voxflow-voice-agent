@@ -194,6 +194,14 @@ class Tenant(Base):
     fallback_email: Mapped[str | None] = mapped_column(String(255), nullable=True)
     max_verification_failures: Mapped[int] = mapped_column(Integer, default=3, server_default=text("3"))
     escalation_sla_minutes: Mapped[int] = mapped_column(Integer, default=60, server_default=text("60"))
+    # Self-serve per-tenant Google Sheets mirror configuration
+    google_sheet_id: Mapped[str | None] = mapped_column(String(128), nullable=True)
+    google_sheet_name: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    google_sheet_tab: Mapped[str] = mapped_column(String(64), default="Call Log", server_default=text("'Call Log'"))
+    google_sheet_email_tab: Mapped[str] = mapped_column(String(64), default="Email Log", server_default=text("'Email Log'"))
+    google_sheet_connected_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    google_sheet_connected_by_user_id: Mapped[str | None] = mapped_column(String(128), nullable=True)
+    google_sheet_status: Mapped[str] = mapped_column(String(32), default="disconnected", server_default=text("'disconnected'"))
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_utcnow)
 
 
@@ -1228,6 +1236,33 @@ def _ensure_product_composite_key_sqlite() -> None:
 
 
 
+def _ensure_tenant_google_sheets_columns_sqlite() -> None:
+    """Add per-tenant google sheets columns to SQLite tenants table if missing."""
+    if _engine.dialect.name != "sqlite":
+        return
+
+    with _engine.begin() as conn:
+        columns = conn.execute(text("PRAGMA table_info(tenants)")).mappings().all()
+        if not columns:
+            return
+        existing = {c["name"] for c in columns}
+        new_cols = [
+            ("google_sheet_id", "VARCHAR(128)"),
+            ("google_sheet_name", "VARCHAR(255)"),
+            ("google_sheet_tab", "VARCHAR(64) DEFAULT 'Call Log'"),
+            ("google_sheet_email_tab", "VARCHAR(64) DEFAULT 'Email Log'"),
+            ("google_sheet_connected_at", "DATETIME"),
+            ("google_sheet_connected_by_user_id", "VARCHAR(128)"),
+            ("google_sheet_status", "VARCHAR(32) DEFAULT 'disconnected'"),
+        ]
+        for col_name, col_type in new_cols:
+            if col_name not in existing:
+                try:
+                    conn.execute(text(f"ALTER TABLE tenants ADD COLUMN {col_name} {col_type}"))
+                except Exception as e:
+                    log.warning("db.sqlite_add_column_failed", column=col_name, error=str(e))
+
+
 def should_bootstrap_schema(*, mode: str, dialect_name: str) -> bool:
     """Return whether a process may apply compatibility DDL at startup.
 
@@ -1289,6 +1324,7 @@ def init_db() -> bool:
         _ensure_day28_outbox_columns()
         _ensure_supplier_auth_pin_nullable_sqlite()
         _ensure_product_composite_key_sqlite()
+        _ensure_tenant_google_sheets_columns_sqlite()
         log.info(
             "db.schema_bootstrap_applied mode=%s dialect=%s",
             settings.db_schema_bootstrap_mode,

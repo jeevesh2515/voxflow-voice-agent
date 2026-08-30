@@ -127,12 +127,21 @@ class GoogleSheetsClient:
         return None
 
     @classmethod
+    def service_account_email(cls) -> str:
+        """Return the configured service account email for display in the dashboard."""
+        info = cls._credentials_info()
+        if info and isinstance(info, dict):
+            return str(info.get("client_email", "") or "")
+        return ""
+
+    @classmethod
     def is_configured(cls) -> bool:
         s = get_settings()
         if not s.sheets_enabled:
             return False
         if not s.google_sheet_id:
-            return False
+            # Service account may still be configured for per-tenant sheets
+            return cls._credentials_info() is not None
         return cls._credentials_info() is not None
 
     # ---------- auth ----------
@@ -177,12 +186,77 @@ class GoogleSheetsClient:
             tab = "'" + tab.replace("'", "''") + "'"
         return f"{tab}!{ref}"
 
-    async def _ensure_tab(self, client: httpx.AsyncClient, token: str, tab: str) -> bool:
+    async def get_spreadsheet_metadata(self, sheet_id: str) -> dict[str, Any]:
+        """Fetch title and sheet tab names for a spreadsheet."""
+        token = await self._get_token()
+        if not token:
+            return {"ok": False, "error": "service_account_auth_failed", "detail": "Google Service Account credentials not configured on server"}
+        try:
+            async with httpx.AsyncClient(timeout=8.0) as client:
+                r = await client.get(
+                    f"{SHEETS_API}/{sheet_id}",
+                    headers={"Authorization": f"Bearer {token}"},
+                    params={"fields": "properties.title,sheets.properties.title"},
+                )
+                if r.status_code == 200:
+                    data = r.json()
+                    title = data.get("properties", {}).get("title", "Untitled Spreadsheet")
+                    tabs = [sh["properties"]["title"] for sh in data.get("sheets", []) if "properties" in sh and "title" in sh["properties"]]
+                    return {"ok": True, "title": title, "tabs": tabs}
+                if r.status_code == 404:
+                    return {"ok": False, "error": "spreadsheet_not_found", "detail": "Spreadsheet ID not found or URL invalid."}
+                if r.status_code == 403:
+                    email = self.service_account_email()
+                    return {
+                        "ok": False,
+                        "error": "permission_denied",
+                        "detail": f"Permission denied. Please open Google Sheets > Share > and add '{email or 'the service account'}' with Editor access.",
+                    }
+                return {"ok": False, "error": f"http_{r.status_code}", "detail": r.text[:200]}
+        except Exception as e:
+            return {"ok": False, "error": "network_exception", "detail": str(e)}
+
+    async def verify_and_bootstrap_spreadsheet(
+        self,
+        sheet_id: str,
+        call_tab: str = "Call Log",
+        email_tab: str = "Email Log",
+    ) -> dict[str, Any]:
+        """Verify access to spreadsheet and bootstrap headers if missing."""
+        meta = await self.get_spreadsheet_metadata(sheet_id)
+        if not meta.get("ok"):
+            return meta
+
+        token = await self._get_token()
+        if not token:
+            return {"ok": False, "error": "auth_failed"}
+
+        try:
+            async with httpx.AsyncClient(timeout=10.0) as client:
+                if call_tab:
+                    await self._ensure_header(client, token, call_tab, CALL_LOG_HEADERS, target_sheet_id=sheet_id)
+                if email_tab:
+                    await self._ensure_header(client, token, email_tab, EMAIL_LOG_HEADERS, target_sheet_id=sheet_id)
+
+            return {
+                "ok": True,
+                "title": meta.get("title"),
+                "tabs": meta.get("tabs"),
+                "call_tab": call_tab,
+                "email_tab": email_tab,
+            }
+        except Exception as e:
+            return {"ok": False, "error": "bootstrap_failed", "detail": str(e)}
+
+    async def _ensure_tab(self, client: httpx.AsyncClient, token: str, tab: str, target_sheet_id: str | None = None) -> bool:
         """Create the tab if the spreadsheet does not have it yet."""
         s = get_settings()
+        sid = target_sheet_id or s.google_sheet_id
+        if not sid:
+            return False
         auth = {"Authorization": f"Bearer {token}"}
         r = await client.get(
-            f"{SHEETS_API}/{s.google_sheet_id}",
+            f"{SHEETS_API}/{sid}",
             headers=auth,
             params={"fields": "sheets.properties.title"},
         )
@@ -194,7 +268,7 @@ class GoogleSheetsClient:
             return True
 
         r = await client.post(
-            f"{SHEETS_API}/{s.google_sheet_id}:batchUpdate",
+            f"{SHEETS_API}/{sid}:batchUpdate",
             headers=auth,
             json={"requests": [{"addSheet": {"properties": {"title": tab}}}]},
         )
@@ -204,19 +278,30 @@ class GoogleSheetsClient:
         log.info("gsheets.tab_created", tab=tab, existing=titles)
         return True
 
-    async def _ensure_header(self, client: httpx.AsyncClient, token: str, tab: str, headers: list[str]) -> None:
+    async def _ensure_header(
+        self,
+        client: httpx.AsyncClient,
+        token: str,
+        tab: str,
+        headers: list[str],
+        target_sheet_id: str | None = None,
+    ) -> None:
         """Create the tab and write the header row, once per process."""
         s = get_settings()
-        if tab in self._header_checked:
+        sid = target_sheet_id or s.google_sheet_id
+        if not sid:
             return
-        self._header_checked.add(tab)
+        cache_key = f"{sid}:{tab}"
+        if cache_key in self._header_checked:
+            return
+        self._header_checked.add(cache_key)
 
-        await self._ensure_tab(client, token, tab)
+        await self._ensure_tab(client, token, tab, target_sheet_id=sid)
 
         rng = self._a1(tab, "A1:Z1")
         try:
             r = await client.get(
-                f"{SHEETS_API}/{s.google_sheet_id}/values/{rng}",
+                f"{SHEETS_API}/{sid}/values/{rng}",
                 headers={"Authorization": f"Bearer {token}"},
             )
             if r.status_code != 200:
@@ -226,7 +311,7 @@ class GoogleSheetsClient:
                 return  # already has a header
 
             await client.put(
-                f"{SHEETS_API}/{s.google_sheet_id}/values/{rng}",
+                f"{SHEETS_API}/{sid}/values/{rng}",
                 headers={"Authorization": f"Bearer {token}"},
                 params={"valueInputOption": "USER_ENTERED"},
                 json={"values": [headers]},
@@ -240,10 +325,12 @@ class GoogleSheetsClient:
         values: list[Any],
         tab: str | None = None,
         headers: list[str] | None = None,
+        target_sheet_id: str | None = None,
     ) -> dict[str, Any]:
         """Append one row to the configured spreadsheet. Never raises."""
         s = get_settings()
-        if not self.is_configured():
+        sid = target_sheet_id or s.google_sheet_id
+        if not sid:
             return {"ok": False, "reason": "sheets_not_configured"}
 
         tab = tab or s.google_sheet_tab
@@ -255,13 +342,15 @@ class GoogleSheetsClient:
         try:
             async with httpx.AsyncClient(timeout=6.0) as client:
                 if headers:
-                    await self._ensure_header(client, token, tab, headers)
-                elif tab not in self._header_checked:
-                    self._header_checked.add(tab)
-                    await self._ensure_tab(client, token, tab)
+                    await self._ensure_header(client, token, tab, headers, target_sheet_id=sid)
+                else:
+                    cache_key = f"{sid}:{tab}"
+                    if cache_key not in self._header_checked:
+                        self._header_checked.add(cache_key)
+                        await self._ensure_tab(client, token, tab, target_sheet_id=sid)
 
                 r = await client.post(
-                    f"{SHEETS_API}/{s.google_sheet_id}/values/{self._a1(tab, 'A1')}:append",
+                    f"{SHEETS_API}/{sid}/values/{self._a1(tab, 'A1')}:append",
                     headers={"Authorization": f"Bearer {token}"},
                     params={
                         "valueInputOption": "USER_ENTERED",
@@ -296,8 +385,31 @@ class GoogleSheetsClient:
         except Exception as e:
             log.error("gsheets.queue_to_disk_failed", error=str(e))
 
-    async def append_call_outcome(self, row: dict[str, Any], queue_on_failure: bool = True) -> dict[str, Any]:
+    async def append_call_outcome(
+        self,
+        row: dict[str, Any],
+        queue_on_failure: bool = True,
+        tenant_id: str | None = None,
+        sheet_id: str | None = None,
+        tab: str | None = None,
+    ) -> dict[str, Any]:
         """Append a call-outcome row using canonical column order with retry queue."""
+        resolved_sheet_id = sheet_id
+        resolved_tab = tab
+        tenant = tenant_id or row.get("tenant") or row.get("tenant_id")
+        if not resolved_sheet_id and tenant:
+            try:
+                from ..db import Tenant, session_scope
+                with session_scope() as db:
+                    t = db.get(Tenant, str(tenant))
+                    if t and t.google_sheet_id:
+                        resolved_sheet_id = t.google_sheet_id
+                        resolved_tab = resolved_tab or t.google_sheet_tab
+            except Exception:
+                pass
+
+        resolved_tab = resolved_tab or get_settings().google_sheet_tab
+
         values = [
             row.get("timestamp", ""),
             row.get("call_id", ""),
@@ -314,17 +426,26 @@ class GoogleSheetsClient:
             "Yes" if row.get("escalated") else "No",
             row.get("duration_sec", 0),
             row.get("related_order", ""),
-            row.get("tenant", ""),
+            row.get("tenant", "") or (str(tenant) if tenant else ""),
             row.get("question", ""),
             row.get("answer", ""),
             row.get("turn_latency_ms", ""),
         ]
-        res = await self.append_row(
-            values,
-            tab=get_settings().google_sheet_tab,
-            headers=CALL_LOG_HEADERS,
-        )
-        if not res.get("ok") and queue_on_failure and self.is_configured():
+        kwargs: dict[str, Any] = {
+            "tab": resolved_tab,
+            "headers": CALL_LOG_HEADERS,
+        }
+        if resolved_sheet_id:
+            try:
+                import inspect
+                sig = inspect.signature(self.append_row)
+                if "target_sheet_id" in sig.parameters or any(p.kind == inspect.Parameter.VAR_KEYWORD for p in sig.parameters.values()):
+                    kwargs["target_sheet_id"] = resolved_sheet_id
+            except Exception:
+                kwargs["target_sheet_id"] = resolved_sheet_id
+
+        res = await self.append_row(values, **kwargs)
+        if not res.get("ok") and queue_on_failure and (resolved_sheet_id or self.is_configured()):
             self.queue_row(row, call_id=row.get("call_id"))
         return res
 

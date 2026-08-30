@@ -45,6 +45,13 @@ CREATE TABLE IF NOT EXISTS tenants (
 	fallback_email VARCHAR(255),
 	max_verification_failures INTEGER DEFAULT 3 NOT NULL,
 	escalation_sla_minutes INTEGER DEFAULT 60 NOT NULL,
+	google_sheet_id VARCHAR(128),
+	google_sheet_name VARCHAR(255),
+	google_sheet_tab VARCHAR(64) DEFAULT 'Call Log' NOT NULL,
+	google_sheet_email_tab VARCHAR(64) DEFAULT 'Email Log' NOT NULL,
+	google_sheet_connected_at TIMESTAMP WITH TIME ZONE,
+	google_sheet_connected_by_user_id VARCHAR(128),
+	google_sheet_status VARCHAR(32) DEFAULT 'disconnected' NOT NULL,
 	created_at TIMESTAMP WITH TIME ZONE NOT NULL,
 	PRIMARY KEY (id)
 );

@@ -2,6 +2,7 @@
 
 import { Globe2, Palette, Settings2 } from "lucide-react";
 import AgentSettings from "@/components/settings/AgentSettings";
+import GoogleSheetsSettings from "@/components/settings/GoogleSheetsSettings";
 import TeamMembersSettings from "@/components/settings/TeamMembersSettings";
 import TelephonySettings from "@/components/settings/TelephonySettings";
 import { useTenant } from "@/lib/tenant-context";
@@ -36,6 +37,8 @@ export default function SettingsPage() {
       <TeamMembersSettings />
 
       <AgentSettings />
+
+      <GoogleSheetsSettings />
 
       <TelephonySettings />
 
