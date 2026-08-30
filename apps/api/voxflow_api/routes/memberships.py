@@ -206,6 +206,22 @@ def invite_tenant_member(
     else:
         if member.status == "active" and member.user_id and payload.user_id not in (None, member.user_id):
             raise HTTPException(status_code=409, detail="active_membership_identity_conflict")
+        # Re-inviting an ACTIVE member must never silently demote them — the
+        # invite endpoint would otherwise bypass the last-active-owner guard
+        # that update_member_role enforces (owner re-invited as 'viewer' =>
+        # tenant left without an owner).
+        if member.status == "active" and member.role == ROLE_OWNER and payload.role != ROLE_OWNER:
+            owner_count = (
+                db.query(TenantMember)
+                .filter(
+                    TenantMember.tenant_id == tenant_id,
+                    TenantMember.role == ROLE_OWNER,
+                    TenantMember.status == "active",
+                )
+                .count()
+            )
+            if owner_count <= 1:
+                raise HTTPException(status_code=409, detail="last_active_owner_cannot_be_demoted")
         member.role = payload.role
         member.status = "invited" if member.status != "active" else "active"
         member.user_id = member.user_id or (payload.user_id.strip() if payload.user_id else None)

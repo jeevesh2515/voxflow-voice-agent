@@ -492,3 +492,53 @@ def test_last_active_owner_cannot_be_revoked_or_demoted(rbac_client: TestClient)
     )
     assert res_demote.status_code == 409
     assert "last_active_owner_cannot_be_demoted" in res_demote.json()["detail"]
+
+    # 3. Last active owner cannot be demoted via re-invite payload (409 Conflict)
+    res_reinv_demote = client.post(
+        f"/api/tenants/{TEST_TENANT}/members/invite",
+        json={"email": "owner@rbac.com", "role": "viewer"},
+        headers=headers,
+    )
+    assert res_reinv_demote.status_code == 409
+    assert "last_active_owner_cannot_be_demoted" in res_reinv_demote.json()["detail"]
+
+
+def test_escalation_assignment_and_resolution_invariants(rbac_client: TestClient):
+    """Assert escalation assignment requires active member in same tenant, and double-close returns 409."""
+    client = rbac_client
+    headers = _auth(USER_OWNER)
+
+    # 1. Assigning to non-member returns 422
+    res_assign_fake = client.patch(
+        f"/api/tenants/{TEST_TENANT}/escalations/call-rbac-1/assign",
+        json={"assigned_to_user_id": "usr-ghost-nonmember"},
+        headers=headers,
+    )
+    assert res_assign_fake.status_code == 422
+    assert "assignee_not_active_member" in res_assign_fake.json()["detail"]
+
+    # 2. Assigning to active member succeeds
+    res_assign_ok = client.patch(
+        f"/api/tenants/{TEST_TENANT}/escalations/call-rbac-1/assign",
+        json={"assigned_to_user_id": USER_OPERATOR},
+        headers=headers,
+    )
+    assert res_assign_ok.status_code == 200
+
+    # 3. Resolving closed escalation returns 200 on first resolve
+    res_resolve_1 = client.patch(
+        f"/api/tenants/{TEST_TENANT}/escalations/call-rbac-1/resolve",
+        json={"status": "resolved", "resolution_category": "callback_completed", "staff_resolution": "First resolution"},
+        headers=headers,
+    )
+    assert res_resolve_1.status_code == 200
+
+    # 4. Attempting to resolve already resolved escalation returns 409 Conflict (protects audit trail)
+    res_resolve_2 = client.patch(
+        f"/api/tenants/{TEST_TENANT}/escalations/call-rbac-1/resolve",
+        json={"status": "resolved", "resolution_category": "callback_completed", "staff_resolution": "Second resolution"},
+        headers=headers,
+    )
+    assert res_resolve_2.status_code == 409
+    assert "escalation_already_closed" in res_resolve_2.json()["detail"]
+

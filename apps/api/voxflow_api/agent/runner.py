@@ -58,11 +58,19 @@ def _redacted_trace_outputs(outputs: dict[str, Any]) -> dict[str, Any]:
 
 
 def _redact_session_evidence(session: CallSession) -> None:
-    """Scrub transient caller/tool data before any caller can persist the session."""
+    """Scrub transient caller/tool data before any caller can persist the session.
+
+    ``route_policy`` holds the session's authorization bindings (the supplier IDs
+    that ``verify_caller``/``verify_pin`` succeeded against). A blanket
+    ``redact_pin_data`` pass rewrites any 4-8 digit run — including numeric
+    supplier IDs — into ``[REDACTED PIN]``, silently unbinding verification
+    mid-call: the caller re-verifies every turn and the PIN factor keeps
+    disappearing. Binding values are internal identifiers, never caller speech,
+    so only free-text attributes are redacted here.
+    """
     for turn in getattr(session, "transcript", []):
         turn.text = redact_pin_text(turn.text)
     session.actions = redact_pin_data(getattr(session, "actions", []))
-    session.route_policy = redact_pin_data(getattr(session, "route_policy", {}))
     for attr in ("caller_name", "company_name", "intent", "reason", "solution", "related_order"):
         value = getattr(session, attr, None)
         if isinstance(value, str):

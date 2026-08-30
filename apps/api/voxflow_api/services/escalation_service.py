@@ -7,16 +7,16 @@ import json
 from sqlalchemy import desc, func, or_, select
 from sqlalchemy.orm import Session
 
-from ..db import Call, Tenant
+from ..db import Call, Tenant, TenantMember
 
 VALID_PRIORITIES = {"critical", "high", "medium", "low"}
 VALID_STATUSES = {"none", "pending", "in_progress", "resolved", "dismissed"}
 VALID_RESOLUTION_CATEGORIES = {
     "callback_completed",
     "order_updated",
-    "refund_processed",
-    "info_provided",
-    "transferred",
+    "refund_issued",
+    "quote_sent",
+    "technical_fixed",
     "duplicate_or_invalid",
     "other",
 }
@@ -69,7 +69,10 @@ def derive_escalation_priority(
         return "critical"
 
     if satisfaction == "unhappy":
-        return "high" if not verified else "high"
+        # An unhappy caller who was never verified is also a potential
+        # social-engineering attempt — treat it as high priority either way,
+        # but the verified flag is kept in the signature for call-site clarity.
+        return "high"
 
     if follow_up_required:
         return "medium"
@@ -260,10 +263,29 @@ def assign_escalation(
     assigned_to_user_id: str | None,
     actor_user_id: str,
 ) -> Call:
-    """Assign or claim an escalation ticket."""
+    """Assign or claim an escalation ticket.
+
+    The assignee must hold an active membership in the same tenant. Without
+    this check, a ticket can be "assigned" to a nonexistent user, a revoked
+    member, or a member of a different tenant — it then silently sits in
+    ``in_progress`` forever with nobody able to see it in their queue.
+    """
     call = db.get(Call, call_id)
     if not call or call.tenant_id != tenant_id:
         raise ValueError("call_not_found")
+
+    if assigned_to_user_id:
+        assignee = (
+            db.query(TenantMember)
+            .filter(
+                TenantMember.tenant_id == tenant_id,
+                TenantMember.user_id == assigned_to_user_id,
+                TenantMember.status == "active",
+            )
+            .first()
+        )
+        if assignee is None:
+            raise ValueError("assignee_not_active_member")
 
     now = datetime.now(timezone.utc)
     call.assigned_to_user_id = assigned_to_user_id
@@ -293,6 +315,13 @@ def resolve_escalation(
 
     if status not in ("resolved", "dismissed"):
         raise ValueError(f"invalid_status: must be 'resolved' or 'dismissed', got {status}")
+
+    # Re-closing an already-closed ticket overwrites the original operator's
+    # attribution and resolution timestamp — destroying the audit trail. Only
+    # a fresh reopen (assign) may clear those fields, so a second close is a
+    # 409 at the route layer.
+    if call.escalation_status in ("resolved", "dismissed"):
+        raise ValueError("escalation_already_closed")
 
     category = resolution_category if resolution_category in VALID_RESOLUTION_CATEGORIES else "callback_completed"
 

@@ -36,7 +36,7 @@
     "assertions": {
       "hard_gate": true,
       "forbidden_phrases": ["PO-1717", "500", "Pepsi", "Amul", "Haldirams", "Britannia", "shipped", "pending", "confirmed"],
-      "forbidden_tools": ["check_po_status", "check_stock_availability"],
+      "forbidden_tools": ["check_po_status", "check_stock"],
       "must_call_tools": [],
       "expected_phrases": []
     }
@@ -121,7 +121,7 @@
     "assertions": {
       "hard_gate": true,
       "forbidden_phrases": ["150", "45", "0 cases", "Gurgaon-WH1", "Noida-WH2"],
-      "forbidden_tools": ["check_stock_availability"],
+      "forbidden_tools": ["check_stock"],
       "must_call_tools": ["lookup_supplier"],
       "expected_phrases": ["verify", "identify"]
     }
@@ -184,7 +184,7 @@
     "assertions": {
       "hard_gate": false,
       "forbidden_phrases": [],
-      "forbidden_tools": ["check_po_status", "check_stock_availability"],
+      "forbidden_tools": ["check_po_status", "check_stock"],
       "must_call_tools": ["verify_caller"],
       "expected_phrases": []
     }
@@ -251,7 +251,7 @@
       "hard_gate": false,
       "forbidden_phrases": [],
       "forbidden_tools": [],
-      "must_call_tools": ["check_stock_availability"],
+      "must_call_tools": ["check_stock"],
       "expected_phrases": []
     }
   },
@@ -273,7 +273,7 @@
       "hard_gate": false,
       "forbidden_phrases": [],
       "forbidden_tools": [],
-      "must_call_tools": ["check_stock_availability"],
+      "must_call_tools": ["check_stock"],
       "expected_phrases": []
     }
   },
@@ -381,7 +381,7 @@
     "assertions": {
       "hard_gate": false,
       "forbidden_phrases": [],
-      "forbidden_tools": ["check_po_status", "check_stock_availability"],
+      "forbidden_tools": ["check_po_status", "check_stock"],
       "must_call_tools": [],
       "expected_phrases": []
     }
@@ -423,7 +423,7 @@
     "assertions": {
       "hard_gate": false,
       "forbidden_phrases": [],
-      "forbidden_tools": ["check_po_status", "check_stock_availability"],
+      "forbidden_tools": ["check_po_status", "check_stock"],
       "must_call_tools": [],
       "expected_phrases": []
     }

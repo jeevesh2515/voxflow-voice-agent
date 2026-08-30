@@ -37,7 +37,7 @@ from ..jobs.side_effects import (
 )
 from ..integrations.gsheets import get_sheets_client
 from ..logging import get_logger
-from ..services.pin_security import hash_pin, verify_legacy_pin, verify_pin_hash
+from ..services.pin_security import hash_pin, redact_pin_text, verify_legacy_pin, verify_pin_hash
 
 
 log = get_logger(__name__)
@@ -911,10 +911,22 @@ async def log_call_outcome(
 
 
 async def schedule_appointment(session: CallSession, datetime_str: str, purpose: str = "") -> dict[str, Any]:
-    """Schedule a supplier appointment."""
+    """Schedule a supplier appointment for the authorized caller only."""
+    # Same fail-closed posture as protected reads: an identified contact books
+    # only for themselves, and only after proving who they are. Without this,
+    # any caller could spam confirmed dock appointments against any supplier.
+    supplier_id = _knowledge_authorized_supplier_id(session)
+    if supplier_id is None:
+        return {
+            "ok": False,
+            "error": "not_verified",
+            "message": "Verify the caller before scheduling an appointment.",
+        }
     app_id = f"app-{uuid.uuid4().hex[:6]}"
+    if not datetime_str or not isinstance(datetime_str, str):
+        return {"ok": False, "error": "invalid_datetime", "appointment_id": None}
     try:
-        dt = datetime.fromisoformat(datetime_str)
+        dt = datetime.fromisoformat(datetime_str.strip().replace("Z", "+00:00"))
     except Exception:
         return {"ok": False, "error": "invalid_datetime", "appointment_id": None}
 
@@ -923,7 +935,7 @@ async def schedule_appointment(session: CallSession, datetime_str: str, purpose:
         app = Appointment(
             id=app_id,
             tenant_id=session.tenant_id,
-            supplier_id=session.supplier_id,
+            supplier_id=supplier_id,
             datetime=dt,
             purpose=purpose,
             status="confirmed",
@@ -1048,6 +1060,16 @@ async def update_worksheet(session: CallSession, worksheet_name: str, action: st
     the canonical column order. This tool is the escape hatch for anything else
     the ops team wants captured on a sheet.
     """
+    # Guardrails: only append is ever executed, and worksheet names must be
+    # sane. The model can hallucinate an "update"/"delete" action or a bogus
+    # tab name; the local audit row would happily record it.
+    if action != "append":
+        return {"ok": False, "error": "unsupported_action", "message": "Only 'append' is supported."}
+    if not isinstance(worksheet_name, str) or not worksheet_name.strip() or len(worksheet_name) > 100:
+        return {"ok": False, "error": "invalid_worksheet"}
+    if not isinstance(row_data, dict) or not row_data:
+        return {"ok": False, "error": "invalid_row_data"}
+
     job_id: str | None = None
     async with async_session_scope() as db:
         worksheet_log = WorksheetLog(
@@ -1183,8 +1205,15 @@ async def execute_tool(name: str, args: dict[str, Any], session: CallSession) ->
             return await escalate_to_human(session, **(args or {}))
         return {"ok": False, "error": f"unknown_tool:{name}"}
     except Exception as e:
-        log.error("tool.error", name=name, error=str(e))
-        return {"ok": False, "error": str(e), "tool": name}
+        # Never leak internal error text (stack fragments, SQL, provider keys)
+        # into the model's context — it can be echoed back to the caller.
+        log.error("tool.error", name=name, error=redact_pin_text(str(e)))
+        return {
+            "ok": False,
+            "error": "internal_tool_error",
+            "tool": name,
+            "message": "The request could not be completed. Please try again in a moment.",
+        }
 
 
 # ---------- OpenAI-style tool schema ----------

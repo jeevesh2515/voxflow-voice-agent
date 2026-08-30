@@ -42,11 +42,17 @@ def _json_default(value: Any) -> str:
 
 
 def _redact_session_evidence(session: CallSession) -> None:
-    """Redact caller-controlled text before snapshots, persistence, or mirrors."""
+    """Redact caller-controlled text before snapshots, persistence, or mirrors.
+
+    ``route_policy`` is deliberately NOT redacted: it stores the authorization
+    bindings (supplier IDs) that ``verify_caller``/``verify_pin`` established.
+    A blanket ``redact_pin_data`` pass rewrites numeric supplier IDs into
+    ``[REDACTED PIN]`` and silently unbinds verification mid-call. The values
+    are internal identifiers, never caller free-text speech.
+    """
     for turn in session.transcript:
         turn.text = redact_pin_text(turn.text)
     session.actions = redact_pin_data(session.actions)
-    session.route_policy = redact_pin_data(session.route_policy)
     for attr in ("caller_name", "company_name", "intent", "reason", "solution", "related_order"):
         value = getattr(session, attr, None)
         if isinstance(value, str):

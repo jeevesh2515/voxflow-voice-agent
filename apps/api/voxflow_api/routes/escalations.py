@@ -170,6 +170,11 @@ def assign_tenant_escalation(
         except ValueError as exc:
             if "call_not_found" in str(exc):
                 raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="call_not_found")
+            if "assignee_not_active_member" in str(exc):
+                raise HTTPException(
+                    status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                    detail="assignee_not_active_member",
+                )
             raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc))
 
 
@@ -218,4 +223,6 @@ def resolve_tenant_escalation(
         except ValueError as exc:
             if "call_not_found" in str(exc):
                 raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="call_not_found")
+            if "escalation_already_closed" in str(exc):
+                raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="escalation_already_closed")
             raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc))

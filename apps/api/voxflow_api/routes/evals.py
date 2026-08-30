@@ -14,6 +14,7 @@ from ..auth import (
     ROLE_OPERATOR,
     ROLE_OWNER,
     ROLE_VIEWER,
+    require_authenticated_user,
     require_tenant_role,
 )
 from ..db import Tenant, get_session
@@ -26,8 +27,11 @@ from ..services.eval_service import (
 router = APIRouter(prefix="/api/evals", tags=["evals"])
 tenant_eval_router = APIRouter(prefix="/api/tenants/{tenant_id}/evals", tags=["tenant-evals"])
 
-# Cache the latest run report in memory for instant dashboard display
-_LATEST_EVAL_REPORT: dict[str, Any] | None = None
+# Cache the latest run report in memory for instant dashboard display. Keyed by
+# tenant scope ("__all__" for the unfiltered run) so one tenant's operator run
+# never serves scenario replies (call transcripts, order data) to another.
+_EVAL_REPORT_CACHE: dict[str, dict[str, Any]] = {}
+_ALL_SCOPE = "__all__"
 
 
 class RunEvalRequest(BaseModel):
@@ -68,16 +72,24 @@ def list_eval_scenarios(
 
 
 @router.get("/scorecard")
-async def get_latest_scorecard() -> dict[str, Any]:
+async def get_latest_scorecard(
+    request: Request,
+    db: Session = Depends(get_session),
+) -> dict[str, Any]:
     """Get the latest voice eval scorecard or run a default baseline if none exists."""
-    global _LATEST_EVAL_REPORT
-    if _LATEST_EVAL_REPORT is not None:
-        return _LATEST_EVAL_REPORT
+    # Eval reports embed real scenario replies (order data, verification
+    # details). They are tenant data — an authenticated member only.
+    require_authenticated_user(request, allow_demo=True)
+
+    cached = _EVAL_REPORT_CACHE.get(_ALL_SCOPE)
+    if cached is not None:
+        return cached
 
     # Run default eval suite to prime the scorecard
     report = await run_voice_eval()
-    _LATEST_EVAL_REPORT = report.to_dict()
-    return _LATEST_EVAL_REPORT
+    report_dict = report.to_dict()
+    _EVAL_REPORT_CACHE[_ALL_SCOPE] = report_dict
+    return report_dict
 
 
 @router.post("/run")
@@ -87,8 +99,6 @@ async def execute_voice_eval(
     db: Session = Depends(get_session),
 ) -> dict[str, Any]:
     """Execute the voice eval harness on-demand and update the scorecard."""
-    global _LATEST_EVAL_REPORT
-
     if req.tenant_id:
         if db.get(Tenant, req.tenant_id) is None:
             raise HTTPException(status_code=404, detail="Tenant not found")
@@ -99,6 +109,10 @@ async def execute_voice_eval(
             allowed_roles={ROLE_OWNER, ROLE_OPERATOR},
             allow_demo=True,
         )
+    else:
+        # An unscoped run covers every tenant's data; it must not be triggerable
+        # anonymously (expensive LLM runs + cached results leak across tenants).
+        require_authenticated_user(request, allow_demo=True)
 
     thresholds = ReleaseThresholds()
     if req.min_overall_pass_rate is not None:
@@ -128,7 +142,7 @@ async def execute_voice_eval(
         thresholds=thresholds,
     )
     report_dict = report.to_dict()
-    _LATEST_EVAL_REPORT = report_dict
+    _EVAL_REPORT_CACHE[req.tenant_id or _ALL_SCOPE] = report_dict
     return report_dict
 
 
@@ -150,8 +164,14 @@ async def get_tenant_eval_scorecard(
         allow_demo=True,
     )
 
+    cached = _EVAL_REPORT_CACHE.get(tenant_id)
+    if cached is not None:
+        return cached
+
     report = await run_voice_eval(tenant_filter=tenant_id)
-    return report.to_dict()
+    report_dict = report.to_dict()
+    _EVAL_REPORT_CACHE[tenant_id] = report_dict
+    return report_dict
 
 
 @tenant_eval_router.post("/run")
@@ -175,4 +195,12 @@ async def run_tenant_eval(
 
     req.tenant_id = tenant_id
     return await execute_voice_eval(req=req, request=request, db=db)
+
+
+def clear_eval_report_cache(tenant_id: str | None = None) -> None:
+    """Invalidate cached scorecards (tests, tenant data changes)."""
+    if tenant_id:
+        _EVAL_REPORT_CACHE.pop(tenant_id, None)
+    else:
+        _EVAL_REPORT_CACHE.clear()
 
