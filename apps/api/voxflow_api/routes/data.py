@@ -454,8 +454,12 @@ def list_suppliers(
 
 
 @router.get("/suppliers/{supplier_id}", response_model=SupplierOut)
-def get_supplier(request: Request, supplier_id: str) -> Supplier:
-    tenant = _tenant_id(request)
+def get_supplier(
+    request: Request,
+    supplier_id: str,
+    tenant_id: str | None = Query(default=None),
+) -> Supplier:
+    tenant = _tenant_id(request, tenant_id)
     with session_scope() as db:
         s = db.execute(
             select(Supplier).where(
@@ -604,8 +608,12 @@ def create_order(request: Request, payload: OrderCreate, tenant_id: str | None =
 
 
 @router.get("/orders/{order_id}", response_model=OrderOut)
-def get_order(request: Request, order_id: str) -> dict[str, Any]:
-    tenant = _tenant_id(request)
+def get_order(
+    request: Request,
+    order_id: str,
+    tenant_id: str | None = Query(default=None),
+) -> dict[str, Any]:
+    tenant = _tenant_id(request, tenant_id)
     with session_scope() as db:
         o = db.execute(
             select(Order).where(
@@ -715,8 +723,12 @@ def list_calls(
 
 
 @router.get("/calls/{call_id}", response_model=CallOut)
-def get_call(request: Request, call_id: str) -> dict[str, Any]:
-    tenant = _tenant_id(request)
+def get_call(
+    request: Request,
+    call_id: str,
+    tenant_id: str | None = Query(default=None),
+) -> dict[str, Any]:
+    tenant = _tenant_id(request, tenant_id)
     with session_scope() as db:
         c = db.get(Call, call_id)
         if not c or c.tenant_id != tenant:
@@ -743,10 +755,14 @@ def patch_call_resolution(
 
 
 @router.get("/calls/{call_id}/recording")
-def get_call_recording_link(request: Request, call_id: str) -> dict[str, Any]:
+def get_call_recording_link(
+    request: Request,
+    call_id: str,
+    tenant_id: str | None = Query(default=None),
+) -> dict[str, Any]:
     """Report recording availability without exposing a provider URL."""
 
-    tenant = _tenant_id(request)
+    tenant = _tenant_id(request, tenant_id)
     with session_scope() as db:
         call = db.get(Call, call_id)
         if not call or call.tenant_id != tenant:
@@ -760,10 +776,14 @@ def get_call_recording_link(request: Request, call_id: str) -> dict[str, Any]:
 
 
 @router.get("/calls/{call_id}/recording/download")
-async def download_call_recording(request: Request, call_id: str):
+async def download_call_recording(
+    request: Request,
+    call_id: str,
+    tenant_id: str | None = Query(default=None),
+):
     """Reject browser-triggered provider recording retrieval in the MVP posture."""
 
-    _tenant_id(request)
+    _tenant_id(request, tenant_id)
     raise HTTPException(status_code=409, detail="recording_retrieval_disabled_by_safety_posture")
 
 
@@ -1066,7 +1086,7 @@ async def validate_csv(
     content = ""
     content_type = request.headers.get("content-type", "")
 
-    if "multipart/form-data" in content_type:
+    if "multipart/form-data" in content_type or "application/x-www-form-urlencoded" in content_type:
         form = await request.form()
         uploaded = form.get("file")
         if uploaded is not None and hasattr(uploaded, "read"):
@@ -1090,7 +1110,8 @@ async def validate_csv(
     if not content.strip():
         raise HTTPException(status_code=400, detail="csv_content_required")
 
-    res = validate_csv_data(entity=entity_key, csv_text=content, tenant_id=tenant_id or "")
+    resolved_tenant = _tenant_id(request, tenant_id) if tenant_id else ""
+    res = validate_csv_data(entity=entity_key, csv_text=content, tenant_id=resolved_tenant)
     return CsvValidationOut(
         entity=res.entity,
         total_rows=res.total_rows,
@@ -1123,7 +1144,7 @@ async def import_csv(
     mode = "upsert"
     content_type = request.headers.get("content-type", "")
 
-    if "multipart/form-data" in content_type:
+    if "multipart/form-data" in content_type or "application/x-www-form-urlencoded" in content_type:
         form = await request.form()
         uploaded = form.get("file")
         if uploaded is not None and hasattr(uploaded, "read"):

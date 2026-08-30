@@ -255,3 +255,42 @@ def revoke_tenant_member(
     member.revoked_at = datetime.now(timezone.utc)
     db.commit()
     return {"ok": True, "membership": _membership_payload(member)}
+
+
+class MemberRoleUpdateIn(BaseModel):
+    role: Literal["owner", "operator", "viewer"]
+
+
+@router.patch("/{tenant_id}/members/{user_id}/role")
+def update_member_role(
+    tenant_id: str,
+    user_id: str,
+    payload: MemberRoleUpdateIn,
+    request: Request,
+    db: Session = Depends(get_session),
+) -> dict[str, object]:
+    """Update a member's role safely while protecting the last active owner."""
+
+    _require_tenant(db, tenant_id)
+    actor = require_tenant_role(request, db, tenant_id=tenant_id, allowed_roles={ROLE_OWNER})
+    member = active_membership(db, tenant_id=tenant_id, user_id=user_id)
+    if member is None:
+        raise HTTPException(status_code=404, detail="active_membership_not_found")
+
+    if member.role == ROLE_OWNER and payload.role != ROLE_OWNER:
+        owner_count = (
+            db.query(TenantMember)
+            .filter(
+                TenantMember.tenant_id == tenant_id,
+                TenantMember.role == ROLE_OWNER,
+                TenantMember.status == "active",
+            )
+            .count()
+        )
+        if owner_count <= 1:
+            raise HTTPException(status_code=409, detail="last_active_owner_cannot_be_demoted")
+
+    member.role = payload.role
+    db.commit()
+    return {"ok": True, "membership": _membership_payload(member)}
+

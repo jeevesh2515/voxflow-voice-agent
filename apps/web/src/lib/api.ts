@@ -176,6 +176,11 @@ export const api = {
     http<{ ok: boolean; membership: TenantMembership }>(`/api/tenants/${tenant_id}/members/${user_id}`, {
       method: "DELETE",
     }),
+  updateTenantMemberRole: (tenant_id: string, user_id: string, role: TenantRole) =>
+    http<{ ok: boolean; membership: TenantMembership }>(`/api/tenants/${tenant_id}/members/${user_id}/role`, {
+      method: "PATCH",
+      body: JSON.stringify({ role }),
+    }),
   privacyOverview: (tenant_id: string) => http<PrivacyOverview>(`/api/privacy/${tenant_id}/overview`),
   privacyPolicy: (tenant_id: string) => http<PrivacyPolicy>(`/api/privacy/${tenant_id}/policy`),
   updatePrivacyPolicy: (tenant_id: string, payload: Pick<PrivacyPolicy, "call_transcript_retention_days" | "communication_retention_days" | "recording_retention_days">) =>

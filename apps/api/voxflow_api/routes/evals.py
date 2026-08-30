@@ -83,9 +83,22 @@ async def get_latest_scorecard() -> dict[str, Any]:
 @router.post("/run")
 async def execute_voice_eval(
     req: RunEvalRequest,
+    request: Request,
+    db: Session = Depends(get_session),
 ) -> dict[str, Any]:
     """Execute the voice eval harness on-demand and update the scorecard."""
     global _LATEST_EVAL_REPORT
+
+    if req.tenant_id:
+        if db.get(Tenant, req.tenant_id) is None:
+            raise HTTPException(status_code=404, detail="Tenant not found")
+        require_tenant_role(
+            request,
+            db,
+            tenant_id=req.tenant_id,
+            allowed_roles={ROLE_OWNER, ROLE_OPERATOR},
+            allow_demo=True,
+        )
 
     thresholds = ReleaseThresholds()
     if req.min_overall_pass_rate is not None:
@@ -139,3 +152,27 @@ async def get_tenant_eval_scorecard(
 
     report = await run_voice_eval(tenant_filter=tenant_id)
     return report.to_dict()
+
+
+@tenant_eval_router.post("/run")
+async def run_tenant_eval(
+    tenant_id: str,
+    req: RunEvalRequest,
+    request: Request,
+    db: Session = Depends(get_session),
+) -> dict[str, Any]:
+    """Execute evaluation harness for a specific tenant as an owner or operator."""
+    if db.get(Tenant, tenant_id) is None:
+        raise HTTPException(status_code=404, detail="Tenant not found")
+
+    require_tenant_role(
+        request,
+        db,
+        tenant_id=tenant_id,
+        allowed_roles={ROLE_OWNER, ROLE_OPERATOR},
+        allow_demo=True,
+    )
+
+    req.tenant_id = tenant_id
+    return await execute_voice_eval(req=req, request=request, db=db)
+

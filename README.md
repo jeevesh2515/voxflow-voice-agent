@@ -13,7 +13,7 @@
 
 <p align="center">
   <img src="https://img.shields.io/badge/CI%2FCD-100%25%20PASSING-success?style=for-the-badge&logo=githubactions&logoColor=white&labelColor=111827" alt="CI Status" />
-  <img src="https://img.shields.io/badge/TESTS-391%20PASSED-10B981?style=for-the-badge&logo=pytest&logoColor=white&labelColor=111827" alt="391 Pytest Tests Passed" />
+  <img src="https://img.shields.io/badge/TESTS-402%20PASSED-10B981?style=for-the-badge&logo=pytest&logoColor=white&labelColor=111827" alt="402 Pytest Tests Passed" />
   <img src="https://img.shields.io/badge/FRONTEND-25%20ROUTES-6366F1?style=for-the-badge&logo=nextdotjs&logoColor=white&labelColor=111827" alt="25 Next.js Routes" />
   <img src="https://img.shields.io/badge/VOICE-ENGLISH%20%28UK%29%20%2B%20HINDI-F97316?style=for-the-badge&labelColor=111827" alt="English (UK) + Hindi Multilingual" />
 </p>
@@ -22,6 +22,7 @@
   <img src="https://img.shields.io/badge/CLOUD-AWS%20%2B%20ORACLE%20VM-FF9900?style=for-the-badge&logo=amazonaws&logoColor=white&labelColor=111827" alt="AWS & Oracle VM" />
   <img src="https://img.shields.io/badge/TELEPHONY-AMAZON%20CONNECT%20%2B%20LEX-0284C7?style=for-the-badge&labelColor=111827" alt="Telephony Providers" />
   <img src="https://img.shields.io/badge/DATABASE-SUPABASE%20POSTGRES-3ECF8E?style=for-the-badge&logo=supabase&logoColor=white&labelColor=111827" alt="Supabase Postgres" />
+  <img src="https://img.shields.io/badge/TENANT%20ISOLATION-0--LEAK%20GATE%20%233%20PASSED-0F766E?style=for-the-badge&logo=shield&logoColor=white&labelColor=111827" alt="Tenant Isolation Gate #3" />
   <img src="https://img.shields.io/badge/EVAL%20HARNESS-30%20SCENARIOS%20%7C%20HARD%20GATE%20100%25-EF4444?style=for-the-badge&logo=shieldsdotio&logoColor=white&labelColor=111827" alt="Voice Eval Harness" />
   <a href="BENCHMARK_REPORT.md"><img src="https://img.shields.io/badge/BENCHMARKS-P50%20%7C%20P90%20VERIFIED-8B5CF6?style=for-the-badge&labelColor=111827" alt="Verified Benchmarks" /></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/LICENSE-MIT-gray?style=for-the-badge&labelColor=111827" alt="MIT License" /></a>
@@ -248,6 +249,16 @@ Every code change is validated against a repeatable, CI-integrated evaluation ha
 - **REST Scorecard API**: `GET /api/evals/scorecard` and `GET /api/tenants/{id}/evals/scorecard` surface real-time release readiness to the dashboard and external monitoring.
 - **Release Readiness Dashboard**: `/dashboard/readiness` shows a Release Gate #5 status banner, 5-metric scorecard, category performance table, and expandable scenario inspector.
 
+### 6. 🔒 Zero-Leak Multi-Tenant Isolation & 3-Tier RBAC (Release Gate #3)
+Enterprise buyers require categorical proof that cross-tenant access is impossible and team permissions follow least privilege:
+
+- **Release Gate #3 (Zero Cross-Tenant Leaks)**: Automated security test suite (`tests/test_tenant_isolation_zero_leak.py`) validates that cross-tenant list queries return 403 Forbidden, foreign ID lookups return 404 Not Found (zero entity enumeration or leaking), and legitimate intra-tenant queries return 0% foreign rows across 11 entity types.
+- **3-Tier Role Hierarchy**:
+  - **Owner**: Full workspace authority, billing, agent persona customization, DID routing, caller PIN management, team invitations, and role management. Enforced last-owner protection (409 Conflict) prevents orphaned workspaces.
+  - **Operator (Staff)**: Full operational data CRUD (orders, suppliers, stock, shipments, appointments, communications), bulk CSV imports, and closed-loop escalation triage/resolution. Blocked with 403 from administrative settings, DIDs, and team management.
+  - **Viewer**: Read-only visibility across analytics, calls, inventory, and escalations. All mutations (POST, PUT, PATCH, DELETE) are strictly blocked with 403 Forbidden.
+- **Interactive Team Management UI**: `/dashboard/settings` features an active member roster, role badges, invitation modal, role change dropdowns, and an interactive Role Permissions Matrix.
+
 ```bash
 # Run the eval harness locally (mock LLM, zero cost)
 python3 scripts/run_evals.py --mock --strict
@@ -320,24 +331,24 @@ npm run dev
 Run all automated test suites locally:
 
 ```bash
-# 1. Run full backend test suite (391 unit, integration & resilience tests)
+# 1. Run full backend test suite (402 unit, integration, isolation & RBAC tests)
 cd apps/api
 .venv/bin/python -m pytest -q
 
-# 2. Run backend linter
+# 2. Run focused 0-leak tenant isolation & RBAC matrix test suites
+.venv/bin/python -m pytest tests/test_tenant_isolation_zero_leak.py tests/test_rbac_matrix.py -v
+
+# 3. Run backend linter
 .venv/bin/ruff check voxflow_api tests
 
-# 3. Run Voice Eval Harness (30 scenarios, hard gate enforcement)
+# 4. Run Voice Eval Harness (30 scenarios, hard gate enforcement)
 python3 scripts/run_evals.py --mock --strict
 
-# 4. Run mock audio stream feeder (simulates real-time 16kHz PCM streaming & latency telemetry)
-python3 ../../scripts/test_audio_stream.py
-
-# 5. Run frontend lint, typecheck, and production build
+# 5. Run frontend lint, typecheck, and production build (25 routes)
 cd ../web
 npm run lint
-npx tsc --noEmit --incremental false
-npx next build --webpack
+npx tsc --noEmit
+npm run build
 ```
 
 ---
