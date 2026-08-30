@@ -229,6 +229,18 @@ def build_tenant_prompt(tenant: Any, session_language: str | None = None) -> str
     agent_name = getattr(tenant, "agent_name", "Vaani") or "Vaani"
     default_language = session_language or getattr(tenant, "default_language", "en") or "en"
     custom_instructions = getattr(tenant, "system_prompt_override", None)
+    google_sheet_id = getattr(tenant, "google_sheet_id", None)
+    google_sheet_name = getattr(tenant, "google_sheet_name", None)
+    if google_sheet_id:
+        sheet_label = google_sheet_name or "Connected Workspace Google Sheet"
+        sheets_instruction = (
+            f"\n\n# Connected Google Spreadsheet: '{sheet_label}'\n"
+            f"This workspace has connected a live Google Spreadsheet ({sheet_label}). "
+            f"You have direct access to log operational notes and edit rows in it. "
+            f"Use `update_worksheet` to append new operational logs, "
+            f"or `edit_sheet_row` to search and update existing rows by PO number, order ID, or supplier in place."
+        )
+        custom_instructions = (custom_instructions or "") + sheets_instruction
     voice_persona = getattr(tenant, "voice_persona", "professional") or "professional"
     business_hours_enabled = int(getattr(tenant, "business_hours_enabled", 0) or 0)
     business_hours_start = getattr(tenant, "business_hours_start", "09:00") or "09:00"

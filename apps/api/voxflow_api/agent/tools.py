@@ -1101,6 +1101,68 @@ async def update_worksheet(session: CallSession, worksheet_name: str, action: st
     }
 
 
+async def edit_sheet_row(
+    session: CallSession,
+    worksheet_name: str,
+    search_column: str,
+    search_value: str,
+    updates: dict[str, Any],
+) -> dict[str, Any]:
+    """Find a row in the workspace's Google Spreadsheet by key and update columns in place."""
+    if not isinstance(worksheet_name, str) or not worksheet_name.strip() or len(worksheet_name) > 100:
+        return {"ok": False, "error": "invalid_worksheet"}
+    if not isinstance(search_column, str) or not search_column.strip() or len(search_column) > 64:
+        return {"ok": False, "error": "invalid_search_column"}
+    if not isinstance(search_value, str) or not search_value.strip() or len(search_value) > 128:
+        return {"ok": False, "error": "invalid_search_value"}
+    if not isinstance(updates, dict) or not updates:
+        return {"ok": False, "error": "invalid_updates"}
+
+    target_sheet_id: str | None = None
+    async with async_session_scope() as db:
+        tenant = await db.get(Tenant, session.tenant_id)
+        if tenant and tenant.google_sheet_id:
+            target_sheet_id = tenant.google_sheet_id
+
+        worksheet_log = WorksheetLog(
+            tenant_id=session.tenant_id,
+            worksheet_name=worksheet_name,
+            action_type="edit_row",
+            row_data_json=json.dumps({
+                "search_column": search_column,
+                "search_value": search_value,
+                "updates": updates,
+            }, default=str),
+        )
+        db.add(worksheet_log)
+        await db.flush()
+
+    gsheets = get_sheets_client()
+    if target_sheet_id or gsheets.is_configured():
+        edit_result = await gsheets.update_row_by_key(
+            match_column=search_column.strip(),
+            match_value=search_value.strip(),
+            update_values=updates,
+            tab=worksheet_name.strip(),
+            target_sheet_id=target_sheet_id,
+        )
+        return {
+            "ok": edit_result.get("ok", False),
+            "action": edit_result.get("action", "updated"),
+            "worksheet": worksheet_name,
+            "row_number": edit_result.get("row_number"),
+            "updates": edit_result.get("updates", []),
+            "detail": edit_result.get("detail", "Spreadsheet row updated successfully"),
+        }
+
+    return {
+        "ok": True,
+        "action": "logged_locally",
+        "worksheet": worksheet_name,
+        "message": "Row edit recorded in local workspace database.",
+    }
+
+
 async def type_notes(session: CallSession, text: str) -> dict[str, Any]:
     """Record free-form notes during a call."""
     log.info("notes.typed", text=text)
@@ -1199,6 +1261,8 @@ async def execute_tool(name: str, args: dict[str, Any], session: CallSession) ->
             return await place_outbound_call(session, **(args or {}))
         if name == "update_worksheet":
             return await update_worksheet(session, **(args or {}))
+        if name == "edit_sheet_row":
+            return await edit_sheet_row(session, **(args or {}))
         if name == "type_notes":
             return await type_notes(session, **(args or {}))
         if name == "escalate_to_human":
@@ -1511,7 +1575,7 @@ TOOL_DEFINITIONS: list[dict[str, Any]] = [
         "type": "function",
         "function": {
             "name": "update_worksheet",
-            "description": "Log an entry in a spreadsheet worksheet.",
+            "description": "Log or append an entry in a spreadsheet worksheet.",
             "parameters": {
                 "type": "object",
                 "properties": {
@@ -1520,6 +1584,23 @@ TOOL_DEFINITIONS: list[dict[str, Any]] = [
                     "row_data": {"type": "object"},
                 },
                 "required": ["worksheet_name", "action", "row_data"],
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "edit_sheet_row",
+            "description": "Find an existing row in a spreadsheet tab by key (e.g. PO number, Order ID, or Supplier Name) and update column values in place.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "worksheet_name": {"type": "string", "description": "Tab name on the Google Spreadsheet (e.g. 'Orders', 'Deliveries', 'Call Log')"},
+                    "search_column": {"type": "string", "description": "Header column name to search (e.g. 'PO Number', 'Order ID', 'Supplier')"},
+                    "search_value": {"type": "string", "description": "Value to match (e.g. 'PO-1002', 'Varun Beverages')"},
+                    "updates": {"type": "object", "description": "Dictionary of column names to updated values (e.g. {'Status': 'Confirmed', 'ETA': 'Tomorrow 10 AM'})"},
+                },
+                "required": ["worksheet_name", "search_column", "search_value", "updates"],
             },
         },
     },

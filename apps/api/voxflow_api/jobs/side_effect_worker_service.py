@@ -213,15 +213,27 @@ class SideEffectHandler:
         if aggregate_type != "worksheet_log":
             raise PermanentJobError("invalid_worksheet_aggregate", aggregate_type)
         row = self._worksheet_row(tenant_id, aggregate_id)
+        target_sheet_id: str | None = None
         with session_scope() as db:
             worksheet = db.get(WorksheetLog, int(aggregate_id))
             if worksheet is None:
                 raise PermanentJobError("worksheet_log_not_found", "trusted worksheet log was not found")
             tab = worksheet.worksheet_name
+            tenant = db.get(Tenant, tenant_id)
+            if tenant and tenant.google_sheet_id:
+                target_sheet_id = tenant.google_sheet_id
+
         if not context.renew_lease():
             raise RetryableJobError("lease_renewal_failed", "lease expired before Sheets write")
         keys = sorted(row)
-        result = asyncio.run(get_sheets_client().append_row([row[key] for key in keys], tab=tab, headers=keys))
+        result = asyncio.run(
+            get_sheets_client().append_row(
+                [row[key] for key in keys],
+                tab=tab,
+                headers=keys,
+                target_sheet_id=target_sheet_id,
+            )
+        )
         if not result.get("ok"):
             raise _classify_sheets_failure(str(result.get("reason", "sheets_append_failed")))
         return _bounded_result(tab=result.get("tab"), updated_range=result.get("updated_range"), aggregate="worksheet")

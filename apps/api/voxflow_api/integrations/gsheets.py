@@ -186,6 +186,16 @@ class GoogleSheetsClient:
             tab = "'" + tab.replace("'", "''") + "'"
         return f"{tab}!{ref}"
 
+    @staticmethod
+    def _col_to_letter(col_idx: int) -> str:
+        """Convert 0-indexed column index to spreadsheet column letter (0->A, 25->Z, 26->AA)."""
+        result = []
+        c = col_idx + 1
+        while c > 0:
+            c, rem = divmod(c - 1, 26)
+            result.append(chr(65 + rem))
+        return "".join(reversed(result))
+
     async def get_spreadsheet_metadata(self, sheet_id: str) -> dict[str, Any]:
         """Fetch title and sheet tab names for a spreadsheet."""
         token = await self._get_token()
@@ -371,6 +381,175 @@ class GoogleSheetsClient:
                 }
         except Exception as e:
             log.error("gsheets.append_exception", error=str(e))
+            return {"ok": False, "reason": "exception", "detail": str(e)}
+
+    async def read_sheet_rows(
+        self,
+        tab: str | None = None,
+        max_rows: int = 50,
+        target_sheet_id: str | None = None,
+    ) -> dict[str, Any]:
+        """Read rows from a worksheet tab as a list of dictionaries."""
+        s = get_settings()
+        sid = target_sheet_id or s.google_sheet_id
+        if not sid:
+            return {"ok": False, "reason": "sheets_not_configured"}
+
+        tab_name = tab or s.google_sheet_tab
+        token = await self._get_token()
+        if not token:
+            return {"ok": False, "reason": "auth_failed"}
+
+        try:
+            async with httpx.AsyncClient(timeout=8.0) as client:
+                rng = self._a1(tab_name, f"A1:ZZ{max_rows + 1}")
+                r = await client.get(
+                    f"{SHEETS_API}/{sid}/values/{rng}",
+                    headers={"Authorization": f"Bearer {token}"},
+                )
+                if r.status_code != 200:
+                    return {"ok": False, "reason": f"http_{r.status_code}", "detail": r.text[:200]}
+                data = r.json()
+                raw_values = data.get("values", [])
+                if not raw_values:
+                    return {"ok": True, "headers": [], "rows": [], "count": 0}
+
+                headers = [str(h).strip() for h in raw_values[0]]
+                rows = []
+                for row_idx, row_vals in enumerate(raw_values[1:], start=2):
+                    row_dict = {"_row_number": row_idx}
+                    for h_idx, h_name in enumerate(headers):
+                        row_dict[h_name] = row_vals[h_idx] if h_idx < len(row_vals) else ""
+                    rows.append(row_dict)
+
+                return {
+                    "ok": True,
+                    "tab": tab_name,
+                    "headers": headers,
+                    "rows": rows,
+                    "count": len(rows),
+                }
+        except Exception as e:
+            return {"ok": False, "reason": "exception", "detail": str(e)}
+
+    async def update_row_by_key(
+        self,
+        match_column: str,
+        match_value: str,
+        update_values: dict[str, Any],
+        tab: str | None = None,
+        target_sheet_id: str | None = None,
+    ) -> dict[str, Any]:
+        """Find a row matching match_column == match_value and update cell values in place."""
+        s = get_settings()
+        sid = target_sheet_id or s.google_sheet_id
+        if not sid:
+            return {"ok": False, "reason": "sheets_not_configured"}
+
+        tab_name = tab or s.google_sheet_tab
+        token = await self._get_token()
+        if not token:
+            return {"ok": False, "reason": "auth_failed"}
+
+        try:
+            async with httpx.AsyncClient(timeout=10.0) as client:
+                rng = self._a1(tab_name, "A1:ZZ500")
+                r = await client.get(
+                    f"{SHEETS_API}/{sid}/values/{rng}",
+                    headers={"Authorization": f"Bearer {token}"},
+                )
+                if r.status_code != 200:
+                    return {"ok": False, "reason": f"http_{r.status_code}", "detail": r.text[:200]}
+
+                raw_values = r.json().get("values", [])
+                if not raw_values:
+                    # Empty sheet - create headers and append
+                    headers = [match_column] + list(update_values.keys())
+                    await self._ensure_header(client, token, tab_name, headers, target_sheet_id=sid)
+                    row = [match_value] + list(update_values.values())
+                    append_res = await self.append_row(row, tab=tab_name, target_sheet_id=sid)
+                    return {"ok": True, "action": "created_and_appended", "tab": tab_name, "updated_range": append_res.get("updated_range")}
+
+                headers = [str(h).strip() for h in raw_values[0]]
+                match_col_idx = -1
+                for idx, h in enumerate(headers):
+                    if h.lower() == match_column.lower().strip():
+                        match_col_idx = idx
+                        break
+
+                if match_col_idx == -1:
+                    # Column not found in headers - append header and new row
+                    headers.append(match_column)
+                    for k in update_values:
+                        if k not in headers:
+                            headers.append(k)
+                    await self._ensure_header(client, token, tab_name, headers, target_sheet_id=sid)
+                    new_row = ["" for _ in headers]
+                    new_row[headers.index(match_column)] = match_value
+                    for k, v in update_values.items():
+                        new_row[headers.index(k)] = str(v)
+                    append_res = await self.append_row(new_row, tab=tab_name, target_sheet_id=sid)
+                    return {"ok": True, "action": "column_added_and_appended", "tab": tab_name, "updated_range": append_res.get("updated_range")}
+
+                # Search rows for matching value
+                target_row_idx = -1
+                search_val = match_value.strip().lower()
+                for row_num, row_cells in enumerate(raw_values[1:], start=2):
+                    cell_val = str(row_cells[match_col_idx]).strip().lower() if match_col_idx < len(row_cells) else ""
+                    if cell_val == search_val or (len(search_val) >= 4 and search_val in cell_val):
+                        target_row_idx = row_num
+                        break
+
+                if target_row_idx == -1:
+                    # No existing row matched - append new row
+                    new_row = ["" for _ in headers]
+                    new_row[match_col_idx] = match_value
+                    for k, v in update_values.items():
+                        if k in headers:
+                            new_row[headers.index(k)] = str(v)
+                    append_res = await self.append_row(new_row, tab=tab_name, target_sheet_id=sid)
+                    return {"ok": True, "action": "not_found_so_appended", "tab": tab_name, "updated_range": append_res.get("updated_range")}
+
+                # Update existing row cells
+                updates_applied = []
+                for k, v in update_values.items():
+                    col_idx = -1
+                    for idx, h in enumerate(headers):
+                        if h.lower() == k.lower().strip():
+                            col_idx = idx
+                            break
+                    if col_idx == -1:
+                        # Append column to header
+                        col_idx = len(headers)
+                        headers.append(k)
+                        col_letter = self._col_to_letter(col_idx)
+                        await client.put(
+                            f"{SHEETS_API}/{sid}/values/{self._a1(tab_name, f'{col_letter}1')}",
+                            headers={"Authorization": f"Bearer {token}"},
+                            params={"valueInputOption": "USER_ENTERED"},
+                            json={"values": [[k]]},
+                        )
+
+                    col_letter = self._col_to_letter(col_idx)
+                    cell_ref = self._a1(tab_name, f"{col_letter}{target_row_idx}")
+                    await client.put(
+                        f"{SHEETS_API}/{sid}/values/{cell_ref}",
+                        headers={"Authorization": f"Bearer {token}"},
+                        params={"valueInputOption": "USER_ENTERED"},
+                        json={"values": [[str(v)]]},
+                    )
+                    updates_applied.append(f"{k}='{v}'")
+
+                return {
+                    "ok": True,
+                    "action": "updated",
+                    "tab": tab_name,
+                    "row_number": target_row_idx,
+                    "match": f"{match_column}={match_value}",
+                    "updates": updates_applied,
+                }
+        except Exception as e:
+            log.error("gsheets.update_row_exception", error=str(e))
             return {"ok": False, "reason": "exception", "detail": str(e)}
 
     def queue_row(self, row: dict[str, Any], call_id: str | None = None) -> None:

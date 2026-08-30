@@ -250,3 +250,97 @@ async def test_append_call_outcome_per_tenant_resolution(monkeypatch):
     assert recorded_calls[0]["target_sheet_id"] == custom_sheet_id
     assert recorded_calls[0]["tab"] == "Custom Calls"
 
+
+@pytest.mark.asyncio
+async def test_edit_sheet_row_tool_execution(monkeypatch):
+    """Test voice agent edit_sheet_row tool execution updates tenant connected sheet."""
+    from voxflow_api.agent.tools import edit_sheet_row
+    from voxflow_api.voice.pipeline import CallSession
+
+    tenant_id = "test_custom_sheet_tenant"
+    session = CallSession(
+        call_id="call-sheet-edit-1",
+        tenant_id=tenant_id,
+        caller_phone="+919876543210",
+        caller_name="Varun Rep",
+    )
+
+    recorded_updates = []
+
+    async def mock_update_row_by_key(match_column, match_value, update_values, tab=None, target_sheet_id=None):
+        recorded_updates.append({
+            "match_column": match_column,
+            "match_value": match_value,
+            "update_values": update_values,
+            "tab": tab,
+            "target_sheet_id": target_sheet_id,
+        })
+        return {
+            "ok": True,
+            "action": "updated",
+            "tab": tab,
+            "row_number": 4,
+            "updates": ["Status='Delivered'", "Confirmed ETA='Today 4 PM'"],
+        }
+
+    gsheets = GoogleSheetsClient.instance()
+    monkeypatch.setattr(gsheets, "update_row_by_key", mock_update_row_by_key)
+
+    res = await edit_sheet_row(
+        session=session,
+        worksheet_name="Orders",
+        search_column="PO Number",
+        search_value="PO-1002",
+        updates={"Status": "Delivered", "Confirmed ETA": "Today 4 PM"},
+    )
+
+    assert res["ok"] is True
+    assert res["action"] == "updated"
+    assert res["row_number"] == 4
+    assert len(recorded_updates) == 1
+    assert recorded_updates[0]["match_column"] == "PO Number"
+    assert recorded_updates[0]["match_value"] == "PO-1002"
+    assert recorded_updates[0]["update_values"]["Status"] == "Delivered"
+    assert recorded_updates[0]["target_sheet_id"] == "1CustomVarunSheetId999999999999999999999"
+
+
+def test_build_tenant_prompt_with_connected_sheet():
+    """Verify prompt builder injects connected Google Spreadsheet instructions."""
+    from voxflow_api.agent.prompts import build_tenant_prompt
+
+    class MockTenant:
+        id = "varun"
+        name = "Varun Beverages"
+        agent_name = "Vaani"
+        default_language = "en"
+        system_prompt_override = "Be helpful."
+        voice_persona = "professional"
+        business_hours_enabled = 0
+        business_hours_start = "09:00"
+        business_hours_end = "18:00"
+        business_hours_timezone = "Asia/Kolkata"
+        business_days = "mon,tue,wed,thu,fri"
+        out_of_hours_message = None
+        fallback_escalation_mode = "human_callback"
+        fallback_phone = None
+        fallback_email = None
+        max_verification_failures = 3
+        google_sheet_id = "1VarunSheetTestId"
+        google_sheet_name = "Varun Beverages Live Ops Mirror"
+
+    prompt = build_tenant_prompt(MockTenant())
+    assert "Connected Google Spreadsheet: 'Varun Beverages Live Ops Mirror'" in prompt
+    assert "update_worksheet" in prompt
+    assert "edit_sheet_row" in prompt
+
+
+def test_col_to_letter_helper():
+    """Verify 0-indexed column integer maps to spreadsheet column names."""
+    gsheets = GoogleSheetsClient.instance()
+    assert gsheets._col_to_letter(0) == "A"
+    assert gsheets._col_to_letter(25) == "Z"
+    assert gsheets._col_to_letter(26) == "AA"
+    assert gsheets._col_to_letter(27) == "AB"
+
+
+
