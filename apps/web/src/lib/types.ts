@@ -811,3 +811,189 @@ export interface GoogleSheetsTestResult {
   configured_email_tab?: string;
 }
 
+
+// ---------------------------------------------------------------------------
+// Day 51: Observability, Call KPIs, System Health & Alerting
+// ---------------------------------------------------------------------------
+
+export interface LatencyDistribution {
+  sample_count: number;
+  min_ms: number;
+  mean_ms: number;
+  max_ms: number;
+  std_dev_ms: number;
+  p50_ms: number;
+  p90_ms: number;
+  p95_ms: number;
+  p99_ms: number;
+}
+
+export interface ObservabilityPeriod {
+  days: number;
+  from: string;
+  to: string;
+  generated_at: string;
+  comparison_from: string;
+}
+
+export interface CallVolumePoint {
+  date: string;
+  calls: number;
+  resolved: number;
+  escalated: number;
+  duration_sec: number;
+}
+
+export interface ObservabilityDeltas {
+  /** Null when the prior period had no comparable traffic. */
+  total_calls_pct: number | null;
+  resolution_rate_pct: number | null;
+  escalation_rate_pct: number | null;
+  median_turn_latency_pct: number | null;
+  prior_total_calls: number;
+}
+
+export interface ObservabilityKPIs {
+  tenant_id: string;
+  tenant_name: string;
+  period: ObservabilityPeriod;
+  total_calls: number;
+  resolved_calls: number;
+  resolution_rate: number;
+  escalated_calls: number;
+  escalation_rate: number;
+  open_follow_ups: number;
+  sla_breached_count: number;
+  verified_call_rate: number;
+  avg_duration_sec: number;
+  total_duration_sec: number;
+  total_minutes: number;
+  median_turn_latency_ms: number;
+  p90_turn_latency_ms: number;
+  p99_turn_latency_ms: number;
+  latency_distribution: LatencyDistribution;
+  deltas: ObservabilityDeltas;
+  calls_over_time: CallVolumePoint[];
+  breakdown: {
+    reasons: Record<string, number>;
+    resolution_categories: Record<string, number>;
+    outcomes: Record<string, number>;
+    languages: Record<string, number>;
+    satisfaction: Record<string, number>;
+  };
+}
+
+export type SubsystemStatus =
+  | "operational"
+  | "degraded"
+  | "critical"
+  | "down"
+  | "idle"
+  | "not_configured";
+
+export interface SubsystemHealth {
+  key: string;
+  label: string;
+  status: SubsystemStatus;
+  latency_ms: number | null;
+  detail: string;
+}
+
+export interface SystemHealthStatus {
+  tenant_id: string;
+  generated_at: string;
+  overall_status: "operational" | "degraded" | "critical";
+  db_pool_latency_ms: number | null;
+  outbox_pending_count: number;
+  outbox_oldest_pending_age_sec: number | null;
+  dead_lettered_recent_count: number;
+  dead_lettered_total_count: number;
+  expired_lease_count: number;
+  sheets_mirror_status: string;
+  sheets_mirror_configured: boolean;
+  llm_provider: string;
+  llm_p50_latency_ms: number;
+  llm_p90_latency_ms: number;
+  llm_sample_count: number;
+  error_rate_24h: number;
+  calls_24h: number;
+  failed_calls_24h: number;
+  subsystems: SubsystemHealth[];
+}
+
+export type OperationalEventType =
+  | "call_completed"
+  | "escalation_created"
+  | "sheet_synced"
+  | "did_mapped"
+  | "job_settled"
+  | "communication_logged";
+
+export interface OperationalEvent {
+  id: string;
+  event_type: OperationalEventType;
+  label: string;
+  occurred_at: string | null;
+  status: "success" | "warning" | "error" | "info";
+  /** Server-redacted summary. Never contains a phone number, PIN, or name. */
+  detail: string;
+}
+
+export interface OperationalEventsResponse {
+  tenant_id: string;
+  generated_at: string;
+  limit: number;
+  events: OperationalEvent[];
+}
+
+export interface AlertThresholds {
+  escalation_rate_pct: number;
+  sla_breach_count: number;
+  p90_latency_ms: number;
+  error_rate_pct: number;
+}
+
+export interface ObservabilityAlert {
+  code: string;
+  severity: "critical" | "warning" | "info";
+  message: string;
+  observed: number | string;
+  threshold: number | string;
+}
+
+export interface AlertChannel {
+  configured: boolean;
+  transport: string;
+  signed?: boolean;
+}
+
+export interface ObservabilityAlertEvaluation {
+  tenant_id: string;
+  evaluated_at: string;
+  state: "ok" | "warning" | "critical";
+  alert_count: number;
+  critical_count: number;
+  alerts: ObservabilityAlert[];
+  thresholds: AlertThresholds;
+  channels: {
+    email?: AlertChannel;
+    webhook?: AlertChannel;
+    in_app?: AlertChannel;
+  };
+}
+
+export interface TestAlertResult {
+  ok: boolean;
+  tenant_id: string;
+  evaluation: ObservabilityAlertEvaluation;
+  dispatch: {
+    queued: boolean;
+    created?: boolean;
+    reason: string;
+    intent_id?: string;
+    job_id?: string;
+    alert_codes: string[];
+    execution?: string;
+    inline_delivery?: boolean;
+  };
+}

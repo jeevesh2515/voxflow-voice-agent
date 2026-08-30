@@ -60,3 +60,7 @@ ruff==0.8.4
 
 # Optional error monitoring — inert unless SENTRY_DSN is explicitly configured.
 sentry-sdk[fastapi]==2.43.0
+
+# Optional product analytics — inert unless POSTHOG_API_KEY is explicitly
+# configured. Every property passes the monitoring.py allow-list first.
+posthog==3.7.4

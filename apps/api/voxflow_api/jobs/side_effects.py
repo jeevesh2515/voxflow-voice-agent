@@ -159,8 +159,14 @@ def enqueue_side_effect(
     priority: int = 0,
     max_attempts: int = 6,
     trace_id: str | None = None,
+    payload: dict[str, Any] | None = None,
 ) -> SideEffectEnqueueResult:
-    """Atomically enqueue a typed side effect using an existing sync transaction."""
+    """Atomically enqueue a typed side effect using an existing sync transaction.
+
+    ``payload`` is an optional bounded non-secret snapshot (e.g. alert codes) the
+    worker needs at delivery time. It is stored on the durable JobRun and echoed
+    through ``JobContext.payload``; it is never part of the payload hash.
+    """
 
     _validate(
         tenant_id=tenant_id,
@@ -176,7 +182,9 @@ def enqueue_side_effect(
     intent_id = f"sei-{uuid.uuid4().hex[:20]}"
     job_id = f"job-{uuid.uuid4().hex[:20]}"
     outbox_id = f"out-{uuid.uuid4().hex[:20]}"
-    payload_json = json.dumps({"side_effect_intent_id": intent_id}, sort_keys=True, separators=(",", ":"))
+    payload_json = dict(payload or {})
+    payload_json["side_effect_intent_id"] = intent_id
+    payload_json = json.dumps(payload_json, sort_keys=True, separators=(",", ":"))
     now = utcnow()
 
     try:
@@ -250,6 +258,7 @@ async def enqueue_side_effect_async(
     priority: int = 0,
     max_attempts: int = 6,
     trace_id: str | None = None,
+    payload: dict[str, Any] | None = None,
 ) -> SideEffectEnqueueResult:
     """Async equivalent for agent/webhook transactions using ``AsyncSession``.
 
@@ -271,7 +280,9 @@ async def enqueue_side_effect_async(
     intent_id = f"sei-{uuid.uuid4().hex[:20]}"
     job_id = f"job-{uuid.uuid4().hex[:20]}"
     outbox_id = f"out-{uuid.uuid4().hex[:20]}"
-    payload_json = json.dumps({"side_effect_intent_id": intent_id}, sort_keys=True, separators=(",", ":"))
+    payload_json = dict(payload or {})
+    payload_json["side_effect_intent_id"] = intent_id
+    payload_json = json.dumps(payload_json, sort_keys=True, separators=(",", ":"))
     now = utcnow()
 
     try:

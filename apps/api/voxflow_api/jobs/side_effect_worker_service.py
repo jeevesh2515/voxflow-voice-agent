@@ -16,7 +16,7 @@ from typing import Any
 import httpx
 
 from ..config import get_settings
-from ..db import Appointment, Call, CommunicationLog, Order, SessionLocal, WorksheetLog, session_scope
+from ..db import Appointment, Call, CommunicationLog, Order, SessionLocal, Tenant, WorksheetLog, session_scope
 from ..integrations.gsheets import get_sheets_client
 from ..integrations.webhooks import dispatch_webhook
 from .retry import PermanentJobError, RetryableJobError
@@ -297,6 +297,8 @@ class SideEffectHandler:
         return _bounded_result(event_type=event_type, aggregate_type=aggregate_type)
 
     def _dispatch_notification(self, tenant_id: str, aggregate_type: str, aggregate_id: str, context: JobContext) -> dict[str, Any]:
+        if aggregate_type == "observability_alert":
+            return self._dispatch_alert_webhook(tenant_id, context)
         if aggregate_type != "communication_log":
             raise PermanentJobError("notification_aggregate_invalid", aggregate_type)
         with session_scope() as db:
@@ -320,6 +322,17 @@ class SideEffectHandler:
             if communication is not None:
                 communication.status = "sent"
         return _bounded_result(channel=channel, provider_id=f"notif_{aggregate_id}")
+
+    def _dispatch_alert_webhook(self, tenant_id: str, context: JobContext) -> dict[str, Any]:
+        if not context.renew_lease():
+            raise RetryableJobError("lease_renewal_failed", "lease expired before alert webhook")
+        payload = {
+            "alert_codes": sorted(context.payload.get("alert_codes") or []),
+            "state": context.payload.get("state") or "ok",
+        }
+        if not asyncio.run(dispatch_webhook(tenant_id, "observability_alert", payload)):
+            raise RetryableJobError("alert_webhook_delivery_failed", "configured alert webhook did not acknowledge")
+        return _bounded_result(event_type="observability_alert", aggregate_type="observability_alert")
 
     def _retrieve_recording(self, tenant_id: str, aggregate_type: str, aggregate_id: str, context: JobContext) -> dict[str, Any]:
         if aggregate_type != "call":

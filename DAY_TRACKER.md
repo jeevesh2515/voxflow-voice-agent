@@ -2,8 +2,8 @@
 
 **Project:** VoxFlow — Voice Operations for Modern Supply Chains  
 **Repository:** `jeevesh2515/voxflow-voice-agent`  
-**Current Test Suite:** **411 Passing Tests** (`pytest tests/ -q`)
-**Frontend Surface:** **25 Compiled Routes** (Next.js 16 App Router, Turbopack production validation)
+**Current Test Suite:** **453 Passing Tests** (`pytest tests/ -q`)
+**Frontend Surface:** **26 Compiled Routes** (Next.js 16 App Router, Turbopack production validation)
 **Deployment Infrastructure:** Oracle Cloud Always-Free ARM VM (Caddy Auto-TLS + Docker) / Render Free API / Vercel Edge Frontend  
 **Last Updated:** 2026-08-30
 
@@ -668,14 +668,32 @@
   - ✅ **Zero Secrets Committed** (Service account credentials resolved exclusively from environment variables).
 - **Artifacts:** `migrations/020_per_tenant_google_sheets.sql`, `apps/api/voxflow_api/integrations/gsheets.py`, `apps/api/voxflow_api/routes/integrations.py`, `apps/api/voxflow_api/agent/tools.py`, `apps/api/voxflow_api/agent/prompts.py`, `apps/api/voxflow_api/jobs/side_effect_worker_service.py`, `apps/web/src/components/settings/GoogleSheetsSettings.tsx`, `apps/api/tests/test_tenant_google_sheets.py`.
 
+#### 🗓️ Day 51: Enterprise Observability, PII-Scrubbed Sentry/PostHog & Durable Alerting
+- **Objective:** Ship actionable per-tenant observability + durable alerting: KPI and health surfaces with an enterprise dark dashboard, threshold-driven alert evaluation with durable side-effect dispatch, and privacy-safe Sentry/PostHog telemetry (tenant IDs hashed, free-text PII scrubbed, fail-closed).
+- **Implementation:**
+  1. **Observability Service (`services/observability_service.py`):** `get_call_kpis` (24h/7d/30d success rate, SLA breaches, appointments, outbound latency distribution with volume + P50/P95/P99 deltas), `get_system_health_metrics` (`operational/degraded/critical`), `get_recent_system_events` (scrubbed ops events, hashed DIDs).
+  2. **Alerting Service (`services/alerting_service.py`):** Threshold read/write persisted in `agent_states` (`alert_channels`, webhook URL + optional bearer secret, min pool/enable flags), pure `evaluate_alerts` per tenant, and durable `dispatch_alert_notification` that enqueues `NOTIFICATION_DISPATCH` with `aggregate_type="observability_alert"` plus a per-tenant/reason/minute idempotency key.
+  3. **REST API (`routes/observability.py`):** 6 endpoints — `/kpis`, `/health`, `/events`, `/alerts`, `/alerts/thresholds` (PUT, owner), `/alerts/test` (POST, owner); demo-tenant blocked from owner-only mutators.
+  4. **Sentry & PostHog (`monitoring.py`):** Sentry init gated on `SENTRY_DSN` with `before-send` scrubber that fail-closes free text (exception value/message dropped) and strips frame vars; PostHog client with salted SHA-256 tenant-ID hashing and scrubbed analytics properties (`observability_hash_tenant_ids`, default true).
+  5. **Enterprise Dashboard (`apps/web/src/app/dashboard/observability/page.tsx` + `lib/observability.ts`):** Pulse header, period toggle, scorecards with deltas, CSS volume chart, latency bars, subsystem matrix, alert feed, threshold/alert panel, dark-mode-ready; frontend client in `lib/observability.ts` (`trackEvent`, `reportError`) ready for PostHog script tag.
+  6. **Automated Test Suite (`tests/test_observability.py`):** 41 tests covering KPI math/DIDs hashed, event scrubbing (PIN redaction, DID hashing), health triage, threshold owner-gate + RLS, alert evaluation matrix + idempotent enqueue, webhook posture no-secret-leak.
+- **Verification Evidence:**
+  - ✅ **452/452 Passing Backend Tests** (`pytest tests/ -q -p no:randomly` with 41 new Day 51 observability/alerting tests).
+  - ✅ **26/26 Compiled Next.js Production Routes** (`next build` with Turbopack, 0 TypeScript errors).
+  - ✅ **Zero Lint / Static Analysis Errors** (`ruff check .` clean, `tsc --noEmit` clean).
+  - ✅ **Zero Database Migrations** — reuses `agent_states`; schema untouched.
+  - ✅ **Bugs found & fixed by tests** — `did:` PII leak → SHA-256 digest; Sentry name leak → fail-closed drop; falsy-zero `int(days or 7)` → clamp to 1; test seeding window 2h ago.
+- **Artifacts:** `apps/api/voxflow_api/services/observability_service.py`, `apps/api/voxflow_api/services/alerting_service.py`, `apps/api/voxflow_api/routes/observability.py`, `apps/api/voxflow_api/monitoring.py`, `apps/api/voxflow_api/config.py`, `apps/api/tests/test_observability.py`, `apps/web/src/app/dashboard/observability/page.tsx`, `apps/web/src/lib/observability.ts`, `apps/web/src/lib/types.ts`, `apps/web/src/lib/api.ts`, `apps/web/src/components/Sidebar.tsx`, `.learning/day-51-observability-and-alerting.md`.
+- **Known gap (see `.learning/day-51…` OPEN-1, P1):** the side-effect worker rejects `observability_alert` aggregates and is disabled by default — alerts are recorded but not delivered until a webhook channel is wired to the worker.
+
 ---
 
 ## 🎯 Verification & Test Summary Matrix
 
 | Metric | Target | Current Value | Status |
 |---|---|---|---|
-| **Backend Unit & Integration Tests** | $\ge 200$ | **411 Passed** | ✅ Green |
-| **Frontend Static Routes** | $\ge 15$ | **25 Compiled Pages** | ✅ Green |
+| **Backend Unit & Integration Tests** | $\ge 200$ | **453 Passed** | ✅ Green |
+| **Frontend Static Routes** | $\ge 15$ | **26 Compiled Pages** | ✅ Green |
 | **Lint & Static Analysis** | 0 warnings | `ruff check .` clean, ESLint clean, `tsc --noEmit` clean | ✅ Clean |
 | **Latency & TTFT Benchmarks** | Sub-second P50 | **P50 ~566ms glass-to-glass** | ✅ Verified |
 | **Database Migrations** | Staged & Verified | 21 Migrations (`000`–`020`) | ✅ Current |
@@ -694,12 +712,13 @@
 | **Closed-Loop Escalations** | SLA & Resolution | 5 KPI Metrics + Queue + Resolution Drawer | ✅ Verified |
 | **Voice Eval Harness (Gate #5)** | Release Gate #5 | 30 Scenarios × 7 Categories, Hard Gate 100% enforced | ✅ Verified |
 | **CI/CD Eval Gate** | Exit 1 on leak | `--strict` mode trips on any pre-verification data leak | ✅ Verified |
+| **Observability & Alerting** | KPI/Health/Events | 6-endpoint surface, alert thresholds + durable dispatch, PII-scrubbed Sentry/PostHog, dark dashboard | ✅ Verified |
 
 ---
 
-## 🧭 Next Recommended Actions (Day 51+)
+## 🧭 Next Recommended Actions (Day 52+)
 
-1. **Observability, Alerting & SLO Burn Rate (Day 51):** Real-time error monitors, webhook alerting for SLA breaches, structured alert policies, and latency distribution tracking.
+1. **Close Day 51 follow-ups (P1):** wire worker channel for `observability_alert` → signed webhook delivery (see `.learning/day-51-observability-and-alerting.md` OPEN-1), then enable `durable_side_effects_worker_enabled`.
 2. **Security & Data Lifecycle (Day 52):** GDPR data-subject export & deletion pipelines, encryption at rest, secret rotation automation, and penetration test remediation.
 3. **Billing, Landing & Go-Live Dry Run (Day 53):** Stripe subscription billing, public landing page, and full production go-live simulation.
 

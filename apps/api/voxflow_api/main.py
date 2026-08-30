@@ -18,7 +18,7 @@ from .db import close_db_engines, init_db
 from .llm import get_llm
 from .llm.base import ChatTurn
 from .logging import get_logger, setup_logging
-from .monitoring import init_error_monitoring
+from .monitoring import init_error_monitoring, init_product_analytics
 from .routes import admin as admin_routes
 from .routes import analytics as analytics_routes
 from .routes import campaign_policies as campaign_policy_routes
@@ -30,6 +30,7 @@ from .routes import escalations as escalation_routes
 from .routes import evals as eval_routes
 from .routes import jobs as job_routes
 from .routes import memberships as membership_routes
+from .routes import observability as observability_routes
 from .routes import integrations as integrations_routes
 from .routes import provider_callbacks as provider_callback_routes
 from .routes import pilot_operations as pilot_operations_routes
@@ -102,6 +103,7 @@ async def lifespan(app: FastAPI):
 def create_app() -> FastAPI:
     settings = get_settings()
     init_error_monitoring()
+    init_product_analytics()
     app = FastAPI(
         title="VoxFlow Voice Agent",
         version="0.1.0",
@@ -149,6 +151,7 @@ def create_app() -> FastAPI:
     app.include_router(eval_routes.router)
     app.include_router(eval_routes.tenant_eval_router)
     app.include_router(integrations_routes.router)
+    app.include_router(observability_routes.router)
     app.include_router(ws_routes.router, tags=["ws"])
     app.include_router(connect_routes.router)
 

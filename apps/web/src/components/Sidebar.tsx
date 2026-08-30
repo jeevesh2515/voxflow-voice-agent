@@ -21,6 +21,7 @@ import {
   LockKeyhole,
   ClipboardCheck,
   BarChart3,
+  Gauge,
   Settings,
   Database,
 } from "lucide-react";
@@ -34,6 +35,7 @@ const NAV_GROUPS = [
       { href: "/dashboard/simulator", label: "Phone Simulator", icon: Phone },
       { href: "/dashboard/calls", label: "Calls", icon: PhoneCall },
       { href: "/dashboard/analytics", label: "Analytics", icon: BarChart3 },
+      { href: "/dashboard/observability", label: "Observability", icon: Gauge },
       { href: "/dashboard/workspace", label: "Workspace Access", icon: ShieldCheck },
       { href: "/dashboard/privacy", label: "Privacy Controls", icon: LockKeyhole },
       { href: "/dashboard/readiness", label: "Pilot Readiness", icon: ClipboardCheck },

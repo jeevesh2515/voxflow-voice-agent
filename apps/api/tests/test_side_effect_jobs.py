@@ -281,3 +281,72 @@ def test_direct_outbound_tool_is_rejected_without_provider_invocation():
     )
     assert result["ok"] is False
     assert result["error"] == "direct_outbound_calls_disabled"
+
+
+def test_alert_notification_worker_dispatches_bounded_webhook(monkeypatch):
+    from voxflow_api.services.alerting_service import dispatch_alert_notification
+
+    captured: dict = {}
+
+    async def _fake_dispatch_webhook(tenant_id: str, event_type: str, payload: dict) -> bool:
+        captured["tenant_id"] = tenant_id
+        captured["event_type"] = event_type
+        captured["payload"] = dict(payload)
+        return True
+
+    monkeypatch.setattr(
+        "voxflow_api.jobs.side_effect_worker_service.dispatch_webhook",
+        _fake_dispatch_webhook,
+    )
+    monkeypatch.setattr(
+        "voxflow_api.jobs.side_effect_worker_service.durable_side_effects_worker_enabled",
+        lambda: True,
+    )
+    monkeypatch.setattr(
+        "voxflow_api.jobs.side_effect_worker_service.side_effects_tenant_ids",
+        lambda: ("varun",),
+    )
+    monkeypatch.setattr(
+        "voxflow_api.jobs.side_effect_worker_service.durable_side_effects_dry_run",
+        lambda: False,
+    )
+
+    db = SessionLocal()
+    try:
+        receipt = dispatch_alert_notification(
+            db,
+            tenant_id="varun",
+            evaluation={
+                "alerts": [{"code": "high_cpu"}, {"code": "node_down"}],
+                "state": "critical",
+                "summary": ["secret context that must not leave the app"],
+            },
+        )
+        db.commit()
+    finally:
+        db.close()
+
+    assert receipt["queued"] is True
+    assert receipt["execution"] == "durable_worker_owned"
+
+    worker = build_side_effects_worker()
+    assert worker is not None
+    outcome = worker.run_once()
+    assert outcome.succeeded == 1
+
+    assert captured["tenant_id"] == "varun"
+    assert captured["event_type"] == "observability_alert"
+    assert captured["payload"] == {
+        "alert_codes": ["high_cpu", "node_down"],
+        "state": "critical",
+    }
+
+    db = SessionLocal()
+    try:
+        intent = db.get(SideEffectIntent, receipt["intent_id"])
+        job = db.get(JobRun, receipt["job_id"])
+        assert intent is not None and intent.status == "succeeded"
+        assert intent.result_code == "side_effect_succeeded"
+        assert job is not None and job.status == "succeeded"
+    finally:
+        db.close()

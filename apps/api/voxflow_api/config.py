@@ -103,6 +103,24 @@ class Settings(BaseSettings):
     sentry_environment: str = "development"
     sentry_traces_sample_rate: float = 0.0
 
+    # ----- Day 51 product analytics and alerting -----
+    # PostHog stays fully inert unless a project key is configured. Every
+    # property still passes through the shared scrubber, so a misconfigured
+    # caller cannot leak a phone number, PIN, or order payload.
+    posthog_api_key: str = ""
+    posthog_host: str = "https://us.i.posthog.com"
+    # When true, tenant IDs are salted+hashed before leaving the process so an
+    # external vendor never receives a customer-identifying workspace slug.
+    observability_hash_tenant_ids: bool = True
+    observability_tenant_hash_salt: str = "voxflow-observability"
+    # Alert evaluation is read-only by default. Dispatch enqueues a durable
+    # notification intent; it never sends mail or POSTs a webhook inline.
+    alerting_enabled: bool = True
+    alert_escalation_rate_threshold: float = 20.0
+    alert_p90_latency_ms_threshold: int = 2500
+    alert_sla_breach_count_threshold: int = 0
+    alert_error_rate_threshold: float = 5.0
+
     @field_validator("database_url", mode="before")
     @classmethod
     def sanitize_database_url(cls, v: str | None) -> str:

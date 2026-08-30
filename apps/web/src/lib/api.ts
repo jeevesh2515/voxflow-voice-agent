@@ -30,6 +30,12 @@ import type {
   TenantGoogleSheetsConfig,
   ConnectGoogleSheetPayload,
   GoogleSheetsTestResult,
+  ObservabilityKPIs,
+  SystemHealthStatus,
+  OperationalEventsResponse,
+  ObservabilityAlertEvaluation,
+  AlertThresholds,
+  TestAlertResult,
 } from "./types";
 
 const LOCAL_API_URL = "http://localhost:8000";
@@ -578,6 +584,32 @@ export const api = {
         body: JSON.stringify(params),
       }),
   },
+
+  // Day 51: Observability, Call KPIs, System Health & Alerting
+  getObservabilityKPIs: (tenant_id: string, days: number = 7) =>
+    http<ObservabilityKPIs>(
+      `/api/tenants/${encodeURIComponent(tenant_id)}/observability/kpis?days=${days}`
+    ),
+  getSystemHealth: (tenant_id: string) =>
+    http<SystemHealthStatus>(`/api/tenants/${encodeURIComponent(tenant_id)}/observability/health`),
+  getOperationalEvents: (tenant_id: string, limit: number = 20) =>
+    http<OperationalEventsResponse>(
+      `/api/tenants/${encodeURIComponent(tenant_id)}/observability/events?limit=${limit}`
+    ),
+  getObservabilityAlerts: (tenant_id: string, days: number = 7) =>
+    http<ObservabilityAlertEvaluation>(
+      `/api/tenants/${encodeURIComponent(tenant_id)}/observability/alerts?days=${days}`
+    ),
+  updateAlertThresholds: (tenant_id: string, payload: Partial<AlertThresholds>) =>
+    http<{ ok: boolean; tenant_id: string; thresholds: AlertThresholds }>(
+      `/api/tenants/${encodeURIComponent(tenant_id)}/observability/alerts/thresholds`,
+      { method: "PUT", body: JSON.stringify(payload) }
+    ),
+  triggerTestAlert: (tenant_id: string) =>
+    http<TestAlertResult>(
+      `/api/tenants/${encodeURIComponent(tenant_id)}/observability/alerts/test`,
+      { method: "POST" }
+    ),
 
   // Google Sheets Workspace Integrations
   googleSheets: {
