@@ -22,6 +22,8 @@ Local SQLite development/tests create the SQLAlchemy metadata. Production Postgr
 016_telephony_routing_and_caller_pins.sql
 017_product_tenant_composite_key.sql
 018_tenant_agent_settings.sql
+019_escalation_lifecycle_and_sla.sql
+020_per_tenant_google_sheets.sql
 ```
 
 The initial tenant/core schema (`000_base_schema.sql`) and prior feature migrations must already be present. Do not copy partial DDL from this document into a production database; use the migration files so indexes and constraints remain aligned with code.
@@ -80,6 +82,18 @@ Every operational, campaign, durable-job, provider-operation, and policy record 
 | `tenants.fallback_phone` | E.164 destination telephone number for live call transfers. |
 | `tenants.fallback_email` | Destination email address for dispatch ticket/voicemail notifications. |
 | `tenants.max_verification_failures` | Integer (1–5, default 3) configuring maximum identity verification attempts before lockout/escalation. |
+
+### Per-Tenant Google Sheets Integration Fields (Day 50)
+
+| Table/field | Rule |
+|---|---|
+| `tenants.google_sheet_id` | Alphanumeric Google Spreadsheet ID extracted from URL or provided directly. Nullable when disconnected. |
+| `tenants.google_sheet_name` | Human-readable spreadsheet title fetched from Google Drive/Sheets metadata (e.g. `Varun Beverages Live Ops Mirror`). |
+| `tenants.google_sheet_tab` | Primary tab name for call outcome mirroring (default: `Call Log`). |
+| `tenants.google_sheet_email_tab` | Secondary tab name for email summarizer mirroring (default: `Email Log`). |
+| `tenants.google_sheet_status` | Current integration status: `disconnected`, `connected`, or `error`. |
+| `tenants.google_sheet_connected_at` | Timestamp when the spreadsheet was connected and verified. |
+| `tenants.google_sheet_connected_by_user_id` | User ID of the owner who authorized the spreadsheet connection. |
 
 ## 4. Durable execution tables (Days 25–29)
 

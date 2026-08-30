@@ -214,6 +214,31 @@ flowchart LR
 
 ---
 
+## 📊 Self-Serve Google Sheets Integration & Voice Agent Live Editing
+
+VoxFlow allows any business (e.g., Varun Beverages) to connect their own Google Spreadsheet directly from the dashboard to enable automatic call outcome logging and live voice agent editing during calls.
+
+```mermaid
+flowchart LR
+    Dashboard["🏢 Web Dashboard\n(/dashboard/settings & /dashboard/data)"] -->|1. Connect Sheet URL| API["POST /api/tenants/{id}/integrations/google-sheets/connect"]
+    API -->|2. Verify & Auto-Bootstrap| GSheets["📊 Tenant Google Spreadsheet\n('Call Log' & 'Email Log' Tabs)"]
+    
+    Caller["📞 Live Caller"] --> Agent["🎙️ Voice Agent\n(AgentRunner)"]
+    Agent -->|3. Tool Call: edit_sheet_row| SheetsEngine["GoogleSheetsClient\n(In-Place Cell Update Engine)"]
+    Agent -->|4. Tool Call: update_worksheet| SideEffectWorker["Durable Outbox & Side Effect Worker"]
+    SheetsEngine -->|5. Update Row in Place| GSheets
+    SideEffectWorker -->|6. Append Log Row| GSheets
+```
+
+### Key Integration Highlights
+- **1-Click Self-Serve Connection**: Paste any Google Sheet URL or ID in `/dashboard/settings` or `/dashboard/data`; the system extracts the sheet ID, verifies permissions, and automatically provisions canonical `Call Log` and `Email Log` headers.
+- **Preflight Live Health Diagnostics**: Test connection latency and read/write access on demand (`POST /api/tenants/{id}/integrations/google-sheets/test`).
+- **Live Voice Agent Row Editing (`edit_sheet_row`)**: Callers can request status updates or confirm delivery ETAs; the voice agent searches for the matching row by key (e.g. `PO Number` = `PO-1002`, `Order ID`, or `Supplier Name`) and updates specific columns in place.
+- **Dynamic System Prompt Context**: The voice agent dynamically receives the connected spreadsheet name and operational capabilities in its system prompt.
+- **Durable Side-Effect Queue**: In addition to real-time execution, updates and outcome rows are durably enqueued in the transactional `job_outbox` ledger for zero-loss guarantee.
+
+---
+
 ## ⚡ Core Platform Capabilities
 
 ### 1. 🎙️ Natural Multilingual Voice Intelligence

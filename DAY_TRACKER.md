@@ -643,22 +643,49 @@
   - ✅ **Zero Lint / Static Analysis Errors** (`ruff check .` clean, ESLint clean, `tsc --noEmit` clean).
 - **Artifacts:** `apps/api/voxflow_api/routes/data.py`, `apps/api/voxflow_api/routes/memberships.py`, `apps/api/voxflow_api/routes/evals.py`, `apps/web/src/lib/api.ts`, `apps/web/src/components/settings/TeamMembersSettings.tsx`, `apps/web/src/app/dashboard/settings/page.tsx`, `apps/api/tests/test_tenant_isolation_zero_leak.py`, `apps/api/tests/test_rbac_matrix.py`, `.learning/day-50-rbac-and-tenant-isolation.md`.
 
+#### 🗓️ Day 50 Extension: Self-Serve Per-Tenant Google Sheets Integration & Voice Agent Live Editing
+- **Objective:** Enable enterprise clients (e.g. Varun Beverages) to self-serve connect their own Google Spreadsheets directly from the web dashboard, auto-bootstrap required logging tabs, and empower the live voice agent to read, append, and edit rows directly in the tenant's sheet during inbound calls.
+- **Implementation:**
+  1. **Database Schema & Migrations (`migrations/020_per_tenant_google_sheets.sql`):** Added `google_sheet_id`, `google_sheet_name`, `google_sheet_tab`, `google_sheet_email_tab`, `google_sheet_status`, `google_sheet_connected_at`, and `google_sheet_connected_by_user_id` to `tenants`. Synced `000_base_schema.sql` and added SQLite runtime schema migration shim in `db.py`.
+  2. **Server-Authoritative Integrations API (`routes/integrations.py`):**
+     - `GET /api/tenants/{tenant_id}/integrations/google-sheets`: Read connection posture, spreadsheet title, tabs, and service account email.
+     - `POST /api/tenants/{tenant_id}/integrations/google-sheets/connect`: Gated to `ROLE_OWNER`. Extracts sheet ID from any Google Sheets URL or raw ID, verifies access, and bootstraps `Call Log` & `Email Log` headers.
+     - `POST /api/tenants/{tenant_id}/integrations/google-sheets/test`: Preflight live read/write latency diagnostic.
+     - `DELETE /api/tenants/{tenant_id}/integrations/google-sheets`: Disconnects spreadsheet mirror.
+  3. **Voice Agent Live Sheet Editing Tools (`tools.py`, `gsheets.py`):**
+     - Added `edit_sheet_row` tool: Search for a row by key (e.g. `PO Number` = `PO-1002`, `Order ID`, or `Supplier`) and update cell values in place. Automatically creates missing column headers and appends new rows if missing.
+     - Added `update_worksheet` tenant sheet routing with durable `WorksheetLog` audit logging and background job retries (`side_effect_worker_service.py`).
+     - Added `read_sheet_rows` and `_col_to_letter` helper in `GoogleSheetsClient`.
+  4. **Dynamic LLM System Prompt Context (`prompts.py`):** Injects connected spreadsheet context (`tenant.google_sheet_name`) into `build_tenant_prompt()` so the agent knows it has direct operational access to the workspace's spreadsheet.
+  5. **Frontend Dashboard UI (`GoogleSheetsSettings.tsx`):**
+     - Live status badge (🟢 Active Mirror / ⚪ Not Connected / 🔴 Error).
+     - 1-click copy service account email helper.
+     - Connect modal with URL parsing, tab customization, and preflight test.
+     - Mounted in both `/dashboard/settings` and `/dashboard/data` (Data Hub).
+- **Verification Evidence:**
+  - ✅ **411/411 Passing Backend Tests** (`python3 -m pytest tests/ -q` with 8 new per-tenant Google Sheets tests in `tests/test_tenant_google_sheets.py`).
+  - ✅ **25/25 Compiled Next.js Production Routes** (`next build` with Turbopack, 0 TypeScript errors).
+  - ✅ **Zero Secrets Committed** (Service account credentials resolved exclusively from environment variables).
+- **Artifacts:** `migrations/020_per_tenant_google_sheets.sql`, `apps/api/voxflow_api/integrations/gsheets.py`, `apps/api/voxflow_api/routes/integrations.py`, `apps/api/voxflow_api/agent/tools.py`, `apps/api/voxflow_api/agent/prompts.py`, `apps/api/voxflow_api/jobs/side_effect_worker_service.py`, `apps/web/src/components/settings/GoogleSheetsSettings.tsx`, `apps/api/tests/test_tenant_google_sheets.py`.
+
 ---
 
 ## 🎯 Verification & Test Summary Matrix
 
 | Metric | Target | Current Value | Status |
 |---|---|---|---|
-| **Backend Unit & Integration Tests** | $\ge 200$ | **402 Passed** | ✅ Green |
+| **Backend Unit & Integration Tests** | $\ge 200$ | **411 Passed** | ✅ Green |
 | **Frontend Static Routes** | $\ge 15$ | **25 Compiled Pages** | ✅ Green |
 | **Lint & Static Analysis** | 0 warnings | `ruff check .` clean, ESLint clean, `tsc --noEmit` clean | ✅ Clean |
 | **Latency & TTFT Benchmarks** | Sub-second P50 | **P50 ~566ms glass-to-glass** | ✅ Verified |
-| **Database Migrations** | Staged & Verified | 20 Migrations (`000`–`019`) | ✅ Current |
+| **Database Migrations** | Staged & Verified | 21 Migrations (`000`–`020`) | ✅ Current |
 | **Telephony Providers Supported** | Enterprise Voice | Amazon Connect (AWS) + Amazon Lex STT + WebAudio Simulator | ✅ Verified |
 | **Call Persistence & Mirroring** | Durable Logging | Postgres `calls` + Gated Google Sheets Mirror | ✅ Verified |
 | **Multi-Tenant Isolation (Gate #3)** | Zero Data Leaks | **0% Foreign Rows, 404 on Foreign IDs, 403 on Cross-Tenant** | ✅ Verified |
 | **RBAC Enforcement (3 Tiers)** | Owner / Operator / Viewer | Strict server-authoritative role gating & last-owner protection | ✅ Verified |
 | **Team Management Surface** | Member Settings UI | Interactive Member Roster + Invites + Role Selector + Matrix | ✅ Verified |
+| **Per-Tenant Google Sheets** | Self-Serve Mirror | 1-Click Connect + Preflight Diagnostic + Voice Agent Live Edit | ✅ Verified |
+| **Voice Agent Live Sheet Editing** | Tool Calling | `edit_sheet_row` + `update_worksheet` + Prompt Context | ✅ Verified |
 | **Self-Serve Onboarding** | Instant Provisioning | `/sign-up` $\rightarrow$ `/onboarding` $\rightarrow$ `/dashboard` | ✅ Verified |
 | **Bulk Data Ingestion** | Streaming CSV Engine | Pre-flight validation + Upsert semantics | ✅ Verified |
 | **Authentication & Auth Gate** | Unauth Redirects | HTTP 307 $\rightarrow$ `/sign-in` | ✅ Verified |

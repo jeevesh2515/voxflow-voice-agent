@@ -1,8 +1,8 @@
 # VoxFlow Architecture
 
-**Last updated:** 2026-08-26  
-**Current milestone:** **Phase 10 Self-Serve SaaS Onboarding, Bulk Data Ingestion, Exact DID Routing & Secure Caller Verification complete.** 351 backend tests passing, 25 compiled frontend routes, tenant-owned Amazon Connect DID policy, PBKDF2 caller PIN controls with persistent cross-session lockout, and the existing Oracle/Render/Vercel deployment architecture. Comprehensive day-by-day implementation tracking is recorded in [`DAY_TRACKER.md`](DAY_TRACKER.md).
-**Operating mode:** Inbound voice, self-serve tenant onboarding, bulk data ingestion engine, and dashboard functions are deployed. Campaign dispatch and operational side-effect workers are independently safe-staged; Day 35 admission and Day 36 current-version evidence are both fail-closed with an empty tenant allow-list.
+**Last updated:** 2026-08-30  
+**Current milestone:** **Phase 10 Self-Serve SaaS Onboarding, Bulk Data Ingestion, Multi-Tenant Google Sheets & Live Voice Agent Sheet Editing complete.** 411 backend tests passing, 25 compiled frontend routes, self-serve Google Sheets connection with preflight testing, voice agent live sheet editing (`edit_sheet_row`, `update_worksheet`), tenant-owned Amazon Connect DID policy, PBKDF2 caller PIN controls with persistent cross-session lockout, and the existing Oracle/Render/Vercel deployment architecture. Comprehensive day-by-day implementation tracking is recorded in [`DAY_TRACKER.md`](DAY_TRACKER.md).
+**Operating mode:** Inbound voice, self-serve tenant onboarding, bulk data ingestion engine, multi-tenant Google Sheets mirroring, and dashboard functions are deployed. Campaign dispatch and operational side-effect workers are independently safe-staged; Day 35 admission and Day 36 current-version evidence are both fail-closed with an empty tenant allow-list.
 
 
 ## 1. System boundaries
@@ -283,11 +283,48 @@ flowchart LR
 | Frontend production build | `cd apps/web && npx next build --webpack` | **25 compiled routes** |
 | Live job posture | `GET /api/jobs/health?tenant_id=varun` | Staged / safe |
 
-At the current delivery point, the backend suite has **351 passing tests**, API lint is clean, and the frontend production build generates 25 routes cleanly. GitHub CI validates API lint, API test, and web lint/build on every `main` delivery. Detailed historical day-by-day logs are available in [`DAY_TRACKER.md`](DAY_TRACKER.md).
+At the current delivery point, the backend suite has **411 passing tests**, API lint is clean, and the frontend production build generates 25 routes cleanly. GitHub CI validates API lint, API test, and web lint/build on every `main` delivery. Detailed historical day-by-day logs are available in [`DAY_TRACKER.md`](DAY_TRACKER.md).
+
+## 11. Self-Serve Per-Tenant Google Sheets Integration & Live Voice Agent Row Editing
+
+The multi-tenant Google Sheets subsystem (`apps/api/voxflow_api/integrations/gsheets.py` & `routes/integrations.py`) allows each enterprise workspace to connect its own Google Spreadsheet:
+
+```mermaid
+flowchart TB
+    subgraph ControlPlane["⚙️ Control Plane & Tenant Configuration"]
+        SettingsUI["/dashboard/settings & /dashboard/data\n(GoogleSheetsSettings.tsx)"] --> ConnectAPI["POST /api/tenants/{id}/integrations/google-sheets/connect"]
+        ConnectAPI --> VerifyService["gsheets.verify_and_bootstrap_spreadsheet()"]
+        VerifyService --> DBTenants[("DB: tenants table\n(google_sheet_id, status, tabs)")]
+    end
+
+    subgraph VoiceExecution["🎙️ Real-Time Voice Agent & Tool Dispatch"]
+        InboundCall["Inbound Voice Turn"] --> AgentRunner["AgentRunner & Prompts\n(Injected Sheet Context)"]
+        AgentRunner --> ToolEdit["edit_sheet_row\n(Find by PO/Order/Supplier & Update Cells)"]
+        AgentRunner --> ToolAppend["update_worksheet\n(Append Custom Operational Row)"]
+        ToolEdit --> SheetsClient["GoogleSheetsClient.update_row_by_key()"]
+        ToolAppend --> OutboxQueue["Transactional JobOutbox\n(SHEETS_WORKSHEET_APPEND)"]
+    end
+
+    subgraph ExternalGoogle["📊 External Google Workspace"]
+        SheetsClient --> LiveSheet["Tenant Google Spreadsheet\nIn-Place Cell Update (A1:ZZ500)"]
+        OutboxQueue --> SideWorker["SideEffectWorkerService"]
+        SideWorker --> LiveSheet
+    end
+```
+
+| Component | Responsibility |
+|---|---|
+| `integrations/gsheets.py` | Google Sheets API v4 client. Resolves service account OAuth2 tokens, executes `append_row`, `read_sheet_rows`, `update_row_by_key`, and handles auto-provisioning of missing header columns. |
+| `routes/integrations.py` | Tenant-scoped REST API for reading configuration, connecting with URL parsing, executing preflight live read/write latency diagnostics, and disconnecting. |
+| `agent/tools.py` (`edit_sheet_row`) | Voice agent tool allowing the LLM to search for a row by a key (e.g. `PO Number` = `PO-1002`) and update specific cells in place, while recording local audit entries in `worksheet_logs`. |
+| `agent/prompts.py` | Dynamically injects the workspace's connected spreadsheet title and editing capabilities into the system prompt context. |
+| `jobs/side_effect_worker_service.py` | Resolves `tenant.google_sheet_id` dynamically for background retry jobs. |
 
 ## References
 
 - `DAY_TRACKER.md` (Master Day-Wise Implementation Tracker)
+- `apps/api/voxflow_api/integrations/gsheets.py`
+- `apps/api/voxflow_api/routes/integrations.py`
 - `apps/api/voxflow_api/services/data_ingestion.py`
 - `apps/api/voxflow_api/routes/data.py`
 
