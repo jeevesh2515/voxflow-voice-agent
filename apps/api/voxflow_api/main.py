@@ -21,6 +21,7 @@ from .logging import get_logger, setup_logging
 from .monitoring import init_error_monitoring, init_product_analytics
 from .routes import admin as admin_routes
 from .routes import analytics as analytics_routes
+from .routes import billing as billing_routes
 from .routes import campaign_policies as campaign_policy_routes
 from .routes import campaigns as campaign_routes
 from .routes import data as data_routes
@@ -135,6 +136,8 @@ def create_app() -> FastAPI:
     app.include_router(admin_routes.router, prefix="/api/admin", tags=["admin"])
     app.include_router(admin_routes.tenant_settings_router)
     app.include_router(analytics_routes.router)
+    app.include_router(billing_routes.router)
+    app.include_router(billing_routes.webhook_router)
     app.include_router(campaign_routes.router)
     app.include_router(campaign_policy_routes.router)
     app.include_router(job_routes.router)

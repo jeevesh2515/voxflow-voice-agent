@@ -94,14 +94,15 @@ async def call_socket(ws: WebSocket) -> None:
                 if session is None:
                     await ws.send_json({"type": "error", "message": "session_not_started"})
                     continue
-                result = await pipeline.commit_audio(session)
+                # Day 54: stream first audio byte in ~150ms instead of buffering whole MP3.
+                result = await pipeline.commit_audio_streaming(session, ws.send_json)
                 await ws.send_json(redact_pin_data(result))
 
             elif t == "text":
                 if session is None:
                     await ws.send_json({"type": "error", "message": "session_not_started"})
                     continue
-                # Direct text path — used by the dashboard's "type a message" box.
+                # Direct text path — also streams first byte via edge-tts chunks.
                 from datetime import datetime, timezone
 
                 user_text = (msg.get("text") or "").strip()
@@ -120,37 +121,29 @@ async def call_socket(ws: WebSocket) -> None:
                 session.transcript[-1].text = safe_user_text
                 latency_ms = round((time.perf_counter() - t_turn) * 1000, 2)
                 session.turn_latencies.append(latency_ms)
-                session.transcript.append(
-                    CallTurn(role="agent", text=safe_agent_text, at=datetime.now(timezone.utc))
-                )
+                session.transcript.append(CallTurn(role="agent", text=safe_agent_text, at=datetime.now(timezone.utc)))
                 for a in safe_actions:
                     session.actions.append(a)
                     if a.get("name") == "escalate_to_human":
                         session.escalated = True
-                # Hosted TTS must not make a completed agent turn disappear.
-                # The browser uses native speech synthesis when this enhancement is unavailable.
-                tts_res = None
+                await ws.send_json({"type": "turn_start", "agent_text": safe_agent_text, "user_text": safe_user_text})
+                seq = 0
                 try:
-                    tts_res = await pipeline.tts.synth(safe_agent_text, lang_hint=session.language)
+                    async for chunk in pipeline.tts.synth_stream(safe_agent_text, lang_hint=session.language):
+                        await ws.send_json({"type": "audio_chunk", "seq": seq, "b64": base64.b64encode(chunk).decode("ascii"), "mime": "audio/mpeg"})
+                        seq += 1
                 except Exception as exc:
-                    log.warning(
-                        "tts.browser_fallback",
-                        error=redact_pin_text(str(exc)),
-                        text_len=len(safe_agent_text),
-                    )
-                await ws.send_json(
-                    {
-                        "type": "turn",
-                        "user_text": safe_user_text,
-                        "user_language": session.language,
-                        "user_confidence": 1.0,
-                        "agent_text": safe_agent_text,
-                        "agent_audio_b64": base64.b64encode(tts_res.audio_bytes).decode("ascii") if tts_res else None,
-                        "agent_audio_mime": tts_res.mime if tts_res else None,
-                        "audio_fallback": tts_res is None,
-                        "actions": safe_actions,
-                    }
-                )
+                    log.warning("tts.browser_fallback", error=redact_pin_text(str(exc)), text_len=len(safe_agent_text))
+                await ws.send_json(redact_pin_data({
+                    "type": "turn",
+                    "user_text": safe_user_text,
+                    "user_language": session.language,
+                    "user_confidence": 1.0,
+                    "agent_text": safe_agent_text,
+                    "audio_fallback": seq == 0,
+                    "actions": safe_actions,
+                    "streamed_chunks": seq,
+                }))
 
             elif t == "end":
                 if session is not None:

@@ -1,16 +1,19 @@
 "use client";
 
 import Link from "next/link";
-import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
+import { Suspense, useState } from "react";
 import { FadeUp } from "@/components/ScrollAnimations";
 import TurnstileWidget, { turnstileEnabled } from "@/components/TurnstileWidget";
 import { api } from "@/lib/api";
 import { useAuth } from "@/lib/auth-context";
 
-export default function SignUpPage() {
+function SignUpForm() {
   const { signUp, signIn, loading: authLoading } = useAuth();
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const requestedPlan = (searchParams.get("plan") as any) || "starter";
+
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [company, setCompany] = useState("");
@@ -42,11 +45,7 @@ export default function SignUpPage() {
     setLoading(true);
 
     try {
-      // 1. Register with Supabase Auth. A workspace must never be provisioned
-      //    for a caller with no live, verified session — that caller has no
-      //    bearer token to attach to the request below, so the backend would
-      //    provision the workspace under a placeholder owner identity that
-      //    the real signed-up user can never reconcile with afterward.
+      // 1. Register with Supabase Auth
       const authResult = await signUp(email.trim(), password.trim(), {
         name: name.trim(),
         company_name: company.trim(),
@@ -60,9 +59,6 @@ export default function SignUpPage() {
       }
 
       if (!authResult.hasSession) {
-        // Most commonly: the Supabase project requires email confirmation.
-        // Try signing in immediately in case confirmation isn't actually
-        // required for this project; only block provisioning if that fails.
         const signInResult = await signIn(email.trim(), password.trim());
         if (signInResult.error) {
           setSignUpError(
@@ -74,12 +70,13 @@ export default function SignUpPage() {
         }
       }
 
-      // 2. Call backend self-serve signup provisioning endpoint
+      // 2. Call backend self-serve signup provisioning endpoint with pre-selected plan
       const provisionRes = await api.signupTenant({
         company_name: company.trim(),
         email: email.trim().toLowerCase(),
         name: name.trim(),
         default_language: language,
+        plan: requestedPlan,
         seed_starter_data: true,
         turnstile_token: turnstileToken,
       });
@@ -119,84 +116,69 @@ export default function SignUpPage() {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center px-4 sm:px-6 pt-[5.5rem] pb-20 bg-[#0a0a12] grid-bg relative overflow-hidden">
-      <div className="absolute top-1/3 left-1/2 -translate-x-1/2 w-96 h-96 bg-[#00ffcc]/10 blur-[120px] rounded-full pointer-events-none" />
-      <FadeUp className="w-full max-w-lg relative z-10">
-        <div className="glass neon-border rounded-2xl p-8 sm:p-10 border border-[#ff2d78]/30 shadow-[0_0_50px_rgba(0,0,0,0.5)]">
+    <div className="min-h-screen bg-[#080810] flex items-center justify-center p-4 selection:bg-[#ff2d78]/30 selection:text-[#ff2d78]">
+      <FadeUp>
+        <div className="w-full max-w-md bg-[#0e0e1a]/80 backdrop-blur-xl border border-[#302840]/60 rounded-3xl p-8 shadow-2xl relative overflow-hidden">
           <div className="text-center mb-8">
-            <div className="h-12 w-12 rounded-xl bg-[#ff2d78] grid place-items-center font-headline font-extrabold text-[#1a0010] text-xl mx-auto mb-4 shadow-[0_0_20px_rgba(255,45,120,0.5)]">
-              V
-            </div>
-            <h1 className="font-headline font-bold text-2xl sm:text-3xl text-[#e8e0f0]">
-              Create Your Voice Workspace
-            </h1>
-            <p className="text-sm text-[#a098b0] mt-2 font-body">
-              Self-serve onboarding — deploy your dedicated AI voice agent in 60 seconds.
+            <Link href="/" className="inline-block font-headline font-black text-2xl tracking-wider text-[#e8e0f0] mb-2 hover:text-[#00ffcc] transition-colors">
+              VOX<span className="text-[#ff2d78]">FLOW</span>
+            </Link>
+            <h1 className="text-xl font-headline font-bold text-[#e8e0f0]">Start Your 14-Day Free Trial</h1>
+            <p className="text-xs font-label text-[#a098b0] mt-1">
+              Selected Tier: <span className="font-bold text-teal-400 capitalize">{requestedPlan}</span> • Ready in ~30 seconds
             </p>
           </div>
 
-          <form className="space-y-4" onSubmit={handleSignUp}>
+          <form onSubmit={handleSignUp} className="space-y-4">
             <Field
-              label="Full Name"
+              label="Your Name"
               id="name"
+              type="text"
+              placeholder="Anita Desai"
               value={name}
               onChange={setName}
-              placeholder="e.g. John Doe"
-              type="text"
             />
+
             <Field
               label="Work Email"
               id="email"
+              type="email"
+              placeholder="anita@varunbeverages.com"
               value={email}
               onChange={setEmail}
-              placeholder="name@company.co.uk"
-              type="email"
             />
+
+            <Field
+              label="Company / Workspace Name"
+              id="company"
+              type="text"
+              placeholder="Varun Beverages Ltd"
+              value={company}
+              onChange={setCompany}
+            />
+
             <Field
               label="Password"
               id="password"
+              type="password"
+              placeholder="••••••••"
               value={password}
               onChange={setPassword}
-              placeholder="••••••••"
-              type="password"
-            />
-            <Field
-              label="Company / Business Name"
-              id="company"
-              value={company}
-              onChange={setCompany}
-              placeholder="e.g. Apex Logistics UK Ltd"
-              type="text"
             />
 
             <div>
-              <label className="text-xs font-label uppercase tracking-widest text-[#e8e0f0] block mb-1.5">
+              <label htmlFor="language" className="text-xs font-label uppercase tracking-widest text-[#e8e0f0] block mb-1.5">
                 Primary Agent Language
               </label>
-              <div className="grid grid-cols-2 gap-3">
-                <button
-                  type="button"
-                  onClick={() => setLanguage("en")}
-                  className={`py-2.5 px-3 rounded-xl text-xs font-medium border transition-all flex items-center justify-center gap-2 ${
-                    language === "en"
-                      ? "border-[#00ffcc] bg-[#00ffcc]/15 text-[#00ffcc] shadow-[0_0_15px_rgba(0,255,204,0.3)]"
-                      : "border-[#302840]/60 bg-[#141422] text-[#a098b0] hover:text-[#e8e0f0]"
-                  }`}
-                >
-                  <span>🇬🇧</span> UK English (en)
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setLanguage("hi")}
-                  className={`py-2.5 px-3 rounded-xl text-xs font-medium border transition-all flex items-center justify-center gap-2 ${
-                    language === "hi"
-                      ? "border-[#ff2d78] bg-[#ff2d78]/15 text-[#ff2d78] shadow-[0_0_15px_rgba(255,45,120,0.3)]"
-                      : "border-[#302840]/60 bg-[#141422] text-[#a098b0] hover:text-[#e8e0f0]"
-                  }`}
-                >
-                  <span>🇮🇳</span> Hindi (hi)
-                </button>
-              </div>
+              <select
+                id="language"
+                value={language}
+                onChange={(e) => setLanguage(e.target.value as "en" | "hi")}
+                className="w-full px-4 py-3 rounded-xl bg-[#141422] border border-[#302840]/60 text-[#e8e0f0] text-sm focus:outline-none focus:border-[#ff2d78] transition-all font-body"
+              >
+                <option value="en">English (UK / Global)</option>
+                <option value="hi">Hindi (हिन्दी)</option>
+              </select>
             </div>
 
             {turnstileEnabled() && (
@@ -227,6 +209,14 @@ export default function SignUpPage() {
         </div>
       </FadeUp>
     </div>
+  );
+}
+
+export default function SignUpPage() {
+  return (
+    <Suspense fallback={<div className="min-h-screen bg-[#080810] flex items-center justify-center text-white">Loading...</div>}>
+      <SignUpForm />
+    </Suspense>
   );
 }
 
@@ -262,4 +252,3 @@ function Field({
     </div>
   );
 }
-

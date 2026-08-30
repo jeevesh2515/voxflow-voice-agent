@@ -37,8 +37,18 @@ class Settings(BaseSettings):
     groq_api_key: str = ""
     # `openai/gpt-oss-20b` is the account-available, tool-capable Groq model
     # verified for the production credential. Override with GROQ_MODEL when needed.
+    #
+    # The fallback must be a model the production credential can actually reach,
+    # and it must be a *different* model from the primary: the fallback only ever
+    # fires after the primary exhausted its retry budget on a 429, and Groq meters
+    # each model in its own rate-limit bucket, so falling back to the same name
+    # just re-enters the bucket that is already throttling.
+    # `openai/gpt-oss-120b` is verified available and tool-capable on this
+    # credential. `llama-3.1-8b-instant` and `llama-3.3-70b-versatile` are NOT
+    # entitled here and return 404 — pointing the fallback at either turns a
+    # recoverable rate-limit into a failed call turn.
     groq_model: str = "openai/gpt-oss-20b"
-    groq_fallback_model: str = "openai/gpt-oss-20b"
+    groq_fallback_model: str = "openai/gpt-oss-120b"
     # Bound provider-advised retry delays in the interactive free-tier demo.
     # After the short retry budget is exhausted, the agent returns a safe
     # no-action fallback rather than leaving a browser session stalled.
@@ -120,6 +130,37 @@ class Settings(BaseSettings):
     alert_p90_latency_ms_threshold: int = 2500
     alert_sla_breach_count_threshold: int = 0
     alert_error_rate_threshold: float = 5.0
+
+    # ----- Day 53 Stripe billing -----
+    # Every secret is resolved from the environment only; nothing is committed.
+    # When stripe_secret_key is blank the billing service runs in a deterministic
+    # sandbox mode: it creates no network sessions and signs/verifies webhooks
+    # with an HMAC over the same shared secret. Webhook verification is always
+    # fail-closed — an unverifiable payload is rejected, never trusted.
+    stripe_secret_key: str = ""
+    stripe_publishable_key: str = ""
+    stripe_webhook_secret: str = ""
+    stripe_price_starter: str = ""
+    stripe_price_growth: str = ""
+    stripe_price_enterprise: str = ""
+    # Fallback checkout redirect origin when a caller supplies no explicit URL.
+    billing_portal_return_url: str = "http://localhost:3000/dashboard/settings"
+    billing_trial_period_days: int = 14
+
+    @property
+    def stripe_live_mode(self) -> bool:
+        """True only when a real secret key is configured for this process."""
+
+        return bool(self.stripe_secret_key.strip())
+
+    def stripe_price_id(self, plan_tier: str) -> str:
+        """Resolve the configured Stripe price ID for one plan tier."""
+
+        return {
+            "starter": self.stripe_price_starter,
+            "growth": self.stripe_price_growth,
+            "enterprise": self.stripe_price_enterprise,
+        }.get(plan_tier, "").strip()
 
     @field_validator("database_url", mode="before")
     @classmethod

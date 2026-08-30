@@ -56,11 +56,18 @@ CREATE TABLE IF NOT EXISTS tenants (
 	transcript_retention_days INTEGER DEFAULT 30 NOT NULL,
 	pii_masking_enabled INTEGER DEFAULT 1 NOT NULL,
 	data_residency_region VARCHAR(32) DEFAULT 'eu-west-2' NOT NULL,
+	stripe_customer_id VARCHAR(128),
+	stripe_subscription_id VARCHAR(128),
+	subscription_status VARCHAR(32) DEFAULT 'trialing' NOT NULL,
+	current_period_end TIMESTAMP WITH TIME ZONE,
+	cancel_at_period_end INTEGER DEFAULT 0 NOT NULL,
 	created_at TIMESTAMP WITH TIME ZONE NOT NULL,
 	PRIMARY KEY (id)
 );
 
 CREATE INDEX IF NOT EXISTS ix_tenants_name ON tenants (name);
+
+CREATE INDEX IF NOT EXISTS ix_tenants_stripe_customer_id ON tenants (stripe_customer_id);
 
 CREATE TABLE IF NOT EXISTS agent_states (
 	key VARCHAR(128) NOT NULL,
@@ -512,6 +519,26 @@ CREATE INDEX IF NOT EXISTS ix_suppliers_name ON suppliers (name);
 CREATE INDEX IF NOT EXISTS ix_suppliers_phone ON suppliers (phone);
 
 CREATE INDEX IF NOT EXISTS ix_suppliers_tenant_id ON suppliers (tenant_id);
+
+CREATE TABLE IF NOT EXISTS tenant_billing_invoices (
+	id SERIAL NOT NULL,
+	tenant_id VARCHAR(64) NOT NULL,
+	stripe_invoice_id VARCHAR(128) NOT NULL,
+	amount_paid_cents INTEGER NOT NULL,
+	currency VARCHAR(8) DEFAULT 'gbp' NOT NULL,
+	status VARCHAR(32) NOT NULL,
+	invoice_pdf_url TEXT,
+	hosted_invoice_url TEXT,
+	paid_at TIMESTAMP WITH TIME ZONE,
+	created_at TIMESTAMP WITH TIME ZONE NOT NULL,
+	PRIMARY KEY (id),
+	CONSTRAINT uq_tenant_billing_invoice_stripe_id UNIQUE (tenant_id, stripe_invoice_id),
+	FOREIGN KEY(tenant_id) REFERENCES tenants (id)
+);
+
+CREATE INDEX IF NOT EXISTS ix_tenant_billing_invoices_tenant_created ON tenant_billing_invoices (tenant_id, created_at);
+
+CREATE INDEX IF NOT EXISTS ix_tenant_billing_invoices_tenant_id ON tenant_billing_invoices (tenant_id);
 
 CREATE TABLE IF NOT EXISTS tenant_campaign_policies (
 	tenant_id VARCHAR(64) NOT NULL,

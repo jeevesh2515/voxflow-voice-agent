@@ -1055,3 +1055,92 @@ export interface TestAlertResult {
     inline_delivery?: boolean;
   };
 }
+
+// ---------------------------------------------------------------------------
+// Day 53: Stripe Billing, Subscription Lifecycle & Invoice History
+// ---------------------------------------------------------------------------
+
+export type BillingPlanTier = "starter" | "growth" | "enterprise";
+
+export type SubscriptionStatus =
+  | "trialing"
+  | "active"
+  | "past_due"
+  | "canceled"
+  | "incomplete";
+
+export type BillingMode = "live" | "sandbox";
+
+export interface BillingInvoice {
+  id: number;
+  stripe_invoice_id: string;
+  amount_paid_cents: number;
+  currency: string;
+  status: "paid" | "open" | "void" | "uncollectible";
+  invoice_pdf_url: string | null;
+  hosted_invoice_url: string | null;
+  paid_at: string | null;
+  created_at: string | null;
+}
+
+export interface BillingPlanSpec {
+  name: string;
+  amount_pence: number;
+  /** 0 means unlimited voice lines. */
+  voice_lines: number;
+  /** 0 means unmetered call minutes. */
+  included_minutes: number;
+}
+
+export interface BillingStatus {
+  ok: boolean;
+  tenant_id: string;
+  plan: string;
+  plan_name: string | null;
+  plan_amount_pence: number | null;
+  subscription_status: SubscriptionStatus;
+  current_period_end: string | null;
+  cancel_at_period_end: boolean;
+  has_stripe_customer: boolean;
+  has_active_subscription: boolean;
+  billing_mode: BillingMode;
+  publishable_key: string | null;
+  currency: string;
+  invoices: BillingInvoice[];
+  catalog: Record<BillingPlanTier, BillingPlanSpec>;
+}
+
+export interface BillingCheckoutPayload {
+  plan_tier: BillingPlanTier;
+  success_url: string;
+  cancel_url: string;
+}
+
+export interface BillingCheckoutSession {
+  mode: BillingMode;
+  session_id: string | null;
+  checkout_url: string | null;
+  plan_tier: BillingPlanTier;
+  price_id: string | null;
+  amount_pence: number;
+  currency: string;
+  client_reference_id: string;
+  metadata: { tenant_id: string; plan_tier: string };
+  publishable_key: string | null;
+}
+
+export interface BillingPortalSession {
+  mode: BillingMode;
+  portal_url: string | null;
+  customer_id: string;
+  return_url: string;
+}
+
+export interface PublicBillingConfig {
+  ok: boolean;
+  billing_mode: BillingMode;
+  publishable_key: string | null;
+  currency: string;
+  trial_period_days: number;
+  catalog: Record<BillingPlanTier, BillingPlanSpec>;
+}

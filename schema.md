@@ -1,6 +1,6 @@
 # VoxFlow Database Schema Reference
 
-**Last updated:** 2026-08-26
+**Last updated:** 2026-08-30
 **Authoritative implementation:** `apps/api/voxflow_api/db.py` and the ordered SQL files in `migrations/`.
 **Purpose of this document:** Explain tenant boundaries, durable execution, policy controls, provider callback evidence, typed side-effect intent evidence, Day 35 controlled-pilot readiness, and Day 36 operational-evidence records. It is not a substitute for applying production migrations.
 
@@ -24,6 +24,8 @@ Local SQLite development/tests create the SQLAlchemy metadata. Production Postgr
 018_tenant_agent_settings.sql
 019_escalation_lifecycle_and_sla.sql
 020_per_tenant_google_sheets.sql
+021_tenant_data_retention.sql
+022_stripe_billing.sql
 ```
 
 The initial tenant/core schema (`000_base_schema.sql`) and prior feature migrations must already be present. Do not copy partial DDL from this document into a production database; use the migration files so indexes and constraints remain aligned with code.
@@ -94,6 +96,17 @@ Every operational, campaign, durable-job, provider-operation, and policy record 
 | `tenants.google_sheet_status` | Current integration status: `disconnected`, `connected`, or `error`. |
 | `tenants.google_sheet_connected_at` | Timestamp when the spreadsheet was connected and verified. |
 | `tenants.google_sheet_connected_by_user_id` | User ID of the owner who authorized the spreadsheet connection. |
+
+### Stripe Billing Fields (Day 53)
+
+| Table/field | Rule |
+|---|---|
+| `tenants.stripe_customer_id` | Stripe Customer ID (`cus_…`). Indexed. Only set after `checkout.session.completed`. Never contains card data. |
+| `tenants.stripe_subscription_id` | Stripe Subscription ID (`sub_…`). Nullable — absent until checkout, cleared on `customer.subscription.deleted`. |
+| `tenants.subscription_status` | `trialing` (default) \| `active` \| `past_due` \| `canceled` \| `incomplete`. Drives the plan badge and downgrade gate. |
+| `tenants.current_period_end` | Stripe `current_period_end` as `TIMESTAMPTZ`. Null until first subscription. |
+| `tenants.cancel_at_period_end` | `0` / `1` integer mirror of Stripe `cancel_at_period_end`. |
+| `tenant_billing_invoices` | Immutable per-tenant invoice ledger. Unique `(tenant_id, stripe_invoice_id)` makes Stripe redelivery idempotent. Stores only Stripe-issued identifiers, amount, currency, and hosted/PDF URLs — never card or PAN data. |
 
 ## 4. Durable execution tables (Days 25–29)
 
@@ -208,6 +221,7 @@ erDiagram
     TENANTS ||--|| TENANT_CAMPAIGN_POLICIES : configures
     TENANTS ||--o{ RECIPIENT_CAMPAIGN_PREFERENCES : owns
     TENANTS ||--o{ TENANT_DAILY_DISPATCH_USAGE : tracks
+    TENANTS ||--o{ TENANT_BILLING_INVOICES : owns
     OUTBOUND_CAMPAIGNS ||--o{ CAMPAIGN_QUEUE : contains
     JOB_RUNS ||--o{ JOB_ATTEMPTS : records
     JOB_RUNS ||--|| SIDE_EFFECT_INTENTS : owns_execution
@@ -234,7 +248,8 @@ erDiagram
 13. A Day 35 readiness scorecard reports fixed formulas and observed values only; it must not imply an approval or activation.
 14. Day 36 operational evidence must contain only aggregate/redacted state, be unique per pilot version/evidence key, and never itself grant expansion or execution permission.
 15. Telephony settings APIs may return route policy, masked phone posture, and PIN timestamps only; plaintext PINs and hashes are prohibited.
-16. Schema changes that affect telephony routing, caller verification, policy, consent, jobs, provider operations, provider events, side-effect intents, pilot readiness, or pilot operations require migration review, targeted tests, and a `schema.md` update.
+16. Stripe billing rows must store only Stripe-issued identifiers, amounts, currency, and hosted URLs; card numbers, PAN fragments, and payment-method secrets are owned by Stripe Checkout/Portal. Webhook verification must fail closed and invoice replay must be idempotent on `(tenant_id, stripe_invoice_id)`.
+17. Schema changes that affect telephony routing, caller verification, policy, consent, jobs, provider operations, provider events, side-effect intents, pilot readiness, pilot operations, or billing require migration review, targeted tests, and a `schema.md` update.
 
 ## References
 
@@ -249,6 +264,7 @@ erDiagram
 - `migrations/019_rbac_tenant_memberships.sql`
 - `migrations/020_per_tenant_google_sheets.sql`
 - `migrations/021_tenant_data_retention.sql`
+- `migrations/022_stripe_billing.sql`
 - `apps/api/voxflow_api/pilot_readiness.py`
 - `apps/api/voxflow_api/pilot_operations.py`
 - `apps/api/voxflow_api/jobs/side_effects.py`

@@ -11,6 +11,7 @@ This is the brain of the voice agent. It:
 
 from __future__ import annotations
 
+import asyncio
 import json
 import os
 import time
@@ -27,7 +28,7 @@ from ..llm.base import ChatTurn, LLMProvider
 from ..logging import get_logger
 from ..services.pin_security import redact_pin_data, redact_pin_text, redact_tool_calls_for_trace
 from .prompts import build_system_prompt, build_tenant_prompt
-from .tools import TOOL_DEFINITIONS, execute_tool
+from .tools import TOOL_DEFINITIONS, execute_tool, gated_tool_count, tool_definitions_for
 
 try:
     from langsmith import traceable
@@ -104,6 +105,19 @@ class AgentTurnResult:
 
 
 _GLOBAL_PROMPT_CACHE: dict[str, tuple[float, str]] = {}
+
+
+# Day 54: tools that may run concurrently within one turn. Membership requires
+# a tool to be a *pure* read — no session mutation and no authorization state
+# change — because `asyncio.gather` gives no ordering guarantee.
+# `check_po_status` and `get_order_details` are deliberately excluded even
+# though they are reads: both assign `session.related_order`, so running two of
+# them concurrently would attach a nondeterministic order to the call's
+# escalation audit trail. They stay on the sequential path, where the last call
+# in the model's own list wins.
+_PARALLEL_SAFE: frozenset[str] = frozenset({
+    "check_stock", "get_shipment_status", "verify_po",
+})
 
 
 def clear_tenant_prompt_cache(tenant_id: str | None = None) -> None:
@@ -212,8 +226,10 @@ class AgentRunner:
 
         for iteration in range(self.max_iterations):
             t0 = time.time()
+            # Day 54: gated tools cut ~1.5k input tokens before verification.
+            gated_tools = tool_definitions_for(session)
             try:
-                resp = await llm.chat(history, tools=TOOL_DEFINITIONS)
+                resp = await llm.chat(history, tools=gated_tools)
             except Exception as exc:
                 # Provider availability must not leave a browser simulator turn
                 # pending indefinitely. Do not disclose internal provider details
@@ -245,6 +261,7 @@ class AgentRunner:
                 model=redact_pin_text(resp.model),
                 finish=redact_pin_text(resp.finish_reason),
                 tools=len(resp.tool_calls or []),
+                gated_tools=gated_tool_count(session),
                 ms=int((time.time() - t0) * 1000),
             )
 
@@ -269,8 +286,11 @@ class AgentRunner:
                     finish_reason=resp.finish_reason,
                 )
 
-            # Execute each tool call
-            for tc in tool_calls:
+            # Execute tool calls — parallel for independent reads (Day 54).
+            # Parse first so we can decide parallel vs sequential without
+            # re-parsing inside the gather.
+            parsed: list[tuple[str, dict[str, Any], str]] = []
+            for idx, tc in enumerate(tool_calls):
                 fn = tc.get("function", {}) if isinstance(tc, dict) else {}
                 name = fn.get("name", "")
                 raw_args = fn.get("arguments", "{}")
@@ -278,41 +298,46 @@ class AgentRunner:
                     args = json.loads(raw_args) if isinstance(raw_args, str) else (raw_args or {})
                 except json.JSONDecodeError:
                     args = {}
-                tool_call_id = tc.get("id") or f"call_{iteration}_{len(actions)}"
+                tool_call_id = tc.get("id") or f"call_{iteration}_{idx}"
+                parsed.append((name, args, tool_call_id))
 
-                safe_args = redact_pin_data(args)
-                log.info(
-                    "tool.call",
-                    tenant=redact_pin_text(session.tenant_id),
-                    name=redact_pin_text(name),
-                    args=safe_args,
-                )
-                t_tool = time.time()
-                result = redact_pin_data(await execute_tool(name, args, session))
-                _redact_session_evidence(session)
-                log.info(
-                    "timing.tool",
-                    name=redact_pin_text(name),
-                    ms=int((time.time() - t_tool) * 1000),
-                )
-                actions.append(
-                    {
-                        "name": name,
-                        "args": safe_args,
-                        "result": result,
-                        "at": time.time(),
-                    }
-                )
-                all_tool_calls.append({"name": name, "args": safe_args})
+            can_parallel = (
+                len(parsed) > 1 and all(n in _PARALLEL_SAFE for n, _, _ in parsed)
+            )
 
-                history.append(
-                    ChatTurn(
-                        role="tool",
-                        name=name,
-                        tool_call_id=tool_call_id,
-                        content=json.dumps(result, default=str),
-                    )
-                )
+            if can_parallel:
+                # Fire all reads concurrently — each still opens its own
+                # async_session_scope, but we overlap network/DB wait.
+                t_batch = time.time()
+
+                async def _one(n: str, a: dict[str, Any]) -> Any:
+                    return redact_pin_data(await execute_tool(n, a, session))
+
+                # Log batch start once; per-tool timing still emitted below.
+                for n, a, _ in parsed:
+                    log.info("tool.call", tenant=redact_pin_text(session.tenant_id), name=redact_pin_text(n), args=redact_pin_data(a))
+
+                results = await asyncio.gather(*[_one(n, a) for n, a, _ in parsed])
+
+                for (name, args, tool_call_id), result in zip(parsed, results):
+                    _redact_session_evidence(session)
+                    safe_args = redact_pin_data(args)
+                    actions.append({"name": name, "args": safe_args, "result": result, "at": time.time()})
+                    all_tool_calls.append({"name": name, "args": safe_args})
+                    history.append(ChatTurn(role="tool", name=name, tool_call_id=tool_call_id, content=json.dumps(result, default=str)))
+
+                log.info("timing.tool_batch", count=len(parsed), ms=int((time.time() - t_batch) * 1000))
+            else:
+                for name, args, tool_call_id in parsed:
+                    safe_args = redact_pin_data(args)
+                    log.info("tool.call", tenant=redact_pin_text(session.tenant_id), name=redact_pin_text(name), args=safe_args)
+                    t_tool = time.time()
+                    result = redact_pin_data(await execute_tool(name, args, session))
+                    _redact_session_evidence(session)
+                    log.info("timing.tool", name=redact_pin_text(name), ms=int((time.time() - t_tool) * 1000))
+                    actions.append({"name": name, "args": safe_args, "result": result, "at": time.time()})
+                    all_tool_calls.append({"name": name, "args": safe_args})
+                    history.append(ChatTurn(role="tool", name=name, tool_call_id=tool_call_id, content=json.dumps(result, default=str)))
 
         # Hit max iterations — return whatever the last assistant message was.
         last_assistant = next((m.content for m in reversed(history) if m.role == "assistant" and m.content), "")

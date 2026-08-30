@@ -83,6 +83,13 @@ async def _resolve_connect_route(system_phone: str) -> dict[str, str]:
     if matched is None:
         raise HTTPException(status_code=404, detail="unknown_connect_did")
     row, tenant = matched
+
+    from ..services.billing_service import check_subscription_entitlement
+    is_entitled, reason = check_subscription_entitlement(tenant)
+    if not is_entitled:
+        log.warning("connect.subscription_inactive", tenant_id=tenant.id, reason=reason)
+        raise HTTPException(status_code=402, detail="subscription_inactive")
+
     route_language = row.route_language or "tenant_default"
     language = tenant.default_language if route_language == "tenant_default" else route_language
     return {

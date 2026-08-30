@@ -58,6 +58,9 @@ designer/
 # Generated
 graphify-out/
 .ruff_cache/
+.evalprobe/
+.golive-preflight/
+.golive-preflight/
 
 # Learning journal (private, never pushed)
 .learning/

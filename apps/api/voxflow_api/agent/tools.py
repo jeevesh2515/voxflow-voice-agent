@@ -1280,6 +1280,73 @@ async def execute_tool(name: str, args: dict[str, Any], session: CallSession) ->
         }
 
 
+# ---------- Dynamic tool gating (Day 54: sub-400ms) ----------
+
+# Pre-computed token tax: TOOL_DEFINITIONS is 8180 chars ≈2045 tokens of fixed
+# prefix on every LLM iteration (up to 5). No turn needs all 22 tools.
+# Gating drops the prefix by ~60% before verification and ~30% after.
+
+_CORE_TOOLS: frozenset[str] = frozenset({
+    "lookup_supplier", "verify_caller", "verify_pin", "check_stock", "type_notes", "escalate_to_human",
+})
+
+_VERIFIED_READ_TOOLS: frozenset[str] = frozenset({
+    "get_shipment_status", "verify_po", "check_po_status", "get_order_details",
+})
+
+# Writes that need at least knowledge verification (schedule) or PIN (create_po).
+_VERIFIED_WRITE_TOOLS: frozenset[str] = frozenset({
+    "schedule_appointment", "log_call_outcome",
+})
+_PIN_WRITE_TOOLS: frozenset[str] = frozenset({"create_po"})
+
+# Messaging / sheets only after a verified contact exists — otherwise the
+# model burns tokens on tools it cannot usefully call yet.
+_POST_VERIFY_TOOLS: frozenset[str] = frozenset({
+    "send_email", "send_whatsapp_message", "send_sms", "update_worksheet", "edit_sheet_row",
+})
+
+
+def tool_definitions_for(session: Any | None) -> list[dict[str, Any]]:
+    """Return the minimal tool set for this session's verification state.
+
+    Keeps the full 22-tool list for `pin_verified` sessions (no surprise
+    hiding once fully authorized). Filters aggressively before verification to
+    cut ~1.5k input tokens per LLM call on the free tier.
+    """
+
+    if session is None:
+        return TOOL_DEFINITIONS
+    # Session may be a CallSession or a test stub — be permissive.
+    verified = bool(getattr(session, "verified", False))
+    # Knowledge binding is the true gate — session.verified alone can desync
+    # if the identified contact changed. Check the bound ID when available.
+    try:
+        has_knowledge = _knowledge_authorized_supplier_id(session) is not None  # type: ignore[arg-type]
+    except Exception:
+        has_knowledge = verified
+    try:
+        has_pin = _pin_authorized_supplier_id(session) is not None  # type: ignore[arg-type]
+    except Exception:
+        has_pin = bool(getattr(session, "pin_verified", False))
+
+    if not verified or not has_knowledge:
+        allowed = _CORE_TOOLS
+    elif not has_pin:
+        allowed = _CORE_TOOLS | _VERIFIED_READ_TOOLS | _VERIFIED_WRITE_TOOLS | _POST_VERIFY_TOOLS
+    else:
+        return TOOL_DEFINITIONS
+
+    # Preserve original ordering so prompt-cache prefix stays stable.
+    return [t for t in TOOL_DEFINITIONS if t.get("function", {}).get("name") in allowed]
+
+
+def gated_tool_count(session: Any | None) -> int:
+    """How many tool schemas will be sent for this session (for logging/benchmarks)."""
+
+    return len(tool_definitions_for(session))
+
+
 # ---------- OpenAI-style tool schema ----------
 
 

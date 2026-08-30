@@ -48,6 +48,12 @@ twilio==9.4.1
 # Google Sheets call log (service-account auth)
 google-auth==2.37.0
 
+# Billing — Stripe Checkout, Customer Portal, webhook signature verification.
+# The billing service degrades to a deterministic offline sandbox when
+# STRIPE_SECRET_KEY is unset, so the import is optional at runtime and the test
+# suite passes without the package installed.
+stripe==11.4.1
+
 # Utilities
 tenacity==9.0.0
 structlog==24.4.0

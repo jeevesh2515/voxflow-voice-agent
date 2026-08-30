@@ -1,122 +1,181 @@
+"use client";
+
 import Link from "next/link";
-import { Check } from "lucide-react";
+import { useState } from "react";
+import { Check, Sparkles, ShieldCheck, Zap, Crown } from "lucide-react";
 import { FadeUp, StaggerContainer, StaggerItem } from "@/components/ScrollAnimations";
 
-const tiers = [
+type Currency = "gbp" | "usd";
+
+type Tier = {
+  id: "starter" | "growth" | "enterprise";
+  name: string;
+  gbp: number;
+  usd: number;
+  tag: string | null;
+  popular?: boolean;
+  cta: string;
+  href: string;
+  features: string[];
+};
+
+const TIERS: Tier[] = [
   {
     id: "starter",
-    name: "Starter Pilot",
-    price: "$0",
-    period: "/month",
+    name: "Starter",
+    gbp: 49,
+    usd: 59,
     tag: null,
-    features: [
-      "1 Active Workspace",
-      "Up to 100 calls/month",
-      "Hindi-English & Regional Dialects",
-      "Basic Call Log & Analytics",
-      "Standard Support",
-    ],
-    missing: [
-      "Real-time Order & PO Capture",
-      "Custom Voice Tone",
-      "REST & Webhooks API",
-      "Dedicated Infrastructure",
-    ],
-    cta: "Start Free Pilot",
+    cta: "Start 14-Day Free Trial",
     href: "/sign-up?plan=starter",
-    popular: false,
+    features: [
+      "1 Voice Line",
+      "500 call mins / month",
+      "Google Sheets live mirror",
+      "Email escalations",
+      "UK GDPR retention controls",
+      "Sub-second latency voice agent",
+    ],
   },
   {
-    id: "pro",
-    name: "Pro Operations",
-    price: "$49",
-    period: "/month",
+    id: "growth",
+    name: "Growth",
+    gbp: 149,
+    usd: 179,
     tag: "Most Popular",
-    features: [
-      "3 Workspaces",
-      "Up to 1,500 calls/month",
-      "Real-time Order & PO Capture",
-      "Advanced Analytics & Transcripts",
-      "Priority Email & Chat Support",
-      "Webhook & Database Export",
-    ],
-    missing: [
-      "Custom Voice Tone",
-      "REST & Webhooks API",
-    ],
-    cta: "Start 14-Day Trial",
-    href: "/sign-up?plan=pro",
     popular: true,
-  },
-  {
-    id: "scale",
-    name: "Scale Operations",
-    price: "$99",
-    period: "/month",
-    tag: null,
+    cta: "Start 14-Day Free Trial",
+    href: "/sign-up?plan=growth",
     features: [
-      "10 Workspaces",
-      "Up to 5,000 calls/month",
-      "Real-time Order & PO Capture",
-      "Custom Voice Tone & Speed",
-      "Live Human Handoff Triggers",
-      "REST & Webhooks API Access",
-      "99.9% Uptime SLA",
+      "3 Voice Lines",
+      "2,500 call mins / month",
+      "Caller PIN verification (4-digit)",
+      "Live Sheet Editing & tool-calling",
+      "Priority support",
+      "Amazon Connect telephony",
+      "All Starter features",
     ],
-    missing: [],
-    cta: "Upgrade to Scale",
-    href: "/sign-up?plan=scale",
-    popular: false,
   },
   {
     id: "enterprise",
-    name: "Enterprise Scale",
-    price: "Custom",
-    period: "",
-    tag: null,
-    features: [
-      "Unlimited Workspaces & Calls",
-      "Custom Voice Cloning & Tone",
-      "Dedicated Edge Infrastructure",
-      "Custom ERP & CRM Integrations",
-      "SOC2 Type II & Audit Logs",
-      "24/7 Dedicated Support",
-      "Sub-50ms SLA Guarantee",
-    ],
-    missing: [],
-    cta: "Contact Enterprise Team",
+    name: "Enterprise",
+    gbp: 399,
+    usd: 479,
+    tag: "For Scale",
+    cta: "Contact Sales",
     href: "/sign-up?plan=enterprise",
-    popular: false,
+    features: [
+      "Unlimited voice lines",
+      "Custom Lex STT models",
+      "Dedicated UK DID",
+      "24/7 SLA & on-call escalation",
+      "Custom SLA escalations",
+      "Dedicated success manager",
+      "All Growth features",
+    ],
   },
 ];
 
-const faqs = [
-  { q: "How do the $0, $49, and $99 plans work?", a: "Start completely free with $0 for testing. As your call volume grows, seamlessly upgrade to $49 (Pro) or $99 (Scale) to unlock more capacity and advanced APIs." },
-  { q: "Can I change or upgrade my plan anytime?", a: "Yes! You can switch plans or upgrade instantly from your dashboard. Unused call quotas roll over into your new tier." },
-  { q: "What happens when I click a plan CTA?", a: "Each plan button takes you directly to the workspace setup form with your selected tier pre-configured and ready to deploy." },
-  { q: "What languages and dialects are supported?", a: "VoxFlow supports Hindi, Indian-English, Hinglish, Tamil, Telugu, Marathi, Gujarati, and over 50 global languages natively." },
-  { q: "Is caller data and audio secure?", a: "All streams are encrypted in transit (TLS 1.3) and at rest (AES-256). VoxFlow is SOC 2 Type II compliant." },
+const FAQS = [
+  {
+    q: "How does the 14-day free trial work?",
+    a: "Every workspace starts on a 14-day trial with full access — no card required. Add a payment method before the trial ends to keep your lines live. Cancel anytime from the Stripe Customer Portal.",
+  },
+  {
+    q: "What counts as a call minute?",
+    a: "Only connected call time. Ring time, failed verifications, and simulator sessions do not count toward your monthly minutes.",
+  },
+  {
+    q: "Can I change plans or cancel anytime?",
+    a: "Yes. Upgrade, downgrade, or cancel from Dashboard → Settings → Billing. Downgrades take effect at the next renewal; cancellation keeps your historical call data under your retention policy.",
+  },
+  {
+    q: "Is VoxFlow UK GDPR compliant?",
+    a: "Yes. Data residency is eu-west-2 (London), transcripts are purged on your retention schedule, and DSAR export/erasure plus the automated purge runner ship with every workspace.",
+  },
+  {
+    q: "Which currencies and billing periods are supported?",
+    a: "Billing is in £ GBP by default with $ USD shown for convenience. Monthly billing is standard; annual billing saves 20% on every tier.",
+  },
 ];
 
 export default function PricingPage() {
+  const [currency, setCurrency] = useState<Currency>("gbp");
+  const [annual, setAnnual] = useState(false);
+
+  function displayPrice(tier: Tier) {
+    const base = currency === "gbp" ? tier.gbp : tier.usd;
+    const price = annual ? Math.round(base * 0.8) : base;
+    const symbol = currency === "gbp" ? "£" : "$";
+    return `${symbol}${price}`;
+  }
+
   return (
     <div className="pt-[5.5rem] pb-24 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-      {/* Header */}
-      <FadeUp className="text-center max-w-3xl mx-auto mb-16 pt-12">
+      <FadeUp className="text-center max-w-3xl mx-auto mb-10 pt-12">
         <span className="font-label text-[#00ffcc] uppercase tracking-[0.2em] text-xs mb-4 block">
-          ✦ Transparent Pricing
+          ✦ Transparent UK Pricing
         </span>
         <h1 className="font-headline font-extrabold text-4xl sm:text-6xl tracking-tight text-[#e8e0f0] mb-4 leading-tight">
-          Flexible plans for <span className="text-[#ff2d78] neon-text">every team.</span>
+          Plans for every <span className="text-[#ff2d78] neon-text">operations team.</span>
         </h1>
         <p className="text-lg text-[#a098b0] font-body">
-          Choose between $0 Free Pilot, $49 Pro, $99 Scale, or Custom Enterprise plans. Instant workspace activation.
+          Sub-second voice, Amazon Connect telephony, Google Sheets sync, and UK GDPR — billed in £ GBP or $ USD.
+          14-day free trial on every tier.
         </p>
       </FadeUp>
 
-      {/* Pricing Cards — 4 Columns */}
-      <StaggerContainer className="max-w-7xl mx-auto grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-24">
-        {tiers.map((tier) => (
+      {/* Toggles */}
+      <div className="flex flex-wrap items-center justify-center gap-4 mb-10">
+        <div className="inline-flex rounded-full border border-[#302840]/50 bg-[#0f0f1a]/60 p-1">
+          {(["gbp", "usd"] as Currency[]).map((c) => (
+            <button
+              key={c}
+              type="button"
+              onClick={() => setCurrency(c)}
+              className={`rounded-full px-4 py-1.5 text-xs font-bold uppercase tracking-widest transition ${
+                currency === c
+                  ? "bg-[#ff2d78] text-white shadow"
+                  : "text-[#a098b0] hover:text-[#e8e0f0]"
+              }`}
+            >
+              {c === "gbp" ? "£ GBP" : "$ USD"}
+            </button>
+          ))}
+        </div>
+        <button
+          type="button"
+          onClick={() => setAnnual((v) => !v)}
+          className="inline-flex items-center gap-2 rounded-full border border-[#302840]/50 bg-[#0f0f1a]/60 px-4 py-2 text-xs font-bold text-[#e8e0f0] transition hover:border-[#00ffcc]/40"
+          aria-pressed={annual}
+        >
+          <span
+            className={`h-4 w-8 rounded-full p-0.5 transition ${annual ? "bg-[#00ffcc]" : "bg-[#302840]"}`}
+          >
+            <span
+              className={`block h-3 w-3 rounded-full bg-white transition ${annual ? "translate-x-4" : ""}`}
+            />
+          </span>
+          Annual <span className="text-[#00ffcc]">–20%</span>
+        </button>
+      </div>
+
+      {/* Trust strip */}
+      <div className="mx-auto mb-8 flex max-w-3xl flex-wrap justify-center gap-2 text-[11px] text-[#a098b0]">
+        <span className="inline-flex items-center gap-1.5 rounded-full border border-[#302840]/40 bg-[#141422]/60 px-3 py-1.5">
+          <ShieldCheck size={12} className="text-[#00ffcc]" /> UK GDPR • eu-west-2
+        </span>
+        <span className="inline-flex items-center gap-1.5 rounded-full border border-[#302840]/40 bg-[#141422]/60 px-3 py-1.5">
+          <Zap size={12} className="text-[#ffe04a]" /> Sub-second latency
+        </span>
+        <span className="inline-flex items-center gap-1.5 rounded-full border border-[#302840]/40 bg-[#141422]/60 px-3 py-1.5">
+          <Crown size={12} className="text-[#ff2d78]" /> Stripe billing • VAT receipts
+        </span>
+      </div>
+
+      {/* Pricing Cards — 3 Columns */}
+      <StaggerContainer className="max-w-6xl mx-auto grid grid-cols-1 md:grid-cols-3 gap-6 mb-14">
+        {TIERS.map((tier) => (
           <StaggerItem
             key={tier.id}
             className={`relative rounded-2xl border p-6 sm:p-7 flex flex-col transition-all duration-300 ${
@@ -126,27 +185,30 @@ export default function PricingPage() {
             }`}
           >
             {tier.tag && (
-              <span className="absolute -top-3 left-1/2 -translate-x-1/2 text-[10px] font-label font-bold uppercase tracking-widest bg-[#ff2d78] text-[#1a0010] px-3.5 py-1 rounded-full shadow-[0_0_12px_rgba(255,45,120,0.6)]">
+              <span className="absolute -top-3 left-1/2 -translate-x-1/2 whitespace-nowrap text-[10px] font-label font-bold uppercase tracking-widest bg-[#ff2d78] text-[#1a0010] px-3.5 py-1 rounded-full shadow-[0_0_12px_rgba(255,45,120,0.6)]">
                 {tier.tag}
               </span>
             )}
-            <h3 className="font-headline font-bold text-xl text-[#e8e0f0] mb-1">{tier.name}</h3>
-            <div className="flex items-baseline gap-1 mb-5">
-              <span className="font-headline font-black text-4xl sm:text-5xl text-[#e8e0f0]">
-                {tier.price}
-              </span>
-              <span className="text-xs font-label text-[#a098b0]">{tier.period}</span>
+            <div className="mb-1 flex items-center gap-2">
+              <h3 className="font-headline font-bold text-xl text-[#e8e0f0]">{tier.name}</h3>
+              {tier.id === "enterprise" && <Sparkles size={14} className="text-[#ffe04a]" />}
             </div>
+            <div className="flex items-baseline gap-1 mb-1">
+              <span className="font-headline font-black text-4xl sm:text-5xl text-[#e8e0f0]">
+                {displayPrice(tier)}
+              </span>
+              <span className="text-xs font-label text-[#a098b0]">/ month</span>
+            </div>
+            <p className="mb-5 text-[11px] text-[#a098b0]">
+              {annual ? "Billed annually" : "Billed monthly"} • 14-day free trial
+            </p>
             <ul className="space-y-3 mb-8 flex-1">
               {tier.features.map((f) => (
-                <li key={f} className="flex items-start gap-2.5 text-xs sm:text-sm text-[#e8e0f0]/90 font-body">
+                <li
+                  key={f}
+                  className="flex items-start gap-2.5 text-xs sm:text-sm text-[#e8e0f0]/90 font-body"
+                >
                   <Check size={15} className="text-[#00ffcc] mt-0.5 shrink-0" />
-                  {f}
-                </li>
-              ))}
-              {tier.missing.map((f) => (
-                <li key={f} className="flex items-start gap-2.5 text-xs sm:text-sm text-[#a098b0]/35 font-body line-through">
-                  <span className="w-3.5 shrink-0" />
                   {f}
                 </li>
               ))}
@@ -161,9 +223,21 @@ export default function PricingPage() {
             >
               {tier.cta}
             </Link>
+            <p className="mt-3 text-center text-[10px] text-[#a098b0]">
+              {currency === "gbp" ? "£ GBP" : "$ USD"} • Cancel in Stripe Portal
+            </p>
           </StaggerItem>
         ))}
       </StaggerContainer>
+
+      <p className="mx-auto mb-16 max-w-3xl text-center text-xs leading-5 text-[#a098b0]">
+        Prices exclude VAT where applicable. Invoices and VAT receipts are issued by Stripe. Need a custom volume,
+        on-prem, or multi-region deployment?{" "}
+        <Link href="/sign-up?plan=enterprise" className="text-[#00ffcc] hover:underline">
+          Talk to sales
+        </Link>
+        .
+      </p>
 
       {/* FAQ */}
       <div className="max-w-4xl mx-auto">
@@ -173,12 +247,14 @@ export default function PricingPage() {
           </h2>
         </FadeUp>
         <StaggerContainer className="space-y-4">
-          {faqs.map((faq) => (
+          {FAQS.map((faq) => (
             <StaggerItem key={faq.q}>
               <details className="rounded-xl border border-[#302840]/40 bg-[#141422]/70 group">
                 <summary className="px-6 py-5 text-base font-headline font-semibold text-[#e8e0f0] cursor-pointer list-none flex items-center justify-between group-open:text-[#ff2d78] transition-colors">
                   {faq.q}
-                  <span className="text-[#a098b0] group-open:rotate-180 transition-transform duration-200 text-lg">▾</span>
+                  <span className="text-[#a098b0] group-open:rotate-180 transition-transform duration-200 text-lg">
+                    ▾
+                  </span>
                 </summary>
                 <div className="px-6 pb-5 text-sm text-[#a098b0] font-body leading-relaxed">{faq.a}</div>
               </details>
@@ -186,6 +262,16 @@ export default function PricingPage() {
           ))}
         </StaggerContainer>
       </div>
+
+      {/* Footer Legal & Stripe Links */}
+      <footer className="mt-20 pt-8 border-t border-[#302840]/60 flex flex-col sm:flex-row items-center justify-between text-xs text-[#a098b0] gap-4">
+        <p>© 2026 VoxFlow Technologies Ltd. UK Company. VAT receipts delivered via Stripe Portal.</p>
+        <div className="flex items-center gap-6">
+          <Link href="/terms" className="hover:text-white transition">Terms of Service</Link>
+          <Link href="/privacy" className="hover:text-white transition">Privacy Policy</Link>
+          <Link href="/refund" className="hover:text-white transition">Refund Policy</Link>
+        </div>
+      </footer>
     </div>
   );
 }

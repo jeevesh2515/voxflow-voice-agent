@@ -16,6 +16,23 @@ from voxflow_api.llm.groq import GroqProvider
 from voxflow_api.main import create_app
 
 
+@pytest.fixture
+def seeded_connect_route():
+    """Seed the default tenant + Connect DID so `/api/connect/turn` resolves.
+
+    The `/api/connect/turn` route fails closed (404) unless the `system_phone`
+    DID exists in `tenant_phone_numbers`. Running just this module used to
+    depend on another test module having called `seed()` first — green only
+    because of full-suite file ordering. This makes the silence tests
+    self-contained.
+    """
+    from voxflow_api.db import reset_db
+    from voxflow_api.seed import seed
+
+    reset_db()
+    seed(reset=True)
+
+
 # ============================================================================
 # 1. Groq Client Connection Pooling & Jittered 429 Handling
 # ============================================================================
@@ -122,7 +139,7 @@ async def test_groq_fallback_model_activation():
 # ============================================================================
 
 
-def test_progressive_silence_reprompts(monkeypatch):
+def test_progressive_silence_reprompts(monkeypatch, seeded_connect_route):
     """Verify progressive re-prompting and eventual termination on consecutive silence turns."""
     monkeypatch.setattr(get_settings(), "connect_lambda_secret", "", raising=False)
     app = create_app()
@@ -179,7 +196,7 @@ def test_progressive_silence_reprompts(monkeypatch):
     assert data3["end_call"] is True
 
 
-def test_silence_count_resets_on_spoken_turn(monkeypatch):
+def test_silence_count_resets_on_spoken_turn(monkeypatch, seeded_connect_route):
     """Verify that caller speaking resets the consecutive silence counter."""
     monkeypatch.setattr(get_settings(), "connect_lambda_secret", "", raising=False)
     app = create_app()

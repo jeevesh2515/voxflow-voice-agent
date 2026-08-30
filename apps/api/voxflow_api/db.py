@@ -206,6 +206,13 @@ class Tenant(Base):
     transcript_retention_days: Mapped[int] = mapped_column(Integer, default=30, server_default=text("30"))
     pii_masking_enabled: Mapped[int] = mapped_column(Integer, default=1, server_default=text("1"))
     data_residency_region: Mapped[str] = mapped_column(String(32), default="eu-west-2", server_default=text("'eu-west-2'"))
+    # Day 53 Stripe subscription state. Only Stripe-issued identifiers live here;
+    # card data stays inside Stripe Checkout and the hosted Customer Portal.
+    stripe_customer_id: Mapped[str | None] = mapped_column(String(128), nullable=True, index=True)
+    stripe_subscription_id: Mapped[str | None] = mapped_column(String(128), nullable=True)
+    subscription_status: Mapped[str] = mapped_column(String(32), default="trialing", server_default=text("'trialing'"))
+    current_period_end: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    cancel_at_period_end: Mapped[int] = mapped_column(Integer, default=0, server_default=text("0"))
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_utcnow)
 
 
@@ -1030,6 +1037,36 @@ class RetentionPurgeLog(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_utcnow)
 
 
+class TenantBillingInvoice(Base):
+    """Immutable per-tenant receipt for one Stripe invoice.
+
+    Stripe retries a webhook until it gets a 2xx, so the same
+    ``invoice.payment_succeeded`` event legitimately arrives more than once. The
+    unique ``(tenant_id, stripe_invoice_id)`` constraint is what makes replaying
+    one idempotent rather than duplicating a billing row.
+
+    Only Stripe-issued identifiers, amounts, and hosted URLs are stored. Card
+    numbers, PAN fragments, and payment-method secrets are never written here.
+    """
+
+    __tablename__ = "tenant_billing_invoices"
+    __table_args__ = (
+        UniqueConstraint("tenant_id", "stripe_invoice_id", name="uq_tenant_billing_invoice_stripe_id"),
+        Index("ix_tenant_billing_invoices_tenant_created", "tenant_id", "created_at"),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    tenant_id: Mapped[str] = mapped_column(String(64), ForeignKey("tenants.id"), index=True)
+    stripe_invoice_id: Mapped[str] = mapped_column(String(128))
+    amount_paid_cents: Mapped[int] = mapped_column(Integer, default=0)
+    currency: Mapped[str] = mapped_column(String(8), default="gbp", server_default=text("'gbp'"))
+    status: Mapped[str] = mapped_column(String(32))  # paid | open | void | uncollectible
+    invoice_pdf_url: Mapped[str | None] = mapped_column(Text, nullable=True)
+    hosted_invoice_url: Mapped[str | None] = mapped_column(Text, nullable=True)
+    paid_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_utcnow)
+
+
 # ---------- Helpers ----------
 
 
@@ -1308,6 +1345,46 @@ def _ensure_tenant_google_sheets_columns_sqlite() -> None:
                     log.warning("db.sqlite_add_column_failed", column=col_name, error=str(e))
 
 
+def _ensure_tenant_billing_columns_sqlite() -> None:
+    """Add Day 53 Stripe billing columns to a legacy SQLite tenants table.
+
+    Production PostgreSQL applies ``022_stripe_billing.sql``, which uses real
+    ``ADD COLUMN IF NOT EXISTS`` statements. SQLAlchemy's ``create_all`` never
+    alters a table it already finds, so a local database created before Day 53
+    would otherwise be missing these columns and every billing query would fail.
+    """
+
+    if _engine.dialect.name != "sqlite":
+        return
+    with _engine.begin() as conn:
+        columns = conn.execute(text("PRAGMA table_info(tenants)")).mappings().all()
+        if not columns:
+            return  # table does not exist yet; create_all() will define it correctly
+        existing = {c["name"] for c in columns}
+        new_cols = [
+            ("stripe_customer_id", "VARCHAR(128)"),
+            ("stripe_subscription_id", "VARCHAR(128)"),
+            ("subscription_status", "VARCHAR(32) DEFAULT 'trialing'"),
+            ("current_period_end", "DATETIME"),
+            ("cancel_at_period_end", "INTEGER DEFAULT 0"),
+        ]
+        for col_name, col_type in new_cols:
+            if col_name not in existing:
+                try:
+                    conn.execute(text(f"ALTER TABLE tenants ADD COLUMN {col_name} {col_type}"))
+                except Exception as e:
+                    log.warning("db.sqlite_add_column_failed column=%s error=%s", col_name, str(e))
+        try:
+            conn.execute(
+                text(
+                    "CREATE INDEX IF NOT EXISTS ix_tenants_stripe_customer_id "
+                    "ON tenants (stripe_customer_id)"
+                )
+            )
+        except Exception as e:  # pragma: no cover - index creation is best effort
+            log.warning("db.sqlite_create_index_failed index=%s error=%s", "ix_tenants_stripe_customer_id", str(e))
+
+
 def should_bootstrap_schema(*, mode: str, dialect_name: str) -> bool:
     """Return whether a process may apply compatibility DDL at startup.
 
@@ -1371,6 +1448,7 @@ def init_db() -> bool:
         _ensure_product_composite_key_sqlite()
         _ensure_tenant_google_sheets_columns_sqlite()
         _ensure_tenant_data_retention_columns_sqlite()
+        _ensure_tenant_billing_columns_sqlite()
         log.info(
             "db.schema_bootstrap_applied mode=%s dialect=%s",
             settings.db_schema_bootstrap_mode,

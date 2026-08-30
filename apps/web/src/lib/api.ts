@@ -2,6 +2,11 @@
 
 import type {
   AnalyticsOverview,
+  BillingCheckoutPayload,
+  BillingCheckoutSession,
+  BillingPortalSession,
+  BillingStatus,
+  PublicBillingConfig,
   DrillResultsResponse,
   PilotOperations,
   PilotReadiness,
@@ -486,7 +491,7 @@ export const api = {
     phone_number?: string;
     agent_name?: string;
     default_language?: "en" | "hi";
-    plan?: "starter" | "pro" | "enterprise";
+    plan?: "starter" | "growth" | "pro" | "enterprise";
     seed_starter_data?: boolean;
     turnstile_token?: string | null;
   }) =>
@@ -636,6 +641,21 @@ export const api = {
     http<TestAlertResult>(
       `/api/tenants/${encodeURIComponent(tenant_id)}/observability/alerts/test`,
       { method: "POST" }
+    ),
+
+  // Day 53 Stripe billing
+  billingStatus: (tenant_id: string) =>
+    http<BillingStatus>(`/api/tenants/${encodeURIComponent(tenant_id)}/billing/status`),
+  billingConfig: () => http<PublicBillingConfig>("/api/billing/config"),
+  createBillingCheckout: (tenant_id: string, payload: BillingCheckoutPayload) =>
+    http<{ ok: boolean; checkout: BillingCheckoutSession }>(
+      `/api/tenants/${encodeURIComponent(tenant_id)}/billing/checkout`,
+      { method: "POST", body: JSON.stringify(payload) }
+    ),
+  createBillingPortal: (tenant_id: string, return_url?: string) =>
+    http<{ ok: boolean; portal: BillingPortalSession }>(
+      `/api/tenants/${encodeURIComponent(tenant_id)}/billing/portal`,
+      { method: "POST", body: JSON.stringify(return_url ? { return_url } : {}) }
     ),
 
   // Google Sheets Workspace Integrations

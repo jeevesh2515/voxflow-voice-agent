@@ -40,7 +40,7 @@ class SelfServeSignupIn(BaseModel):
     phone_number: str | None = Field(default=None, max_length=32, description="Optional phone number")
     agent_name: str = Field(default="Vaani", max_length=64, description="Voice agent persona name")
     default_language: Literal["en", "hi"] = Field(default="en", description="Default voice language")
-    plan: Literal["starter", "pro", "enterprise"] = Field(default="pro", description="Subscription plan")
+    plan: Literal["starter", "growth", "pro", "enterprise"] = Field(default="starter", description="Subscription plan")
     seed_starter_data: bool = Field(default=True, description="Prepopulate with starter catalog for immediate testing")
     turnstile_token: str | None = Field(default=None, description="Cloudflare Turnstile token")
 

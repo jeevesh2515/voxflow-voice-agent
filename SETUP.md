@@ -197,7 +197,29 @@ Before a future internal canary, confirm all of the following:
 
 Before a controlled pilot, apply the same rule to operational side effects: a worker must have a written tenant approval, an explicit tenant allow-list, dry-run evidence, a named operator, integration-specific credential review, and rollback ownership. Day 35 adds the final one-tenant/fixed-cohort/operating-hours/human-escalation/scorecard gate; Day 36 additionally requires a fresh current-version same-cohort preflight/hold-point record. Readiness and evidence are not activation or automatic expansion.
 
-## 9. Historical self-hosted instructions
+## 9. Cloud-native distribution — one-line clone (Day 54)
+
+Every runtime is hosted and free. No local model, no GPU, no Docker needed to contribute.
+
+```bash
+git clone https://github.com/jeevesh2515/voxflow-voice-agent.git
+cd voxflow-voice-agent
+cp .env.example .env          # fill only GROQ_API_KEY + Supabase pooler URL
+cd apps/web && npm install && npm run dev   # http://localhost:3000
+# in another terminal:
+cd apps/api && python3.12 -m venv .venv && source .venv/bin/activate
+pip install -r requirements.txt && python -m voxflow_api.seed --reset
+uvicorn voxflow_api.main:app --reload --port 8000
+# live demo: vercel --prod  (reads NEXT_PUBLIC_API_URL from Vercel env)
+```
+
+**Free-tier stack:** Groq `whisper-large-v3-turbo` (STT) + `llama-3.1-8b-instant`/`openai/gpt-oss-20b` (LLM) + `edge-tts` (browser TTS, no key) + Supabase Free pooler (`aws-*.pooler.supabase.com:5432`) + Render Free + Vercel Hobby. No `requirements-local.txt`.
+
+**Cold start:** Render Free sleeps. Keep it warm with `scripts/supabase_keepalive.py` (cron) and a Vercel cron hitting `GET /api/health` every 14 min. `BENCHMARK_REPORT.md` notes cold vs warm — a cold P50 is a wake-up, not a voice latency.
+
+**Day 54 perf:** Dynamic tool gating (core 6 tools pre-verify, ~1.5k tokens saved), parallel reads via `asyncio.gather`, and streaming `turn_start` + `audio_chunk` over `/ws/call` (first byte ~150ms TTFB, not 300ms buffered). `GROQ_FALLBACK_MODEL=llama-3.1-8b-instant` keeps the free tier fast when the primary is rate-limited.
+
+## 10. Historical self-hosted instructions
 
 Older Oracle Cloud, DuckDNS, Caddy, and Docker-compose notes were superseded by the current Render/Vercel deployment path. Keep any environment-specific runbook outside this document and label it with its runtime/date; do not present it as the production default.
 

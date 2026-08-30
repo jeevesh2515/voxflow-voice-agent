@@ -85,33 +85,39 @@ export default function Home() {
                   className="font-label text-secondary tracking-[0.2em] uppercase text-xs sm:text-sm mb-4 sm:mb-6 block neon-text-sm"
                   role="text"
                 >
-                  <span aria-hidden="true">✦</span> Next-Gen Voice Operations
+                  <span aria-hidden="true">✦</span> UK Supply Chain • Amazon Connect • Sub-Second Voice
                 </span>
                 <h1 className="font-headline font-extrabold text-4xl sm:text-5xl lg:text-7xl xl:text-8xl leading-[1.1] tracking-tight mb-6 text-on-surface">
-                  Every&nbsp;call.<br />
-                  Every&nbsp;detail.<br />
-                  <span className="text-primary neon-text">Handled.</span>
+                  The voice agent
+                  <br />
+                  UK operators
+                  <br />
+                  <span className="text-primary neon-text">actually trust.</span>
                 </h1>
                 <p className="text-on-surface-variant text-base sm:text-lg lg:text-xl mb-8 sm:mb-10 max-w-md font-body leading-relaxed">
-                  VoxFlow is the voice layer for modern operations — built for scale, trusted by leading teams to automate high-stakes conversations.
+                  Amazon Connect telephony, sub-second latency, live Google Sheets sync, and UK GDPR (eu-west-2) — from
+                  £49/mo. The only voice layer built for British SMB supply chains.
                 </p>
                 <div className="flex flex-wrap gap-3 sm:gap-4">
                   <Link
-                    href="/sign-up"
+                    href="/pricing"
                     className="group inline-flex items-center gap-2 bg-primary text-on-primary px-6 sm:px-8 py-3 sm:py-4 font-headline font-bold rounded-xl transition-all duration-300 hover:shadow-[0_0_30px_rgba(255,45,120,0.5)] hover:scale-[1.03] active:scale-95 text-sm sm:text-base"
                   >
-                    Request Pilot
+                    Start 14-Day Free Trial
                     <span className="material-symbols-outlined group-hover:translate-x-1 transition-transform">
                       arrow_forward
                     </span>
                   </Link>
-                  <a
-                    href="#platform"
+                  <Link
+                    href="/dashboard/simulator"
                     className="inline-flex items-center gap-2 border border-outline-variant/50 text-on-surface px-6 sm:px-8 py-3 sm:py-4 font-headline font-bold rounded-xl hover:bg-surface-variant transition-all duration-300 hover:border-primary/40 active:scale-95 text-sm sm:text-base"
                   >
-                    Explore Operations
-                  </a>
+                    Live Demo
+                  </Link>
                 </div>
+                <p className="mt-3 text-xs text-on-surface-variant">
+                  No card required • Cancel in Stripe Customer Portal • VAT receipts included
+                </p>
               </div>
             </div>
 
@@ -302,6 +308,25 @@ export default function Home() {
           </div>
         </section>
 
+        {/* Simulator teaser */}
+        <section className="py-10 sm:py-14 relative reveal" id="simulator-teaser">
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div className="rounded-2xl border border-[#00ffcc]/20 bg-[#00ffcc]/5 p-6 sm:p-8 flex flex-col sm:flex-row items-center justify-between gap-4">
+              <div>
+                <p className="text-xs font-bold uppercase tracking-widest text-[#00ffcc]">Try it live</p>
+                <h3 className="mt-1 text-lg font-bold text-[#e8e0f0]">Hear VoxFlow answer in your browser — no phone needed</h3>
+                <p className="mt-1 text-sm text-[#a098b0]">WebAudio simulator • Hindi + English • Tool-calling edits straight to Sheets</p>
+              </div>
+              <Link
+                href="/dashboard/simulator"
+                className="shrink-0 rounded-xl bg-[#00ffcc] px-6 py-3 text-sm font-bold text-[#0a0a12] transition hover:bg-[#00e6b8]"
+              >
+                Open Simulator
+              </Link>
+            </div>
+          </div>
+        </section>
+
         {/* ==================== FEATURES SECTION ==================== */}
         <section className="py-20 sm:py-28 lg:py-32 relative grid-bg" id="platform">
           <div className="absolute inset-0 noise pointer-events-none" aria-hidden="true" />
@@ -311,10 +336,11 @@ export default function Home() {
                 Platform
               </span>
               <h2 className="font-headline font-bold text-3xl sm:text-4xl lg:text-5xl mb-4 tracking-tight text-on-surface">
-                Enterprise Grade Intelligence
+                Built for UK Operations
               </h2>
               <p className="text-on-surface-variant text-base sm:text-lg max-w-2xl mx-auto font-body">
-                Standardize every customer interaction with surgical precision and persistent context.
+                Amazon Connect telephony, sub-second LLM turns, Google Sheets live mirror, and UK GDPR — not a generic
+                demo. Every call is tenant-isolated and audit-logged.
               </p>
             </div>
             <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-5 sm:gap-6 lg:gap-8 stagger-children" id="features-grid">
@@ -332,10 +358,11 @@ export default function Home() {
                   </span>
                 </div>
                 <h3 className="font-headline font-bold text-lg sm:text-xl mb-3 sm:mb-4 text-on-surface">
-                  Unmatched Consistency
+                  Sub-Second Voice
                 </h3>
                 <p className="text-on-surface-variant text-sm sm:text-base leading-relaxed font-body">
-                  Ensure every agent adheres to brand protocols perfectly. Zero variability in tone, accuracy, or professional compliance.
+                  Groq-hosted Whisper + gpt-oss-20b at &lt;200ms per turn. Glass-to-glass median under 600ms — callers never
+                  notice the AI.
                 </p>
               </div>
 
@@ -353,10 +380,11 @@ export default function Home() {
                   </span>
                 </div>
                 <h3 className="font-headline font-bold text-lg sm:text-xl mb-3 sm:mb-4 text-on-surface">
-                  Operational Memory
+                  Google Sheets Live Mirror
                 </h3>
                 <p className="text-on-surface-variant text-sm sm:text-base leading-relaxed font-body">
-                  Integrated real-time database access allows agents to remember history, preferences, and complex order details across sessions.
+                  Every tool call writes back to your sheet in real time. Tool-calling sheet edits, CSV bulk ingestion, and
+                  per-tenant tab isolation — your ops team never leaves Sheets.
                 </p>
               </div>
 
@@ -374,10 +402,11 @@ export default function Home() {
                   </span>
                 </div>
                 <h3 className="font-headline font-bold text-lg sm:text-xl mb-3 sm:mb-4 text-on-surface">
-                  Strategic Control
+                  UK GDPR by Default
                 </h3>
                 <p className="text-on-surface-variant text-sm sm:text-base leading-relaxed font-body">
-                  Complete visibility into every dialogue path. Instant audit logs and real-time intervention for edge cases.
+                  Data residency eu-west-2, DSAR export/erasure, transcript auto-purge, and an audited retention runner.
+                  3-tier RBAC and zero-data-leak isolation verified on every release.
                 </p>
               </div>
             </div>
@@ -557,6 +586,92 @@ export default function Home() {
           </div>
         </section>
 
+        {/* Architecture breakdown */}
+        <section className="py-16 sm:py-20 relative" id="architecture">
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div className="text-center mb-10 reveal">
+              <h2 className="font-headline font-bold text-2xl sm:text-3xl text-on-surface">How it works</h2>
+              <p className="mt-2 text-sm text-on-surface-variant">Four hops. No human in the loop until escalation.</p>
+            </div>
+            <div className="grid sm:grid-cols-4 gap-4 stagger-children">
+              {[
+                { step: "01", title: "Amazon Connect", desc: "UK DID answers, streams PCM to VoxFlow" },
+                { step: "02", title: "Whisper + LLM", desc: "Groq STT → gpt-oss-20b → tool calls" },
+                { step: "03", title: "Tenant DB + Sheets", desc: "Scoped reads/writes + live sheet mirror" },
+                { step: "04", title: "Voice back + logs", desc: "Edge TTS reply, transcript & invoice logged" },
+              ].map((s) => (
+                <div key={s.step} className="rounded-2xl border border-outline-variant/20 bg-surface-container/40 p-5">
+                  <p className="text-xs font-mono text-secondary">{s.step}</p>
+                  <h3 className="mt-1 font-headline font-bold text-sm text-on-surface">{s.title}</h3>
+                  <p className="mt-1 text-xs leading-5 text-on-surface-variant">{s.desc}</p>
+                </div>
+              ))}
+            </div>
+          </div>
+        </section>
+
+        {/* Feature matrix */}
+        <section className="py-10 sm:py-14 relative" id="feature-matrix">
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div className="overflow-hidden rounded-2xl border border-outline-variant/20">
+              <div className="grid grid-cols-4 gap-px bg-outline-variant/20 text-xs">
+                <div className="bg-surface-container p-3 font-bold text-on-surface">Capability</div>
+                <div className="bg-surface-container p-3 text-center font-bold text-on-surface">Starter £49</div>
+                <div className="bg-surface-container p-3 text-center font-bold text-primary">Growth £149</div>
+                <div className="bg-surface-container p-3 text-center font-bold text-on-surface">Enterprise £399</div>
+                {[
+                  ["Voice lines", "1", "3", "Unlimited"],
+                  ["Call mins / mo", "500", "2,500", "Unmetered"],
+                  ["PIN verification", "—", "✓", "✓"],
+                  ["Live Sheet Editing", "—", "✓", "✓"],
+                  ["Dedicated UK DID", "—", "—", "✓"],
+                  ["24/7 SLA", "—", "—", "✓"],
+                ].map(([cap, a, b, c]) => (
+                  <div key={cap} className="contents">
+                    <div className="bg-surface-container-low p-3 text-on-surface-variant">{cap}</div>
+                    <div className="bg-surface-container-low p-3 text-center text-on-surface">{a}</div>
+                    <div className="bg-surface-container-low p-3 text-center text-on-surface">{b}</div>
+                    <div className="bg-surface-container-low p-3 text-center text-on-surface">{c}</div>
+                  </div>
+                ))}
+              </div>
+            </div>
+            <p className="mt-3 text-center text-xs text-on-surface-variant">
+              Full comparison on <Link href="/pricing" className="text-secondary hover:underline">/pricing</Link> • Annual saves 20% • VAT receipts via Stripe
+            </p>
+          </div>
+        </section>
+
+        {/* FAQ */}
+        <section className="py-10 sm:py-14 relative" id="faq">
+          <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
+            <h2 className="text-center font-headline font-bold text-2xl text-on-surface mb-6">FAQ</h2>
+            <div className="space-y-3">
+              {[
+                {
+                  q: "Will this work with my existing UK phone numbers?",
+                  a: "Yes. Port your DID to Amazon Connect or use a VoxFlow-issued UK DID (Enterprise). Exact DID routing guarantees zero cross-tenant leakage.",
+                },
+                {
+                  q: "How does Google Sheets sync work?",
+                  a: "Connect a sheet from Dashboard → Settings. Every call outcome and tool edit is mirrored live to your Call Log / Email Log tabs via a per-tenant service account.",
+                },
+                {
+                  q: "What about GDPR?",
+                  a: "All data stays in eu-west-2. Transcripts auto-purge on your retention schedule (30/90 days by default), DSAR export/erasure is one click, and the nightly purge runner is audited.",
+                },
+              ].map((f) => (
+                <details key={f.q} className="rounded-xl border border-outline-variant/20 bg-surface-container/40 group">
+                  <summary className="cursor-pointer list-none px-5 py-4 text-sm font-semibold text-on-surface flex justify-between group-open:text-primary">
+                    {f.q} <span className="text-on-surface-variant group-open:rotate-180 transition">▾</span>
+                  </summary>
+                  <div className="px-5 pb-4 text-sm leading-6 text-on-surface-variant">{f.a}</div>
+                </details>
+              ))}
+            </div>
+          </div>
+        </section>
+
         {/* ==================== CTA SECTION ==================== */}
         <section className="py-20 sm:py-28 lg:py-32 relative grid-bg" id="cta">
           <div className="absolute inset-0 noise pointer-events-none" aria-hidden="true" />
@@ -565,32 +680,44 @@ export default function Home() {
               <div className="absolute -top-24 -left-24 w-48 sm:w-64 h-48 sm:h-64 bg-primary/15 blur-[120px] rounded-full pointer-events-none" aria-hidden="true" />
               <div className="absolute -bottom-24 -right-24 w-48 sm:w-64 h-48 sm:h-64 bg-secondary/15 blur-[120px] rounded-full pointer-events-none" aria-hidden="true" />
               <h2 className="font-headline font-extrabold text-2xl sm:text-3xl lg:text-4xl xl:text-5xl mb-4 sm:mb-6 relative z-10 tracking-tight leading-tight text-on-surface">
-                Ready to automate your <span className="text-primary neon-text">voice layer</span>?
+                Go live <span className="text-primary neon-text">this week.</span>
               </h2>
               <p className="text-on-surface-variant text-sm sm:text-base lg:text-lg mb-8 sm:mb-10 relative z-10 max-w-xl mx-auto font-body">
-                Join the next generation of operational efficiency. Seamless integration with your existing CRM and tech stack.
+                From £49/mo. 14-day trial, Stripe billing, VAT receipts. Run <code className="rounded bg-surface-variant px-1.5 py-0.5 text-xs">python scripts/golive_dry_run.py --strict</code> before you ship.
               </p>
               <div className="flex flex-col sm:flex-row gap-3 sm:gap-4 justify-center relative z-10">
                 <Link
-                  href="/sign-up"
+                  href="/pricing"
                   className="group inline-flex items-center justify-center gap-2 bg-primary text-on-primary px-6 sm:px-10 py-3 sm:py-5 font-headline font-bold rounded-xl transition-all duration-300 hover:shadow-[0_0_30px_rgba(255,45,120,0.5)] hover:scale-[1.03] active:scale-95 text-sm sm:text-base"
                 >
-                  Start Your Free Pilot
+                  Start 14-Day Free Trial
                   <span className="material-symbols-outlined group-hover:translate-x-1 transition-transform">
                     arrow_forward
                   </span>
                 </Link>
                 <Link
-                  href="/pricing"
+                  href="/dashboard/simulator"
                   className="inline-flex items-center justify-center gap-2 bg-surface-variant text-on-surface px-6 sm:px-10 py-3 sm:py-5 font-headline font-bold rounded-xl hover:bg-surface-container-highest transition-all duration-300 active:scale-95 text-sm sm:text-base border border-outline-variant/20"
                 >
-                  View Pricing Options
+                  Live Demo
                 </Link>
               </div>
             </div>
           </div>
         </section>
       </main>
+
+      <footer className="border-t border-outline-variant/20 py-8 bg-surface-container/30 text-center text-xs text-on-surface-variant">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex flex-col sm:flex-row items-center justify-between gap-4">
+          <p>© 2026 VoxFlow Technologies Ltd. UK Company. VAT receipts delivered via Stripe Portal.</p>
+          <div className="flex items-center gap-6">
+            <Link href="/terms" className="hover:text-primary transition">Terms of Service</Link>
+            <Link href="/privacy" className="hover:text-primary transition">Privacy Policy</Link>
+            <Link href="/refund" className="hover:text-primary transition">Refund Policy</Link>
+            <Link href="/pricing" className="hover:text-primary transition">Pricing</Link>
+          </div>
+        </div>
+      </footer>
     </>
   );
 }

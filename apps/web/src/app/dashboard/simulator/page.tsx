@@ -155,21 +155,61 @@ export default function PhoneSimulator() {
       ]);
     };
 
+    // Day 54: stream first byte — turn_start renders text immediately, audio_chunk
+    // buffers are assembled into one playable MP3 on turn complete.
+    const pendingAudioChunks = { current: [] as Uint8Array[] };
+    // Whether `turn_start` already rendered this turn's text. Tracked explicitly
+    // rather than inferred from the chunk count: when hosted TTS is unavailable
+    // the server still sends `turn_start` but zero `audio_chunk` frames, and
+    // inferring from an empty buffer rendered every such turn's text twice.
+    const turnStartRendered = { current: false };
     ws.onmessage = async (ev) => {
       try {
         const msg = JSON.parse(ev.data);
         if (msg.type === "ready") {
           setCallId(msg.call_id);
-        } else if (msg.type === "turn") {
+        } else if (msg.type === "turn_start") {
+          // Text is ready before audio — render immediately so caller sees response in ~150ms.
           setTurns((t) => [
             ...t,
             { role: "caller", text: msg.user_text, at: Date.now() },
-            { role: "agent",  text: msg.agent_text, at: Date.now() },
+            { role: "agent", text: msg.agent_text, at: Date.now() },
           ]);
+          pendingAudioChunks.current = [];
+          turnStartRendered.current = true;
+        } else if (msg.type === "audio_chunk") {
+          try {
+            pendingAudioChunks.current.push(base64ToBytes(msg.b64));
+          } catch {}
+        } else if (msg.type === "turn") {
+          // Only render text here when no `turn_start` preceded this turn — the
+          // REST/legacy path and any client that missed the streaming preamble.
+          if (!turnStartRendered.current && msg.user_text && msg.agent_text) {
+            setTurns((t) => [
+              ...t,
+              { role: "caller", text: msg.user_text, at: Date.now() },
+              { role: "agent",  text: msg.agent_text, at: Date.now() },
+            ]);
+          }
+          turnStartRendered.current = false;
           setActions(msg.actions || []);
-          // Play TTS audio
-          if (msg.agent_audio_b64) {
-            const bytes = base64ToBytes(msg.agent_audio_b64);
+          // Prefer streamed chunks, fallback to single blob for backward compat.
+          const b64 = msg.agent_audio_b64;
+          const chunks = pendingAudioChunks.current;
+          if (chunks.length > 0) {
+            const total = chunks.reduce((n, c) => n + c.length, 0);
+            const combined = new Uint8Array(total);
+            let off = 0;
+            for (const c of chunks) { combined.set(c, off); off += c.length; }
+            pendingAudioChunks.current = [];
+            const blob = new Blob([combined.buffer as ArrayBuffer], { type: msg.agent_audio_mime || "audio/mpeg" });
+            const url = URL.createObjectURL(blob);
+            const audio = new Audio(url);
+            lastAudioRef.current = audio;
+            audio.play().catch(() => speakWithBrowserFallback(msg.agent_text, msg.user_language));
+            audio.onended = () => URL.revokeObjectURL(url);
+          } else if (b64) {
+            const bytes = base64ToBytes(b64);
             const blob = new Blob([bytes.buffer as ArrayBuffer], { type: msg.agent_audio_mime || "audio/mpeg" });
             const url = URL.createObjectURL(blob);
             const audio = new Audio(url);

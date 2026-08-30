@@ -353,6 +353,97 @@ class VoicePipeline:
             "actions": safe_actions,
         }
 
+    async def commit_audio_streaming(
+        self, session: CallSession, send_json
+    ) -> dict[str, Any]:
+        """STT → LLM, then stream TTS chunks via `send_json` as they arrive.
+
+        Keeps `commit_audio` intact for REST/tests. The WebSocket path calls
+        this so the browser hears the first byte in ~150ms (TTFB) instead of
+        waiting for the whole MP3 (~300ms).
+        Protocol:
+          -> {"type":"turn_start","agent_text":...}
+          -> {"type":"audio_chunk","seq":0,"b64":...} * N
+          -> {"type":"turn","agent_text":...,"audio_fallback":bool,"actions":...}
+        """
+
+        if not session.pcm_buffer:
+            return {"type": "info", "message": "no_audio"}
+
+        pcm = np.frombuffer(bytes(session.pcm_buffer), dtype=np.int16).astype(np.float32) / 32768.0
+        session.reset_pcm()
+
+        loop = asyncio.get_running_loop()
+        t0 = time.time()
+        transcription = await loop.run_in_executor(
+            None,
+            lambda: self.stt.transcribe_pcm(pcm, sample_rate=session.pcm_sample_rate),
+        )
+        user_text = transcription.text.strip()
+        log.info("timing.stt", ms=int((time.time() - t0) * 1000), confidence=transcription.confidence, lang=redact_pin_text(transcription.language))
+        if not user_text:
+            return {"type": "info", "message": "empty_transcript"}
+
+        if transcription.language in ("hi", "en"):
+            session.language = transcription.language
+
+        session.transcript.append(CallTurn(role="caller", text=user_text, at=time.time()))
+
+        t_turn = time.perf_counter()
+        agent_result = await self.agent.handle_turn(session=session, user_text=user_text)
+        safe_user_text = redact_pin_text(user_text)
+        session.transcript[-1].text = safe_user_text
+        latency_ms = round((time.perf_counter() - t_turn) * 1000, 2)
+        session.turn_latencies.append(latency_ms)
+
+        agent_text = redact_pin_text(agent_result.reply)
+        safe_actions = redact_pin_data(agent_result.actions)
+        session.transcript.append(CallTurn(role="agent", text=agent_text, at=time.time()))
+        for a in safe_actions:
+            session.actions.append(a)
+            if a.get("name") == "escalate_to_human":
+                session.escalated = True
+        _snapshot_session(session)
+
+        # Tell the UI what the agent said immediately — text renders before audio.
+        await send_json({"type": "turn_start", "agent_text": agent_text, "user_text": safe_user_text, "user_language": transcription.language})
+
+        # Stream TTS chunks as they are synthesized.
+        first_byte_ms: int | None = None
+        t_tts = time.time()
+        seq = 0
+        total_bytes = 0
+        try:
+            async for chunk in self.tts.synth_stream(agent_text, lang_hint=session.language):
+                if first_byte_ms is None:
+                    first_byte_ms = int((time.time() - t_tts) * 1000)
+                    log.info("timing.tts_first_byte", ms=first_byte_ms, text_len=len(agent_text))
+                total_bytes += len(chunk)
+                await send_json({"type": "audio_chunk", "seq": seq, "b64": _b64(chunk), "mime": "audio/mpeg"})
+                seq += 1
+            log.info("timing.tts_stream", ms=int((time.time() - t_tts) * 1000), chunks=seq, bytes=total_bytes, text_len=len(agent_text))
+            audio_fallback = seq == 0
+        except Exception as exc:
+            log.warning("tts.browser_fallback", error=redact_pin_text(str(exc)), text_len=len(agent_text))
+            audio_fallback = True
+            seq = 0
+
+        # Final turn (backward-compatible with the old single-blob shape — frontend
+        # that ignores audio_chunk can still use agent_text).
+        return {
+            "type": "turn",
+            "user_text": safe_user_text,
+            "user_language": transcription.language,
+            "user_confidence": transcription.confidence,
+            "agent_text": agent_text,
+            "agent_audio_b64": None,
+            "agent_audio_mime": "audio/mpeg" if not audio_fallback else None,
+            "audio_fallback": audio_fallback,
+            "actions": safe_actions,
+            "streamed_chunks": seq,
+            "ttfb_ms": first_byte_ms,
+        }
+
     # ---------- Persistence ----------
 
     async def _drain_sheet_task(self, session: CallSession, timeout: float = 8.0) -> None:

@@ -2,6 +2,7 @@
 
 import { Globe2, Palette, Settings2 } from "lucide-react";
 import AgentSettings from "@/components/settings/AgentSettings";
+import BillingSettings from "@/components/settings/BillingSettings";
 import GoogleSheetsSettings from "@/components/settings/GoogleSheetsSettings";
 import TeamMembersSettings from "@/components/settings/TeamMembersSettings";
 import TelephonySettings from "@/components/settings/TelephonySettings";
@@ -41,6 +42,8 @@ export default function SettingsPage() {
       <GoogleSheetsSettings />
 
       <TelephonySettings />
+
+      <BillingSettings />
 
       <section className="grid gap-6 lg:grid-cols-[minmax(0,1.4fr)_minmax(280px,0.6fr)]">
         <div className="overflow-hidden rounded-2xl border border-[#302840]/60 bg-[#141422]/40">
