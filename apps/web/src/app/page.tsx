@@ -683,7 +683,7 @@ export default function Home() {
                 Go live <span className="text-primary neon-text">this week.</span>
               </h2>
               <p className="text-on-surface-variant text-sm sm:text-base lg:text-lg mb-8 sm:mb-10 relative z-10 max-w-xl mx-auto font-body">
-                From £49/mo. 14-day trial, Stripe billing, VAT receipts. Run <code className="rounded bg-surface-variant px-1.5 py-0.5 text-xs">python scripts/golive_dry_run.py --strict</code> before you ship.
+                Deploy autonomous multilingual voice agents across your supply chain in under 3 minutes. Zero setup fees, 14-day unlimited trial, and enterprise SLA.
               </p>
               <div className="flex flex-col sm:flex-row gap-3 sm:gap-4 justify-center relative z-10">
                 <Link
