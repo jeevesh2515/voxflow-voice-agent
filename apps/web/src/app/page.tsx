@@ -164,19 +164,6 @@ export default function Home() {
       requestAnimationFrame(() => {
         ticking = false;
 
-        // Pinned hero: 3-stage cinematic (aperture → blueprint morph → copy/console glide-in).
-        if (heroStage) {
-          const r = heroStage.getBoundingClientRect();
-          const p = clamp01(-r.top / Math.max(r.height - window.innerHeight, 1));
-          const copyIn = clamp01((p - 0.55) / 0.18);
-          const consoleIn = clamp01((p - 0.62) / 0.18);
-          heroStage.style.setProperty("--hero-progress", p.toFixed(4));
-          heroStage.style.setProperty("--hero-copy-shift", `${(1 - copyIn) * 40}px`);
-          heroStage.style.setProperty("--hero-console-shift", `${(1 - consoleIn) * 40}px`);
-          heroStage.style.setProperty("--hero-copy-opacity", copyIn.toFixed(4));
-          heroStage.style.setProperty("--hero-console-opacity", consoleIn.toFixed(4));
-        }
-
         // Word-level narrative illumination, driven by scroll position.
         wordReveals.forEach((paragraph) => {
           const r = paragraph.getBoundingClientRect();
@@ -255,24 +242,6 @@ export default function Home() {
           <div className="hero-stage-sticky relative min-h-[100svh] flex items-center overflow-hidden grid-bg pt-28 pb-16 sm:pt-32 sm:pb-24">
             <VoiceCoreCanvas />
             <div className="hero-vignette absolute inset-0 pointer-events-none" aria-hidden="true" />
-            <p className="hero-aperture-cue" aria-hidden="true">[ 01 / VOICE CORE ] — SCROLL TO INITIALIZE SIGNAL</p>
-            <div className="hero-hud hero-hud-left" aria-hidden="true">
-              <span>SIGNAL LOCK: 16kHz PCM</span>
-              <span>CODEC: OPUS / TLS</span>
-            </div>
-            <div className="hero-hud hero-hud-right" aria-hidden="true">
-              <span>LATENCY TARGET: &lt;100ms</span>
-              <span>EDGE: LONDON EU-WEST-2</span>
-            </div>
-            <div className="hero-index hero-index-left" aria-hidden="true">
-              <span>01 / VOICE CORE</span>
-              <span>SCROLL TO ROUTE SIGNAL</span>
-            </div>
-            <div className="hero-index hero-index-right" aria-hidden="true">
-              <span className="hero-phase hero-phase-one">APERTURE</span>
-              <span className="hero-phase hero-phase-two">BLUEPRINT</span>
-              <span className="hero-phase hero-phase-three">ROUTING</span>
-            </div>
           {/* Ambient Glowing Nebula Orbs */}
           <div
             className="absolute top-1/4 left-1/4 w-[45vw] h-[45vw] max-w-[500px] max-h-[500px] bg-[#ff2d78]/10 blur-[130px] rounded-full pointer-events-none"

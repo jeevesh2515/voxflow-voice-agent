@@ -625,18 +625,12 @@ html {
 }
 
 .hero-stage {
-  --hero-progress: 0;
-  --hero-copy-shift: 0px;
-  --hero-console-shift: 0px;
-  --hero-copy-opacity: 0;
-  --hero-console-opacity: 0;
-  height: 250vh;
-  isolation: isolate;
+  height: auto;
+  position: relative;
 }
 
 .hero-stage-sticky {
-  position: sticky;
-  top: 0;
+  position: relative;
   z-index: 1;
   background:
     radial-gradient(circle at 73% 48%, rgba(0, 255, 204, 0.075), transparent 20%),
@@ -656,7 +650,7 @@ html {
   inset: 20px;
   border: 1px solid rgba(255, 255, 255, 0.075);
   clip-path: polygon(0 18px, 18px 0, calc(100% - 18px) 0, 100% 18px, 100% calc(100% - 18px), calc(100% - 18px) 100%, 18px 100%, 0 calc(100% - 18px));
-  opacity: clamp(0, calc(1 - var(--hero-progress) * 1.55), 1);
+  opacity: 0.8;
 }
 
 .hero-stage-sticky::after {
@@ -665,8 +659,7 @@ html {
   height: 1px;
   width: 100%;
   background: linear-gradient(90deg, transparent, rgba(0, 255, 204, 0.22), transparent);
-  transform: scaleX(clamp(0, calc(var(--hero-progress) * 1.45), 1));
-  transform-origin: center;
+  opacity: 0.6;
 }
 
 .hero-vignette {
@@ -703,42 +696,18 @@ html {
   text-align: right;
 }
 
-.hero-phase {
-  transition: opacity 160ms linear, transform 160ms linear;
-}
-
-.hero-phase-one {
-  color: #f2fbfa;
-  opacity: clamp(0, calc(1 - var(--hero-progress) * 2.3), 1);
-  transform: translateX(calc(var(--hero-progress) * -10px));
-}
-
-.hero-phase-two {
-  color: #f7b1cf;
-  opacity: clamp(0, calc((var(--hero-progress) - 0.16) * 2.9), 1);
-  transform: translateX(calc((1 - var(--hero-progress)) * 13px));
-}
-
-.hero-phase-three {
-  color: #00ffcc;
-  opacity: clamp(0, calc((var(--hero-progress) - 0.56) * 3.2), 1);
-  transform: translateX(calc((1 - var(--hero-progress)) * 22px));
-}
-
 .hero-copy {
   position: relative;
   z-index: 4;
-  opacity: var(--hero-copy-opacity);
-  transform: translate3d(0, var(--hero-copy-shift), 0);
-  will-change: opacity, transform;
+  opacity: 1;
+  transform: none;
 }
 
 .hero-console {
+  position: relative;
   z-index: 4;
-  opacity: var(--hero-console-opacity);
-  transform: translate3d(0, var(--hero-console-shift), 0) scale(calc(0.94 + var(--hero-console-opacity) * 0.06));
-  transform-origin: center right;
-  will-change: opacity, transform;
+  opacity: 1;
+  transform: none;
 }
 
 /* Stage A minimalist aperture prompt beneath the centered core. */
