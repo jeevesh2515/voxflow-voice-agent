@@ -715,30 +715,81 @@ html {
 
 .hero-phase-two {
   color: #f7b1cf;
-  opacity: clamp(0, calc((var(--hero-progress) - 0.24) * 2.9), 1);
+  opacity: clamp(0, calc((var(--hero-progress) - 0.16) * 2.9), 1);
   transform: translateX(calc((1 - var(--hero-progress)) * 13px));
 }
 
 .hero-phase-three {
   color: #00ffcc;
-  opacity: clamp(0, calc((var(--hero-progress) - 0.61) * 3.2), 1);
+  opacity: clamp(0, calc((var(--hero-progress) - 0.56) * 3.2), 1);
   transform: translateX(calc((1 - var(--hero-progress)) * 22px));
 }
 
 .hero-copy {
   position: relative;
   z-index: 4;
-  opacity: clamp(0, calc((var(--hero-progress) - 0.22) * 4.2), 1);
+  opacity: var(--hero-copy-opacity);
   transform: translate3d(0, var(--hero-copy-shift), 0);
   will-change: opacity, transform;
 }
 
 .hero-console {
   z-index: 4;
-  opacity: clamp(0, calc((var(--hero-progress) - 0.34) * 3.4), 1);
-  transform: translate3d(0, var(--hero-console-shift), 0) scale(calc(1 - var(--hero-progress) * 0.06));
+  opacity: var(--hero-console-opacity);
+  transform: translate3d(0, var(--hero-console-shift), 0) scale(calc(0.94 + var(--hero-console-opacity) * 0.06));
   transform-origin: center right;
   will-change: opacity, transform;
+}
+
+/* Stage A minimalist aperture prompt beneath the centered core. */
+.hero-aperture-cue {
+  position: absolute;
+  bottom: clamp(4.5rem, 9vh, 7rem);
+  left: 50%;
+  z-index: 3;
+  transform: translateX(-50%);
+  color: rgba(232, 224, 240, 0.62);
+  font-family: "Space Grotesk", sans-serif;
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.25em;
+  text-transform: uppercase;
+  white-space: nowrap;
+  pointer-events: none;
+  opacity: clamp(0, calc(1 - var(--hero-progress) * 6), 1);
+}
+
+/* Stage B HUD diagnostic markers along the edges. */
+.hero-hud {
+  position: absolute;
+  top: 32%;
+  z-index: 3;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  font-family: "Space Grotesk", sans-serif;
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.25em;
+  line-height: 1.4;
+  text-transform: uppercase;
+  pointer-events: none;
+  opacity: calc(
+    clamp(0, (var(--hero-progress) - 0.15) * 4, 1) *
+    clamp(0, (0.9 - var(--hero-progress)) * 7, 1)
+  );
+}
+
+.hero-hud-left {
+  left: clamp(1rem, 3vw, 3rem);
+  color: #00ffcc;
+}
+
+.hero-hud-right {
+  right: clamp(1rem, 3vw, 3rem);
+  color: #ff2d78;
+  align-items: flex-end;
+  text-align: right;
 }
 
 .hero-console > div {
@@ -862,6 +913,8 @@ html {
   .hero-index-right { right: 1rem; }
   .hero-stage-sticky { align-items: flex-start; }
   .hero-console { margin-top: -1rem; }
+  .hero-hud { top: 24%; font-size: 8px; letter-spacing: 0.16em; }
+  .hero-aperture-cue { font-size: 8px; letter-spacing: 0.18em; bottom: 5.5rem; }
   .site-nav { min-height: 52px; padding-left: 0.75rem; }
   .nav-status { display: none; }
 }
@@ -871,6 +924,8 @@ html {
   .hero-stage-sticky { position: relative; }
   .hero-copy, .hero-console { opacity: 1 !important; transform: none !important; }
   .hero-phase { opacity: 1; transform: none; }
+  .hero-aperture-cue { display: none; }
+  .hero-hud { opacity: 1; }
   .word-reveal span { opacity: 1 !important; transform: none !important; }
   .nav-status .h-1\.5 { animation: none; }
 }

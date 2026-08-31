@@ -3,24 +3,18 @@
 import { useEffect, useRef } from "react";
 import * as THREE from "three";
 
-type SceneObject = {
-  object: THREE.Object3D;
-  material?: THREE.Material | THREE.Material[];
-  baseScale?: THREE.Vector3;
-  basePosition?: THREE.Vector3;
-};
-
 const clamp = (value: number, min = 0, max = 1) => Math.min(max, Math.max(min, value));
 const smoothstep = (from: number, to: number, value: number) => {
   const progress = clamp((value - from) / (to - from));
   return progress * progress * (3 - 2 * progress);
 };
+const easeInOutQuart = (t: number) => (t < 0.5 ? 8 * t * t * t * t : 1 - Math.pow(-2 * t + 2, 4) / 2);
 
 const cyan = 0x00ffcc;
 const magenta = 0xff2d78;
 const lime = 0xc6ff00;
 
-function materialFor(color: number, opacity = 1) {
+function wireMaterialFor(color: number, opacity = 1) {
   return new THREE.MeshBasicMaterial({
     color,
     transparent: true,
@@ -33,19 +27,17 @@ function materialFor(color: number, opacity = 1) {
 
 function buildSpeaker(color: number): THREE.Group {
   const speaker = new THREE.Group();
-  const shellMaterial = materialFor(color, 0.5);
-  const coneMaterial = materialFor(color, 0.8);
-  const shell = new THREE.Mesh(new THREE.BoxGeometry(0.85, 1.2, 0.38), shellMaterial);
-  const cone = new THREE.Mesh(new THREE.CylinderGeometry(0.25, 0.12, 0.08, 24), coneMaterial);
+  const shell = new THREE.Mesh(new THREE.BoxGeometry(0.85, 1.2, 0.38), wireMaterialFor(color, 0.5));
+  const cone = new THREE.Mesh(new THREE.CylinderGeometry(0.25, 0.12, 0.08, 24), wireMaterialFor(color, 0.8));
   cone.rotation.x = Math.PI / 2;
   cone.position.z = 0.22;
   speaker.add(shell, cone);
   return speaker;
 }
 
-function buildWarehouse(): THREE.Group {
+function buildWarehouse(): { group: THREE.Group; material: THREE.Material } {
   const warehouse = new THREE.Group();
-  const material = materialFor(cyan, 0.3);
+  const material = wireMaterialFor(cyan, 0.3);
   const base = new THREE.Mesh(new THREE.BoxGeometry(5.8, 1.7, 2.7), material);
   base.position.y = 0.85;
   warehouse.add(base);
@@ -62,7 +54,7 @@ function buildWarehouse(): THREE.Group {
     warehouse.add(mast);
   }
 
-  return warehouse;
+  return { group: warehouse, material };
 }
 
 function buildRouteLines(nodes: THREE.Vector3[], color: number) {
@@ -75,13 +67,16 @@ function buildRouteLines(nodes: THREE.Vector3[], color: number) {
     nodes[1], nodes[2],
     nodes[2], nodes[3],
   ]);
-  return new THREE.LineSegments(
-    geometry,
-    new THREE.LineBasicMaterial({ color, transparent: true, opacity: 0.38, blending: THREE.AdditiveBlending, depthWrite: false }),
-  );
+  const material = new THREE.LineBasicMaterial({ color, transparent: true, opacity: 0.38, blending: THREE.AdditiveBlending, depthWrite: false });
+  return { lines: new THREE.LineSegments(geometry, material), material };
 }
 
-/** Realtime WebGL voice-acoustic lidar: a procedural scene with no external assets. */
+/**
+ * Three-stage cinematic hero:
+ *  A (0.00–0.15): centered solid metallic Voice Core.
+ *  B (0.15–0.55): quartic camera orbit + zoom, solid dissolves into cyan/magenta wireframe blueprint, acoustic rings expand.
+ *  C (0.55–1.00): blueprint shifts right, signal routes beam into the warehouse grid, then the blueprint vanishes.
+ */
 export default function VoiceCoreCanvas() {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
 
@@ -97,59 +92,82 @@ export default function VoiceCoreCanvas() {
 
     const scene = new THREE.Scene();
     const camera = new THREE.PerspectiveCamera(35, 1, 0.1, 100);
-    camera.position.set(0, 0.2, 12);
 
-    const world = new THREE.Group();
-    scene.add(world);
+    // ── Stage A lighting: metallic shading + glowing core emission + horizon fill ──
+    scene.add(new THREE.AmbientLight(0x3a4260, 1.4));
+    const keyLight = new THREE.DirectionalLight(cyan, 2.8);
+    keyLight.position.set(5, 5, 7);
+    const rimLight = new THREE.DirectionalLight(magenta, 2.4);
+    rimLight.position.set(-6, -3, 5);
+    const horizonLight = new THREE.DirectionalLight(0x9cb8ff, 1.5);
+    horizonLight.position.set(0, 6, 8);
+    scene.add(keyLight, rimLight, horizonLight);
 
-    const coreMaterial = materialFor(magenta, 0.86);
-    const core = new THREE.Mesh(new THREE.IcosahedronGeometry(2, 4), coreMaterial);
-    world.add(core);
+    // ── Blueprint group: solid core + wireframe twin + point cloud + acoustic rings ──
+    const blueprint = new THREE.Group();
+    scene.add(blueprint);
 
-    const innerCore = new THREE.Mesh(new THREE.IcosahedronGeometry(1.38, 3), materialFor(cyan, 0.28));
-    world.add(innerCore);
-
-    const waveMaterials: THREE.MeshBasicMaterial[] = [];
-    for (let index = 0; index < 4; index += 1) {
-      const ringMaterial = new THREE.MeshBasicMaterial({
-        color: index % 2 === 0 ? cyan : magenta,
-        transparent: true,
-        opacity: 0.42,
-        wireframe: true,
-        blending: THREE.AdditiveBlending,
-        depthWrite: false,
-      });
-      const ring = new THREE.Mesh(new THREE.TorusGeometry(2.2 + index * 0.28, 0.012 + index * 0.006, 8, 80), ringMaterial);
-      ring.rotation.set(index * 0.55, index * 0.72, index * 0.4);
-      world.add(ring);
-      waveMaterials.push(ringMaterial);
-    }
-
-    const particleCount = window.innerWidth < 700 ? 480 : 900;
-    const particlePositions = new Float32Array(particleCount * 3);
-    const particlePhases = new Float32Array(particleCount);
-    for (let index = 0; index < particleCount; index += 1) {
-      const radius = 3.6 + Math.random() * 5.5;
-      const theta = Math.random() * Math.PI * 2;
-      const y = (Math.random() - 0.5) * 5.6;
-      particlePositions[index * 3] = Math.cos(theta) * radius;
-      particlePositions[index * 3 + 1] = y;
-      particlePositions[index * 3 + 2] = Math.sin(theta) * radius;
-      particlePhases[index] = Math.random() * Math.PI * 2;
-    }
-    const particleGeometry = new THREE.BufferGeometry();
-    particleGeometry.setAttribute("position", new THREE.BufferAttribute(particlePositions, 3));
-    const particleMaterial = new THREE.PointsMaterial({
-      color: cyan,
-      size: 0.028,
+    const coreGeometry = new THREE.IcosahedronGeometry(2, 3);
+    const solidMaterial = new THREE.MeshStandardMaterial({
+      color: 0x1e273d,
+      metalness: 0.82,
+      roughness: 0.28,
+      emissive: 0x0c1220,
+      emissiveIntensity: 0.35,
+      flatShading: true,
       transparent: true,
-      opacity: 0.68,
+      opacity: 1,
+    });
+    const solidCore = new THREE.Mesh(coreGeometry, solidMaterial);
+    blueprint.add(solidCore);
+
+    const wireBlueprintMaterial = wireMaterialFor(cyan, 0);
+    const wireBlueprint = new THREE.Mesh(coreGeometry, wireBlueprintMaterial);
+    wireBlueprint.scale.setScalar(1.002);
+    blueprint.add(wireBlueprint);
+
+    const cloudMaterial = new THREE.PointsMaterial({
+      color: magenta,
+      size: 0.045,
+      transparent: true,
+      opacity: 0,
       blending: THREE.AdditiveBlending,
       depthWrite: false,
       sizeAttenuation: true,
     });
-    const particles = new THREE.Points(particleGeometry, particleMaterial);
-    world.add(particles);
+    const pointCloud = new THREE.Points(coreGeometry, cloudMaterial);
+    pointCloud.scale.setScalar(1.002);
+    blueprint.add(pointCloud);
+
+    const emissionCore = new THREE.Mesh(new THREE.IcosahedronGeometry(0.9, 3), wireMaterialFor(lime, 0.55));
+    blueprint.add(emissionCore);
+
+    // Concentric acoustic wave rings, expanding outward with scroll depth.
+    const rings: { mesh: THREE.Mesh; material: THREE.MeshBasicMaterial; baseRotation: THREE.Euler }[] = [];
+    for (let index = 0; index < 3; index += 1) {
+      const ringMaterial = new THREE.MeshBasicMaterial({
+        color: index % 2 === 0 ? cyan : magenta,
+        transparent: true,
+        opacity: 0,
+        wireframe: true,
+        blending: THREE.AdditiveBlending,
+        depthWrite: false,
+      });
+      const ring = new THREE.Mesh(new THREE.TorusGeometry(2.35, 0.014 + index * 0.005, 8, 90), ringMaterial);
+      const baseRotation = new THREE.Euler(Math.PI / 2 + index * 0.16, index * 0.24, index * 0.4);
+      ring.rotation.copy(baseRotation);
+      blueprint.add(ring);
+      rings.push({ mesh: ring, material: ringMaterial, baseRotation });
+    }
+
+    // ── Infra group: UK dispatch routes + warehouse grid, revealed in stage C ──
+    const infra = new THREE.Group();
+    scene.add(infra);
+    const infraMaterials: { material: THREE.Material; base: number }[] = [];
+    const trackInfra = (material: THREE.Material, base: number) => {
+      material.opacity = 0;
+      infraMaterials.push({ material, base });
+    };
 
     const routeNodes = [
       new THREE.Vector3(-0.5, 2.2, 0.5),
@@ -157,16 +175,17 @@ export default function VoiceCoreCanvas() {
       new THREE.Vector3(3.2, 1.8, -0.8),
       new THREE.Vector3(4.8, -1.2, 0.2),
     ];
-    const routes = buildRouteLines(routeNodes, cyan);
-    routes.scale.setScalar(0.35);
+    const { lines: routes, material: routesMaterial } = buildRouteLines(routeNodes, cyan);
     routes.position.y = 0.1;
-    world.add(routes);
+    infra.add(routes);
+    trackInfra(routesMaterial, 0.38);
 
-    const nodeObjects: SceneObject[] = routeNodes.map((position, index) => {
-      const node = new THREE.Mesh(new THREE.IcosahedronGeometry(0.18, 1), materialFor(index % 2 === 0 ? lime : cyan, 0.9));
+    const nodeObjects: { object: THREE.Mesh; material: THREE.Material; basePosition: THREE.Vector3 }[] = routeNodes.map((position, index) => {
+      const node = new THREE.Mesh(new THREE.IcosahedronGeometry(0.18, 1), wireMaterialFor(index % 2 === 0 ? lime : cyan, 0.9));
       node.position.copy(position);
-      world.add(node);
-      return { object: node, material: node.material, basePosition: position.clone() };
+      infra.add(node);
+      trackInfra(node.material as THREE.Material, 0.9);
+      return { object: node, material: node.material as THREE.Material, basePosition: position.clone() };
     });
 
     const speakerGroup = new THREE.Group();
@@ -181,27 +200,22 @@ export default function VoiceCoreCanvas() {
       speaker.rotation.y = index * 0.7;
       speakerGroup.add(speaker);
     });
-    world.add(speakerGroup);
+    speakerGroup.traverse((child) => {
+      if (child instanceof THREE.Mesh) trackInfra(child.material as THREE.Material, (child.material as THREE.Material).opacity);
+    });
+    infra.add(speakerGroup);
 
-    const warehouse = buildWarehouse();
+    const { group: warehouse, material: warehouseMaterial } = buildWarehouse();
     warehouse.position.set(0, -3.3, -1.4);
-    warehouse.scale.setScalar(0.2);
-    world.add(warehouse);
+    infra.add(warehouse);
+    trackInfra(warehouseMaterial, 0.3);
 
     const ground = new THREE.GridHelper(18, 18, cyan, cyan);
     ground.position.set(0, -3.2, -0.8);
-    ground.material.transparent = true;
-    ground.material.opacity = 0.12;
-    world.add(ground);
-
-    const sceneObjects: SceneObject[] = [
-      { object: core, material: coreMaterial, baseScale: new THREE.Vector3(1, 1, 1) },
-      { object: innerCore, material: innerCore.material, baseScale: new THREE.Vector3(1, 1, 1) },
-      { object: routes, material: routes.material, baseScale: new THREE.Vector3(1, 1, 1) },
-      { object: speakerGroup, baseScale: new THREE.Vector3(1, 1, 1) },
-      { object: warehouse, baseScale: new THREE.Vector3(1, 1, 1) },
-      { object: ground, material: ground.material as THREE.Material, baseScale: new THREE.Vector3(1, 1, 1) },
-    ];
+    const groundMaterial = ground.material as THREE.Material;
+    groundMaterial.transparent = true;
+    infra.add(ground);
+    trackInfra(groundMaterial, 0.15);
 
     let width = 1;
     let height = 1;
@@ -234,56 +248,68 @@ export default function VoiceCoreCanvas() {
 
     const paint = (time: number) => {
       const progress = scrollProgress();
-      const morph = smoothstep(0.12, 0.82, progress);
-      const wave = Math.sin(time * 0.0022);
+      const morph = easeInOutQuart(clamp((progress - 0.15) / 0.4)); // Stage B: blueprint morph + orbit
+      const reveal = smoothstep(0.55, 0.75, progress);              // Stage C: infra reveal + shift right
+      const vanish = smoothstep(0.84, 0.97, progress);              // Blueprint dissolves out
+      const blueprintFade = 1 - vanish;
+      const idle = reducedMotion ? 0 : time;
+
       voicePulse *= 0.965;
       pointerX += (targetPointerX - pointerX) * 0.04;
       pointerY += (targetPointerY - pointerY) * 0.04;
 
       const isDesktop = width > 1024;
-      const baseZoom = 1 + morph * 0.52;
-      world.rotation.y = time * 0.0001 + progress * 0.9 + pointerX * 0.07;
-      world.rotation.x = pointerY * 0.045;
-      world.position.x = isDesktop ? 2.6 * (1 - morph * 0.4) : 0;
-      world.position.y = morph * 0.45;
-      world.scale.setScalar(baseZoom);
-      camera.position.x = pointerX * 0.45;
-      camera.position.y = 0.2 - pointerY * 0.38;
-      camera.position.z = isDesktop ? 13 - morph * 2.25 : 14.5 - morph * 2.25;
-      camera.lookAt(isDesktop ? 2.2 * (1 - morph * 0.5) : 0, 0, 0);
+      const blueprintX = isDesktop ? reveal * 3.6 : 0;
 
-      core.rotation.x = time * 0.00021;
-      core.rotation.z = time * 0.00013;
-      innerCore.rotation.y = -time * 0.00033;
-      core.scale.setScalar(1 + wave * 0.018 + (1 - morph) * 0.08 + voicePulse * 0.1);
-      innerCore.scale.setScalar(1 + (1 - morph) * 0.1);
-      waveMaterials.forEach((material, index) => {
-        material.opacity = 0.18 + (1 - morph) * 0.2 + Math.abs(Math.sin(time * 0.0018 + index)) * 0.12 + voicePulse * 0.24;
+      // Camera: quartic orbit around the core while zooming in, then eases to frame the console.
+      const orbitAngle = morph * Math.PI * 0.85 + pointerX * 0.06;
+      const orbitDistance = 12.5 - morph * 4 - reveal * 0.8;
+      camera.position.x = Math.sin(orbitAngle) * orbitDistance + blueprintX * reveal * 0.55;
+      camera.position.z = Math.cos(orbitAngle) * orbitDistance;
+      camera.position.y = 0.3 + morph * 0.9 - reveal * 0.35 - pointerY * 0.38;
+      camera.lookAt(blueprintX * reveal, 0, 0);
+
+      blueprint.position.x = blueprintX;
+      blueprint.position.y = reveal * 0.3;
+      blueprint.rotation.y = idle * 0.00016 + morph * 0.6;
+      blueprint.rotation.x = pointerY * 0.05;
+      blueprint.scale.setScalar(1 + morph * 0.12 - reveal * 0.08);
+
+      // Solid dissolves into wireframe + point cloud.
+      solidMaterial.opacity = (1 - morph) * blueprintFade;
+      solidMaterial.emissiveIntensity = 0.32 + voicePulse * 0.5;
+      wireBlueprintMaterial.opacity = morph * 0.92 * blueprintFade;
+      cloudMaterial.opacity = morph * 0.85 * blueprintFade;
+      const emissionMaterial = emissionCore.material as THREE.Material;
+      emissionMaterial.opacity = (0.55 + voicePulse * 0.35) * blueprintFade;
+      emissionCore.scale.setScalar(1 + voicePulse * 0.28 + (1 - morph) * 0.06);
+      solidCore.rotation.x = idle * 0.00021;
+      solidCore.rotation.z = idle * 0.00013;
+      pointCloud.rotation.y = -idle * 0.0003;
+
+      // Acoustic rings expand outward in sync with scroll depth.
+      rings.forEach(({ mesh, material, baseRotation }, index) => {
+        const expansion = 1 + morph * (1.1 + index * 0.85) + voicePulse * 0.2;
+        mesh.scale.setScalar(expansion);
+        mesh.rotation.x = baseRotation.x + idle * 0.00012 * (index + 1);
+        mesh.rotation.z = baseRotation.z + idle * 0.00009 * (index + 1);
+        material.opacity = morph * (0.5 - index * 0.11) * (0.7 + Math.abs(Math.sin(idle * 0.0016 + index * 1.3)) * 0.3 + voicePulse * 0.3) * blueprintFade;
       });
-      (particleGeometry.attributes.position as THREE.BufferAttribute).needsUpdate = false;
-      particleMaterial.opacity = 0.44 + morph * 0.24;
-      particles.rotation.y = -time * 0.00004;
-      particles.rotation.z = morph * 0.25;
 
-      sceneObjects.forEach(({ object, material }) => {
-        const isInfrastructure = object === routes || object === warehouse || object === ground || object === speakerGroup;
-        const targetOpacity = isInfrastructure ? 0.15 + morph * 0.85 : 1;
-        if (material) {
-          if (Array.isArray(material)) material.forEach((item) => { item.opacity = targetOpacity; });
-          else material.opacity = targetOpacity * (object === innerCore ? 0.38 : 1);
-        }
+      // Stage C: signal vectors beam down into the warehouse grid.
+      infra.position.x = isDesktop ? reveal * 1.1 : 0;
+      infraMaterials.forEach(({ material, base }) => {
+        material.opacity = base * reveal;
       });
-
       nodeObjects.forEach(({ object, material, basePosition }, index) => {
-        const pulse = 1 + Math.sin(time * 0.003 + index) * 0.22;
-        object.scale.setScalar((0.35 + morph * 0.9) * pulse);
-        object.position.lerp(basePosition!.clone().multiplyScalar(0.72 + morph * 0.28), 0.08);
-        (material as THREE.Material).opacity = 0.22 + morph * 0.78;
+        const pulse = 1 + Math.sin(idle * 0.003 + index) * 0.22;
+        object.scale.setScalar((0.35 + reveal * 0.9) * pulse);
+        object.position.lerp(basePosition.clone().multiplyScalar(0.72 + reveal * 0.28), 0.08);
+        material.opacity = (0.22 + reveal * 0.78) * 0.9;
       });
-      warehouse.scale.setScalar(0.2 + morph * 0.8);
-      speakerGroup.scale.setScalar(0.66 + morph * 0.34);
-      ground.material.opacity = 0.04 + morph * 0.15;
-      routes.scale.setScalar(0.35 + morph * 0.65);
+      warehouse.scale.setScalar(0.2 + reveal * 0.8);
+      speakerGroup.scale.setScalar(0.66 + reveal * 0.34);
+      routes.scale.setScalar(0.35 + reveal * 0.65);
 
       renderer.render(scene, camera);
       if (!reducedMotion && visible && pageVisible) raf = window.requestAnimationFrame(paint);
@@ -292,6 +318,18 @@ export default function VoiceCoreCanvas() {
     const pointerMove = (event: PointerEvent) => {
       targetPointerX = (event.clientX / Math.max(window.innerWidth, 1) - 0.5) * 2;
       targetPointerY = (event.clientY / Math.max(window.innerHeight, 1) - 0.5) * 2;
+    };
+
+    // Reduced motion: static composition, repainted once per scroll frame.
+    let staticTicking = false;
+    const staticRepaint = () => {
+      if (reducedMotion && !staticTicking) {
+        staticTicking = true;
+        window.requestAnimationFrame((time) => {
+          staticTicking = false;
+          paint(time);
+        });
+      }
     };
 
     const onVisibilityChange = () => {
@@ -313,6 +351,8 @@ export default function VoiceCoreCanvas() {
 
     observer.observe(stage);
     window.addEventListener("resize", resize, { passive: true });
+    window.addEventListener("resize", staticRepaint, { passive: true });
+    window.addEventListener("scroll", staticRepaint, { passive: true });
     window.addEventListener("pointermove", pointerMove, { passive: true });
     document.addEventListener("visibilitychange", onVisibilityChange);
 
@@ -320,11 +360,15 @@ export default function VoiceCoreCanvas() {
       window.cancelAnimationFrame(raf);
       observer.disconnect();
       window.removeEventListener("resize", resize);
+      window.removeEventListener("resize", staticRepaint);
+      window.removeEventListener("scroll", staticRepaint);
       window.removeEventListener("pointermove", pointerMove);
       document.removeEventListener("visibilitychange", onVisibilityChange);
       window.removeEventListener("voxflow:voice-play", onVoicePlay);
-      particleGeometry.dispose();
-      particleMaterial.dispose();
+      coreGeometry.dispose();
+      solidMaterial.dispose();
+      wireBlueprintMaterial.dispose();
+      cloudMaterial.dispose();
       renderer.dispose();
     };
   }, []);

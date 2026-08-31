@@ -164,15 +164,17 @@ export default function Home() {
       requestAnimationFrame(() => {
         ticking = false;
 
-        // Pinned hero phase controls the CSS choreography and canvas network morph.
+        // Pinned hero: 3-stage cinematic (aperture → blueprint morph → copy/console glide-in).
         if (heroStage) {
           const r = heroStage.getBoundingClientRect();
           const p = clamp01(-r.top / Math.max(r.height - window.innerHeight, 1));
+          const copyIn = clamp01((p - 0.55) / 0.18);
+          const consoleIn = clamp01((p - 0.62) / 0.18);
           heroStage.style.setProperty("--hero-progress", p.toFixed(4));
-          heroStage.style.setProperty("--hero-copy-shift", `${p * -54}px`);
-          heroStage.style.setProperty("--hero-console-shift", `${p * -86}px`);
-          heroStage.style.setProperty("--hero-copy-opacity", `${clamp01((p - 0.16) * 3.5)}`);
-          heroStage.style.setProperty("--hero-console-opacity", `${clamp01((p - 0.25) * 2.8)}`);
+          heroStage.style.setProperty("--hero-copy-shift", `${(1 - copyIn) * 40}px`);
+          heroStage.style.setProperty("--hero-console-shift", `${(1 - consoleIn) * 40}px`);
+          heroStage.style.setProperty("--hero-copy-opacity", copyIn.toFixed(4));
+          heroStage.style.setProperty("--hero-console-opacity", consoleIn.toFixed(4));
         }
 
         // Word-level narrative illumination, driven by scroll position.
@@ -253,13 +255,22 @@ export default function Home() {
           <div className="hero-stage-sticky relative min-h-[100svh] flex items-center overflow-hidden grid-bg pt-28 pb-16 sm:pt-32 sm:pb-24">
             <VoiceCoreCanvas />
             <div className="hero-vignette absolute inset-0 pointer-events-none" aria-hidden="true" />
+            <p className="hero-aperture-cue" aria-hidden="true">[ 01 / VOICE CORE ] — SCROLL TO INITIALIZE SIGNAL</p>
+            <div className="hero-hud hero-hud-left" aria-hidden="true">
+              <span>SIGNAL LOCK: 16kHz PCM</span>
+              <span>CODEC: OPUS / TLS</span>
+            </div>
+            <div className="hero-hud hero-hud-right" aria-hidden="true">
+              <span>LATENCY TARGET: &lt;100ms</span>
+              <span>EDGE: LONDON EU-WEST-2</span>
+            </div>
             <div className="hero-index hero-index-left" aria-hidden="true">
               <span>01 / VOICE CORE</span>
               <span>SCROLL TO ROUTE SIGNAL</span>
             </div>
             <div className="hero-index hero-index-right" aria-hidden="true">
-              <span className="hero-phase hero-phase-one">LISTENING</span>
-              <span className="hero-phase hero-phase-two">REASONING</span>
+              <span className="hero-phase hero-phase-one">APERTURE</span>
+              <span className="hero-phase hero-phase-two">BLUEPRINT</span>
               <span className="hero-phase hero-phase-three">ROUTING</span>
             </div>
           {/* Ambient Glowing Nebula Orbs */}
@@ -274,7 +285,7 @@ export default function Home() {
 
           <div className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 grid lg:grid-cols-12 gap-12 lg:gap-16 items-center w-full">
             {/* Left Column: Headline, Value Proposition, Audio Previews & CTA */}
-            <div className="hero-copy lg:col-span-7 reveal stagger-children">
+            <div className="hero-copy lg:col-span-7">
               <span className="font-label text-[#c084fc] tracking-[0.2em] uppercase text-xs sm:text-sm mb-4 sm:mb-6 block neon-text-sm">
                 ✦ NEXT-GEN MULTILINGUAL VOICE AI
               </span>
@@ -351,7 +362,7 @@ export default function Home() {
             </div>
 
             {/* Right Column: Live Operations Console Mockup Window (Sound-Synced!) */}
-            <div className="hero-console lg:col-span-5 relative reveal-right">
+            <div className="hero-console lg:col-span-5 relative">
               <div className="glass rounded-2xl border border-white/[0.12] shadow-[0_20px_60px_rgba(0,0,0,0.7),0_0_35px_rgba(255,45,120,0.15)] overflow-hidden transition-all duration-400">
                 {/* Console Window Top Bar */}
                 <div className="bg-[#05050a]/90 px-4 py-3 border-b border-white/[0.08] flex items-center justify-between">
