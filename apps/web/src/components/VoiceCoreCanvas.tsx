@@ -1,240 +1,331 @@
 "use client";
 
 import { useEffect, useRef } from "react";
+import * as THREE from "three";
 
-type Point = {
-  x: number;
-  y: number;
-  z: number;
-  phase: number;
-  hue: number;
+type SceneObject = {
+  object: THREE.Object3D;
+  material?: THREE.Material | THREE.Material[];
+  baseScale?: THREE.Vector3;
+  basePosition?: THREE.Vector3;
 };
 
 const clamp = (value: number, min = 0, max = 1) => Math.min(max, Math.max(min, value));
-const lerp = (from: number, to: number, progress: number) => from + (to - from) * progress;
 const smoothstep = (from: number, to: number, value: number) => {
   const progress = clamp((value - from) / (to - from));
   return progress * progress * (3 - 2 * progress);
 };
 
-/**
- * A lightweight Canvas 2D alternative to a WebGL hero. It is intentionally
- * procedural, uses no third-party assets, pauses when the page is hidden, and
- * respects reduced-motion preferences.
- */
+const cyan = 0x00ffcc;
+const magenta = 0xff2d78;
+const lime = 0xc6ff00;
+
+function materialFor(color: number, opacity = 1) {
+  return new THREE.MeshBasicMaterial({
+    color,
+    transparent: true,
+    opacity,
+    wireframe: true,
+    blending: THREE.AdditiveBlending,
+    depthWrite: false,
+  });
+}
+
+function buildSpeaker(color: number): THREE.Group {
+  const speaker = new THREE.Group();
+  const shellMaterial = materialFor(color, 0.5);
+  const coneMaterial = materialFor(color, 0.8);
+  const shell = new THREE.Mesh(new THREE.BoxGeometry(0.85, 1.2, 0.38), shellMaterial);
+  const cone = new THREE.Mesh(new THREE.CylinderGeometry(0.25, 0.12, 0.08, 24), coneMaterial);
+  cone.rotation.x = Math.PI / 2;
+  cone.position.z = 0.22;
+  speaker.add(shell, cone);
+  return speaker;
+}
+
+function buildWarehouse(): THREE.Group {
+  const warehouse = new THREE.Group();
+  const material = materialFor(cyan, 0.3);
+  const base = new THREE.Mesh(new THREE.BoxGeometry(5.8, 1.7, 2.7), material);
+  base.position.y = 0.85;
+  warehouse.add(base);
+
+  for (let index = 0; index < 5; index += 1) {
+    const bay = new THREE.Mesh(new THREE.BoxGeometry(0.72, 1.05, 0.05), material);
+    bay.position.set(-1.9 + index * 0.95, 0.78, 1.38);
+    warehouse.add(bay);
+  }
+
+  for (let index = 0; index < 6; index += 1) {
+    const mast = new THREE.Mesh(new THREE.BoxGeometry(0.04, 2.3, 0.04), material);
+    mast.position.set(-2.6 + index * 1.04, 1.9, -1.2);
+    warehouse.add(mast);
+  }
+
+  return warehouse;
+}
+
+function buildRouteLines(nodes: THREE.Vector3[], color: number) {
+  const geometry = new THREE.BufferGeometry().setFromPoints([
+    new THREE.Vector3(0, 0, 0), nodes[0],
+    new THREE.Vector3(0, 0, 0), nodes[1],
+    new THREE.Vector3(0, 0, 0), nodes[2],
+    new THREE.Vector3(0, 0, 0), nodes[3],
+    nodes[0], nodes[1],
+    nodes[1], nodes[2],
+    nodes[2], nodes[3],
+  ]);
+  return new THREE.LineSegments(
+    geometry,
+    new THREE.LineBasicMaterial({ color, transparent: true, opacity: 0.38, blending: THREE.AdditiveBlending, depthWrite: false }),
+  );
+}
+
+/** Realtime WebGL voice-acoustic lidar: a procedural scene with no external assets. */
 export default function VoiceCoreCanvas() {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
 
   useEffect(() => {
     const canvas = canvasRef.current;
     const stage = document.getElementById("hero-stage");
-    const context = canvas?.getContext("2d");
-
-    if (!canvas || !stage || !context) return;
+    if (!canvas || !stage) return;
 
     const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-    const pointCount = Math.min(window.innerWidth < 640 ? 76 : 126, reducedMotion ? 72 : 126);
-    const points: Point[] = Array.from({ length: pointCount }, (_, index) => {
-      const offset = 2 / pointCount;
-      const y = index * offset - 1 + offset / 2;
-      const radius = Math.sqrt(1 - y * y);
-      const theta = index * Math.PI * (3 - Math.sqrt(5));
+    const renderer = new THREE.WebGLRenderer({ canvas, alpha: true, antialias: true, powerPreference: "high-performance" });
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+    renderer.setClearColor(0x000000, 0);
 
-      return {
-        x: Math.cos(theta) * radius,
-        y,
-        z: Math.sin(theta) * radius,
-        phase: (index * 17.73) % (Math.PI * 2),
-        hue: index % 5 === 0 ? 322 : index % 3 === 0 ? 186 : 270,
-      };
+    const scene = new THREE.Scene();
+    const camera = new THREE.PerspectiveCamera(35, 1, 0.1, 100);
+    camera.position.set(0, 0.2, 12);
+
+    const world = new THREE.Group();
+    scene.add(world);
+
+    const coreMaterial = materialFor(magenta, 0.86);
+    const core = new THREE.Mesh(new THREE.IcosahedronGeometry(2, 4), coreMaterial);
+    world.add(core);
+
+    const innerCore = new THREE.Mesh(new THREE.IcosahedronGeometry(1.38, 3), materialFor(cyan, 0.28));
+    world.add(innerCore);
+
+    const waveMaterials: THREE.MeshBasicMaterial[] = [];
+    for (let index = 0; index < 4; index += 1) {
+      const ringMaterial = new THREE.MeshBasicMaterial({
+        color: index % 2 === 0 ? cyan : magenta,
+        transparent: true,
+        opacity: 0.42,
+        wireframe: true,
+        blending: THREE.AdditiveBlending,
+        depthWrite: false,
+      });
+      const ring = new THREE.Mesh(new THREE.TorusGeometry(2.2 + index * 0.28, 0.012 + index * 0.006, 8, 80), ringMaterial);
+      ring.rotation.set(index * 0.55, index * 0.72, index * 0.4);
+      world.add(ring);
+      waveMaterials.push(ringMaterial);
+    }
+
+    const particleCount = window.innerWidth < 700 ? 480 : 900;
+    const particlePositions = new Float32Array(particleCount * 3);
+    const particlePhases = new Float32Array(particleCount);
+    for (let index = 0; index < particleCount; index += 1) {
+      const radius = 3.6 + Math.random() * 5.5;
+      const theta = Math.random() * Math.PI * 2;
+      const y = (Math.random() - 0.5) * 5.6;
+      particlePositions[index * 3] = Math.cos(theta) * radius;
+      particlePositions[index * 3 + 1] = y;
+      particlePositions[index * 3 + 2] = Math.sin(theta) * radius;
+      particlePhases[index] = Math.random() * Math.PI * 2;
+    }
+    const particleGeometry = new THREE.BufferGeometry();
+    particleGeometry.setAttribute("position", new THREE.BufferAttribute(particlePositions, 3));
+    const particleMaterial = new THREE.PointsMaterial({
+      color: cyan,
+      size: 0.028,
+      transparent: true,
+      opacity: 0.68,
+      blending: THREE.AdditiveBlending,
+      depthWrite: false,
+      sizeAttenuation: true,
+    });
+    const particles = new THREE.Points(particleGeometry, particleMaterial);
+    world.add(particles);
+
+    const routeNodes = [
+      new THREE.Vector3(-0.5, 2.2, 0.5),
+      new THREE.Vector3(1.2, -2.4, 0),
+      new THREE.Vector3(3.2, 1.8, -0.8),
+      new THREE.Vector3(4.8, -1.2, 0.2),
+    ];
+    const routes = buildRouteLines(routeNodes, cyan);
+    routes.scale.setScalar(0.35);
+    routes.position.y = 0.1;
+    world.add(routes);
+
+    const nodeObjects: SceneObject[] = routeNodes.map((position, index) => {
+      const node = new THREE.Mesh(new THREE.IcosahedronGeometry(0.18, 1), materialFor(index % 2 === 0 ? lime : cyan, 0.9));
+      node.position.copy(position);
+      world.add(node);
+      return { object: node, material: node.material, basePosition: position.clone() };
     });
 
-    let width = 0;
-    let height = 0;
-    let ratio = 1;
-    let animationFrame = 0;
-    let active = true;
+    const speakerGroup = new THREE.Group();
+    const speakerPositions = [
+      new THREE.Vector3(0.8, -2.4, 0.5),
+      new THREE.Vector3(3.9, -2.2, 0.8),
+      new THREE.Vector3(4.4, 2.2, -0.2),
+    ];
+    speakerPositions.forEach((position, index) => {
+      const speaker = buildSpeaker(index === 1 ? magenta : cyan);
+      speaker.position.copy(position);
+      speaker.rotation.y = index * 0.7;
+      speakerGroup.add(speaker);
+    });
+    world.add(speakerGroup);
+
+    const warehouse = buildWarehouse();
+    warehouse.position.set(0, -3.3, -1.4);
+    warehouse.scale.setScalar(0.2);
+    world.add(warehouse);
+
+    const ground = new THREE.GridHelper(18, 18, cyan, cyan);
+    ground.position.set(0, -3.2, -0.8);
+    ground.material.transparent = true;
+    ground.material.opacity = 0.12;
+    world.add(ground);
+
+    const sceneObjects: SceneObject[] = [
+      { object: core, material: coreMaterial, baseScale: new THREE.Vector3(1, 1, 1) },
+      { object: innerCore, material: innerCore.material, baseScale: new THREE.Vector3(1, 1, 1) },
+      { object: routes, material: routes.material, baseScale: new THREE.Vector3(1, 1, 1) },
+      { object: speakerGroup, baseScale: new THREE.Vector3(1, 1, 1) },
+      { object: warehouse, baseScale: new THREE.Vector3(1, 1, 1) },
+      { object: ground, material: ground.material as THREE.Material, baseScale: new THREE.Vector3(1, 1, 1) },
+    ];
+
+    let width = 1;
+    let height = 1;
+    let raf = 0;
+    let visible = true;
+    let pointerX = 0;
+    let pointerY = 0;
+    let targetPointerX = 0;
+    let targetPointerY = 0;
     let pageVisible = !document.hidden;
-    let pointerX = 0.5;
-    let pointerY = 0.5;
-    let targetPointerX = 0.5;
-    let targetPointerY = 0.5;
-    let progress = 0;
+    let voicePulse = 0;
+
+    const onVoicePlay = () => {
+      voicePulse = Math.min(1, voicePulse + 0.85);
+    };
 
     const resize = () => {
       const bounds = canvas.getBoundingClientRect();
       width = Math.max(bounds.width, 1);
       height = Math.max(bounds.height, 1);
-      ratio = Math.min(window.devicePixelRatio || 1, 2);
-      canvas.width = Math.round(width * ratio);
-      canvas.height = Math.round(height * ratio);
-      context.setTransform(ratio, 0, 0, ratio, 0, 0);
+      camera.aspect = width / height;
+      camera.updateProjectionMatrix();
+      renderer.setSize(width, height, false);
     };
 
-    const getProgress = () => {
+    const scrollProgress = () => {
       const bounds = stage.getBoundingClientRect();
       return clamp(-bounds.top / Math.max(bounds.height - window.innerHeight, 1));
     };
 
-    const drawGrid = (fade: number) => {
-      if (fade <= 0.005) return;
+    const paint = (time: number) => {
+      const progress = scrollProgress();
+      const morph = smoothstep(0.12, 0.82, progress);
+      const wave = Math.sin(time * 0.0022);
+      voicePulse *= 0.965;
+      pointerX += (targetPointerX - pointerX) * 0.04;
+      pointerY += (targetPointerY - pointerY) * 0.04;
 
-      const horizon = height * 0.68;
-      const vanishingX = width * 0.5;
-      context.save();
-      context.lineWidth = 1;
-      context.strokeStyle = `rgba(77, 245, 219, ${0.1 * fade})`;
+      const isDesktop = width > 1024;
+      const baseZoom = 1 + morph * 0.52;
+      world.rotation.y = time * 0.0001 + progress * 0.9 + pointerX * 0.07;
+      world.rotation.x = pointerY * 0.045;
+      world.position.x = isDesktop ? 2.6 * (1 - morph * 0.4) : 0;
+      world.position.y = morph * 0.45;
+      world.scale.setScalar(baseZoom);
+      camera.position.x = pointerX * 0.45;
+      camera.position.y = 0.2 - pointerY * 0.38;
+      camera.position.z = isDesktop ? 13 - morph * 2.25 : 14.5 - morph * 2.25;
+      camera.lookAt(isDesktop ? 2.2 * (1 - morph * 0.5) : 0, 0, 0);
 
-      for (let step = -7; step <= 7; step += 1) {
-        context.beginPath();
-        context.moveTo(vanishingX, horizon);
-        context.lineTo(vanishingX + step * width * 0.18, height);
-        context.stroke();
-      }
-
-      for (let row = 0; row < 8; row += 1) {
-        const curve = row / 8;
-        const y = lerp(horizon, height + 60, curve * curve);
-        context.globalAlpha = fade * (0.8 - curve * 0.5);
-        context.beginPath();
-        context.moveTo(0, y);
-        context.lineTo(width, y);
-        context.stroke();
-      }
-      context.restore();
-    };
-
-    const draw = (time: number) => {
-      progress = getProgress();
-      pointerX = lerp(pointerX, targetPointerX, 0.045);
-      pointerY = lerp(pointerY, targetPointerY, 0.045);
-
-      context.clearRect(0, 0, width, height);
-
-      const morph = smoothstep(0.34, 0.92, progress);
-      const zoom = 1 + smoothstep(0.02, 0.62, progress) * 0.62;
-      const centerX = width * (0.57 + (pointerX - 0.5) * 0.035);
-      const centerY = height * (0.49 + (pointerY - 0.5) * 0.035);
-      const scale = Math.min(width, height) * (width < 640 ? 0.31 : 0.275) * zoom;
-      const turn = time * 0.00016 + progress * 1.36;
-      const positions: Array<{ x: number; y: number; depth: number; hue: number }> = [];
-
-      const aura = context.createRadialGradient(centerX, centerY, 0, centerX, centerY, scale * 1.8);
-      aura.addColorStop(0, `rgba(255, 45, 120, ${0.16 - morph * 0.04})`);
-      aura.addColorStop(0.35, `rgba(78, 214, 221, ${0.075 + morph * 0.025})`);
-      aura.addColorStop(1, "rgba(5, 5, 8, 0)");
-      context.fillStyle = aura;
-      context.fillRect(0, 0, width, height);
-
-      drawGrid(smoothstep(0.38, 0.88, progress));
-
-      points.forEach((point, index) => {
-        const spinX = point.x * Math.cos(turn) - point.z * Math.sin(turn);
-        const spinZ = point.x * Math.sin(turn) + point.z * Math.cos(turn);
-        const wave = Math.sin(time * 0.0011 + point.phase) * 0.035 * (1 - morph);
-        const depth = (spinZ + 1.8) / 3.5;
-        const perspective = 0.62 + depth * 0.62;
-        const sphereX = centerX + spinX * scale * perspective;
-        const sphereY = centerY + (point.y + wave) * scale * perspective;
-
-        const column = index % 9;
-        const orbit = index * 1.618 + time * 0.00014;
-        const networkX = width * (0.18 + column * 0.08) + Math.cos(orbit) * 22 + (index % 2 ? 0 : 18);
-        const networkY = height * (0.22 + ((index * 7) % 11) * 0.052) + Math.sin(orbit * 1.7) * 18;
-
-        positions.push({
-          x: lerp(sphereX, networkX, morph),
-          y: lerp(sphereY, networkY, morph),
-          depth,
-          hue: point.hue,
-        });
+      core.rotation.x = time * 0.00021;
+      core.rotation.z = time * 0.00013;
+      innerCore.rotation.y = -time * 0.00033;
+      core.scale.setScalar(1 + wave * 0.018 + (1 - morph) * 0.08 + voicePulse * 0.1);
+      innerCore.scale.setScalar(1 + (1 - morph) * 0.1);
+      waveMaterials.forEach((material, index) => {
+        material.opacity = 0.18 + (1 - morph) * 0.2 + Math.abs(Math.sin(time * 0.0018 + index)) * 0.12 + voicePulse * 0.24;
       });
+      (particleGeometry.attributes.position as THREE.BufferAttribute).needsUpdate = false;
+      particleMaterial.opacity = 0.44 + morph * 0.24;
+      particles.rotation.y = -time * 0.00004;
+      particles.rotation.z = morph * 0.25;
 
-      context.save();
-      for (let left = 0; left < positions.length; left += 1) {
-        for (let right = left + 1; right < positions.length; right += 1) {
-          const a = positions[left];
-          const b = positions[right];
-          const dx = a.x - b.x;
-          const dy = a.y - b.y;
-          const distance = Math.sqrt(dx * dx + dy * dy);
-          const maximum = lerp(scale * 0.47, width * 0.12, morph);
-          if (distance < maximum && (right - left < 10 || (left + right) % 11 === 0)) {
-            const alpha = (1 - distance / maximum) * (0.18 + morph * 0.16);
-            context.strokeStyle = `hsla(${a.hue}, 94%, 70%, ${alpha})`;
-            context.lineWidth = morph > 0.65 ? 0.75 : 0.55;
-            context.beginPath();
-            context.moveTo(a.x, a.y);
-            context.lineTo(b.x, b.y);
-            context.stroke();
-          }
+      sceneObjects.forEach(({ object, material }) => {
+        const isInfrastructure = object === routes || object === warehouse || object === ground || object === speakerGroup;
+        const targetOpacity = isInfrastructure ? 0.15 + morph * 0.85 : 1;
+        if (material) {
+          if (Array.isArray(material)) material.forEach((item) => { item.opacity = targetOpacity; });
+          else material.opacity = targetOpacity * (object === innerCore ? 0.38 : 1);
         }
-      }
-      context.restore();
-
-      positions.forEach((point, index) => {
-        const size = lerp(1.2, 2.35, point.depth) + (index % 7 === 0 ? 0.65 : 0);
-        context.beginPath();
-        context.fillStyle = `hsla(${point.hue}, 100%, ${lerp(67, 76, point.depth)}%, ${lerp(0.42, 0.96, point.depth)})`;
-        context.shadowBlur = index % 4 === 0 ? 16 : 7;
-        context.shadowColor = `hsla(${point.hue}, 100%, 66%, 0.75)`;
-        context.arc(point.x, point.y, size, 0, Math.PI * 2);
-        context.fill();
       });
-      context.shadowBlur = 0;
 
-      const coreRadius = scale * (0.12 - morph * 0.08);
-      if (coreRadius > 3) {
-        const core = context.createRadialGradient(centerX, centerY, 0, centerX, centerY, coreRadius * 3.5);
-        core.addColorStop(0, "rgba(255, 255, 255, 0.98)");
-        core.addColorStop(0.09, "rgba(255, 45, 120, 0.92)");
-        core.addColorStop(0.38, "rgba(73, 224, 213, 0.3)");
-        core.addColorStop(1, "rgba(5, 5, 8, 0)");
-        context.fillStyle = core;
-        context.beginPath();
-        context.arc(centerX, centerY, coreRadius * 3.5, 0, Math.PI * 2);
-        context.fill();
-      }
+      nodeObjects.forEach(({ object, material, basePosition }, index) => {
+        const pulse = 1 + Math.sin(time * 0.003 + index) * 0.22;
+        object.scale.setScalar((0.35 + morph * 0.9) * pulse);
+        object.position.lerp(basePosition!.clone().multiplyScalar(0.72 + morph * 0.28), 0.08);
+        (material as THREE.Material).opacity = 0.22 + morph * 0.78;
+      });
+      warehouse.scale.setScalar(0.2 + morph * 0.8);
+      speakerGroup.scale.setScalar(0.66 + morph * 0.34);
+      ground.material.opacity = 0.04 + morph * 0.15;
+      routes.scale.setScalar(0.35 + morph * 0.65);
 
-      if (!reducedMotion && active && pageVisible) {
-        animationFrame = window.requestAnimationFrame(draw);
-      }
+      renderer.render(scene, camera);
+      if (!reducedMotion && visible && pageVisible) raf = window.requestAnimationFrame(paint);
     };
 
-    const updatePointer = (event: PointerEvent) => {
-      targetPointerX = event.clientX / Math.max(window.innerWidth, 1);
-      targetPointerY = event.clientY / Math.max(window.innerHeight, 1);
+    const pointerMove = (event: PointerEvent) => {
+      targetPointerX = (event.clientX / Math.max(window.innerWidth, 1) - 0.5) * 2;
+      targetPointerY = (event.clientY / Math.max(window.innerHeight, 1) - 0.5) * 2;
     };
 
     const onVisibilityChange = () => {
       pageVisible = !document.hidden;
-      if (!pageVisible) {
-        window.cancelAnimationFrame(animationFrame);
-      } else if (!reducedMotion) {
-        animationFrame = window.requestAnimationFrame(draw);
-      } else {
-        draw(performance.now());
-      }
+      if (!pageVisible) window.cancelAnimationFrame(raf);
+      else if (!reducedMotion) raf = window.requestAnimationFrame(paint);
+      else paint(performance.now());
     };
 
-    const onScroll = () => {
-      if (reducedMotion) draw(performance.now());
-    };
+    const observer = new IntersectionObserver(([entry]) => {
+      visible = entry.isIntersecting;
+      if (!reducedMotion && visible && pageVisible && !raf) raf = window.requestAnimationFrame(paint);
+      if (!visible) window.cancelAnimationFrame(raf);
+    }, { threshold: 0 });
 
     resize();
-    draw(performance.now());
+    paint(performance.now());
+    window.addEventListener("voxflow:voice-play", onVoicePlay);
+
+    observer.observe(stage);
     window.addEventListener("resize", resize, { passive: true });
-    window.addEventListener("pointermove", updatePointer, { passive: true });
-    window.addEventListener("scroll", onScroll, { passive: true });
+    window.addEventListener("pointermove", pointerMove, { passive: true });
     document.addEventListener("visibilitychange", onVisibilityChange);
 
     return () => {
-      active = false;
-      window.cancelAnimationFrame(animationFrame);
+      window.cancelAnimationFrame(raf);
+      observer.disconnect();
       window.removeEventListener("resize", resize);
-      window.removeEventListener("pointermove", updatePointer);
-      window.removeEventListener("scroll", onScroll);
+      window.removeEventListener("pointermove", pointerMove);
       document.removeEventListener("visibilitychange", onVisibilityChange);
+      window.removeEventListener("voxflow:voice-play", onVoicePlay);
+      particleGeometry.dispose();
+      particleMaterial.dispose();
+      renderer.dispose();
     };
   }, []);
 
