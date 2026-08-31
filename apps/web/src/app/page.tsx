@@ -3,6 +3,8 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import CosmicStarfield from "@/components/CosmicStarfield";
+import SmoothScroll from "@/components/SmoothScroll";
+import VoiceCoreCanvas from "@/components/VoiceCoreCanvas";
 
 export default function Home() {
   const [playing, setPlaying] = useState<VoiceKey | null>(null);
@@ -143,6 +145,8 @@ export default function Home() {
     const tele = document.getElementById("solutions");
     const pipe = document.getElementById("pipeline-section");
     const sheets = document.getElementById("sheets-section");
+    const heroStage = document.getElementById("hero-stage");
+    const wordReveals = document.querySelectorAll<HTMLElement>("[data-word-reveal]");
     let ticking = false;
 
     const clamp01 = (v: number) => Math.min(1, Math.max(0, v));
@@ -156,6 +160,29 @@ export default function Home() {
       ticking = true;
       requestAnimationFrame(() => {
         ticking = false;
+
+        // Pinned hero phase controls the CSS choreography and canvas network morph.
+        if (heroStage) {
+          const r = heroStage.getBoundingClientRect();
+          const p = clamp01(-r.top / Math.max(r.height - window.innerHeight, 1));
+          heroStage.style.setProperty("--hero-progress", p.toFixed(4));
+          heroStage.style.setProperty("--hero-copy-shift", `${p * -54}px`);
+          heroStage.style.setProperty("--hero-console-shift", `${p * -86}px`);
+          heroStage.style.setProperty("--hero-copy-opacity", `${1 - p * 0.58}`);
+          heroStage.style.setProperty("--hero-console-opacity", `${1 - p * 0.32}`);
+        }
+
+        // Word-level narrative illumination, driven by scroll position.
+        wordReveals.forEach((paragraph) => {
+          const r = paragraph.getBoundingClientRect();
+          const p = clamp01((window.innerHeight * 0.84 - r.top) / (r.height + window.innerHeight * 0.42));
+          const words = paragraph.querySelectorAll<HTMLElement>("[data-word-index]");
+          words.forEach((word, index) => {
+            const reveal = clamp01(p * words.length - index + 0.35);
+            word.style.opacity = `${0.16 + reveal * 0.84}`;
+            word.style.transform = `translateY(${(1 - reveal) * 10}px)`;
+          });
+        });
 
         // Dual-POV sync
         if (tele) {
@@ -214,13 +241,23 @@ export default function Home() {
     <>
       {/* Subtle, elegant ambient starfield */}
       <CosmicStarfield />
+      <SmoothScroll />
 
       <main className="relative z-10 bg-transparent">
         {/* ==================== HERO SECTION ==================== */}
-        <section
-          id="hero"
-          className="relative min-h-screen flex items-center pt-28 pb-16 sm:pt-32 sm:pb-24 overflow-hidden grid-bg"
-        >
+        <section id="hero-stage" className="hero-stage relative" aria-label="VoxFlow autonomous voice operations introduction">
+          <div className="hero-stage-sticky relative min-h-[100svh] flex items-center overflow-hidden grid-bg pt-28 pb-16 sm:pt-32 sm:pb-24">
+            <VoiceCoreCanvas />
+            <div className="hero-vignette absolute inset-0 pointer-events-none" aria-hidden="true" />
+            <div className="hero-index hero-index-left" aria-hidden="true">
+              <span>01 / VOICE CORE</span>
+              <span>SCROLL TO ROUTE SIGNAL</span>
+            </div>
+            <div className="hero-index hero-index-right" aria-hidden="true">
+              <span className="hero-phase hero-phase-one">LISTENING</span>
+              <span className="hero-phase hero-phase-two">REASONING</span>
+              <span className="hero-phase hero-phase-three">ROUTING</span>
+            </div>
           {/* Ambient Glowing Nebula Orbs */}
           <div
             className="absolute top-1/4 left-1/4 w-[45vw] h-[45vw] max-w-[500px] max-h-[500px] bg-[#ff2d78]/10 blur-[130px] rounded-full pointer-events-none"
@@ -233,7 +270,7 @@ export default function Home() {
 
           <div className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 grid lg:grid-cols-12 gap-12 lg:gap-16 items-center w-full">
             {/* Left Column: Headline, Value Proposition, Audio Previews & CTA */}
-            <div className="lg:col-span-7 reveal stagger-children">
+            <div className="hero-copy lg:col-span-7 reveal stagger-children">
               <span className="font-label text-[#c084fc] tracking-[0.2em] uppercase text-xs sm:text-sm mb-4 sm:mb-6 block neon-text-sm">
                 ✦ NEXT-GEN MULTILINGUAL VOICE AI
               </span>
@@ -310,7 +347,7 @@ export default function Home() {
             </div>
 
             {/* Right Column: Live Operations Console Mockup Window (Sound-Synced!) */}
-            <div className="lg:col-span-5 relative reveal-right">
+            <div className="hero-console lg:col-span-5 relative reveal-right">
               <div className="glass rounded-2xl border border-white/[0.12] shadow-[0_20px_60px_rgba(0,0,0,0.7),0_0_35px_rgba(255,45,120,0.15)] overflow-hidden transition-all duration-400">
                 {/* Console Window Top Bar */}
                 <div className="bg-[#05050a]/90 px-4 py-3 border-b border-white/[0.08] flex items-center justify-between">
@@ -410,6 +447,7 @@ export default function Home() {
               </div>
             </div>
           </div>
+          </div>
         </section>
 
         {/* ═══════════ TRUST METRICS STRIP ═══════════ */}
@@ -434,6 +472,27 @@ export default function Home() {
                 </div>
               ))}
             </div>
+          </div>
+        </section>
+
+        {/* ═══════════ KINETIC NARRATIVE ═══════════ */}
+        <section className="kinetic-narrative relative py-28 sm:py-40 border-y border-white/[0.06]" id="narrative">
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 grid lg:grid-cols-[0.62fr_1.38fr] gap-10 lg:gap-20 items-start">
+            <div className="lg:sticky lg:top-36">
+              <span className="font-label text-[#00ffcc] tracking-[0.24em] uppercase text-[10px] sm:text-xs">01 — Autonomous conversation layer</span>
+              <p className="mt-5 max-w-xs font-body text-sm leading-6 text-[#94a3b8]">
+                Built for the high-consequence moments between your customers, frontline team, and operational systems.
+              </p>
+              <div className="mt-8 flex items-center gap-3 text-[10px] font-label uppercase tracking-[0.16em] text-[#a098b0]">
+                <span className="h-px w-10 bg-[#00ffcc]/70" />
+                Scroll-led signal narrative
+              </div>
+            </div>
+            <p data-word-reveal className="word-reveal font-headline text-4xl leading-[1.05] tracking-[-0.045em] text-[#f8fafc] sm:text-6xl lg:text-7xl xl:text-8xl">
+              {"Your caller hears a calm, capable human. Your operation sees every intent, decision, and update arrive exactly where it needs to go.".split(" ").map((word, index) => (
+                <span key={`${word}-${index}`} data-word-index={index}>{word}{" "}</span>
+              ))}
+            </p>
           </div>
         </section>
 

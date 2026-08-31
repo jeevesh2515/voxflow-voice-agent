@@ -2,7 +2,14 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useState, useEffect } from "react";
+import { useEffect, useState } from "react";
+
+const links = [
+  { label: "Platform", href: "/#platform" },
+  { label: "Intelligence", href: "/#solutions" },
+  { label: "Economics", href: "/#roi" },
+  { label: "Pricing", href: "/pricing" },
+];
 
 export default function Nav() {
   const pathname = usePathname();
@@ -11,137 +18,73 @@ export default function Nav() {
   const isDashboard = pathname.startsWith("/dashboard");
 
   useEffect(() => {
-    const onScroll = () => {
-      setScrolled(window.scrollY > 40);
-    };
-    window.addEventListener("scroll", onScroll);
+    const onScroll = () => setScrolled(window.scrollY > 28);
+    onScroll();
+    window.addEventListener("scroll", onScroll, { passive: true });
     return () => window.removeEventListener("scroll", onScroll);
   }, []);
 
   if (isDashboard) return null;
 
   return (
-    <header className="fixed top-0 left-0 right-0 z-50 transition-all duration-500" id="site-header">
-      <div
-        className={`backdrop-blur-xl border-b transition-all duration-500 ${
-          scrolled ? "bg-[#050508]/85 border-white/[0.08] shadow-[0_4px_30px_rgba(0,0,0,0.7)]" : "bg-transparent border-white/[0.04]"
-        }`}
-        id="header-inner"
-      >
-        <div className="flex justify-between items-center w-full px-4 sm:px-6 lg:px-8 py-3.5 sm:py-4 max-w-7xl mx-auto">
-          <Link href="/" className="flex items-center gap-2.5 z-10 group">
-            <div className="relative w-8 h-8 rounded-lg bg-[#ff2d78]/15 border border-[#ff2d78]/35 flex items-center justify-center transition-all group-hover:border-[#ff2d78]/70 group-hover:shadow-[0_0_20px_rgba(255,45,120,0.4)]">
-              <span
-                className="material-symbols-outlined text-[#ff2d78] text-xl font-bold"
-                style={{ fontVariationSettings: "'FILL' 1" }}
-              >
-                graphic_eq
-              </span>
-            </div>
-            <span className="text-xl sm:text-2xl font-headline font-black tracking-tight text-[#f8fafc]">
-              VoxFlow
-            </span>
+    <header className="pointer-events-none fixed inset-x-0 top-0 z-50 px-3 pt-3 sm:px-5 sm:pt-5" id="site-header">
+      <div className={`site-nav pointer-events-auto mx-auto flex max-w-6xl items-center justify-between ${scrolled ? "site-nav-scrolled" : ""}`}>
+        <Link href="/" className="group relative z-10 flex items-center gap-2.5" aria-label="VoxFlow home">
+          <span className="nav-mark flex h-8 w-8 items-center justify-center" aria-hidden="true">
+            <span className="material-symbols-outlined text-[18px]">graphic_eq</span>
+          </span>
+          <span className="font-headline text-lg font-black tracking-[-0.055em] text-white sm:text-xl">VoxFlow</span>
+        </Link>
+
+        <nav className="hidden items-center gap-1 lg:flex" aria-label="Main navigation">
+          {links.map((link) => (
+            <Link key={link.label} href={link.href} className="nav-link px-3 py-2 text-[11px] font-semibold uppercase tracking-[0.12em]">
+              {link.label}
+            </Link>
+          ))}
+        </nav>
+
+        <div className="relative z-10 flex items-center gap-2 sm:gap-3">
+          <span className="nav-status hidden items-center gap-1.5 text-[10px] font-semibold uppercase tracking-[0.12em] text-[#a4b2bc] sm:flex">
+            <span className="h-1.5 w-1.5 rounded-full bg-[#00ffcc]" />
+            Systems live
+          </span>
+          <Link href="/sign-in" className="hidden px-2 text-xs font-semibold text-[#a4b2bc] transition-colors hover:text-white md:inline-flex">
+            Sign in
           </Link>
-
-          <nav className="hidden md:flex items-center gap-8" aria-label="Main navigation">
-            <Link
-              className="text-[#94a3b8] hover:text-[#ff2d78] transition-colors duration-300 font-label text-sm font-medium"
-              href="/#platform"
-            >
-              Platform
-            </Link>
-            <Link
-              className="text-[#94a3b8] hover:text-[#ff2d78] transition-colors duration-300 font-label text-sm font-medium"
-              href="/#solutions"
-            >
-              Solutions
-            </Link>
-            <Link
-              className="text-[#94a3b8] hover:text-[#ff2d78] transition-colors duration-300 font-label text-sm font-medium"
-              href="/pricing"
-            >
-              Pricing
-            </Link>
-            <Link
-              className="text-[#94a3b8] hover:text-[#ff2d78] transition-colors duration-300 font-label text-sm font-medium"
-              href="/about"
-            >
-              About
-            </Link>
-          </nav>
-
-          <div className="flex items-center gap-3.5 z-10">
-            <Link
-              href="/sign-in"
-              className="hidden sm:inline-flex text-[#94a3b8] hover:text-[#f8fafc] transition-all font-label text-sm font-medium"
-            >
-              Sign In
-            </Link>
-            <Link
-              href="/sign-up"
-              className="btn-signal px-5 sm:px-6 py-2 font-headline font-bold rounded-xl text-sm transition-all active:scale-95 duration-150"
-            >
-              Get Started
-            </Link>
-            <button
-              onClick={() => setOpen(!open)}
-              className="md:hidden flex items-center justify-center w-10 h-10 rounded-lg text-[#f8fafc] hover:bg-white/[0.05] transition-colors"
-              aria-label="Toggle menu"
-            >
-              <span className="material-symbols-outlined text-2xl">
-                {open ? "close" : "menu"}
-              </span>
-            </button>
-          </div>
+          <Link href="/sign-up" className="nav-cta inline-flex items-center gap-1.5 px-3.5 py-2 text-xs font-bold sm:px-4">
+            Get started
+            <span className="material-symbols-outlined text-[15px]">arrow_outward</span>
+          </Link>
+          <button
+            type="button"
+            onClick={() => setOpen((value) => !value)}
+            className="flex h-8 w-8 items-center justify-center rounded-full border border-white/[0.09] text-white transition-colors hover:bg-white/[0.06] lg:hidden"
+            aria-label="Toggle menu"
+            aria-expanded={open}
+          >
+            <span className="material-symbols-outlined text-[19px]">{open ? "close" : "menu"}</span>
+          </button>
         </div>
       </div>
 
-      {/* Mobile Menu */}
       {open && (
-        <div className="fixed inset-0 z-40 bg-background/95 backdrop-blur-xl md:hidden flex flex-col items-center justify-center gap-8 text-lg">
-          <Link
-            className="text-primary font-bold font-label text-xl"
-            href="/#platform"
-            onClick={() => setOpen(false)}
-          >
-            Platform
-          </Link>
-          <Link
-            className="text-on-surface-variant hover:text-primary transition-colors font-label text-xl"
-            href="/#solutions"
-            onClick={() => setOpen(false)}
-          >
-            Solutions
-          </Link>
-          <Link
-            className="text-on-surface-variant hover:text-primary transition-colors font-label text-xl"
-            href="/pricing"
-            onClick={() => setOpen(false)}
-          >
-            Pricing
-          </Link>
-          <Link
-            className="text-on-surface-variant hover:text-primary transition-colors font-label text-xl"
-            href="/about"
-            onClick={() => setOpen(false)}
-          >
-            About
-          </Link>
-          <hr className="w-16 border-outline-variant/30 my-2" />
-          <Link
-            href="/sign-in"
-            onClick={() => setOpen(false)}
-            className="text-on-surface-variant font-label"
-          >
-            Sign In
-          </Link>
-          <Link
-            href="/sign-up"
-            onClick={() => setOpen(false)}
-            className="bg-primary text-on-primary px-8 py-3 font-headline font-bold rounded-xl"
-          >
-            Get Started
-          </Link>
+        <div className="pointer-events-auto absolute left-3 right-3 top-[calc(100%+0.5rem)] rounded-2xl border border-white/[0.1] bg-[#08080d]/95 p-3 shadow-2xl backdrop-blur-2xl sm:left-5 sm:right-5 lg:hidden">
+          <nav className="grid gap-1" aria-label="Mobile navigation">
+            {links.map((link) => (
+              <Link
+                key={link.label}
+                href={link.href}
+                onClick={() => setOpen(false)}
+                className="rounded-xl px-4 py-3 text-sm font-semibold text-[#c4ced5] transition-colors hover:bg-white/[0.06] hover:text-white"
+              >
+                {link.label}
+              </Link>
+            ))}
+            <Link href="/sign-in" onClick={() => setOpen(false)} className="rounded-xl px-4 py-3 text-sm font-semibold text-[#c4ced5] transition-colors hover:bg-white/[0.06] hover:text-white">
+              Sign in
+            </Link>
+          </nav>
         </div>
       )}
     </header>
