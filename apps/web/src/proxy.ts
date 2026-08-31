@@ -59,5 +59,16 @@ export async function proxy(request: NextRequest) {
 }
 
 export const config = {
-  matcher: ["/((?!_next/static|_next/image|favicon.ico).*)"],
+  // Static files under public/ must bypass the auth gate. Without the extension
+  // exclusion below, a request for /og-voxflow.jpg is treated as a protected
+  // route and 307s to /sign-in — which silently breaks social share cards
+  // (crawlers are always unauthenticated) and any texture the landing page loads.
+  //
+  // Deliberately an explicit allow-list of inert asset extensions rather than a
+  // blanket rule: this is an authentication boundary, so it is widened only for
+  // file types that cannot contain protected data. Note `.json` is intentionally
+  // NOT exempted, so a future /dashboard/*.json data route stays gated.
+  matcher: [
+    "/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp|avif|ico|woff|woff2|ttf|otf|mp4|webm|txt|xml)$).*)",
+  ],
 };

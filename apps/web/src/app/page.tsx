@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 import CosmicStarfield from "@/components/CosmicStarfield";
 import SmoothScroll from "@/components/SmoothScroll";
+import HeroChoreography from "@/components/HeroChoreography";
 import VoiceCoreCanvas from "@/components/VoiceCoreCanvas";
 import VoiceXray from "@/components/VoiceXray";
 import DispatchSwitchboard from "@/components/DispatchSwitchboard";
@@ -152,7 +153,6 @@ export default function Home() {
     const tele = document.getElementById("solutions");
     const pipe = document.getElementById("pipeline-section");
     const sheets = document.getElementById("sheets-section");
-    const heroStage = document.getElementById("hero-stage");
     const wordReveals = document.querySelectorAll<HTMLElement>("[data-word-reveal]");
     let ticking = false;
 
@@ -230,7 +230,8 @@ export default function Home() {
     };
     window.addEventListener("scroll", onScroll, { passive: true });
     onScroll();
-    heroStage?.classList.add("hero-stage-ready");
+    // NOTE: `hero-stage-ready` is owned by HeroChoreography, which also drives
+    // --hero-progress. Setting it here too would race its cleanup.
 
     return () => {
       obs.disconnect();
@@ -243,6 +244,7 @@ export default function Home() {
       {/* Subtle, elegant ambient starfield */}
       <CosmicStarfield />
       <SmoothScroll />
+      <HeroChoreography />
 
       <main className="relative z-10 bg-transparent">
         {/* ==================== HERO SECTION ==================== */}
@@ -250,6 +252,22 @@ export default function Home() {
           <div className="hero-stage-sticky relative min-h-[100svh] flex items-center overflow-hidden grid-bg pt-28 pb-16 sm:pt-32 sm:pb-24">
             <VoiceCoreCanvas />
             <div className="hero-vignette absolute inset-0 pointer-events-none" aria-hidden="true" />
+
+            {/* Stage A — the only text permitted over the pure aperture frame.
+                Fades out by progress ~0.17 (see .hero-aperture-cue in globals.css). */}
+            <p className="hero-aperture-cue" aria-hidden="true">
+              [ 01 / VOICE CORE ] — SCROLL TO INITIALIZE SIGNAL
+            </p>
+
+            {/* Stage B — diagnostic markers, in at 0.15, out by 0.9. */}
+            <div className="hero-hud hero-hud-left" aria-hidden="true">
+              <span>SIGNAL LOCK</span>
+              <span>16kHz PCM</span>
+            </div>
+            <div className="hero-hud hero-hud-right" aria-hidden="true">
+              <span>LATENCY TARGET</span>
+              <span>&lt;100ms</span>
+            </div>
           {/* Ambient Glowing Nebula Orbs */}
           <div
             className="absolute top-1/4 left-1/4 w-[45vw] h-[45vw] max-w-[500px] max-h-[500px] bg-[#ff2d78]/10 blur-[130px] rounded-full pointer-events-none"

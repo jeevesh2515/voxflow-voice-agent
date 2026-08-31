@@ -2,6 +2,7 @@
 
 import { useEffect, useRef } from "react";
 import * as THREE from "three";
+import { heroProgress } from "@/lib/hero-progress";
 
 const clamp = (value: number, min = 0, max = 1) => Math.min(max, Math.max(min, value));
 
@@ -78,20 +79,50 @@ export default function VoiceCoreCanvas() {
     const world = new THREE.Group();
     scene.add(world);
 
-    // 1. Faceted Metallic Solid Core
+    // 1. Faceted Neon-Glass Core.
+    // MeshPhysicalMaterial (not Standard) so the Higgsfield-generated equirectangular
+    // studio map below can drive real specular reflections + clearcoat sheen.
     const coreGeometry = new THREE.IcosahedronGeometry(1.85, 3);
-    const solidMaterial = new THREE.MeshStandardMaterial({
+    const solidMaterial = new THREE.MeshPhysicalMaterial({
       color: 0x161e30,
-      metalness: 0.85,
-      roughness: 0.25,
+      metalness: 0.62,
+      roughness: 0.18,
       emissive: 0x0c1222,
       emissiveIntensity: 0.3,
+      clearcoat: 0.85,
+      clearcoatRoughness: 0.22,
+      envMapIntensity: 0.0, // ramped to full once the texture resolves, avoids a lighting pop
       flatShading: true,
       transparent: true,
       opacity: 0.88,
     });
     const solidCore = new THREE.Mesh(coreGeometry, solidMaterial);
     world.add(solidCore);
+
+    // Neon studio reflection environment. Loaded async and non-blocking: if the
+    // request fails the scene keeps rendering on its three directional lights alone.
+    const pmrem = new THREE.PMREMGenerator(renderer);
+    pmrem.compileEquirectangularShader();
+    let envRenderTarget: THREE.WebGLRenderTarget | null = null;
+    let envTexture: THREE.Texture | null = null;
+    let envRamp = 0; // 0 → 1 fade-in, applied in paint()
+
+    const envLoader = new THREE.TextureLoader();
+    envLoader.load(
+      "/voice-core-env.jpg",
+      (texture) => {
+        texture.mapping = THREE.EquirectangularReflectionMapping;
+        texture.colorSpace = THREE.SRGBColorSpace;
+        envRenderTarget = pmrem.fromEquirectangular(texture);
+        solidMaterial.envMap = envRenderTarget.texture;
+        solidMaterial.needsUpdate = true;
+        envTexture = texture;
+      },
+      undefined,
+      () => {
+        // Texture missing or blocked — directional lights already cover the look.
+      }
+    );
 
     // 2. Glowing Cyan Wireframe Twin
     const wireMaterial = wireMaterialFor(cyan, 0.65);
@@ -205,16 +236,30 @@ export default function VoiceCoreCanvas() {
     };
 
     const paint = (time: number) => {
-      const scrollY = window.scrollY || 0;
-      const scrollProgress = clamp(scrollY / Math.max(window.innerHeight, 1));
+      // Shared with the CSS choreography (see lib/hero-progress.ts) so the mesh
+      // and the DOM reveal are driven by one identical value.
+      const scrollProgress = clamp(heroProgress.value);
       const idle = reducedMotion ? 0 : time;
+
+      // Stage C docking ramp. Stays at 0 through Stages A and B, which is what
+      // keeps the core dead-centre for the pure-aperture opening frame.
+      const dockProgress = clamp((scrollProgress - 0.5) / 0.42);
 
       voicePulse *= 0.955;
       pointerX += (targetPointerX - pointerX) * 0.05;
       pointerY += (targetPointerY - pointerY) * 0.05;
 
+      // Fade the neon studio reflections in once the env map has resolved, so the
+      // core gains its glass character without a single-frame lighting jump.
+      if (solidMaterial.envMap && envRamp < 1) {
+        envRamp = Math.min(1, envRamp + 0.02);
+        solidMaterial.envMapIntensity = envRamp * 1.35;
+      }
+
       const isDesktop = width > 1024;
-      world.position.x = isDesktop ? 2.5 : 0;
+      // Centred during the aperture stage, then slides across to frame the console.
+      const dockOffset = isDesktop ? dockProgress * 2.5 : 0;
+      world.position.x = dockOffset;
       world.position.y = -scrollProgress * 0.45;
       world.rotation.y = idle * 0.00025 + scrollProgress * 0.95;
 
@@ -222,7 +267,7 @@ export default function VoiceCoreCanvas() {
       camera.position.x = pointerX * 0.45;
       camera.position.y = 0.2 - pointerY * 0.35;
       camera.position.z = 12.5 - scrollProgress * 2.0;
-      camera.lookAt(isDesktop ? 2.2 : 0, 0, 0);
+      camera.lookAt(dockOffset * 0.88, 0, 0);
 
       // Core rotation & audio-reactive scaling
       const pulseScale = (1 + voicePulse * 0.18 + Math.sin(idle * 0.002) * 0.015) * (1 + scrollProgress * 0.08);
@@ -297,6 +342,9 @@ export default function VoiceCoreCanvas() {
       window.removeEventListener("voxflow:voice-play", onVoicePlay);
       document.removeEventListener("visibilitychange", onVisibilityChange);
       renderer.dispose();
+      pmrem.dispose();
+      envRenderTarget?.dispose();
+      envTexture?.dispose();
       coreGeometry.dispose();
       solidMaterial.dispose();
       wireMaterial.dispose();

@@ -1036,13 +1036,74 @@ html {
   .xray-waveform .xray-wave-active, .switchboard-bar-active { animation: none; }
 }
 
-/* Visual-first opening: the hero enters as an image-like scene before copy is revealed. */
+/* ════════════════════════════════════════════════════════════
+   STAGED APERTURE CHOREOGRAPHY
+   One source of truth: --hero-progress (0 → 1), written by
+   HeroChoreography.tsx via GSAP ScrollTrigger scrub.
+
+   Every rule below is a PURE FUNCTION of that value — no one-way
+   class toggles, no stateful triggers. That is what makes reverse
+   scrolling identical to forward scrolling with zero jumpiness.
+
+     0.00–0.15  Stage A  pure aperture, core centered, copy hidden
+     0.15–0.50  Stage B  blueprint morph, HUD diagnostics visible
+     0.50–1.00  Stage C  core docks right, copy + console glide in
+   ════════════════════════════════════════════════════════════ */
+
+.hero-stage {
+  --hero-progress: 0;
+}
+
+/* Pre-JS: hide copy so the opening frame is a clean visual, never a
+   flash of unstyled headline. <noscript> below restores it. */
 .hero-stage:not(.hero-stage-ready) .hero-copy,
 .hero-stage:not(.hero-stage-ready) .hero-console { opacity: 0; }
 
 @media (prefers-reduced-motion: reduce) {
   .hero-stage:not(.hero-stage-ready) .hero-copy,
   .hero-stage:not(.hero-stage-ready) .hero-console { opacity: 1; }
+}
+
+/* Desktop + motion-allowed only. On mobile the layout stacks, so a tall
+   pinned hero would just read as a dead zone — there it stays a normal
+   single-viewport section with all copy visible immediately. */
+@media (min-width: 1024px) {
+  @media (prefers-reduced-motion: no-preference) {
+    .hero-stage.hero-stage-ready {
+      /* 200vh total = 100vh of pinned choreography. Deliberately short:
+         long pins are what create the dead-zone feel. */
+      height: 200vh;
+    }
+
+    .hero-stage.hero-stage-ready .hero-stage-sticky {
+      position: sticky;
+      top: 0;
+      height: 100svh;
+      min-height: 100svh;
+    }
+
+    /* Stage C — headline block resolves in from the left. */
+    .hero-stage.hero-stage-ready .hero-copy {
+      opacity: clamp(0, (var(--hero-progress) - 0.5) * 3.4, 1);
+      transform: translate3d(
+        calc(-30px * clamp(0, 1 - (var(--hero-progress) - 0.5) * 3.4, 1)),
+        0,
+        0
+      );
+      will-change: opacity, transform;
+    }
+
+    /* Console follows a beat later so the two don't arrive as one slab. */
+    .hero-stage.hero-stage-ready .hero-console {
+      opacity: clamp(0, (var(--hero-progress) - 0.58) * 3.4, 1);
+      transform: translate3d(
+        calc(36px * clamp(0, 1 - (var(--hero-progress) - 0.58) * 3.4, 1)),
+        0,
+        0
+      );
+      will-change: opacity, transform;
+    }
+  }
 }
 
 /* Latest agency-grade hardware and interaction polish */
