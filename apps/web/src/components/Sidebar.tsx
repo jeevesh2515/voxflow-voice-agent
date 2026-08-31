@@ -85,7 +85,7 @@ export default function Sidebar({ isOpen, onClose }: { isOpen: boolean; onClose:
 
       <aside
         className={clsx(
-          "w-[220px] bg-[#07070e]/95 border-r border-white/[0.06] flex flex-col hide-scrollbar overflow-y-auto shrink-0 select-none backdrop-blur-2xl",
+          "w-60 bg-[#111118]/95 border-r border-[#302840]/60 flex flex-col hide-scrollbar overflow-y-auto shrink-0 select-none backdrop-blur-xl",
           "fixed lg:static inset-y-0 left-0 z-40 transition-transform duration-200",
           isOpen ? "translate-x-0" : "-translate-x-full lg:translate-x-0"
         )}
@@ -121,16 +121,15 @@ export default function Sidebar({ isOpen, onClose }: { isOpen: boolean; onClose:
                       target={item.external ? "_blank" : undefined}
                       onClick={onClose}
                       className={clsx(
-                        "flex items-center gap-2.5 px-3 py-[7px] rounded-lg transition-all duration-150 text-[13px] group relative",
+                        "flex items-center gap-3 px-3 py-2 rounded-xl transition-all duration-150 text-sm group",
                         active
-                          ? "bg-[#ff2d78]/10 text-[#ff2d78] font-semibold border border-[#ff2d78]/20 shadow-[0_0_12px_rgba(255,45,120,0.1)]"
-                          : "text-[#94a3b8] hover:text-[#f8fafc] hover:bg-white/[0.04] border border-transparent"
+                          ? "bg-[#ff2d78]/10 text-[#ff2d78] font-semibold border border-[#ff2d78]/20 shadow-[0_0_12px_rgba(255,45,120,0.08)]"
+                          : "text-[#a098b0] hover:text-[#e8e0f0] hover:bg-[#1e1e30]/50"
                       )}
                     >
-                      {active && <span className="absolute left-0 top-1/2 -translate-y-1/2 w-[2px] h-5 bg-[#ff2d78] rounded-full shadow-[0_0_8px_rgba(255,45,120,0.6)]" />}
-                      <Icon size={16} className={clsx("shrink-0", active ? "text-[#ff2d78]" : "text-[#64748b] group-hover:text-[#f8fafc]")} />
-                      <span className="flex-1 truncate">{item.label}</span>
-                      {active && <ChevronRight size={12} className="text-[#ff2d78]/50" />}
+                      <Icon size={18} className={clsx("shrink-0", active ? "text-[#ff2d78]" : "text-[#a098b0] group-hover:text-[#e8e0f0]")} />
+                      <span className="flex-1">{item.label}</span>
+                      {active && <ChevronRight size={14} className="text-[#ff2d78]/60" />}
                     </Link>
                   );
                 })}
@@ -139,19 +138,28 @@ export default function Sidebar({ isOpen, onClose }: { isOpen: boolean; onClose:
           ))}
         </nav>
 
-        <div className="p-3 space-y-2.5 border-t border-white/[0.06]">
-          <div className="rounded-xl border border-[#00ffcc]/15 bg-[#00ffcc]/[0.04] p-3">
+        {/* Bottom Status */}
+        <div className="p-4 space-y-2.5 border-t border-[#302840]/40">
+          <div className="rounded-xl border border-[#00ffcc]/15 bg-[#00ffcc]/5 p-3">
             <div className="flex items-center justify-between mb-2">
-              <span className="text-[10px] font-bold text-[#64748b] uppercase tracking-[0.12em]">Queue</span>
-              <span className="text-[10px] font-bold text-[#00ffcc]">OPTIMAL</span>
+              <span className="text-[9px] font-bold text-[#a098b0] uppercase tracking-widest">Queue</span>
+              <span className="text-[9px] font-bold text-[#00ffcc]">OPTIMAL</span>
             </div>
             <div className="flex gap-1">
-              {[1,2,3,4].map((i) => (<div key={i} className={`h-1 flex-1 rounded-full ${i <= 2 ? "bg-[#00ffcc] shadow-[0_0_6px_rgba(0,255,204,0.4)]" : "bg-white/[0.06]"}`} />))}
+              {[1, 2, 3, 4].map((i) => (
+                <div key={i} className={`h-1 flex-1 rounded-full ${i <= 2 ? "bg-[#00ffcc] shadow-[0_0_6px_rgba(0,255,204,0.4)]" : "bg-[#302840]"}`} />
+              ))}
             </div>
           </div>
-          <div className="flex items-center gap-2.5 px-1">
-            <div className="w-7 h-7 rounded-lg bg-[#00ffcc]/10 border border-[#00ffcc]/15 grid place-items-center text-[#00ffcc]"><Zap size={13}/></div>
-            <div><p className="text-[10px] font-bold tracking-widest uppercase text-[#64748b]">System</p><p className="text-xs font-bold text-[#00ffcc]">98.2% uptime</p></div>
+
+          <div className="flex items-center gap-3 px-2">
+            <div className="w-8 h-8 rounded-lg bg-[#00ffcc]/10 border border-[#00ffcc]/20 flex items-center justify-center text-[#00ffcc]">
+              <Zap size={14} />
+            </div>
+            <div>
+              <p className="text-[9px] text-[#a098b0] uppercase tracking-wider font-bold">System</p>
+              <p className="text-xs font-bold text-[#00ffcc]">98.2% uptime</p>
+            </div>
           </div>
         </div>
       </aside>

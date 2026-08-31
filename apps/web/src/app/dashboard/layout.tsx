@@ -10,11 +10,12 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
 
   return (
     <TenantProvider>
-      <div className="min-h-screen flex flex-col bg-[#07070e] text-[#f8fafc] font-body selection:bg-[#ff2d78] selection:text-white overflow-hidden">
+      <div className="min-h-screen flex flex-col bg-[#0a0a12] text-[#e8e0f0] font-body selection:bg-[#ff2d78] selection:text-white overflow-hidden">
         <Topbar onToggleSidebar={() => setSidebarOpen((o) => !o)} />
-        <div className="flex flex-1 h-[calc(100vh-56px)] overflow-hidden">
+
+        <div className="flex flex-1 h-[calc(100vh-65px)] overflow-hidden">
           <Sidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />
-          <main className="flex-1 overflow-y-auto bg-[#07070e] p-4 sm:p-6 lg:p-6 hide-scrollbar">
+          <main className="flex-1 overflow-y-auto bg-[#0a0a12] p-6 lg:p-8 hide-scrollbar">
             {children}
           </main>
         </div>

@@ -5,8 +5,7 @@ import { usePathname } from "next/navigation";
 
 export default function Footer() {
   const pathname = usePathname();
-  const isDashboard = pathname?.startsWith("/dashboard");
-  if (isDashboard) return null;
+  if (pathname.startsWith("/dashboard")) return null;
 
   return (
     <footer

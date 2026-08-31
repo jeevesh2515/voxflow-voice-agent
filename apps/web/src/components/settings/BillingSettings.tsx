@@ -138,12 +138,14 @@ export default function BillingSettings() {
   const statusStyle = STATUS_COLORS[billing.subscription_status] ?? STATUS_COLORS.trialing;
 
   return (
-    <div className="overflow-hidden rounded-2xl border border-white/[0.06] bg-[#0f0f1c]/80 backdrop-blur-2xl">
-      <div className="flex items-center gap-3 border-b border-white/[0.06] bg-[#07070e]/40 px-5 py-4 sm:px-6">
+    <div className="overflow-hidden rounded-2xl border border-[#302840]/60 bg-[#141422]/40">
+      <div className="flex items-center gap-3 border-b border-[#302840]/40 bg-[#0f0f1a]/60 px-5 py-4 sm:px-6">
         <CreditCard size={18} className="text-[#00ffcc]" />
         <div>
-          <h2 className="text-sm font-bold text-[#f8fafc] tracking-tight">Billing & Subscription</h2>
-          <p className="text-[11px] text-[#94a3b8]">Plan, renewal, invoices — powered by Stripe. Card data never touches VoxFlow.</p>
+          <h2 className="text-sm font-bold text-[#e8e0f0]">Billing & Subscription</h2>
+          <p className="text-[10px] text-[#a098b0]">
+            Plan, renewal, invoices — powered by Stripe. Card data never touches VoxFlow.
+          </p>
         </div>
         {billing.billing_mode === "sandbox" && (
           <span className="ml-auto rounded-full border border-amber-500/30 bg-amber-500/10 px-2.5 py-1 text-[10px] font-bold uppercase tracking-widest text-amber-300">
@@ -153,27 +155,34 @@ export default function BillingSettings() {
       </div>
 
       <div className="p-5 sm:p-6 space-y-6">
+        {/* Current plan card */}
         <div className="grid gap-4 sm:grid-cols-3">
-          <div className="rounded-xl border border-white/[0.06] bg-[#07070e]/40 p-4">
-            <p className="text-[11px] font-semibold tracking-[0.12em] uppercase text-[#64748b]">Current plan</p>
-            <p className="mt-1.5 flex items-center gap-2 text-lg font-bold text-[#f8fafc]"><Crown size={16} className="text-[#ff2d78]" /> {planLabel}</p>
-            <p className="mt-1 text-xs text-[#94a3b8]">{formatPence(billing.plan_amount_pence, billing.currency)} / month</p>
-            {/* Quota progress */}
-            <div className="mt-3">
-              <div className="flex justify-between text-[11px] font-mono text-[#64748b] mb-1"><span>Minutes used</span><span className="text-[#f8fafc]">{billing.plan === "starter" ? "— / 500" : billing.plan === "growth" ? "— / 2,500" : "Unmetered"}</span></div>
-              <div className="h-1.5 rounded-full bg-white/[0.06] overflow-hidden"><div className="h-full rounded-full bg-gradient-to-r from-[#ff2d78] to-[#00ffcc]" style={{ width: billing.plan === "enterprise" ? "18%" : billing.plan === "growth" ? "42%" : "68%" }} /></div>
-            </div>
+          <div className="rounded-xl border border-[#302840]/40 bg-[#0f0f1a]/40 p-4">
+            <p className="text-[10px] font-bold uppercase tracking-widest text-[#a098b0]">Current plan</p>
+            <p className="mt-1 flex items-center gap-2 text-lg font-bold text-[#e8e0f0]">
+              <Crown size={16} className="text-[#ff2d78]" /> {planLabel}
+            </p>
+            <p className="mt-1 text-xs text-[#a098b0]">
+              {formatPence(billing.plan_amount_pence, billing.currency)} / month
+            </p>
           </div>
-          <div className="rounded-xl border border-white/[0.06] bg-[#07070e]/40 p-4">
-            <p className="text-[11px] font-semibold tracking-[0.12em] uppercase text-[#64748b]">Status</p>
-            <span className={`mt-2 inline-flex rounded-full border px-2.5 py-1 text-xs font-bold capitalize ${statusStyle}`}>{billing.subscription_status.replace("_", " ")}</span>
-            {billing.cancel_at_period_end && <p className="mt-2 text-[10px] text-[#f59e0b]">Cancels at period end</p>}
+          <div className="rounded-xl border border-[#302840]/40 bg-[#0f0f1a]/40 p-4">
+            <p className="text-[10px] font-bold uppercase tracking-widest text-[#a098b0]">Status</p>
+            <span
+              className={`mt-2 inline-flex rounded-full border px-2.5 py-1 text-xs font-bold capitalize ${statusStyle}`}
+            >
+              {billing.subscription_status.replace("_", " ")}
+            </span>
+            {billing.cancel_at_period_end && (
+              <p className="mt-2 text-[10px] text-amber-300">Cancels at period end</p>
+            )}
           </div>
-          <div className="rounded-xl border border-white/[0.06] bg-[#07070e]/40 p-4">
-            <p className="text-[11px] font-semibold tracking-[0.12em] uppercase text-[#64748b]">Renews</p>
-            <p className="mt-1.5 text-sm font-semibold text-[#f8fafc]">{formatDate(billing.current_period_end)}</p>
-            <p className="mt-1 text-[11px] text-[#94a3b8]">{billing.has_stripe_customer ? "Stripe customer on file" : "No payment method yet"}</p>
-            <button type="button" onClick={handlePortal} disabled={!isOwner || isOpeningPortal} className="mt-3 inline-flex items-center gap-1.5 text-[11px] font-bold text-[#00ffcc] hover:underline">Manage in Stripe Portal <ExternalLink size={10}/></button>
+          <div className="rounded-xl border border-[#302840]/40 bg-[#0f0f1a]/40 p-4">
+            <p className="text-[10px] font-bold uppercase tracking-widest text-[#a098b0]">Renews</p>
+            <p className="mt-1 text-sm font-semibold text-[#e8e0f0]">{formatDate(billing.current_period_end)}</p>
+            <p className="mt-1 text-[10px] text-[#a098b0]">
+              {billing.has_stripe_customer ? "Stripe customer on file" : "No payment method yet"}
+            </p>
           </div>
         </div>
 
