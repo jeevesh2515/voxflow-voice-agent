@@ -24,15 +24,15 @@ export default function Nav() {
     <header className="fixed top-0 left-0 right-0 z-50 transition-all duration-500" id="site-header">
       <div
         className={`backdrop-blur-xl border-b transition-all duration-500 ${
-          scrolled ? "bg-[#050508]/80 border-white/[0.08] shadow-[0_4px_30px_rgba(0,0,0,0.6)]" : "bg-transparent border-white/[0.04]"
+          scrolled ? "bg-[#050508]/85 border-white/[0.08] shadow-[0_4px_30px_rgba(0,0,0,0.7)]" : "bg-transparent border-white/[0.04]"
         }`}
         id="header-inner"
       >
-        <div className="flex justify-between items-center w-full px-4 sm:px-6 lg:px-8 py-3 sm:py-4 max-w-7xl mx-auto">
+        <div className="flex justify-between items-center w-full px-4 sm:px-6 lg:px-8 py-3.5 sm:py-4 max-w-7xl mx-auto">
           <Link href="/" className="flex items-center gap-2.5 z-10 group">
-            <div className="relative w-8 h-8 rounded-lg bg-[#00ffcc]/10 border border-[#00ffcc]/30 flex items-center justify-center transition-all group-hover:border-[#00ffcc]/60 group-hover:shadow-[0_0_15px_rgba(0,255,204,0.25)]">
+            <div className="relative w-8 h-8 rounded-lg bg-[#ff2d78]/15 border border-[#ff2d78]/35 flex items-center justify-center transition-all group-hover:border-[#ff2d78]/70 group-hover:shadow-[0_0_20px_rgba(255,45,120,0.4)]">
               <span
-                className="material-symbols-outlined text-[#00ffcc] text-xl font-bold"
+                className="material-symbols-outlined text-[#ff2d78] text-xl font-bold"
                 style={{ fontVariationSettings: "'FILL' 1" }}
               >
                 graphic_eq
@@ -45,25 +45,25 @@ export default function Nav() {
 
           <nav className="hidden md:flex items-center gap-8" aria-label="Main navigation">
             <Link
-              className="text-[#94a3b8] hover:text-[#00ffcc] transition-colors duration-300 font-label text-sm font-medium"
+              className="text-[#94a3b8] hover:text-[#ff2d78] transition-colors duration-300 font-label text-sm font-medium"
               href="/#platform"
             >
               Platform
             </Link>
             <Link
-              className="text-[#94a3b8] hover:text-[#00ffcc] transition-colors duration-300 font-label text-sm font-medium"
+              className="text-[#94a3b8] hover:text-[#ff2d78] transition-colors duration-300 font-label text-sm font-medium"
               href="/#solutions"
             >
               Solutions
             </Link>
             <Link
-              className="text-[#94a3b8] hover:text-[#00ffcc] transition-colors duration-300 font-label text-sm font-medium"
+              className="text-[#94a3b8] hover:text-[#ff2d78] transition-colors duration-300 font-label text-sm font-medium"
               href="/pricing"
             >
               Pricing
             </Link>
             <Link
-              className="text-[#94a3b8] hover:text-[#00ffcc] transition-colors duration-300 font-label text-sm font-medium"
+              className="text-[#94a3b8] hover:text-[#ff2d78] transition-colors duration-300 font-label text-sm font-medium"
               href="/about"
             >
               About
@@ -79,7 +79,7 @@ export default function Nav() {
             </Link>
             <Link
               href="/sign-up"
-              className="bg-[#00ffcc] text-[#050508] px-5 sm:px-6 py-2 font-headline font-bold rounded-xl hover:shadow-[0_0_20px_rgba(0,255,204,0.4)] hover:bg-[#00ffcc]/90 transition-all active:scale-95 duration-150 text-sm"
+              className="btn-signal px-5 sm:px-6 py-2 font-headline font-bold rounded-xl text-sm transition-all active:scale-95 duration-150"
             >
               Get Started
             </Link>

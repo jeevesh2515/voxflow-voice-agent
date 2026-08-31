@@ -339,11 +339,13 @@ html.light .sidebar-item-active {
 
 :root {
   --obs-canvas: #050508;
-  --obs-surface: #0a0a12;
-  --obs-elevated: #10101c;
+  --obs-surface: #0a0a14;
+  --obs-elevated: #111122;
   --obs-border: rgba(255, 255, 255, 0.08);
   --obs-border-faint: rgba(255, 255, 255, 0.04);
-  --obs-signal: #00ffcc;
+  --obs-signal: #ff2d78;
+  --obs-secondary: #c084fc;
+  --obs-tertiary: #38bdf8;
   --obs-emerald: #10b981;
   --obs-text: #f8fafc;
   --obs-muted: #94a3b8;
@@ -360,22 +362,24 @@ html.light .sidebar-item-active {
 
 /* Razor hairline panel */
 .obs-panel {
-  background: linear-gradient(180deg, rgba(255,255,255,0.02), rgba(255,255,255,0)) , var(--obs-surface);
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.03), rgba(255, 255, 255, 0)), var(--obs-surface);
   border: 1px solid var(--obs-border);
+  backdrop-filter: blur(16px);
 }
 .obs-panel-faint {
   background: var(--obs-surface);
   border: 1px solid var(--obs-border-faint);
+  backdrop-filter: blur(12px);
 }
 
-/* Emerald glow ring (voice orb) */
+/* Magenta glow ring (voice orb) */
 .orb-core {
   will-change: transform, box-shadow;
   transition: transform 0.6s var(--ease-kinetic);
   box-shadow:
-    0 0 40px rgba(0, 255, 204, 0.25),
-    0 0 120px rgba(16, 185, 129, 0.12),
-    inset 0 0 40px rgba(0, 255, 204, 0.08);
+    0 0 45px rgba(255, 45, 120, 0.35),
+    0 0 130px rgba(168, 85, 247, 0.2),
+    inset 0 0 45px rgba(255, 45, 120, 0.12);
 }
 .orb-ring {
   animation: orb-ring-spin 14s linear infinite;
@@ -414,20 +418,20 @@ html.light .sidebar-item-active {
   opacity: 0.35;
 }
 .pipe-step.pipe-active {
-  border-color: rgba(0, 255, 204, 0.45);
-  box-shadow: 0 0 24px rgba(0, 255, 204, 0.12), inset 0 0 24px rgba(0, 255, 204, 0.04);
+  border-color: rgba(255, 45, 120, 0.55);
+  box-shadow: 0 0 28px rgba(255, 45, 120, 0.18), inset 0 0 24px rgba(168, 85, 247, 0.08);
   opacity: 1;
   transform: translateX(4px);
 }
 .pipe-rail {
-  background: linear-gradient(180deg, transparent, var(--obs-signal), transparent);
+  background: linear-gradient(180deg, transparent, #ff2d78, #c084fc, transparent);
   transition: height 0.2s linear;
   will-change: height;
 }
 
 /* Terminal telemetry */
 .telemetry-line { opacity: 0.35; transition: opacity 0.4s var(--ease-kinetic), color 0.4s var(--ease-kinetic); }
-.telemetry-line.telemetry-hot { opacity: 1; color: var(--obs-signal); }
+.telemetry-line.telemetry-hot { opacity: 1; color: #ff2d78; }
 
 /* Speech bubble entrance — visible by default */
 .bubble {
@@ -445,7 +449,7 @@ html.light .sidebar-item-active {
   transition: background-color 0.6s var(--ease-kinetic);
 }
 .sheet-row.sheet-flash {
-  background-color: rgba(0, 255, 204, 0.14);
+  background-color: rgba(255, 45, 120, 0.15);
 }
 
 /* Signal ping dot */
@@ -457,7 +461,7 @@ html.light .sidebar-item-active {
   position: absolute;
   inset: -4px;
   border-radius: 9999px;
-  border: 1px solid rgba(0, 255, 204, 0.5);
+  border: 1px solid rgba(255, 45, 120, 0.6);
   animation: signal-ping 2s var(--ease-kinetic) infinite;
 }
 @keyframes signal-ping {
@@ -465,39 +469,39 @@ html.light .sidebar-item-active {
   100% { transform: scale(1.8); opacity: 0; }
 }
 
-/* Emerald CTA */
+/* Cyber Pink CTA */
 .btn-signal {
-  background: var(--obs-signal);
-  color: #05110d;
-  transition: box-shadow 0.3s var(--ease-kinetic), transform 0.2s var(--ease-kinetic), background-color 0.3s;
+  background: linear-gradient(135deg, #ff2d78 0%, #e11d48 50%, #db2777 100%);
+  color: #ffffff;
+  transition: box-shadow 0.3s var(--ease-kinetic), transform 0.2s var(--ease-kinetic), opacity 0.3s;
 }
 .btn-signal:hover {
-  box-shadow: 0 0 30px rgba(0, 255, 204, 0.45);
-  transform: translateY(-2px);
-  background: #2dffd9;
+  box-shadow: 0 0 35px rgba(255, 45, 120, 0.6);
+  transform: translateY(-2px) scale(1.02);
 }
 .btn-signal:active { transform: scale(0.97); }
 
 .btn-ghost-obs {
   border: 1px solid var(--obs-border);
   color: var(--obs-text);
-  transition: border-color 0.3s, background-color 0.3s, transform 0.2s var(--ease-kinetic);
+  transition: border-color 0.3s, background-color 0.3s, transform 0.2s var(--ease-kinetic), box-shadow 0.3s;
 }
 .btn-ghost-obs:hover {
-  border-color: rgba(0, 255, 204, 0.5);
-  background: rgba(0, 255, 204, 0.06);
+  border-color: rgba(255, 45, 120, 0.5);
+  background: rgba(255, 45, 120, 0.08);
+  box-shadow: 0 0 20px rgba(255, 45, 120, 0.15);
 }
 .btn-ghost-obs:active { transform: scale(0.97); }
 
-/* Bento card hover lift + emerald edge */
+/* Bento card hover lift + pink edge */
 .bento-card {
   transition: transform 0.4s var(--ease-kinetic), border-color 0.4s var(--ease-kinetic), box-shadow 0.4s var(--ease-kinetic);
   border: 1px solid var(--obs-border);
 }
 .bento-card:hover {
   transform: translateY(-4px);
-  border-color: rgba(0, 255, 204, 0.35);
-  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.5), 0 0 24px rgba(0, 255, 204, 0.08);
+  border-color: rgba(255, 45, 120, 0.45);
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.6), 0 0 30px rgba(255, 45, 120, 0.15);
 }
 
 /* FAQ accordion smooth height (grid-rows trick) */
@@ -513,8 +517,8 @@ details summary::-webkit-details-marker { display: none; }
 /* Fine grid texture, obsidian variant */
 .obs-grid {
   background-image:
-    linear-gradient(rgba(255, 255, 255, 0.025) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(255, 255, 255, 0.025) 1px, transparent 1px);
+    linear-gradient(rgba(255, 255, 255, 0.03) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255, 255, 255, 0.03) 1px, transparent 1px);
   background-size: 56px 56px;
 }
 
@@ -529,33 +533,34 @@ details summary::-webkit-details-marker { display: none; }
   50% { opacity: 0; }
 }
 
-/* ── Orb playing state: faster, hotter emerald EQ ── */
+/* ── Orb playing state: faster, hotter magenta EQ ── */
 .orb-bars.orb-playing span {
   animation-duration: 0.35s;
-  background: var(--obs-signal);
-  box-shadow: 0 0 8px rgba(0, 255, 204, 0.8);
+  background: linear-gradient(180deg, #ff2d78, #c084fc);
+  box-shadow: 0 0 10px rgba(255, 45, 120, 0.9);
 }
 .orb-core.orb-playing {
   box-shadow:
-    0 0 60px rgba(0, 255, 204, 0.45),
-    0 0 160px rgba(16, 185, 129, 0.2),
-    inset 0 0 60px rgba(0, 255, 204, 0.15);
+    0 0 70px rgba(255, 45, 120, 0.6),
+    0 0 180px rgba(168, 85, 247, 0.35),
+    inset 0 0 70px rgba(255, 45, 120, 0.25);
 }
 
-/* ── Emerald hover glow (bento, terminal, panels) ── */
+/* ── Magenta hover glow (bento, terminal, panels) ── */
 .glow-hover {
   transition: box-shadow 0.4s var(--ease-kinetic), border-color 0.4s var(--ease-kinetic);
 }
 .glow-hover:hover {
-  box-shadow: 0 0 25px rgba(0, 255, 204, 0.15);
-  border-color: rgba(0, 255, 204, 0.35);
+  box-shadow: 0 0 30px rgba(255, 45, 120, 0.2);
+  border-color: rgba(255, 45, 120, 0.45);
 }
 
 /* ── Hero mouse-follow spotlight (vars set from rAF) ── */
 .hero-spot {
   background: radial-gradient(
-    480px circle at var(--mx, 50%) var(--my, 40%),
-    rgba(0, 255, 204, 0.06),
+    520px circle at var(--mx, 50%) var(--my, 40%),
+    rgba(255, 45, 120, 0.09),
+    rgba(168, 85, 247, 0.04) 40%,
     transparent 70%
   );
   pointer-events: none;
@@ -563,15 +568,18 @@ details summary::-webkit-details-marker { display: none; }
 
 /* ── Sample pill buttons ── */
 .sample-pill {
-  transition: border-color 0.3s, background-color 0.3s, color 0.3s, transform 0.2s var(--ease-kinetic);
+  transition: border-color 0.3s, background-color 0.3s, color 0.3s, transform 0.2s var(--ease-kinetic), box-shadow 0.3s;
 }
 .sample-pill:hover {
-  border-color: rgba(0, 255, 204, 0.6);
-  color: var(--obs-signal);
+  border-color: rgba(255, 45, 120, 0.7);
+  color: #ffffff;
+  box-shadow: 0 0 20px rgba(255, 45, 120, 0.3);
 }
 .sample-pill:active { transform: scale(0.96); }
 .sample-pill.sample-active {
   border-color: var(--obs-signal);
-  color: var(--obs-signal);
-  background: rgba(0, 255, 204, 0.08);
+  color: #ffffff;
+  background: rgba(255, 45, 120, 0.16);
+  box-shadow: 0 0 25px rgba(255, 45, 120, 0.4);
 }
+
