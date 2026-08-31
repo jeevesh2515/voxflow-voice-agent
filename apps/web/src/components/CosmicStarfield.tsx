@@ -29,27 +29,27 @@ export default function CosmicStarfield() {
 
     const colors = [
       "rgba(255, 45, 120, ",  // Cyber Magenta
-      "rgba(168, 85, 247, ",  // Cosmic Purple
+      "rgba(192, 132, 252, ", // Cosmic Violet
       "rgba(56, 189, 248, ",  // Ice Cyan
-      "rgba(255, 224, 74, ",  // Star Gold
-      "rgba(255, 255, 255, ", // Pure White
+      "rgba(255, 224, 74, ",  // Warm Gold
+      "rgba(255, 255, 255, ", // Bright Star White
     ];
 
-    const starCount = Math.min(Math.floor((width * height) / 12000), 120);
+    const starCount = Math.min(Math.floor((width * height) / 8000), 160);
     const stars: Star[] = [];
 
     for (let i = 0; i < starCount; i++) {
-      const baseAlpha = 0.2 + Math.random() * 0.7;
+      const baseAlpha = 0.3 + Math.random() * 0.7;
       stars.push({
         x: Math.random() * width,
         y: Math.random() * height,
-        size: Math.random() * 2 + 0.6,
+        size: Math.random() * 2.5 + 0.8,
         baseAlpha,
         alpha: baseAlpha,
-        alphaSpeed: (Math.random() * 0.02 + 0.005) * (Math.random() > 0.5 ? 1 : -1),
+        alphaSpeed: (Math.random() * 0.02 + 0.008) * (Math.random() > 0.5 ? 1 : -1),
         color: colors[Math.floor(Math.random() * colors.length)],
-        vx: (Math.random() - 0.5) * 0.15,
-        vy: (Math.random() - 0.5) * 0.15,
+        vx: (Math.random() - 0.5) * 0.35,
+        vy: (Math.random() - 0.5) * 0.35,
       });
     }
 
@@ -74,23 +74,56 @@ export default function CosmicStarfield() {
     const render = () => {
       ctx.clearRect(0, 0, width, height);
 
-      // Smooth mouse interpolation
+      // Deep space canvas background
+      ctx.fillStyle = "#050508";
+      ctx.fillRect(0, 0, width, height);
+
+      // Smooth mouse interpolation for interactive glowing nebula
       mouseX += (targetMouseX - mouseX) * 0.05;
       mouseY += (targetMouseY - mouseY) * 0.05;
 
-      // Draw subtle ambient nebula glow near mouse
-      const gradient = ctx.createRadialGradient(
+      // Ambient radial nebula glows
+      const nebula1 = ctx.createRadialGradient(
+        width * 0.25,
+        height * 0.25,
+        0,
+        width * 0.25,
+        height * 0.25,
+        Math.max(width * 0.5, 500)
+      );
+      nebula1.addColorStop(0, "rgba(255, 45, 120, 0.08)");
+      nebula1.addColorStop(0.6, "rgba(168, 85, 247, 0.03)");
+      nebula1.addColorStop(1, "rgba(0, 0, 0, 0)");
+      ctx.fillStyle = nebula1;
+      ctx.fillRect(0, 0, width, height);
+
+      const nebula2 = ctx.createRadialGradient(
+        width * 0.8,
+        height * 0.7,
+        0,
+        width * 0.8,
+        height * 0.7,
+        Math.max(width * 0.45, 450)
+      );
+      nebula2.addColorStop(0, "rgba(192, 132, 252, 0.06)");
+      nebula2.addColorStop(0.5, "rgba(56, 189, 248, 0.02)");
+      nebula2.addColorStop(1, "rgba(0, 0, 0, 0)");
+      ctx.fillStyle = nebula2;
+      ctx.fillRect(0, 0, width, height);
+
+      // Mouse interactive spotlight
+      const mouseGlow = ctx.createRadialGradient(
         mouseX,
         mouseY,
         0,
         mouseX,
         mouseY,
-        Math.max(width * 0.4, 400)
+        Math.max(width * 0.35, 380)
       );
-      gradient.addColorStop(0, "rgba(255, 45, 120, 0.06)");
-      gradient.addColorStop(0.5, "rgba(168, 85, 247, 0.03)");
-      gradient.addColorStop(1, "rgba(0, 0, 0, 0)");
-      ctx.fillStyle = gradient;
+      mouseGlow.addColorStop(0, "rgba(255, 45, 120, 0.07)");
+      mouseGlow.addColorStop(0.5, "rgba(168, 85, 247, 0.025)");
+      mouseGlow.addColorStop(1, "rgba(0, 0, 0, 0)");
+      ctx.fillStyle = mouseGlow;
       ctx.fillRect(0, 0, width, height);
 
       // Draw and update stars
@@ -99,7 +132,7 @@ export default function CosmicStarfield() {
 
         // Twinkle
         s.alpha += s.alphaSpeed;
-        if (s.alpha > 0.9 || s.alpha < 0.15) {
+        if (s.alpha > 0.95 || s.alpha < 0.2) {
           s.alphaSpeed = -s.alphaSpeed;
         }
 
@@ -114,9 +147,9 @@ export default function CosmicStarfield() {
 
         ctx.beginPath();
         ctx.arc(s.x, s.y, s.size, 0, Math.PI * 2);
-        ctx.fillStyle = `${s.color}${Math.max(0.1, Math.min(1, s.alpha))})`;
-        ctx.shadowBlur = s.size > 1.5 ? 8 : 4;
-        ctx.shadowColor = s.color + "0.8)";
+        ctx.fillStyle = `${s.color}${Math.max(0.15, Math.min(1, s.alpha))})`;
+        ctx.shadowBlur = s.size > 1.8 ? 10 : 5;
+        ctx.shadowColor = s.color + "0.9)";
         ctx.fill();
 
         // Connect nearby stars with faint cosmic constellation lines
@@ -125,13 +158,13 @@ export default function CosmicStarfield() {
           const dx = s.x - s2.x;
           const dy = s.y - s2.y;
           const dist = Math.sqrt(dx * dx + dy * dy);
-          if (dist < 85) {
+          if (dist < 95) {
             ctx.beginPath();
             ctx.moveTo(s.x, s.y);
             ctx.lineTo(s2.x, s2.y);
-            const lineAlpha = (1 - dist / 85) * 0.12;
+            const lineAlpha = (1 - dist / 95) * 0.16;
             ctx.strokeStyle = `rgba(255, 45, 120, ${lineAlpha})`;
-            ctx.lineWidth = 0.5;
+            ctx.lineWidth = 0.6;
             ctx.shadowBlur = 0;
             ctx.stroke();
           }
@@ -153,7 +186,7 @@ export default function CosmicStarfield() {
   return (
     <canvas
       ref={canvasRef}
-      className="fixed inset-0 pointer-events-none z-0 opacity-80"
+      className="fixed inset-0 pointer-events-none z-0 w-full h-full"
       aria-hidden="true"
     />
   );
