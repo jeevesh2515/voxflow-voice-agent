@@ -1044,3 +1044,59 @@ html {
   .hero-stage:not(.hero-stage-ready) .hero-copy,
   .hero-stage:not(.hero-stage-ready) .hero-console { opacity: 1; }
 }
+
+/* Latest agency-grade hardware and interaction polish */
+.hero-console-shell,
+.roi-shell,
+.sheets-shell {
+  padding: 6px;
+  border-radius: 1.75rem;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  box-shadow: 0 24px 80px rgba(0, 0, 0, 0.8), inset 0 1px 1px rgba(255, 255, 255, 0.12);
+}
+
+.hero-console-core {
+  background: rgba(8, 9, 17, 0.92);
+  backdrop-filter: blur(22px);
+  -webkit-backdrop-filter: blur(22px);
+}
+
+.btn-signal {
+  background: linear-gradient(110deg, #ff2d78 0%, #f43f5e 48%, #ff2d78 100%);
+  background-size: 200% auto;
+  transition: background-position 500ms var(--ease-kinetic), box-shadow 500ms var(--ease-kinetic), transform 500ms var(--ease-kinetic);
+}
+
+.btn-signal:hover { background-position: right center; }
+
+.cta-arrow-badge {
+  background: rgba(255, 255, 255, 0.2);
+  border: 1px solid rgba(255, 255, 255, 0.18);
+}
+
+.hero-console-core .glass,
+.roi-shell .glass,
+.sheets-shell .glass {
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+}
+
+.hero-eq-bar {
+  transform-origin: bottom;
+  animation: hero-eq 720ms var(--ease-kinetic) infinite alternate;
+}
+
+@keyframes hero-eq {
+  from { transform: scaleY(0.35); opacity: 0.6; }
+  to { transform: scaleY(1); opacity: 1; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .hero-eq-bar { animation: none; }
+}
+
+.roi-slider {
+  background: linear-gradient(90deg, rgba(255, 224, 74, 0.75), rgba(255, 255, 255, 0.12));
+  box-shadow: 0 0 16px rgba(255, 224, 74, 0.12);
+}

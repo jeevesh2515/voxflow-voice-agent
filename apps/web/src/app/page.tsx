@@ -10,9 +10,13 @@ import DispatchSwitchboard from "@/components/DispatchSwitchboard";
 
 export default function Home() {
   const [playing, setPlaying] = useState<VoiceKey | null>(null);
-  const [roiCalls, setRoiCalls] = useState(800);
+  const [roiCalls, setRoiCalls] = useState(1000);
   const [roiMins, setRoiMins] = useState(4);
   const [annualBilling, setAnnualBilling] = useState(true);
+  const annualSavings = Math.max(0, Math.round((roiCalls * roiMins * (14 / 60 - 0.12) * 365 * 0.9) / 100) * 100);
+  const monthlyHoursSaved = Math.round((roiCalls * roiMins * 30 * 0.9) / 60);
+  const fteEquivalent = Math.max(1, Math.round((roiCalls * roiMins * 0.9) / 60 / 7));
+  const paybackDays = Math.max(1, Math.min(14, Math.round((1500 / Math.max(annualSavings / 365, 1)) * 10) / 10));
 
   type VoiceKey = "en" | "hi" | "hinglish" | "us";
   const VOICE_META: Record<VoiceKey, { label: string; lang: string; pitch: number; freq: [number, number]; text: string; bubble: string }> = {
@@ -313,7 +317,7 @@ export default function Home() {
               <div className="flex flex-wrap gap-3 sm:gap-4">
                 <Link
                   href="/pricing"
-                  className="btn-signal inline-flex items-center gap-2 px-6 sm:px-8 py-3.5 sm:py-4 font-headline font-bold rounded-xl text-sm sm:text-base hover:scale-[1.02] active:scale-95 transition-all shadow-[0_0_25px_rgba(255,45,120,0.4)]"
+                  className="btn-signal inline-flex items-center gap-2 px-6 sm:px-8 py-3.5 sm:py-4 font-headline font-bold rounded-full text-sm sm:text-base hover:scale-[1.02] active:scale-95 transition-all shadow-[0_0_25px_rgba(255,45,120,0.4)]"
                 >
                   Start 14-Day Free Trial
                   <span className="cta-arrow-badge"><span className="material-symbols-outlined">arrow_forward</span></span>
@@ -331,8 +335,8 @@ export default function Home() {
             </div>
 
             {/* Right Column: Live Operations Console Mockup Window (Sound-Synced!) */}
-            <div className="hero-console lg:col-span-5 relative">
-              <div className="glass rounded-2xl border border-white/[0.12] shadow-[0_20px_60px_rgba(0,0,0,0.7),0_0_35px_rgba(255,45,120,0.15)] overflow-hidden transition-all duration-400">
+            <div className="hero-console lg:col-span-5 relative hero-console-shell">
+              <div className="hero-console-core glass rounded-[1.25rem] border border-white/[0.12] shadow-[inset_0_1px_1px_rgba(255,255,255,0.12),0_20px_60px_rgba(0,0,0,0.7),0_0_35px_rgba(255,45,120,0.15)] overflow-hidden transition-all duration-400">
                 {/* Console Window Top Bar */}
                 <div className="bg-[#05050a]/90 px-4 py-3 border-b border-white/[0.08] flex items-center justify-between">
                   <div className="flex items-center gap-2">
@@ -359,12 +363,12 @@ export default function Home() {
                         {[0.4, 0.9, 0.6, 1.2, 0.7, 1.0, 0.5, 1.1, 0.65, 0.95, 0.45, 1.15, 0.8, 0.55].map((d, i) => (
                           <div
                             key={i}
-                            className={`w-1 rounded-full ${
+                            className={`hero-eq-bar w-1 rounded-full ${
                               playing ? "bg-[#ff2d78] shadow-[0_0_8px_#ff2d78]" : "bg-[#c084fc]/60"
                             }`}
                             style={{
                               height: playing ? `${35 + (i % 4) * 20}%` : `${20 + (i % 3) * 15}%`,
-                              animation: playing ? `pulse 0.3s ease-in-out infinite alternate ${i * 0.05}s` : "none",
+                              animationDelay: playing ? `${i * 0.05}s` : "0s",
                             }}
                           />
                         ))}
@@ -685,7 +689,7 @@ export default function Home() {
               </div>
 
               {/* Frosted sheets UI */}
-              <div className="glass rounded-2xl border border-white/[0.08] overflow-hidden">
+              <div className="sheets-shell glass rounded-[1.25rem] border border-white/[0.08] overflow-hidden">
                 <div className="flex items-center gap-2 px-4 py-3 border-b border-white/[0.08] bg-white/[0.02]">
                   <span className="material-symbols-outlined text-[#10b981] text-lg">table</span>
                   <span className="font-label text-xs text-[#f8fafc]">VoxFlow — Call Log</span>
@@ -725,7 +729,7 @@ export default function Home() {
               </h2>
             </div>
 
-            <div className="glass rounded-3xl border border-white/[0.1] p-6 sm:p-10 grid lg:grid-cols-2 gap-10">
+            <div className="roi-shell rounded-[1.75rem] border border-white/[0.1] p-6 sm:p-10 grid lg:grid-cols-2 gap-10">
               {/* Sliders */}
               <div className="space-y-8">
                 <div>
@@ -735,8 +739,8 @@ export default function Home() {
                   </div>
                   <input
                     type="range"
-                    min={50}
-                    max={5000}
+                    min={1000}
+                    max={50000}
                     step={50}
                     value={roiCalls}
                     onChange={(e) => setRoiCalls(Number(e.target.value))}
@@ -760,28 +764,32 @@ export default function Home() {
                     aria-label="Average call duration"
                   />
                 </div>
-                <p className="font-body text-xs text-[#a098b0] leading-relaxed">
+                    <p className="font-body text-xs text-[#a098b0] leading-relaxed">
                   Model: fully-loaded operator £14/h vs VoxFlow ~£0.12/min. 90% automation containment.
                 </p>
+                <div className="mt-5 flex items-center justify-between border-t border-white/[0.08] pt-4 font-label text-[10px] uppercase tracking-[0.16em]">
+                  <span className="text-[#71808a]">Payback period</span>
+                  <span className="text-[#ffe04a]">{paybackDays} days</span>
+                </div>
               </div>
 
               {/* Output */}
               <div className="grid grid-cols-2 gap-4 content-center">
                 <div className="glass rounded-2xl p-5 border border-[#ffe04a]/25 col-span-2 text-center glow-hover">
                   <p className="font-headline font-black text-3xl sm:text-5xl text-[#ffe04a]">
-                    £{Math.max(0, Math.round((roiCalls * roiMins * (14 / 60 - 0.12) * 365 * 0.9) / 100) * 100).toLocaleString()}
+                    £{annualSavings.toLocaleString()}
                   </p>
                   <p className="mt-2 font-label text-[10px] tracking-[0.2em] uppercase text-[#a098b0]">Net annual savings</p>
                 </div>
                 <div className="glass rounded-2xl p-4 border border-white/[0.08] text-center">
                   <p className="font-headline font-bold text-xl sm:text-2xl text-[#00ffcc]">
-                    {Math.round((roiCalls * roiMins * 30 * 0.9) / 60).toLocaleString()}h
+                    {monthlyHoursSaved.toLocaleString()}h
                   </p>
                   <p className="mt-1 font-label text-[9px] tracking-[0.2em] uppercase text-[#a098b0]">Hours saved / mo</p>
                 </div>
                 <div className="glass rounded-2xl p-4 border border-white/[0.08] text-center">
                   <p className="font-headline font-bold text-xl sm:text-2xl text-[#ff2d78]">
-                    {Math.max(1, Math.round((roiCalls * roiMins * 0.9) / 60 / 7))}
+                    {fteEquivalent}
                   </p>
                   <p className="mt-1 font-label text-[9px] tracking-[0.2em] uppercase text-[#a098b0]">FTE equivalent</p>
                 </div>

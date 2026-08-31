@@ -3,12 +3,12 @@
 import { useState } from "react";
 
 const hubs = [
-  { name: "London Central", code: "LDN / 01", phone: "+44 20 •••• 0821", state: "SPEAKING", color: "#ff2d78", level: 82 },
-  { name: "Birmingham Hub", code: "BHM / 02", phone: "+44 121 •••• 4431", state: "LISTENING", color: "#00ffcc", level: 55 },
-  { name: "Manchester Express", code: "MAN / 03", phone: "+44 161 •••• 7118", state: "TOOL_CALL", color: "#c6ff00", level: 73 },
-  { name: "Bristol Fleet", code: "BRS / 04", phone: "+44 117 •••• 3190", state: "LISTENING", color: "#00ffcc", level: 38 },
-  { name: "Leeds Gateway", code: "LDS / 05", phone: "+44 113 •••• 8812", state: "SPEAKING", color: "#ff2d78", level: 64 },
-  { name: "Glasgow Freight", code: "GLA / 06", phone: "+44 141 •••• 4420", state: "ESCALATION", color: "#ffe04a", level: 29 },
+  { name: "London Central", code: "LDN / 01", phone: "+44 20 •••• 0821", state: "SPEAKING", color: "#ff2d78", level: 82, intent: "delivery_status", route: "Central Depot → Thursday window" },
+  { name: "Birmingham Hub", code: "BHM / 02", phone: "+44 121 •••• 4431", state: "LISTENING", color: "#00ffcc", level: 55, intent: "stock_check", route: "Birmingham Hub → live inventory" },
+  { name: "Manchester Express", code: "MAN / 03", phone: "+44 161 •••• 7118", state: "TOOL_CALL", color: "#c6ff00", level: 73, intent: "reschedule_order", route: "Manchester Express → SMS commit" },
+  { name: "Bristol Fleet", code: "BRS / 04", phone: "+44 117 •••• 3190", state: "LISTENING", color: "#00ffcc", level: 38, intent: "invoice_query", route: "Bristol Fleet → finance mirror" },
+  { name: "Leeds Gateway", code: "LDS / 05", phone: "+44 113 •••• 8812", state: "SPEAKING", color: "#ff2d78", level: 64, intent: "pin_verify", route: "Leeds Gateway → secure handoff" },
+  { name: "Glasgow Freight", code: "GLA / 06", phone: "+44 141 •••• 4420", state: "ESCALATION", color: "#ffe04a", level: 29, intent: "human_escalation", route: "Glasgow Freight → operations desk" },
 ];
 
 export default function DispatchSwitchboard() {
@@ -31,6 +31,11 @@ export default function DispatchSwitchboard() {
               <span className="font-label text-[9px] uppercase tracking-[0.18em] text-[#71808a]">Focused route</span>
               <p className="mt-2 font-headline text-lg font-bold text-white">{hub.name}</p>
               <p className="mt-1 font-label text-[10px] uppercase tracking-[0.12em]" style={{ color: hub.color }}>{hub.state} / {hub.code}</p>
+              <div className="mt-5 grid gap-2 font-label text-[10px] uppercase tracking-[0.12em] text-[#8c9aa2]">
+                <span className="flex justify-between gap-4"><span>Caller</span><span className="text-white">{hub.phone}</span></span>
+                <span className="flex justify-between gap-4"><span>Intent</span><span style={{ color: hub.color }}>{hub.intent}</span></span>
+                <span className="flex justify-between gap-4"><span>Route log</span><span className="text-right text-[#d7e1e5]">{hub.route}</span></span>
+              </div>
             </div>
           </div>
 

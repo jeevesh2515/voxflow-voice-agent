@@ -54,7 +54,7 @@ export default function Nav() {
           </Link>
           <Link href="/sign-up" className="nav-cta inline-flex items-center gap-1.5 px-3.5 py-2 text-xs font-bold sm:px-4">
             Get started
-            <span className="material-symbols-outlined text-[15px]">arrow_outward</span>
+            <span className="cta-arrow-badge"><span className="material-symbols-outlined text-[15px]">arrow_outward</span></span>
           </Link>
           <button
             type="button"
