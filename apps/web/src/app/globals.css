@@ -330,3 +330,248 @@ html.light .sidebar-item-active {
   -ms-overflow-style: none;
   scrollbar-width: none;
 }
+
+/* ════════════════════════════════════════════════════════════
+   OBSIDIAN TECH — landing kinetic system (Phase 2)
+   Palette: pitch canvas + razor borders + cyber emerald signal.
+   All animations degrade to opacity:1 (no blank-load flash).
+   ════════════════════════════════════════════════════════════ */
+
+:root {
+  --obs-canvas: #050508;
+  --obs-surface: #0a0a12;
+  --obs-elevated: #10101c;
+  --obs-border: rgba(255, 255, 255, 0.08);
+  --obs-border-faint: rgba(255, 255, 255, 0.04);
+  --obs-signal: #00ffcc;
+  --obs-emerald: #10b981;
+  --obs-text: #f8fafc;
+  --obs-muted: #94a3b8;
+  --ease-kinetic: cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.obs-bg { background-color: var(--obs-canvas); }
+.obs-surface { background-color: var(--obs-surface); }
+.obs-elevated { background-color: var(--obs-elevated); }
+.obs-border { border-color: var(--obs-border); }
+.obs-text { color: var(--obs-text); }
+.obs-muted { color: var(--obs-muted); }
+.text-signal { color: var(--obs-signal); }
+
+/* Razor hairline panel */
+.obs-panel {
+  background: linear-gradient(180deg, rgba(255,255,255,0.02), rgba(255,255,255,0)) , var(--obs-surface);
+  border: 1px solid var(--obs-border);
+}
+.obs-panel-faint {
+  background: var(--obs-surface);
+  border: 1px solid var(--obs-border-faint);
+}
+
+/* Emerald glow ring (voice orb) */
+.orb-core {
+  will-change: transform, box-shadow;
+  transition: transform 0.6s var(--ease-kinetic);
+  box-shadow:
+    0 0 40px rgba(0, 255, 204, 0.25),
+    0 0 120px rgba(16, 185, 129, 0.12),
+    inset 0 0 40px rgba(0, 255, 204, 0.08);
+}
+.orb-ring {
+  animation: orb-ring-spin 14s linear infinite;
+  will-change: transform;
+}
+.orb-ring-rev {
+  animation: orb-ring-spin 22s linear infinite reverse;
+  will-change: transform;
+}
+@keyframes orb-ring-spin {
+  to { transform: rotate(360deg); }
+}
+.orb-bars span {
+  animation: orb-bar 1.4s ease-in-out infinite alternate;
+  transform-origin: center;
+  will-change: transform;
+}
+@keyframes orb-bar {
+  0% { transform: scaleY(0.25); }
+  100% { transform: scaleY(1); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .orb-ring, .orb-ring-rev, .orb-bars span { animation: none; }
+}
+
+/* Scroll-linked elements: transform driven by rAF, never opacity-0 defaults */
+.kinetic {
+  will-change: transform;
+  transform: translateZ(0);
+}
+
+/* Pinned pipeline step glow */
+.pipe-step {
+  transition: border-color 0.5s var(--ease-kinetic), box-shadow 0.5s var(--ease-kinetic), opacity 0.5s var(--ease-kinetic), transform 0.5s var(--ease-kinetic);
+  border: 1px solid var(--obs-border-faint);
+  opacity: 0.35;
+}
+.pipe-step.pipe-active {
+  border-color: rgba(0, 255, 204, 0.45);
+  box-shadow: 0 0 24px rgba(0, 255, 204, 0.12), inset 0 0 24px rgba(0, 255, 204, 0.04);
+  opacity: 1;
+  transform: translateX(4px);
+}
+.pipe-rail {
+  background: linear-gradient(180deg, transparent, var(--obs-signal), transparent);
+  transition: height 0.2s linear;
+  will-change: height;
+}
+
+/* Terminal telemetry */
+.telemetry-line { opacity: 0.35; transition: opacity 0.4s var(--ease-kinetic), color 0.4s var(--ease-kinetic); }
+.telemetry-line.telemetry-hot { opacity: 1; color: var(--obs-signal); }
+
+/* Speech bubble entrance — visible by default */
+.bubble {
+  opacity: 1;
+  transform: translateY(0);
+  transition: opacity 0.5s var(--ease-kinetic), transform 0.5s var(--ease-kinetic);
+}
+.bubble.bubble-pending {
+  opacity: 0.25;
+  transform: translateY(6px);
+}
+
+/* Sheets mirror row flash */
+.sheet-row {
+  transition: background-color 0.6s var(--ease-kinetic);
+}
+.sheet-row.sheet-flash {
+  background-color: rgba(0, 255, 204, 0.14);
+}
+
+/* Signal ping dot */
+.signal-dot {
+  position: relative;
+}
+.signal-dot::after {
+  content: '';
+  position: absolute;
+  inset: -4px;
+  border-radius: 9999px;
+  border: 1px solid rgba(0, 255, 204, 0.5);
+  animation: signal-ping 2s var(--ease-kinetic) infinite;
+}
+@keyframes signal-ping {
+  0% { transform: scale(0.6); opacity: 1; }
+  100% { transform: scale(1.8); opacity: 0; }
+}
+
+/* Emerald CTA */
+.btn-signal {
+  background: var(--obs-signal);
+  color: #05110d;
+  transition: box-shadow 0.3s var(--ease-kinetic), transform 0.2s var(--ease-kinetic), background-color 0.3s;
+}
+.btn-signal:hover {
+  box-shadow: 0 0 30px rgba(0, 255, 204, 0.45);
+  transform: translateY(-2px);
+  background: #2dffd9;
+}
+.btn-signal:active { transform: scale(0.97); }
+
+.btn-ghost-obs {
+  border: 1px solid var(--obs-border);
+  color: var(--obs-text);
+  transition: border-color 0.3s, background-color 0.3s, transform 0.2s var(--ease-kinetic);
+}
+.btn-ghost-obs:hover {
+  border-color: rgba(0, 255, 204, 0.5);
+  background: rgba(0, 255, 204, 0.06);
+}
+.btn-ghost-obs:active { transform: scale(0.97); }
+
+/* Bento card hover lift + emerald edge */
+.bento-card {
+  transition: transform 0.4s var(--ease-kinetic), border-color 0.4s var(--ease-kinetic), box-shadow 0.4s var(--ease-kinetic);
+  border: 1px solid var(--obs-border);
+}
+.bento-card:hover {
+  transform: translateY(-4px);
+  border-color: rgba(0, 255, 204, 0.35);
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.5), 0 0 24px rgba(0, 255, 204, 0.08);
+}
+
+/* FAQ accordion smooth height (grid-rows trick) */
+.faq-body {
+  display: grid;
+  grid-template-rows: 0fr;
+  transition: grid-template-rows 0.45s var(--ease-kinetic);
+}
+.faq-body > div { overflow: hidden; }
+details[open] .faq-body { grid-template-rows: 1fr; }
+details summary::-webkit-details-marker { display: none; }
+
+/* Fine grid texture, obsidian variant */
+.obs-grid {
+  background-image:
+    linear-gradient(rgba(255, 255, 255, 0.025) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255, 255, 255, 0.025) 1px, transparent 1px);
+  background-size: 56px 56px;
+}
+
+/* Cursor-blink for terminal */
+.term-caret::after {
+  content: '▋';
+  margin-left: 2px;
+  animation: term-blink 1s steps(1) infinite;
+  color: var(--obs-signal);
+}
+@keyframes term-blink {
+  50% { opacity: 0; }
+}
+
+/* ── Orb playing state: faster, hotter emerald EQ ── */
+.orb-bars.orb-playing span {
+  animation-duration: 0.35s;
+  background: var(--obs-signal);
+  box-shadow: 0 0 8px rgba(0, 255, 204, 0.8);
+}
+.orb-core.orb-playing {
+  box-shadow:
+    0 0 60px rgba(0, 255, 204, 0.45),
+    0 0 160px rgba(16, 185, 129, 0.2),
+    inset 0 0 60px rgba(0, 255, 204, 0.15);
+}
+
+/* ── Emerald hover glow (bento, terminal, panels) ── */
+.glow-hover {
+  transition: box-shadow 0.4s var(--ease-kinetic), border-color 0.4s var(--ease-kinetic);
+}
+.glow-hover:hover {
+  box-shadow: 0 0 25px rgba(0, 255, 204, 0.15);
+  border-color: rgba(0, 255, 204, 0.35);
+}
+
+/* ── Hero mouse-follow spotlight (vars set from rAF) ── */
+.hero-spot {
+  background: radial-gradient(
+    480px circle at var(--mx, 50%) var(--my, 40%),
+    rgba(0, 255, 204, 0.06),
+    transparent 70%
+  );
+  pointer-events: none;
+}
+
+/* ── Sample pill buttons ── */
+.sample-pill {
+  transition: border-color 0.3s, background-color 0.3s, color 0.3s, transform 0.2s var(--ease-kinetic);
+}
+.sample-pill:hover {
+  border-color: rgba(0, 255, 204, 0.6);
+  color: var(--obs-signal);
+}
+.sample-pill:active { transform: scale(0.96); }
+.sample-pill.sample-active {
+  border-color: var(--obs-signal);
+  color: var(--obs-signal);
+  background: rgba(0, 255, 204, 0.08);
+}

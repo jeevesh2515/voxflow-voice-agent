@@ -1,34 +1,65 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 
 export default function Home() {
+  const [playing, setPlaying] = useState<"en" | "hi" | null>(null);
+
+  // 3s synthesized voice-formant sweep (Web Audio, no assets)
+  const playSample = (lang: "en" | "hi") => {
+    if (playing) return;
+    setPlaying(lang);
+    const ctx = new AudioContext();
+    const base = lang === "en" ? 220 : 180; // hi: lower, more melismatic
+    const steps = lang === "en" ? [1, 1.25, 1.1, 1.4, 1.2] : [1, 1.33, 1.19, 1.5, 1.12, 1.26];
+    const dur = 3 / steps.length;
+    steps.forEach((ratio, i) => {
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      const filt = ctx.createBiquadFilter();
+      filt.type = "bandpass";
+      filt.frequency.value = 900;
+      filt.Q.value = 2;
+      osc.type = "sawtooth";
+      osc.frequency.value = base * ratio;
+      const t0 = ctx.currentTime + i * dur;
+      gain.gain.setValueAtTime(0.0001, t0);
+      gain.gain.exponentialRampToValueAtTime(0.08, t0 + 0.05);
+      gain.gain.exponentialRampToValueAtTime(0.0001, t0 + dur);
+      osc.connect(filt).connect(gain).connect(ctx.destination);
+      osc.start(t0);
+      osc.stop(t0 + dur + 0.05);
+    });
+    setTimeout(() => {
+      setPlaying(null);
+      ctx.close();
+    }, 3100);
+  };
+
   useEffect(() => {
-    // 1. Scroll reveal
+    // ── Reveal on intersect ──
     const els = document.querySelectorAll(
       ".reveal, .reveal-left, .reveal-right, .reveal-scale, .stagger-children"
     );
-    if (els.length > 0) {
-      const obs = new IntersectionObserver(
-        (entries) => {
-          entries.forEach((entry) => {
-            if (entry.isIntersecting) {
-              entry.target.classList.add("visible");
-              obs.unobserve(entry.target);
-            }
-          });
-        },
-        { threshold: 0.08, rootMargin: "0px 0px -40px 0px" }
-      );
-      els.forEach((el) => obs.observe(el));
-    }
+    const obs = new IntersectionObserver(
+      (entries) => {
+        entries.forEach((entry) => {
+          if (entry.isIntersecting) {
+            entry.target.classList.add("visible");
+            obs.unobserve(entry.target);
+          }
+        });
+      },
+      { threshold: 0.08, rootMargin: "0px 0px -40px 0px" }
+    );
+    els.forEach((el) => obs.observe(el));
 
-    // 2. Floating particles
+    // ── Floating particles (obsidian emerald) ──
     const container = document.getElementById("particles-canvas");
     if (container && container.childElementCount === 0) {
-      const count = window.innerWidth < 768 ? 15 : 30;
-      const colors = ["var(--neon-primary)", "var(--neon-secondary)", "var(--neon-tertiary)"];
+      const count = window.innerWidth < 768 ? 12 : 24;
+      const colors = ["#00ffcc", "#10b981", "rgba(255,255,255,0.6)"];
       for (let i = 0; i < count; i++) {
         const p = document.createElement("div");
         p.className = "particle";
@@ -39,613 +70,489 @@ export default function Home() {
         const sz = 1 + Math.random() * 2 + "px";
         p.style.width = sz;
         p.style.height = sz;
-        const dur = 4 + Math.random() * 8;
-        const delay = Math.random() * 10;
-        p.style.animation = `particle-float ${dur}s ease-in-out ${delay}s infinite alternate`;
+        p.style.animation = `particle-float ${4 + Math.random() * 8}s ease-in-out ${Math.random() * 10}s infinite alternate`;
         container.appendChild(p);
       }
     }
 
+    // ── Kinetic scroll engine (rAF, transform-only) ──
+    const orb = document.getElementById("voice-orb");
+    const hero = document.getElementById("hero");
+    const tele = document.getElementById("telemetry-section");
+    const pipe = document.getElementById("pipeline-section");
+    const sheets = document.getElementById("sheets-section");
+    let ticking = false;
+
+    const clamp01 = (v: number) => Math.min(1, Math.max(0, v));
+    // progress of scrolling through an element: 0 when its top enters viewport, 1 when past
+    const prog = (el: HTMLElement) => {
+      const r = el.getBoundingClientRect();
+      return clamp01((window.innerHeight - r.top) / (window.innerHeight + r.height * 0.8));
+    };
+
+    const onScroll = () => {
+      if (ticking) return;
+      ticking = true;
+      requestAnimationFrame(() => {
+        ticking = false;
+
+        // 1. Orb dock: scale + drift toward nav as hero scrolls away
+        if (orb && hero) {
+          const scrollY = window.scrollY || window.pageYOffset;
+          const heroH = hero.offsetHeight || window.innerHeight;
+          const heroP = clamp01(scrollY / heroH);
+          const scale = 1 - heroP * 0.45;
+          const ty = -heroP * 24;
+          const tx = heroP * 12;
+          orb.style.transform = `translate3d(${tx}vw, ${ty}px, 0) scale(${Math.max(scale, 0.55)})`;
+          orb.style.opacity = String(1 - heroP * 0.4);
+        }
+
+        // 2. Dual-POV telemetry sync
+        if (tele) {
+          const p = prog(tele);
+          const step = Math.min(3, Math.floor(p * 5) - 1); // -1..3
+          tele.querySelectorAll<HTMLElement>("[data-tele-step]").forEach((n) => {
+            const i = Number(n.dataset.teleStep);
+            n.classList.toggle("telemetry-hot", i <= step);
+          });
+          tele.querySelectorAll<HTMLElement>("[data-bubble-step]").forEach((n) => {
+            const i = Number(n.dataset.bubbleStep);
+            n.classList.toggle("bubble-pending", i > step);
+          });
+        }
+
+        // 3. Pinned pipeline highlight
+        if (pipe) {
+          const r = pipe.getBoundingClientRect();
+          const total = r.height - window.innerHeight;
+          const p = clamp01(-r.top / Math.max(total, 1));
+          const active = Math.min(3, Math.floor(p * 4));
+          pipe.querySelectorAll<HTMLElement>("[data-pipe-step]").forEach((n) => {
+            n.classList.toggle("pipe-active", Number(n.dataset.pipeStep) === active);
+          });
+          const rail = document.getElementById("pipe-rail-fill");
+          if (rail) rail.style.height = `${p * 100}%`;
+          const badge = document.getElementById("pipe-latency");
+          if (badge) {
+            const lat = ["38ms", "84ms", "112ms", "196ms"][active];
+            if (badge.textContent !== lat) badge.textContent = lat;
+          }
+        }
+
+        // 4. Sheets mirror row flash
+        if (sheets) {
+          const p = prog(sheets);
+          const litRows = Math.floor(clamp01((p - 0.25) / 0.5) * 4);
+          sheets.querySelectorAll<HTMLElement>("[data-sheet-row]").forEach((n) => {
+            n.classList.toggle("sheet-flash", Number(n.dataset.sheetRow) < litRows);
+          });
+          const commit = document.getElementById("sheet-commit-label");
+          if (commit) {
+            const label = litRows === 0 ? "awaiting tool call…" : `commit ${litRows}/4 → Call Log tab`;
+            if (commit.textContent !== label) commit.textContent = label;
+          }
+        }
+      });
+    };
+    window.addEventListener("scroll", onScroll, { passive: true });
+    onScroll();
+
+    // ── Hero mouse-follow spotlight (rAF-throttled, CSS vars) ──
+    const spot = document.getElementById("hero-spot");
+    let spotTick = false;
+    const onMouse = (e: MouseEvent) => {
+      if (!spot || spotTick) return;
+      spotTick = true;
+      requestAnimationFrame(() => {
+        spotTick = false;
+        const r = spot.getBoundingClientRect();
+        spot.style.setProperty("--mx", `${e.clientX - r.left}px`);
+        spot.style.setProperty("--my", `${e.clientY - r.top}px`);
+      });
+    };
+    hero?.addEventListener("mousemove", onMouse);
+
+    return () => {
+      obs.disconnect();
+      window.removeEventListener("scroll", onScroll);
+      hero?.removeEventListener("mousemove", onMouse);
+    };
   }, []);
 
   return (
     <>
-      {/* Floating Particles Container */}
       <div
         id="particles-canvas"
         className="fixed inset-0 pointer-events-none z-0 overflow-hidden"
         aria-hidden="true"
       />
 
-      <main className="relative z-10">
-        {/* ==================== HERO SECTION ==================== */}
+      <main className="relative z-10 obs-bg">
+        {/* ═══════════ SECTION 1 — HERO + VOICE ORB (0–20%) ═══════════ */}
         <section
-          className="relative min-h-screen flex items-center pt-24 pb-16 sm:pt-28 sm:pb-24 overflow-hidden grid-bg"
           id="hero"
+          className="relative min-h-screen flex items-center pt-24 pb-16 sm:pt-28 overflow-hidden obs-grid"
         >
-          {/* Glow Orbs */}
           <div
-            className="absolute top-1/4 left-1/4 w-[40vw] h-[40vw] max-w-[500px] max-h-[500px] bg-primary/10 blur-[120px] rounded-full pulse-glow pointer-events-none"
+            className="absolute top-1/3 left-1/2 -translate-x-1/2 w-[70vw] h-[70vw] max-w-[720px] max-h-[720px] bg-[#00ffcc]/[0.05] blur-[160px] rounded-full pointer-events-none"
             aria-hidden="true"
           />
-          <div
-            className="absolute bottom-1/4 right-1/4 w-[35vw] h-[35vw] max-w-[400px] max-h-[400px] bg-secondary/10 blur-[120px] rounded-full animate-float-delayed pointer-events-none"
-            aria-hidden="true"
-          />
-          <div
-            className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[60vw] h-[60vw] max-w-[600px] max-h-[600px] bg-primary/5 blur-[150px] rounded-full pointer-events-none"
-            aria-hidden="true"
-          />
+          <div id="hero-spot" className="hero-spot absolute inset-0" aria-hidden="true" />
 
-          <div className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 grid lg:grid-cols-2 gap-8 lg:gap-16 items-center">
-            {/* Left Hero Content */}
-            <div className="reveal stagger-children" id="hero-content">
-              <div>
-                <span
-                  className="font-label text-secondary tracking-[0.2em] uppercase text-xs sm:text-sm mb-4 sm:mb-6 block neon-text-sm"
-                  role="text"
+          <div className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 grid lg:grid-cols-2 gap-12 lg:gap-16 items-center w-full">
+            {/* Copy */}
+            <div className="reveal stagger-children">
+              <span className="font-mono text-[#00ffcc] tracking-[0.25em] uppercase text-xs mb-6 block">
+                UK Supply Chain • Amazon Connect • eu-west-2
+              </span>
+              <h1 className="font-headline font-extrabold text-4xl sm:text-6xl lg:text-7xl leading-[1.05] tracking-tight mb-6 text-[#f8fafc]">
+                The voice agent
+                <br />
+                UK operators
+                <br />
+                <span className="text-[#00ffcc]">actually trust.</span>
+              </h1>
+              <p className="text-[#94a3b8] text-base sm:text-lg lg:text-xl mb-8 max-w-md font-body leading-relaxed">
+                Sub-second telephony turns, live Google Sheets sync, and UK GDPR by default — from £49/mo.
+              </p>
+
+              {/* SLA trust badges */}
+              <div className="flex flex-wrap gap-2 mb-8">
+                {["Sub-200ms Telephony SLA", "London eu-west-2", "UK GDPR Default"].map((b) => (
+                  <span
+                    key={b}
+                    className="inline-flex items-center gap-2 rounded-full obs-panel px-3 py-1.5 text-[11px] font-mono text-[#94a3b8]"
+                  >
+                    <span className="w-1.5 h-1.5 rounded-full bg-[#00ffcc] signal-dot" aria-hidden="true" />
+                    {b}
+                  </span>
+                ))}
+              </div>
+
+              <div className="flex flex-wrap gap-3 sm:gap-4">
+                <Link
+                  href="/pricing"
+                  className="btn-signal inline-flex items-center gap-2 px-6 sm:px-8 py-3 sm:py-4 font-headline font-bold rounded-xl text-sm sm:text-base"
                 >
-                  <span aria-hidden="true">✦</span> UK Supply Chain • Amazon Connect • Sub-Second Voice
-                </span>
-                <h1 className="font-headline font-extrabold text-4xl sm:text-5xl lg:text-7xl xl:text-8xl leading-[1.1] tracking-tight mb-6 text-on-surface">
-                  The voice agent
-                  <br />
-                  UK operators
-                  <br />
-                  <span className="text-primary neon-text">actually trust.</span>
-                </h1>
-                <p className="text-on-surface-variant text-base sm:text-lg lg:text-xl mb-8 sm:mb-10 max-w-md font-body leading-relaxed">
-                  Amazon Connect telephony, sub-second latency, live Google Sheets sync, and UK GDPR (eu-west-2) — from
-                  £49/mo. The only voice layer built for British SMB supply chains.
-                </p>
-                <div className="flex flex-wrap gap-3 sm:gap-4">
-                  <Link
-                    href="/pricing"
-                    className="group inline-flex items-center gap-2 bg-primary text-on-primary px-6 sm:px-8 py-3 sm:py-4 font-headline font-bold rounded-xl transition-all duration-300 hover:shadow-[0_0_30px_rgba(255,45,120,0.5)] hover:scale-[1.03] active:scale-95 text-sm sm:text-base"
-                  >
-                    Start 14-Day Free Trial
-                    <span className="material-symbols-outlined group-hover:translate-x-1 transition-transform">
-                      arrow_forward
-                    </span>
-                  </Link>
-                  <Link
-                    href="/dashboard/simulator"
-                    className="inline-flex items-center gap-2 border border-outline-variant/50 text-on-surface px-6 sm:px-8 py-3 sm:py-4 font-headline font-bold rounded-xl hover:bg-surface-variant transition-all duration-300 hover:border-primary/40 active:scale-95 text-sm sm:text-base"
-                  >
-                    Live Demo
-                  </Link>
-                </div>
-                <p className="mt-3 text-xs text-on-surface-variant">
-                  No card required • Cancel in Stripe Customer Portal • VAT receipts included
-                </p>
-              </div>
-            </div>
-
-            {/* Right Dashboard Mockup */}
-            <div className="relative reveal-right" id="hero-dashboard">
-              <div className="animate-float">
-                <div
-                  className="absolute -inset-2 bg-gradient-to-r from-primary/15 to-secondary/15 blur-3xl rounded-3xl pointer-events-none"
-                  aria-hidden="true"
-                />
-                <div className="relative glass neon-border rounded-2xl overflow-hidden shadow-2xl border-outline-variant/20">
-                  {/* Browser Chrome */}
-                  <div className="bg-surface-variant/80 px-3 sm:px-4 py-2.5 sm:py-3 flex items-center gap-2 border-b border-outline-variant/20">
-                    <div className="flex gap-1.5" aria-hidden="true">
-                      <div className="w-2.5 h-2.5 rounded-full bg-red-500/40" />
-                      <div className="w-2.5 h-2.5 rounded-full bg-yellow-500/40" />
-                      <div className="w-2.5 h-2.5 rounded-full bg-green-500/40" />
-                    </div>
-                    <div className="mx-auto bg-surface-container px-3 py-1 rounded text-[10px] text-on-surface-variant font-label border border-outline-variant/20 flex items-center gap-2 max-w-[200px] truncate">
-                      <span className="material-symbols-outlined text-[12px] shrink-0">
-                        lock
-                      </span>
-                      <span className="truncate">app.voxflow.ai/operations</span>
-                    </div>
-                    <div className="w-14" aria-hidden="true" />
-                  </div>
-
-                  {/* Dashboard Body */}
-                  <div className="p-3 sm:p-5 md:p-6 grid grid-cols-12 gap-3 sm:gap-4">
-                    {/* Sidebar */}
-                    <div className="col-span-3 space-y-2 sm:space-y-3">
-                      <div className="bg-primary/10 border border-primary/30 p-1.5 sm:p-2 rounded-lg text-[10px] text-primary flex items-center gap-1.5 sm:gap-2">
-                        <span className="material-symbols-outlined text-[12px] sm:text-[14px]">
-                          dashboard
-                        </span>
-                        <span className="hidden sm:inline">Overview</span>
-                      </div>
-                      <div className="p-1.5 sm:p-2 rounded-lg text-[10px] text-on-surface-variant flex items-center gap-1.5 sm:gap-2 hover:bg-surface-variant transition-colors">
-                        <span className="material-symbols-outlined text-[12px] sm:text-[14px]">
-                          call
-                        </span>
-                        <span className="hidden sm:inline">Calls</span>
-                      </div>
-                      <div className="p-1.5 sm:p-2 rounded-lg text-[10px] text-on-surface-variant flex items-center gap-1.5 sm:gap-2 hover:bg-surface-variant transition-colors">
-                        <span className="material-symbols-outlined text-[12px] sm:text-[14px]">
-                          inventory_2
-                        </span>
-                        <span className="hidden sm:inline">Orders</span>
-                      </div>
-                      <div className="p-1.5 sm:p-2 rounded-lg text-[10px] text-on-surface-variant flex items-center gap-1.5 sm:gap-2 hover:bg-surface-variant transition-colors">
-                        <span className="material-symbols-outlined text-[12px] sm:text-[14px]">
-                          account_circle
-                        </span>
-                        <span className="hidden sm:inline">Contacts</span>
-                      </div>
-                    </div>
-
-                    {/* Console Main Content */}
-                    <div className="col-span-9 space-y-3 sm:space-y-4">
-                      <div className="flex justify-between items-center mb-1 sm:mb-2">
-                        <h3 className="font-headline font-bold text-xs sm:text-sm text-on-surface">
-                          Live Operations
-                        </h3>
-                        <span className="flex items-center gap-1.5 text-[9px] sm:text-[10px] text-secondary font-label">
-                          <span className="w-1.5 h-1.5 bg-secondary rounded-full animate-pulse" />
-                          All systems active
-                        </span>
-                      </div>
-
-                      {/* Stat Cards */}
-                      <div className="grid grid-cols-3 gap-2 sm:gap-3">
-                        <div className="bg-surface-container-high/80 p-2 sm:p-3 rounded-lg border border-outline-variant/20">
-                          <p className="text-[8px] sm:text-[9px] text-on-surface-variant mb-1">
-                            Live Calls
-                          </p>
-                          <p className="text-base sm:text-xl font-headline font-bold text-on-surface">
-                            12
-                          </p>
-                          <div className="h-3 sm:h-4 flex items-end gap-0.5 mt-1 sm:mt-2 overflow-hidden">
-                            <div className="waveform-bar w-1 bg-primary/40" style={{ animationDelay: "0.1s" }} />
-                            <div className="waveform-bar w-1 bg-primary/60" style={{ animationDelay: "0.3s" }} />
-                            <div className="waveform-bar w-1 bg-primary" style={{ animationDelay: "0.5s" }} />
-                            <div className="waveform-bar w-1 bg-primary/70" style={{ animationDelay: "0.2s" }} />
-                            <div className="waveform-bar w-1 bg-primary/40" style={{ animationDelay: "0.4s" }} />
-                          </div>
-                        </div>
-                        <div className="bg-surface-container-high/80 p-2 sm:p-3 rounded-lg border border-outline-variant/20">
-                          <p className="text-[8px] sm:text-[9px] text-on-surface-variant mb-1">
-                            Calls Handled
-                          </p>
-                          <p className="text-base sm:text-xl font-headline font-bold text-on-surface">
-                            48
-                          </p>
-                          <p className="text-[7px] sm:text-[8px] text-secondary mt-1">
-                            +18% Today
-                          </p>
-                        </div>
-                        <div className="bg-surface-container-high/80 p-2 sm:p-3 rounded-lg border border-outline-variant/20">
-                          <p className="text-[8px] sm:text-[9px] text-on-surface-variant mb-1">
-                            Orders
-                          </p>
-                          <p className="text-base sm:text-xl font-headline font-bold text-on-surface">
-                            223
-                          </p>
-                          <p className="text-[7px] sm:text-[8px] text-secondary mt-1">
-                            +24% Today
-                          </p>
-                        </div>
-                      </div>
-
-                      {/* Active Call Card */}
-                      <div className="bg-surface-container-highest/80 p-2 sm:p-3 rounded-lg border border-primary/15 relative overflow-hidden">
-                        <div
-                          className="absolute top-0 right-0 w-20 h-20 bg-primary/5 blur-2xl rounded-full pointer-events-none"
-                          aria-hidden="true"
-                        />
-                        <div className="flex justify-between items-center mb-2 sm:mb-3 relative">
-                          <div className="flex items-center gap-1.5 sm:gap-2">
-                            <span className="material-symbols-outlined text-primary text-sm">
-                              support_agent
-                            </span>
-                            <span className="text-[9px] sm:text-[10px] font-bold text-on-surface">
-                              Active Call: Customer #8292
-                            </span>
-                          </div>
-                          <span className="bg-primary/20 text-primary text-[7px] sm:text-[8px] px-1.5 py-0.5 rounded uppercase font-bold tracking-wider">
-                            Live
-                          </span>
-                        </div>
-                        <div className="space-y-1.5 sm:space-y-2 relative">
-                          <div className="flex gap-1.5 sm:gap-2">
-                            <div className="w-3 h-3 sm:w-4 sm:h-4 rounded-full bg-secondary/20 flex-shrink-0 mt-0.5" />
-                            <div className="bg-surface-variant/50 p-1.5 sm:p-2 rounded-r-lg rounded-bl-lg text-[8px] sm:text-[9px] text-on-surface-variant italic leading-relaxed max-w-[80%]">
-                              &ldquo;I&apos;d like to check the status of my recent shipment for order #9921.&rdquo;
-                            </div>
-                          </div>
-                          <div className="flex gap-1.5 sm:gap-2 justify-end">
-                            <div className="bg-primary/10 p-1.5 sm:p-2 rounded-l-lg rounded-br-lg text-[8px] sm:text-[9px] text-on-surface border border-primary/10 leading-relaxed max-w-[85%]">
-                              &ldquo;Checking order #9921 now. It&apos;s currently in transit and expected to arrive by Tuesday.&rdquo;
-                            </div>
-                            <div className="w-3 h-3 sm:w-4 sm:h-4 rounded-full bg-primary/20 flex-shrink-0 mt-0.5" />
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-        </section>
-
-        {/* ==================== TRUSTED BY SECTION ==================== */}
-        <section
-          className="py-10 sm:py-12 border-y border-outline-variant/15 relative overflow-hidden reveal"
-          id="trusted"
-        >
-          <div className="noise absolute inset-0 pointer-events-none" aria-hidden="true" />
-          <p className="text-center text-on-surface-variant font-label text-xs tracking-[0.2em] uppercase mb-6 sm:mb-8 relative z-10">
-            Trusted by industry leaders
-          </p>
-          <div className="marquee-track relative z-10">
-            <div className="marquee-content">
-              {[
-                { name: "ZENITH-TECH", icon: "token" },
-                { name: "NEXUS_AI", icon: "polyline" },
-                { name: "CORP_CORE", icon: "grid_view" },
-                { name: "PLATFORM_X", icon: "hub" },
-                { name: "ZENITH-TECH", icon: "token" },
-                { name: "NEXUS_AI", icon: "polyline" },
-                { name: "CORP_CORE", icon: "grid_view" },
-              ].map((brand, idx) => (
-                <div
-                  key={idx}
-                  className="flex items-center gap-2 sm:gap-3 grayscale opacity-30 hover:grayscale-0 hover:opacity-100 transition-all duration-500 cursor-default group"
-                  role="img"
-                  aria-label={brand.name}
+                  Start 14-Day Free Trial
+                  <span className="material-symbols-outlined">arrow_forward</span>
+                </Link>
+                <Link
+                  href="/dashboard/simulator"
+                  className="btn-ghost-obs inline-flex items-center gap-2 px-6 sm:px-8 py-3 sm:py-4 font-headline font-bold rounded-xl text-sm sm:text-base"
                 >
-                  <span className="material-symbols-outlined text-2xl sm:text-3xl text-on-surface">
-                    {brand.icon}
-                  </span>
-                  <span className="font-headline font-bold text-lg sm:text-xl tracking-tight text-on-surface">
-                    {brand.name}
-                  </span>
-                </div>
-              ))}
-            </div>
-          </div>
-        </section>
-
-        {/* Simulator teaser */}
-        <section className="py-10 sm:py-14 relative reveal" id="simulator-teaser">
-          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-            <div className="rounded-2xl border border-[#00ffcc]/20 bg-[#00ffcc]/5 p-6 sm:p-8 flex flex-col sm:flex-row items-center justify-between gap-4">
-              <div>
-                <p className="text-xs font-bold uppercase tracking-widest text-[#00ffcc]">Try it live</p>
-                <h3 className="mt-1 text-lg font-bold text-[#e8e0f0]">Hear VoxFlow answer in your browser — no phone needed</h3>
-                <p className="mt-1 text-sm text-[#a098b0]">WebAudio simulator • Hindi + English • Tool-calling edits straight to Sheets</p>
+                  Live Demo
+                </Link>
               </div>
-              <Link
-                href="/dashboard/simulator"
-                className="shrink-0 rounded-xl bg-[#00ffcc] px-6 py-3 text-sm font-bold text-[#0a0a12] transition hover:bg-[#00e6b8]"
-              >
-                Open Simulator
-              </Link>
-            </div>
-          </div>
-        </section>
-
-        {/* ==================== FEATURES SECTION ==================== */}
-        <section className="py-20 sm:py-28 lg:py-32 relative grid-bg" id="platform">
-          <div className="absolute inset-0 noise pointer-events-none" aria-hidden="true" />
-          <div className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-            <div className="text-center mb-14 sm:mb-20 reveal">
-              <span className="font-label text-secondary tracking-[0.2em] uppercase text-xs mb-3 sm:mb-4 block neon-text-sm">
-                Platform
-              </span>
-              <h2 className="font-headline font-bold text-3xl sm:text-4xl lg:text-5xl mb-4 tracking-tight text-on-surface">
-                Built for UK Operations
-              </h2>
-              <p className="text-on-surface-variant text-base sm:text-lg max-w-2xl mx-auto font-body">
-                Amazon Connect telephony, sub-second LLM turns, Google Sheets live mirror, and UK GDPR — not a generic
-                demo. Every call is tenant-isolated and audit-logged.
+              <p className="mt-3 text-xs text-[#94a3b8]">
+                No card required • Cancel in Stripe Customer Portal • VAT receipts included
               </p>
             </div>
-            <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-5 sm:gap-6 lg:gap-8 stagger-children" id="features-grid">
-              <div className="glass rounded-2xl neon-border-card p-6 sm:p-8 transition-all duration-400 group hover:-translate-y-1 relative overflow-hidden">
-                <div
-                  className="absolute top-0 right-0 w-32 h-32 bg-primary/3 blur-3xl rounded-full pointer-events-none group-hover:bg-primary/8 transition-all duration-500"
-                  aria-hidden="true"
-                />
-                <div className="w-12 h-12 sm:w-14 sm:h-14 bg-surface-container-high rounded-xl flex items-center justify-center mb-5 sm:mb-6 border border-outline-variant/20 group-hover:scale-110 transition-transform duration-400 relative">
-                  <span
-                    className="material-symbols-outlined text-secondary text-2xl sm:text-3xl"
-                    style={{ fontVariationSettings: "'FILL' 1" }}
+
+            {/* Voice orb */}
+            <div className="relative flex flex-col items-center justify-center gap-6 reveal-right">
+              <div id="voice-orb" className="kinetic relative w-64 h-64 sm:w-80 sm:h-80">
+                <div className={`orb-core absolute inset-0 rounded-full bg-[#0a0a12] border border-[#00ffcc]/30 ${playing ? "orb-playing" : ""}`} />
+                {/* rotating dashed rings */}
+                <svg className="orb-ring absolute inset-0 w-full h-full" viewBox="0 0 100 100" aria-hidden="true">
+                  <circle cx="50" cy="50" r="46" fill="none" stroke="rgba(0,255,204,0.35)" strokeWidth="0.5" strokeDasharray="4 6" />
+                </svg>
+                <svg className="orb-ring-rev absolute inset-4" viewBox="0 0 100 100" aria-hidden="true">
+                  <circle cx="50" cy="50" r="44" fill="none" stroke="rgba(16,185,129,0.3)" strokeWidth="0.6" strokeDasharray="2 8" />
+                </svg>
+                {/* equalizer bars */}
+                <div className={`orb-bars absolute inset-0 flex items-center justify-center gap-1.5 ${playing ? "orb-playing" : ""}`} aria-hidden="true">
+                  {[0.9, 0.5, 1.1, 0.7, 1.3, 0.6, 1.0, 0.8, 1.2, 0.55, 0.95, 0.7, 1.05].map((d, i) => (
+                    <span
+                      key={i}
+                      className="w-1 rounded-full bg-[#00ffcc]"
+                      style={{ height: `${18 + (i % 5) * 10}%`, animationDuration: `${d}s` }}
+                    />
+                  ))}
+                </div>
+                {/* center label */}
+                <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
+                  <span className="font-mono text-[10px] tracking-[0.3em] uppercase text-[#00ffcc]">
+                    {playing ? (playing === "en" ? "Playing • EN" : "Playing • HI") : "VoxFlow Engine"}
+                  </span>
+                  <span className="font-mono text-[10px] text-[#94a3b8] mt-1">
+                    {playing ? "3s sample" : "ACTIVE • 196ms"}
+                  </span>
+                </div>
+              </div>
+
+              {/* audio sample pills */}
+              <div className="flex items-center gap-3 z-10">
+                {([["en", "English"], ["hi", "Hindi"]] as const).map(([lang, label]) => (
+                  <button
+                    key={lang}
+                    type="button"
+                    onClick={() => playSample(lang)}
+                    disabled={playing !== null}
+                    className={`sample-pill inline-flex items-center gap-2 rounded-full obs-panel px-4 py-2 font-mono text-xs text-[#94a3b8] transition-all hover:text-[#f8fafc] hover:border-[#00ffcc]/40 disabled:opacity-60 cursor-pointer ${playing === lang ? "sample-active" : ""}`}
                   >
-                    waves
-                  </span>
-                </div>
-                <h3 className="font-headline font-bold text-lg sm:text-xl mb-3 sm:mb-4 text-on-surface">
-                  Sub-Second Voice
-                </h3>
-                <p className="text-on-surface-variant text-sm sm:text-base leading-relaxed font-body">
-                  Groq-hosted Whisper + gpt-oss-20b at &lt;200ms per turn. Glass-to-glass median under 600ms — callers never
-                  notice the AI.
-                </p>
-              </div>
-
-              <div className="glass rounded-2xl neon-border-card p-6 sm:p-8 transition-all duration-400 group hover:-translate-y-1 relative overflow-hidden">
-                <div
-                  className="absolute top-0 right-0 w-32 h-32 bg-primary/3 blur-3xl rounded-full pointer-events-none group-hover:bg-primary/8 transition-all duration-500"
-                  aria-hidden="true"
-                />
-                <div className="w-12 h-12 sm:w-14 sm:h-14 bg-surface-container-high rounded-xl flex items-center justify-center mb-5 sm:mb-6 border border-outline-variant/20 group-hover:scale-110 transition-transform duration-400 relative">
-                  <span
-                    className="material-symbols-outlined text-primary text-2xl sm:text-3xl"
-                    style={{ fontVariationSettings: "'FILL' 1" }}
-                  >
-                    database
-                  </span>
-                </div>
-                <h3 className="font-headline font-bold text-lg sm:text-xl mb-3 sm:mb-4 text-on-surface">
-                  Google Sheets Live Mirror
-                </h3>
-                <p className="text-on-surface-variant text-sm sm:text-base leading-relaxed font-body">
-                  Every tool call writes back to your sheet in real time. Tool-calling sheet edits, CSV bulk ingestion, and
-                  per-tenant tab isolation — your ops team never leaves Sheets.
-                </p>
-              </div>
-
-              <div className="glass rounded-2xl border border-tertiary/15 hover:border-tertiary/40 p-6 sm:p-8 transition-all duration-400 group hover:-translate-y-1 relative overflow-hidden">
-                <div
-                  className="absolute top-0 right-0 w-32 h-32 bg-tertiary/3 blur-3xl rounded-full pointer-events-none group-hover:bg-tertiary/8 transition-all duration-500"
-                  aria-hidden="true"
-                />
-                <div className="w-12 h-12 sm:w-14 sm:h-14 bg-surface-container-high rounded-xl flex items-center justify-center mb-5 sm:mb-6 border border-outline-variant/20 group-hover:scale-110 transition-transform duration-400 relative">
-                  <span
-                    className="material-symbols-outlined text-tertiary text-2xl sm:text-3xl"
-                    style={{ fontVariationSettings: "'FILL' 1" }}
-                  >
-                    shield_lock
-                  </span>
-                </div>
-                <h3 className="font-headline font-bold text-lg sm:text-xl mb-3 sm:mb-4 text-on-surface">
-                  UK GDPR by Default
-                </h3>
-                <p className="text-on-surface-variant text-sm sm:text-base leading-relaxed font-body">
-                  Data residency eu-west-2, DSAR export/erasure, transcript auto-purge, and an audited retention runner.
-                  3-tier RBAC and zero-data-leak isolation verified on every release.
-                </p>
-              </div>
-            </div>
-          </div>
-        </section>
-
-        {/* ==================== SCALE SECTION ==================== */}
-        <section className="py-20 sm:py-28 lg:py-32 bg-surface-container-lowest relative overflow-hidden" id="solutions">
-          <div className="absolute top-0 left-0 w-64 h-64 bg-primary/5 blur-[120px] rounded-full pointer-events-none" aria-hidden="true" />
-          <div className="absolute bottom-0 right-0 w-64 h-64 bg-secondary/5 blur-[120px] rounded-full pointer-events-none" aria-hidden="true" />
-          <div className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 grid lg:grid-cols-2 gap-12 lg:gap-20 items-center">
-            <div className="reveal-left">
-              <span className="font-label text-secondary tracking-[0.2em] uppercase text-xs mb-3 sm:mb-4 block neon-text-sm">
-                Scale
-              </span>
-              <h2 className="font-headline font-extrabold text-3xl sm:text-4xl lg:text-5xl xl:text-6xl mb-6 tracking-tight leading-tight text-on-surface">
-                Built for <span className="text-primary neon-text">Scale.</span>
-              </h2>
-              <p className="text-on-surface-variant text-base sm:text-lg lg:text-xl leading-relaxed mb-8 font-body">
-                Handle 10,000+ simultaneous inquiries without breaking a sweat. VoxFlow&apos;s infrastructure is distributed across low-latency edge nodes for instantaneous response times.
-              </p>
-              <div className="flex flex-wrap items-center gap-4 sm:gap-6">
-                <div className="flex -space-x-3">
-                  <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-full border-2 border-background bg-surface-variant" aria-hidden="true" />
-                  <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-full border-2 border-background bg-primary" aria-hidden="true" />
-                  <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-full border-2 border-background bg-secondary" aria-hidden="true" />
-                </div>
-                <p className="text-xs sm:text-sm font-label text-on-surface-variant">
-                  <span className="text-on-surface font-bold">2.4M+</span> interactions handled this month
-                </p>
-              </div>
-            </div>
-
-            <div className="relative reveal-right">
-              <div className="relative glass neon-border rounded-2xl sm:rounded-3xl overflow-hidden p-4 sm:p-8">
-                <div className="absolute -inset-1 bg-gradient-to-r from-primary/10 to-secondary/10 blur-2xl opacity-50 pointer-events-none" aria-hidden="true" />
-                <div className="grid grid-cols-2 gap-4 sm:gap-6 relative">
-                  <div className="bg-surface-container-high/60 rounded-xl p-4 sm:p-6 border border-outline-variant/20 text-center">
-                    <span className="material-symbols-outlined text-primary text-3xl sm:text-4xl mb-2" style={{ fontVariationSettings: "'FILL' 1" }}>
-                      cloud
+                    <span className="material-symbols-outlined text-sm text-[#00ffcc]">
+                      {playing === lang ? "graphic_eq" : "play_arrow"}
                     </span>
-                    <p className="text-lg sm:text-2xl font-headline font-bold text-on-surface">99.99%</p>
-                    <p className="text-[10px] sm:text-xs text-on-surface-variant">Uptime SLA</p>
-                  </div>
-                  <div className="bg-surface-container-high/60 rounded-xl p-4 sm:p-6 border border-outline-variant/20 text-center">
-                    <span className="material-symbols-outlined text-secondary text-3xl sm:text-4xl mb-2" style={{ fontVariationSettings: "'FILL' 1" }}>
-                      bolt
-                    </span>
-                    <p className="text-lg sm:text-2xl font-headline font-bold text-on-surface">&lt;50ms</p>
-                    <p className="text-[10px] sm:text-xs text-on-surface-variant">Avg Response</p>
-                  </div>
-                  <div className="bg-surface-container-high/60 rounded-xl p-4 sm:p-6 border border-outline-variant/20 text-center">
-                    <span className="material-symbols-outlined text-tertiary text-3xl sm:text-4xl mb-2" style={{ fontVariationSettings: "'FILL' 1" }}>
-                      language
-                    </span>
-                    <p className="text-lg sm:text-2xl font-headline font-bold text-on-surface">50+</p>
-                    <p className="text-[10px] sm:text-xs text-on-surface-variant">Languages</p>
-                  </div>
-                  <div className="bg-surface-container-high/60 rounded-xl p-4 sm:p-6 border border-outline-variant/20 text-center">
-                    <span className="material-symbols-outlined text-primary text-3xl sm:text-4xl mb-2" style={{ fontVariationSettings: "'FILL' 1" }}>
-                      verified
-                    </span>
-                    <p className="text-lg sm:text-2xl font-headline font-bold text-on-surface">SOC 2</p>
-                    <p className="text-[10px] sm:text-xs text-on-surface-variant">Type II Certified</p>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-        </section>
-
-        {/* ==================== STATS STRIP ==================== */}
-        <section className="py-16 sm:py-20 lg:py-24 border-t border-outline-variant/20 relative reveal" id="stats">
-          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-            <div className="grid grid-cols-2 lg:grid-cols-4 gap-6 sm:gap-8">
-              <div className="text-center p-4 sm:p-6 rounded-2xl bg-surface-container/30 backdrop-blur-sm border border-outline-variant/10">
-                <p className="text-3xl sm:text-4xl lg:text-5xl font-headline font-black text-primary mb-1 sm:mb-2 neon-text">99.8%</p>
-                <p className="text-[10px] sm:text-xs font-label tracking-widest uppercase text-on-surface-variant">Transcription Accuracy</p>
-              </div>
-              <div className="text-center p-4 sm:p-6 rounded-2xl bg-surface-container/30 backdrop-blur-sm border border-outline-variant/10">
-                <p className="text-3xl sm:text-4xl lg:text-5xl font-headline font-black text-secondary mb-1 sm:mb-2 neon-text-sm">&lt;100ms</p>
-                <p className="text-[10px] sm:text-xs font-label tracking-widest uppercase text-on-surface-variant">Global Latency</p>
-              </div>
-              <div className="text-center p-4 sm:p-6 rounded-2xl bg-surface-container/30 backdrop-blur-sm border border-outline-variant/10">
-                <p className="text-3xl sm:text-4xl lg:text-5xl font-headline font-black text-tertiary mb-1 sm:mb-2 neon-text-sm">SOC2</p>
-                <p className="text-[10px] sm:text-xs font-label tracking-widest uppercase text-on-surface-variant">Type II Security</p>
-              </div>
-              <div className="text-center p-4 sm:p-6 rounded-2xl bg-surface-container/30 backdrop-blur-sm border border-outline-variant/10">
-                <p className="text-3xl sm:text-4xl lg:text-5xl font-headline font-black text-on-surface mb-1 sm:mb-2">50+</p>
-                <p className="text-[10px] sm:text-xs font-label tracking-widest uppercase text-on-surface-variant">Languages Supported</p>
-              </div>
-            </div>
-          </div>
-        </section>
-
-        {/* ==================== INTEGRATIONS SHOWCASE ==================== */}
-        <section className="py-20 sm:py-28 lg:py-32 relative grid-bg" id="network">
-          <div className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-            <div className="text-center mb-14 sm:mb-20 reveal">
-              <span className="font-label text-secondary tracking-[0.2em] uppercase text-xs mb-3 sm:mb-4 block neon-text-sm">
-                Integrations
-              </span>
-              <h2 className="font-headline font-bold text-3xl sm:text-4xl lg:text-5xl mb-4 tracking-tight text-on-surface">
-                Seamless Connectivity
-              </h2>
-              <p className="text-on-surface-variant text-base sm:text-lg max-w-2xl mx-auto font-body">
-                VoxFlow plugs directly into your existing stack. No rip and replace.
-              </p>
-            </div>
-            <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6 stagger-children" id="integrations-grid">
-              <div className="glass rounded-xl sm:rounded-2xl p-5 sm:p-8 border border-outline-variant/20 hover:border-secondary/30 transition-all duration-400 group text-center hover:-translate-y-1">
-                <div className="w-12 h-12 sm:w-16 sm:h-16 bg-surface-container-high rounded-2xl flex items-center justify-center mx-auto mb-4 sm:mb-5 border border-outline-variant/20 group-hover:scale-110 transition-transform duration-400">
-                  <span className="material-symbols-outlined text-secondary text-2xl sm:text-3xl" style={{ fontVariationSettings: "'FILL' 1" }}>
-                    salesforce
-                  </span>
-                </div>
-                <h4 className="font-headline font-bold text-sm sm:text-base text-on-surface">CRM Sync</h4>
-                <p className="text-on-surface-variant text-xs sm:text-sm mt-1 sm:mt-2">Real-time contact &amp; deal updates</p>
-              </div>
-
-              <div className="glass rounded-xl sm:rounded-2xl p-5 sm:p-8 border border-outline-variant/20 hover:border-secondary/30 transition-all duration-400 group text-center hover:-translate-y-1">
-                <div className="w-12 h-12 sm:w-16 sm:h-16 bg-surface-container-high rounded-2xl flex items-center justify-center mx-auto mb-4 sm:mb-5 border border-outline-variant/20 group-hover:scale-110 transition-transform duration-400">
-                  <span className="material-symbols-outlined text-secondary text-2xl sm:text-3xl" style={{ fontVariationSettings: "'FILL' 1" }}>
-                    chat
-                  </span>
-                </div>
-                <h4 className="font-headline font-bold text-sm sm:text-base text-on-surface">Slack &amp; Teams</h4>
-                <p className="text-on-surface-variant text-xs sm:text-sm mt-1 sm:mt-2">Dispatch alerts &amp; summaries</p>
-              </div>
-
-              <div className="glass rounded-xl sm:rounded-2xl p-5 sm:p-8 border border-outline-variant/20 hover:border-secondary/30 transition-all duration-400 group text-center hover:-translate-y-1">
-                <div className="w-12 h-12 sm:w-16 sm:h-16 bg-surface-container-high rounded-2xl flex items-center justify-center mx-auto mb-4 sm:mb-5 border border-outline-variant/20 group-hover:scale-110 transition-transform duration-400">
-                  <span className="material-symbols-outlined text-secondary text-2xl sm:text-3xl" style={{ fontVariationSettings: "'FILL' 1" }}>
-                    database
-                  </span>
-                </div>
-                <h4 className="font-headline font-bold text-sm sm:text-base text-on-surface">Data Warehouses</h4>
-                <p className="text-on-surface-variant text-xs sm:text-sm mt-1 sm:mt-2">Snowflake, BigQuery, Redshift</p>
-              </div>
-
-              <div className="glass rounded-xl sm:rounded-2xl p-5 sm:p-8 border border-outline-variant/20 hover:border-secondary/30 transition-all duration-400 group text-center hover:-translate-y-1">
-                <div className="w-12 h-12 sm:w-16 sm:h-16 bg-surface-container-high rounded-2xl flex items-center justify-center mx-auto mb-4 sm:mb-5 border border-outline-variant/20 group-hover:scale-110 transition-transform duration-400">
-                  <span className="material-symbols-outlined text-secondary text-2xl sm:text-3xl" style={{ fontVariationSettings: "'FILL' 1" }}>
-                    api
-                  </span>
-                </div>
-                <h4 className="font-headline font-bold text-sm sm:text-base text-on-surface">REST &amp; Webhook</h4>
-                <p className="text-on-surface-variant text-xs sm:text-sm mt-1 sm:mt-2">Custom integrations API</p>
-              </div>
-            </div>
-          </div>
-        </section>
-
-        {/* ==================== TESTIMONIAL ==================== */}
-        <section className="py-16 sm:py-20 lg:py-24 relative reveal" id="testimonial">
-          <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
-            <div className="glass rounded-2xl sm:rounded-3xl p-8 sm:p-12 lg:p-16 border border-outline-variant/20 relative overflow-hidden">
-              <div className="absolute top-0 left-1/2 -translate-x-1/2 w-48 h-48 bg-primary/5 blur-[100px] rounded-full pointer-events-none" aria-hidden="true" />
-              <div className="relative">
-                <span className="material-symbols-outlined text-primary/20 text-5xl sm:text-6xl block mb-4 sm:mb-6" style={{ fontVariationSettings: "'FILL' 1" }}>
-                  format_quote
-                </span>
-                <blockquote className="text-lg sm:text-xl lg:text-2xl font-body leading-relaxed text-on-surface mb-6 sm:mb-8 italic">
-                  &ldquo;VoxFlow transformed our call center overnight. We scaled from 50 to 5,000 daily calls without adding a single agent. The accuracy is unreal.&rdquo;
-                </blockquote>
-                <div className="flex items-center justify-center gap-3 sm:gap-4">
-                  <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-full bg-gradient-to-br from-primary to-secondary flex items-center justify-center text-white font-headline font-bold text-sm sm:text-base" aria-hidden="true">
-                    S
-                  </div>
-                  <div className="text-left">
-                    <p className="font-headline font-bold text-sm sm:text-base text-on-surface">Sarah Chen</p>
-                    <p className="text-on-surface-variant text-xs sm:text-sm">VP of Operations, ZenithTech</p>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-        </section>
-
-        {/* Architecture breakdown */}
-        <section className="py-16 sm:py-20 relative" id="architecture">
-          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-            <div className="text-center mb-10 reveal">
-              <h2 className="font-headline font-bold text-2xl sm:text-3xl text-on-surface">How it works</h2>
-              <p className="mt-2 text-sm text-on-surface-variant">Four hops. No human in the loop until escalation.</p>
-            </div>
-            <div className="grid sm:grid-cols-4 gap-4 stagger-children">
-              {[
-                { step: "01", title: "Amazon Connect", desc: "UK DID answers, streams PCM to VoxFlow" },
-                { step: "02", title: "Whisper + LLM", desc: "Groq STT → gpt-oss-20b → tool calls" },
-                { step: "03", title: "Tenant DB + Sheets", desc: "Scoped reads/writes + live sheet mirror" },
-                { step: "04", title: "Voice back + logs", desc: "Edge TTS reply, transcript & invoice logged" },
-              ].map((s) => (
-                <div key={s.step} className="rounded-2xl border border-outline-variant/20 bg-surface-container/40 p-5">
-                  <p className="text-xs font-mono text-secondary">{s.step}</p>
-                  <h3 className="mt-1 font-headline font-bold text-sm text-on-surface">{s.title}</h3>
-                  <p className="mt-1 text-xs leading-5 text-on-surface-variant">{s.desc}</p>
-                </div>
-              ))}
-            </div>
-          </div>
-        </section>
-
-        {/* Feature matrix */}
-        <section className="py-10 sm:py-14 relative" id="feature-matrix">
-          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-            <div className="overflow-hidden rounded-2xl border border-outline-variant/20">
-              <div className="grid grid-cols-4 gap-px bg-outline-variant/20 text-xs">
-                <div className="bg-surface-container p-3 font-bold text-on-surface">Capability</div>
-                <div className="bg-surface-container p-3 text-center font-bold text-on-surface">Starter £49</div>
-                <div className="bg-surface-container p-3 text-center font-bold text-primary">Growth £149</div>
-                <div className="bg-surface-container p-3 text-center font-bold text-on-surface">Enterprise £399</div>
-                {[
-                  ["Voice lines", "1", "3", "Unlimited"],
-                  ["Call mins / mo", "500", "2,500", "Unmetered"],
-                  ["PIN verification", "—", "✓", "✓"],
-                  ["Live Sheet Editing", "—", "✓", "✓"],
-                  ["Dedicated UK DID", "—", "—", "✓"],
-                  ["24/7 SLA", "—", "—", "✓"],
-                ].map(([cap, a, b, c]) => (
-                  <div key={cap} className="contents">
-                    <div className="bg-surface-container-low p-3 text-on-surface-variant">{cap}</div>
-                    <div className="bg-surface-container-low p-3 text-center text-on-surface">{a}</div>
-                    <div className="bg-surface-container-low p-3 text-center text-on-surface">{b}</div>
-                    <div className="bg-surface-container-low p-3 text-center text-on-surface">{c}</div>
-                  </div>
+                    Play {label} Sample
+                  </button>
                 ))}
               </div>
             </div>
-            <p className="mt-3 text-center text-xs text-on-surface-variant">
-              Full comparison on <Link href="/pricing" className="text-secondary hover:underline">/pricing</Link> • Annual saves 20% • VAT receipts via Stripe
-            </p>
+          </div>
+
+          {/* scroll cue */}
+          <div className="absolute bottom-6 left-1/2 -translate-x-1/2 font-mono text-[10px] tracking-[0.3em] uppercase text-[#94a3b8]/60">
+            Scroll — engine telemetry ↓
+          </div>
+        </section>
+
+        {/* ═══════════ TRUST METRICS STRIP ═══════════ */}
+        <section className="relative border-y border-white/[0.06] bg-white/[0.01]">
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div className="grid grid-cols-2 lg:grid-cols-4 stagger-children">
+              {[
+                ["99.8%", "Transcription Accuracy", "Fine-tuned UK/Hindi acoustics"],
+                ["<200ms", "Glass-to-Glass Turn", "London eu-west-2 edge"],
+                ["SOC 2", "Type II Enterprise", "UK GDPR automated purge"],
+                ["2-Way", "Google Sheets Mirror", "Zero-latency read/writes"],
+              ].map(([v, k, s], i) => (
+                <div
+                  key={k}
+                  className={`glow-hover px-5 py-8 sm:px-8 sm:py-10 ${i > 0 ? "border-l border-white/[0.06]" : ""} ${i >= 2 ? "border-t lg:border-t-0 border-white/[0.06]" : ""}`}
+                >
+                  <p className="font-mono font-bold text-2xl sm:text-4xl text-[#00ffcc]">{v}</p>
+                  <p className="mt-2 font-headline font-bold text-xs sm:text-sm text-[#f8fafc]">{k}</p>
+                  <p className="mt-1 font-mono text-[10px] text-[#94a3b8]">{s}</p>
+                </div>
+              ))}
+            </div>
+          </div>
+        </section>
+
+        {/* ═══════════ SECTION 2 — DUAL-POV TELEMETRY (20–50%) ═══════════ */}
+        <section id="solutions" className="relative py-20 sm:py-28 border-t border-white/[0.04]">
+          <div id="telemetry-section" className="contents">
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div className="mb-12 reveal">
+              <span className="font-mono text-[#00ffcc] tracking-[0.25em] uppercase text-xs">01 — Live call, two points of view</span>
+              <h2 className="font-headline font-extrabold text-3xl sm:text-5xl mt-3 tracking-tight text-[#f8fafc]">
+                Caller hears a human.
+                <br />
+                <span className="text-[#94a3b8]">You see the machine.</span>
+              </h2>
+            </div>
+
+            <div className="grid lg:grid-cols-2 gap-6">
+              {/* Caller POV — phone mockup */}
+              <div className="obs-panel rounded-2xl p-5 sm:p-7">
+                <div className="flex items-center justify-between mb-5">
+                  <span className="font-mono text-[10px] tracking-[0.2em] uppercase text-[#94a3b8]">Caller POV</span>
+                  <span className="flex items-center gap-1.5 font-mono text-[10px] text-[#00ffcc]">
+                    <span className="w-1.5 h-1.5 rounded-full bg-[#00ffcc] animate-pulse" /> LIVE • +44 20 7946 0821
+                  </span>
+                </div>
+                <div className="space-y-3">
+                  <div className="bubble max-w-[85%] rounded-2xl rounded-bl-sm bg-white/[0.04] border border-white/[0.06] p-3 text-sm text-[#f8fafc]" data-bubble-step="0">
+                    &ldquo;Hi, Varun Beverages order verification — invoice #INV-4471 please.&rdquo;
+                    <span className="block mt-1 font-mono text-[9px] text-[#94a3b8]">English • caller</span>
+                  </div>
+                  <div className="bubble ml-auto max-w-[85%] rounded-2xl rounded-br-sm bg-[#00ffcc]/[0.08] border border-[#00ffcc]/25 p-3 text-sm text-[#f8fafc]" data-bubble-step="1">
+                    &ldquo;Invoice #INV-4471: 48 cases, dispatched Tuesday, POD signed at Leeds DC.&rdquo;
+                    <span className="block mt-1 font-mono text-[9px] text-[#00ffcc]">VoxFlow • 0.6s turn</span>
+                  </div>
+                  <div className="bubble max-w-[85%] rounded-2xl rounded-bl-sm bg-white/[0.04] border border-white/[0.06] p-3 text-sm text-[#f8fafc]" data-bubble-step="2">
+                    &ldquo;ठीक है, कृपया delivery window बदलकर शुक्रवार सुबह कर दें।&rdquo;
+                    <span className="block mt-1 font-mono text-[9px] text-[#94a3b8]">Hindi • caller</span>
+                  </div>
+                  <div className="bubble ml-auto max-w-[85%] rounded-2xl rounded-br-sm bg-[#00ffcc]/[0.08] border border-[#00ffcc]/25 p-3 text-sm text-[#f8fafc]" data-bubble-step="3">
+                    &ldquo;Done — Friday 08:00–11:00. Sheet updated, confirmation SMS sent.&rdquo;
+                    <span className="block mt-1 font-mono text-[9px] text-[#00ffcc]">VoxFlow • tool call ✓</span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Engine POV — terminal */}
+              <div className="obs-panel glow-hover rounded-2xl p-5 sm:p-7 font-mono text-xs sm:text-sm">
+                <div className="flex items-center justify-between mb-5">
+                  <span className="text-[10px] tracking-[0.2em] uppercase text-[#94a3b8]">Engine POV</span>
+                  <span className="text-[10px] text-[#94a3b8]">voxflow-core • eu-west-2</span>
+                </div>
+                <div className="space-y-2.5">
+                  <p className="telemetry-line text-[#94a3b8]" data-tele-step="0">
+                    <span className="text-white/30">00:00.041</span> connect.stream → PCM 16kHz attached
+                  </p>
+                  <p className="telemetry-line text-[#94a3b8]" data-tele-step="0">
+                    <span className="text-white/30">00:00.125</span> Groq Whisper STT ............ <span className="text-[#f8fafc]">84ms</span>
+                  </p>
+                  <p className="telemetry-line text-[#94a3b8]" data-tele-step="1">
+                    <span className="text-white/30">00:00.237</span> Llama-3-70b tool call ....... <span className="text-[#f8fafc]">112ms</span>
+                  </p>
+                  <p className="telemetry-line text-[#94a3b8]" data-tele-step="2">
+                    <span className="text-white/30">00:00.288</span> lang detect: hi → en bridge .. <span className="text-[#f8fafc]">51ms</span>
+                  </p>
+                  <p className="telemetry-line text-[#94a3b8]" data-tele-step="3">
+                    <span className="text-white/30">00:00.391</span> sheets.mirror(commit) ....... <span className="text-[#f8fafc]">63ms</span>
+                  </p>
+                  <p className="telemetry-line text-[#94a3b8]" data-tele-step="3">
+                    <span className="text-white/30">00:00.196</span> Total glass-to-glass turn ... <span className="text-[#00ffcc]">196ms</span>
+                  </p>
+                  <p className="term-caret pt-3 text-[#f8fafc]" />
+                </div>
+                <div className="mt-6 grid grid-cols-3 gap-3 text-center">
+                  {[
+                    ["STT", "84ms"],
+                    ["LLM", "112ms"],
+                    ["Turn", "196ms"],
+                  ].map(([k, v]) => (
+                    <div key={k} className="obs-panel-faint rounded-lg p-3">
+                      <p className="text-[#00ffcc] font-bold text-base sm:text-lg">{v}</p>
+                      <p className="text-[9px] tracking-[0.2em] uppercase text-[#94a3b8] mt-1">{k}</p>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+          </div>
+          </div>
+        </section>
+
+        {/* ═══════════ SECTION 3 — PINNED 4-HOP PIPELINE (50–80%) ═══════════ */}
+        <section id="pipeline-section" className="relative border-t border-white/[0.04]" style={{ height: "320vh" }}>
+          <div className="sticky top-0 min-h-screen flex items-center overflow-hidden obs-grid">
+            <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 w-full grid lg:grid-cols-[1fr_1.2fr] gap-10 items-center py-20">
+              <div>
+                <span className="font-mono text-[#00ffcc] tracking-[0.25em] uppercase text-xs">02 — Architecture</span>
+                <h2 className="font-headline font-extrabold text-3xl sm:text-5xl mt-3 tracking-tight text-[#f8fafc]">
+                  Four hops.
+                  <br />
+                  <span className="text-[#94a3b8]">Zero humans until escalation.</span>
+                </h2>
+                <p className="mt-4 text-[#94a3b8] max-w-sm text-sm sm:text-base leading-relaxed">
+                  Every call flows through the same audited pipeline. Scroll to trace a packet from ring to resolution.
+                </p>
+                <div className="mt-8 obs-panel rounded-xl p-4 inline-flex items-baseline gap-3">
+                  <span className="font-mono text-[10px] tracking-[0.2em] uppercase text-[#94a3b8]">Hop latency</span>
+                  <span id="pipe-latency" className="font-mono text-3xl font-bold text-[#00ffcc]">38ms</span>
+                </div>
+              </div>
+
+              <div className="relative pl-8">
+                {/* rail */}
+                <div className="absolute left-2 top-0 bottom-0 w-px bg-white/[0.06]" aria-hidden="true">
+                  <div id="pipe-rail-fill" className="pipe-rail w-px" style={{ height: "0%" }} />
+                </div>
+                <div className="space-y-4">
+                  {[
+                    { step: "01", title: "Amazon Connect", desc: "UK DID answers, streams PCM audio to VoxFlow over TLS.", lat: "38ms" },
+                    { step: "02", title: "Whisper + LLM", desc: "Groq STT → Llama-3-70b reasoning → tool calls.", lat: "84ms" },
+                    { step: "03", title: "Tenant DB + Google Sheets", desc: "Scoped reads/writes, live sheet mirror per tenant.", lat: "112ms" },
+                    { step: "04", title: "Voice back + logs", desc: "Edge TTS reply; transcript, invoice & audit logged.", lat: "196ms" },
+                  ].map((s, i) => (
+                    <div key={s.step} data-pipe-step={i} className="pipe-step obs-surface rounded-2xl p-5 sm:p-6">
+                      <div className="flex items-baseline justify-between gap-4">
+                        <p className="font-mono text-xs text-[#00ffcc]">{s.step}</p>
+                        <p className="font-mono text-xs text-[#94a3b8]">{s.lat}</p>
+                      </div>
+                      <h3 className="mt-1 font-headline font-bold text-lg text-[#f8fafc]">{s.title}</h3>
+                      <p className="mt-1 text-sm leading-6 text-[#94a3b8]">{s.desc}</p>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        {/* ═══════════ SECTION 4 — SHEETS MIRROR (80–100%) ═══════════ */}
+        <section id="sheets-section" className="relative py-20 sm:py-28 border-t border-white/[0.04]">
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div className="mb-12 reveal">
+              <span className="font-mono text-[#00ffcc] tracking-[0.25em] uppercase text-xs">03 — Two-way live sync</span>
+              <h2 className="font-headline font-extrabold text-3xl sm:text-5xl mt-3 tracking-tight text-[#f8fafc]">
+                The call writes
+                <br />
+                <span className="text-[#94a3b8]">your Google Sheet.</span>
+              </h2>
+            </div>
+
+            <div className="grid lg:grid-cols-2 gap-6 items-stretch">
+              {/* Transcript trigger */}
+              <div className="obs-panel rounded-2xl p-5 sm:p-7 flex flex-col">
+                <span className="font-mono text-[10px] tracking-[0.2em] uppercase text-[#94a3b8] mb-5">Transcript → tool calls</span>
+                <div className="space-y-3 font-mono text-xs sm:text-sm flex-1">
+                  <p className="text-[#94a3b8]"><span className="text-[#f8fafc]">caller:</span> &ldquo;move delivery to Friday morning&rdquo;</p>
+                  <p className="text-[#00ffcc]">→ update_order(INV-4471, window=&quot;FRI 08–11&quot;)</p>
+                  <p className="text-[#94a3b8]"><span className="text-[#f8fafc]">agent:</span> &ldquo;Done — confirmation SMS sent.&rdquo;</p>
+                  <p className="text-[#00ffcc]">→ log_call(outcome=&quot;rescheduled&quot;, pin_verified=true)</p>
+                </div>
+                <p id="sheet-commit-label" className="mt-6 font-mono text-[11px] text-[#00ffcc]">awaiting tool call…</p>
+              </div>
+
+              {/* Frosted sheets UI */}
+              <div className="glass rounded-2xl border border-white/[0.08] overflow-hidden">
+                <div className="flex items-center gap-2 px-4 py-3 border-b border-white/[0.06] bg-white/[0.02]">
+                  <span className="material-symbols-outlined text-[#10b981] text-lg">table</span>
+                  <span className="font-mono text-xs text-[#f8fafc]">VoxFlow — Call Log</span>
+                  <span className="ml-auto font-mono text-[10px] text-[#00ffcc]">● syncing</span>
+                </div>
+                <div className="p-2 sm:p-3 text-[11px] sm:text-xs font-mono">
+                  <div className="grid grid-cols-4 gap-px text-[#94a3b8] uppercase tracking-wider text-[9px] px-2 py-2">
+                    <span>Time</span><span>Caller</span><span>Outcome</span><span>PIN</span>
+                  </div>
+                  {[
+                    ["14:02:11", "+44 7700 9123", "rescheduled", "✓"],
+                    ["14:02:09", "+44 161 496 002", "invoice sent", "✓"],
+                    ["13:58:44", "+44 113 496 881", "stock check", "✓"],
+                    ["13:51:02", "+44 20 7946 082", "escalated", "—"],
+                  ].map((row, i) => (
+                    <div key={i} data-sheet-row={i} className="sheet-row grid grid-cols-4 gap-px rounded-md px-2 py-2.5 text-[#f8fafc]">
+                      {row.map((c, j) => <span key={j} className={j === 3 ? "text-[#00ffcc]" : ""}>{c}</span>)}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        {/* ═══════════ SECTION 5 — BENTO + FAQ + CTA ═══════════ */}
+        <section className="py-20 sm:py-28 border-t border-white/[0.04]" id="platform">
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div className="mb-12 reveal">
+              <span className="font-mono text-[#00ffcc] tracking-[0.25em] uppercase text-xs">04 — Enterprise surface</span>
+              <h2 className="font-headline font-extrabold text-3xl sm:text-5xl mt-3 tracking-tight text-[#f8fafc]">
+                Built for UK operations.
+              </h2>
+            </div>
+
+            {/* 6-item bento */}
+            <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4 stagger-children">
+              {[
+                { icon: "record_voice_over", t: "Dual-Engine Voice", d: "Whisper STT + Llama-3-70b reasoning, hot-swapped per tenant. Hindi & English native." },
+                { icon: "pin", t: "PIN Verification", d: "Caller identity verified against tenant DB before any order data is spoken aloud." },
+                { icon: "shield_lock", t: "GDPR Auto-Purge", d: "eu-west-2 residency. Transcripts purge on your retention schedule; DSAR in one click." },
+                { icon: "table", t: "Google Sheets Mirror", d: "Every tool call commits live to your Call Log tab. Ops team never leaves Sheets." },
+                { icon: "group", t: "RBAC Isolation", d: "3-tier roles, exact DID routing, zero cross-tenant leakage — verified every release." },
+                { icon: "credit_card", t: "Stripe Billing", d: "Metered minutes, VAT receipts, self-serve customer portal. Cancel anytime." },
+              ].map((f) => (
+                <div key={f.t} className="bento-card glow-hover obs-panel rounded-2xl p-6 sm:p-7">
+                  <span className="material-symbols-outlined text-[#00ffcc] text-2xl" style={{ fontVariationSettings: "'FILL' 1" }}>
+                    {f.icon}
+                  </span>
+                  <h3 className="mt-4 font-headline font-bold text-lg text-[#f8fafc]">{f.t}</h3>
+                  <p className="mt-2 text-sm leading-6 text-[#94a3b8]">{f.d}</p>
+                </div>
+              ))}
+            </div>
           </div>
         </section>
 
         {/* FAQ */}
-        <section className="py-10 sm:py-14 relative" id="faq">
+        <section className="py-14 sm:py-20 border-t border-white/[0.04]" id="faq">
           <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
-            <h2 className="text-center font-headline font-bold text-2xl text-on-surface mb-6">FAQ</h2>
+            <h2 className="text-center font-headline font-extrabold text-2xl sm:text-3xl text-[#f8fafc] mb-8">FAQ</h2>
             <div className="space-y-3">
               {[
                 {
@@ -661,43 +568,47 @@ export default function Home() {
                   a: "All data stays in eu-west-2. Transcripts auto-purge on your retention schedule (30/90 days by default), DSAR export/erasure is one click, and the nightly purge runner is audited.",
                 },
               ].map((f) => (
-                <details key={f.q} className="rounded-xl border border-outline-variant/20 bg-surface-container/40 group">
-                  <summary className="cursor-pointer list-none px-5 py-4 text-sm font-semibold text-on-surface flex justify-between group-open:text-primary">
-                    {f.q} <span className="text-on-surface-variant group-open:rotate-180 transition">▾</span>
+                <details key={f.q} className="obs-panel rounded-xl group">
+                  <summary className="cursor-pointer list-none px-5 py-4 text-sm font-semibold text-[#f8fafc] flex justify-between items-center group-open:text-[#00ffcc]">
+                    {f.q}
+                    <span className="text-[#94a3b8] group-open:rotate-180 transition-transform duration-300">▾</span>
                   </summary>
-                  <div className="px-5 pb-4 text-sm leading-6 text-on-surface-variant">{f.a}</div>
+                  <div className="faq-body">
+                    <div>
+                      <p className="px-5 pb-4 text-sm leading-6 text-[#94a3b8]">{f.a}</p>
+                    </div>
+                  </div>
                 </details>
               ))}
             </div>
           </div>
         </section>
 
-        {/* ==================== CTA SECTION ==================== */}
-        <section className="py-20 sm:py-28 lg:py-32 relative grid-bg" id="cta">
-          <div className="absolute inset-0 noise pointer-events-none" aria-hidden="true" />
-          <div className="relative z-10 max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 reveal-scale">
-            <div className="text-center glass p-8 sm:p-12 lg:p-16 rounded-2xl sm:rounded-3xl border border-primary/20 relative overflow-hidden">
-              <div className="absolute -top-24 -left-24 w-48 sm:w-64 h-48 sm:h-64 bg-primary/15 blur-[120px] rounded-full pointer-events-none" aria-hidden="true" />
-              <div className="absolute -bottom-24 -right-24 w-48 sm:w-64 h-48 sm:h-64 bg-secondary/15 blur-[120px] rounded-full pointer-events-none" aria-hidden="true" />
-              <h2 className="font-headline font-extrabold text-2xl sm:text-3xl lg:text-4xl xl:text-5xl mb-4 sm:mb-6 relative z-10 tracking-tight leading-tight text-on-surface">
-                Go live <span className="text-primary neon-text">this week.</span>
+        {/* Conversion banner */}
+        <section className="py-20 sm:py-28 border-t border-white/[0.04] obs-grid" id="cta">
+          <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 reveal-scale">
+            <div className="obs-panel rounded-3xl p-8 sm:p-14 text-center relative overflow-hidden">
+              <div
+                className="absolute -top-24 left-1/2 -translate-x-1/2 w-72 h-72 bg-[#00ffcc]/10 blur-[120px] rounded-full pointer-events-none"
+                aria-hidden="true"
+              />
+              <h2 className="font-headline font-extrabold text-3xl sm:text-5xl tracking-tight text-[#f8fafc] relative z-10">
+                Go live <span className="text-[#00ffcc]">this week.</span>
               </h2>
-              <p className="text-on-surface-variant text-sm sm:text-base lg:text-lg mb-8 sm:mb-10 relative z-10 max-w-xl mx-auto font-body">
-                Deploy autonomous multilingual voice agents across your supply chain in under 3 minutes. Zero setup fees, 14-day unlimited trial, and enterprise SLA.
+              <p className="text-[#94a3b8] text-sm sm:text-lg mt-4 mb-10 max-w-xl mx-auto relative z-10">
+                Deploy autonomous multilingual voice agents across your supply chain in under 3 minutes. Zero setup fees, 14-day unlimited trial.
               </p>
               <div className="flex flex-col sm:flex-row gap-3 sm:gap-4 justify-center relative z-10">
                 <Link
                   href="/pricing"
-                  className="group inline-flex items-center justify-center gap-2 bg-primary text-on-primary px-6 sm:px-10 py-3 sm:py-5 font-headline font-bold rounded-xl transition-all duration-300 hover:shadow-[0_0_30px_rgba(255,45,120,0.5)] hover:scale-[1.03] active:scale-95 text-sm sm:text-base"
+                  className="btn-signal inline-flex items-center justify-center gap-2 px-8 sm:px-10 py-4 sm:py-5 font-headline font-bold rounded-xl text-sm sm:text-base"
                 >
                   Start 14-Day Free Trial
-                  <span className="material-symbols-outlined group-hover:translate-x-1 transition-transform">
-                    arrow_forward
-                  </span>
+                  <span className="material-symbols-outlined">arrow_forward</span>
                 </Link>
                 <Link
                   href="/dashboard/simulator"
-                  className="inline-flex items-center justify-center gap-2 bg-surface-variant text-on-surface px-6 sm:px-10 py-3 sm:py-5 font-headline font-bold rounded-xl hover:bg-surface-container-highest transition-all duration-300 active:scale-95 text-sm sm:text-base border border-outline-variant/20"
+                  className="btn-ghost-obs inline-flex items-center justify-center gap-2 px-8 sm:px-10 py-4 sm:py-5 font-headline font-bold rounded-xl text-sm sm:text-base"
                 >
                   Live Demo
                 </Link>
