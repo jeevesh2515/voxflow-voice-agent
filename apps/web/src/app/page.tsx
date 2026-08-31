@@ -5,6 +5,8 @@ import { useEffect, useState } from "react";
 import CosmicStarfield from "@/components/CosmicStarfield";
 import SmoothScroll from "@/components/SmoothScroll";
 import VoiceCoreCanvas from "@/components/VoiceCoreCanvas";
+import VoiceXray from "@/components/VoiceXray";
+import DispatchSwitchboard from "@/components/DispatchSwitchboard";
 
 export default function Home() {
   const [playing, setPlaying] = useState<VoiceKey | null>(null);
@@ -61,6 +63,7 @@ export default function Home() {
     }
 
     setPlaying(lang);
+    window.dispatchEvent(new CustomEvent("voxflow:voice-play", { detail: { lang } }));
     const meta = VOICE_META[lang];
 
     // 1. Natural Spoken Audio via SpeechSynthesis
@@ -168,8 +171,8 @@ export default function Home() {
           heroStage.style.setProperty("--hero-progress", p.toFixed(4));
           heroStage.style.setProperty("--hero-copy-shift", `${p * -54}px`);
           heroStage.style.setProperty("--hero-console-shift", `${p * -86}px`);
-          heroStage.style.setProperty("--hero-copy-opacity", `${1 - p * 0.58}`);
-          heroStage.style.setProperty("--hero-console-opacity", `${1 - p * 0.32}`);
+          heroStage.style.setProperty("--hero-copy-opacity", `${clamp01((p - 0.16) * 3.5)}`);
+          heroStage.style.setProperty("--hero-console-opacity", `${clamp01((p - 0.25) * 2.8)}`);
         }
 
         // Word-level narrative illumination, driven by scroll position.
@@ -230,6 +233,7 @@ export default function Home() {
     };
     window.addEventListener("scroll", onScroll, { passive: true });
     onScroll();
+    heroStage?.classList.add("hero-stage-ready");
 
     return () => {
       obs.disconnect();
@@ -332,7 +336,7 @@ export default function Home() {
                   className="btn-signal inline-flex items-center gap-2 px-6 sm:px-8 py-3.5 sm:py-4 font-headline font-bold rounded-xl text-sm sm:text-base hover:scale-[1.02] active:scale-95 transition-all shadow-[0_0_25px_rgba(255,45,120,0.4)]"
                 >
                   Start 14-Day Free Trial
-                  <span className="material-symbols-outlined">arrow_forward</span>
+                  <span className="cta-arrow-badge"><span className="material-symbols-outlined">arrow_forward</span></span>
                 </Link>
                 <Link
                   href="/dashboard/simulator"
@@ -554,6 +558,8 @@ export default function Home() {
           </div>
         </section>
 
+        <VoiceXray />
+
         {/* ═══════════ DUAL-POV TELEMETRY REVEAL ═══════════ */}
         <section className="py-20 sm:py-28 relative" id="solutions">
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -728,6 +734,8 @@ export default function Home() {
             </div>
           </div>
         </section>
+
+        <DispatchSwitchboard />
 
         {/* ═══════════ ROI & COST SAVINGS CALCULATOR ═══════════ */}
         <section className="py-20 sm:py-28 relative border-t border-white/[0.06]" id="roi">
@@ -1025,7 +1033,7 @@ export default function Home() {
                   className="btn-signal inline-flex items-center justify-center gap-2 px-8 sm:px-10 py-4 sm:py-5 font-headline font-bold rounded-xl text-sm sm:text-base"
                 >
                   Start 14-Day Free Trial
-                  <span className="material-symbols-outlined">arrow_forward</span>
+                  <span className="cta-arrow-badge"><span className="material-symbols-outlined">arrow_forward</span></span>
                 </Link>
                 <Link
                   href="/dashboard/simulator"

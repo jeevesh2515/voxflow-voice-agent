@@ -628,8 +628,8 @@ html {
   --hero-progress: 0;
   --hero-copy-shift: 0px;
   --hero-console-shift: 0px;
-  --hero-copy-opacity: 1;
-  --hero-console-opacity: 1;
+  --hero-copy-opacity: 0;
+  --hero-console-opacity: 0;
   height: 250vh;
   isolation: isolate;
 }
@@ -728,14 +728,14 @@ html {
 .hero-copy {
   position: relative;
   z-index: 4;
-  opacity: var(--hero-copy-opacity);
+  opacity: clamp(0, calc((var(--hero-progress) - 0.22) * 4.2), 1);
   transform: translate3d(0, var(--hero-copy-shift), 0);
   will-change: opacity, transform;
 }
 
 .hero-console {
   z-index: 4;
-  opacity: var(--hero-console-opacity);
+  opacity: clamp(0, calc((var(--hero-progress) - 0.34) * 3.4), 1);
   transform: translate3d(0, var(--hero-console-shift), 0) scale(calc(1 - var(--hero-progress) * 0.06));
   transform-origin: center right;
   will-change: opacity, transform;
@@ -873,4 +873,150 @@ html {
   .hero-phase { opacity: 1; transform: none; }
   .word-reveal span { opacity: 1 !important; transform: none !important; }
   .nav-status .h-1\.5 { animation: none; }
+}
+
+/* ════════════════════════════════════════════════════════════
+   VISUAL-FIRST VOXFLOW MODULES
+   ════════════════════════════════════════════════════════════ */
+
+.cta-arrow-badge {
+  display: inline-flex;
+  width: 1.75rem;
+  height: 1.75rem;
+  align-items: center;
+  justify-content: center;
+  margin-left: 0.35rem;
+  border-radius: 999px;
+  background: rgba(0, 0, 0, 0.16);
+  transition: transform 360ms var(--ease-kinetic), background-color 360ms var(--ease-kinetic);
+}
+
+.btn-signal:hover .cta-arrow-badge,
+.nav-cta:hover .cta-arrow-badge { transform: translate(2px, -1px) scale(1.08); background: rgba(0, 0, 0, 0.24); }
+
+.xray-shell,
+.switchboard-shell {
+  padding: 6px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 2rem;
+  background: rgba(255, 255, 255, 0.022);
+  box-shadow: inset 0 1px 1px rgba(255, 255, 255, 0.07), 0 26px 80px rgba(0, 0, 0, 0.22);
+}
+
+.xray-core,
+.switchboard-core {
+  overflow: hidden;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: calc(2rem - 0.375rem);
+  background: rgba(8, 8, 15, 0.93);
+  box-shadow: inset 0 1px 1px rgba(255, 255, 255, 0.12);
+}
+
+.xray-live-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: #00ffcc;
+  box-shadow: 0 0 14px #00ffcc;
+  animation: status-pulse 2s var(--ease-kinetic) infinite;
+}
+
+.xray-waveform {
+  display: flex;
+  height: 100%;
+  align-items: center;
+  gap: 3px;
+  opacity: 0.26;
+}
+
+.xray-waveform span {
+  width: 3px;
+  border-radius: 99px;
+  background: #59727b;
+  transform-origin: center;
+}
+
+.xray-waveform .xray-wave-active {
+  background: #00ffcc;
+  box-shadow: 0 0 9px rgba(0, 255, 204, 0.7);
+  animation: xray-wave 900ms var(--ease-kinetic) infinite alternate;
+}
+
+@keyframes xray-wave {
+  to { transform: scaleY(1.4); opacity: 0.8; }
+}
+
+.xray-range {
+  height: 2px;
+  appearance: none;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.15);
+  outline: none;
+}
+
+.xray-range::-webkit-slider-thumb {
+  width: 12px;
+  height: 12px;
+  appearance: none;
+  border: 2px solid #050509;
+  border-radius: 50%;
+  background: #c6ff00;
+  box-shadow: 0 0 14px rgba(198, 255, 0, 0.8);
+  cursor: ew-resize;
+}
+
+.switchboard-card {
+  position: relative;
+  min-height: 210px;
+  padding: 1.25rem;
+  background: rgba(8, 8, 15, 0.88);
+  transition: background-color 500ms var(--ease-kinetic), transform 500ms var(--ease-kinetic), box-shadow 500ms var(--ease-kinetic);
+}
+
+.switchboard-card:hover,
+.switchboard-card-active {
+  z-index: 1;
+  background: rgba(18, 18, 28, 0.98);
+  box-shadow: inset 0 0 0 1px rgba(0, 255, 204, 0.26), 0 0 28px rgba(0, 255, 204, 0.08);
+  transform: translateY(-2px);
+}
+
+.switchboard-bar {
+  width: 4px;
+  min-height: 3px;
+  border-radius: 99px;
+  opacity: 0.3;
+  transition: opacity 300ms var(--ease-kinetic), transform 300ms var(--ease-kinetic);
+}
+
+.switchboard-card:hover .switchboard-bar,
+.switchboard-card-active .switchboard-bar { opacity: 0.75; }
+
+.switchboard-bar-active { animation: switchboard-wave 1.1s var(--ease-kinetic) infinite alternate; }
+
+@keyframes switchboard-wave {
+  to { transform: scaleY(0.42); opacity: 0.4; }
+}
+
+@media (max-width: 639px) {
+  .xray-core, .switchboard-core { border-radius: 1.5rem; }
+  .xray-shell, .switchboard-shell { border-radius: 1.65rem; }
+  .xray-core .grid-cols-\[140px_1fr\] { grid-template-columns: 1fr; gap: 0.25rem; }
+  .xray-core .grid-cols-\[140px_1fr\] > span { font-size: 8px; }
+  .xray-waveform { gap: 2px; }
+  .xray-waveform span { width: 2px; }
+  .switchboard-card { min-height: 185px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .xray-waveform .xray-wave-active, .switchboard-bar-active { animation: none; }
+}
+
+/* Visual-first opening: the hero enters as an image-like scene before copy is revealed. */
+.hero-stage:not(.hero-stage-ready) .hero-copy,
+.hero-stage:not(.hero-stage-ready) .hero-console { opacity: 0; }
+
+@media (prefers-reduced-motion: reduce) {
+  .hero-stage:not(.hero-stage-ready) .hero-copy,
+  .hero-stage:not(.hero-stage-ready) .hero-console { opacity: 1; }
 }
