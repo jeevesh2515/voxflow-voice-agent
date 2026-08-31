@@ -171,19 +171,20 @@ export default function Home() {
         // Word-level narrative illumination, driven by scroll position.
         wordReveals.forEach((paragraph) => {
           const r = paragraph.getBoundingClientRect();
-          const p = clamp01((window.innerHeight * 0.84 - r.top) / (r.height + window.innerHeight * 0.42));
+          const p = clamp01((window.innerHeight * 0.85 - r.top) / (r.height + window.innerHeight * 0.4));
           const words = paragraph.querySelectorAll<HTMLElement>("[data-word-index]");
           words.forEach((word, index) => {
             const reveal = clamp01(p * words.length - index + 0.35);
             word.style.opacity = `${0.16 + reveal * 0.84}`;
-            word.style.transform = `translateY(${(1 - reveal) * 10}px)`;
+            word.style.transform = `translateY(${(1 - reveal) * 8}px)`;
           });
         });
 
         // Dual-POV sync
         if (tele) {
-          const p = prog(tele);
-          const step = Math.min(3, Math.floor(p * 5) - 1);
+          const r = tele.getBoundingClientRect();
+          const p = clamp01((window.innerHeight * 0.75 - r.top) / (r.height + window.innerHeight * 0.3));
+          const step = Math.min(3, Math.floor(p * 4.5));
           tele.querySelectorAll<HTMLElement>("[data-tele-step]").forEach((n) => {
             n.classList.toggle("telemetry-hot", Number(n.dataset.teleStep) <= step);
           });
@@ -192,16 +193,18 @@ export default function Home() {
           });
         }
 
-        // Pinned pipeline highlight
+        // 4-Hop Architecture Pipeline scroll sync
         if (pipe) {
           const r = pipe.getBoundingClientRect();
-          const p = clamp01(-r.top / Math.max(r.height - window.innerHeight, 1));
-          const active = Math.min(3, Math.floor(p * 4));
-          pipe.querySelectorAll<HTMLElement>("[data-pipe-step]").forEach((n) => {
-            n.classList.toggle("pipe-active", Number(n.dataset.pipeStep) === active);
+          const viewportCenter = window.innerHeight * 0.55;
+          const p = clamp01((viewportCenter - r.top) / (r.height * 0.85));
+          const pipeCards = pipe.querySelectorAll<HTMLElement>("[data-pipe-step]");
+          const active = Math.min(pipeCards.length - 1, Math.max(0, Math.floor(p * pipeCards.length)));
+          pipeCards.forEach((n, i) => {
+            n.classList.toggle("pipe-active", i === active);
           });
           const rail = document.getElementById("pipe-rail-fill");
-          if (rail) rail.style.height = `${p * 100}%`;
+          if (rail) rail.style.height = `${((active + 1) / pipeCards.length) * 100}%`;
           const badge = document.getElementById("pipe-latency");
           if (badge) {
             const lat = ["38ms", "84ms", "112ms", "196ms"][active];
@@ -211,14 +214,15 @@ export default function Home() {
 
         // Sheets mirror row flash
         if (sheets) {
-          const p = prog(sheets);
-          const litRows = Math.floor(clamp01((p - 0.25) / 0.5) * 4);
+          const r = sheets.getBoundingClientRect();
+          const p = clamp01((window.innerHeight * 0.7 - r.top) / (r.height + window.innerHeight * 0.2));
+          const litRows = Math.floor(p * 5);
           sheets.querySelectorAll<HTMLElement>("[data-sheet-row]").forEach((n) => {
             n.classList.toggle("sheet-flash", Number(n.dataset.sheetRow) < litRows);
           });
           const commit = document.getElementById("sheet-commit-label");
           if (commit) {
-            const label = litRows === 0 ? "awaiting tool call…" : `commit ${litRows}/4 → Call Log tab`;
+            const label = litRows === 0 ? "awaiting tool call…" : `commit ${Math.min(4, litRows)}/4 → Call Log tab`;
             if (commit.textContent !== label) commit.textContent = label;
           }
         }

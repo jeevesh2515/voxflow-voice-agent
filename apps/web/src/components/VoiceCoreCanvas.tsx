@@ -215,15 +215,17 @@ export default function VoiceCoreCanvas() {
 
       const isDesktop = width > 1024;
       world.position.x = isDesktop ? 2.5 : 0;
-      world.position.y = -scrollProgress * 0.3;
+      world.position.y = -scrollProgress * 0.45;
+      world.rotation.y = idle * 0.00025 + scrollProgress * 0.95;
 
-      // Smooth camera parallax
+      // Smooth camera parallax + scroll zoom
       camera.position.x = pointerX * 0.45;
       camera.position.y = 0.2 - pointerY * 0.35;
+      camera.position.z = 12.5 - scrollProgress * 2.0;
       camera.lookAt(isDesktop ? 2.2 : 0, 0, 0);
 
       // Core rotation & audio-reactive scaling
-      const pulseScale = 1 + voicePulse * 0.18 + Math.sin(idle * 0.002) * 0.015;
+      const pulseScale = (1 + voicePulse * 0.18 + Math.sin(idle * 0.002) * 0.015) * (1 + scrollProgress * 0.08);
       solidCore.scale.setScalar(pulseScale);
       wireCore.scale.setScalar(pulseScale * 1.003);
       pointCloud.scale.setScalar(pulseScale * 1.005);
@@ -233,23 +235,26 @@ export default function VoiceCoreCanvas() {
       solidCore.rotation.x = pointerY * 0.05;
       wireCore.rotation.y = solidCore.rotation.y;
       wireCore.rotation.x = solidCore.rotation.x;
-      pointCloud.rotation.y = -idle * 0.0003;
+      pointCloud.rotation.y = -idle * 0.0003 - scrollProgress * 0.4;
       innerCore.rotation.y = -idle * 0.0005;
 
+      // Scroll-driven blueprint morphing (solid fades down slightly, wireframe and point-cloud intensify)
+      solidMaterial.opacity = Math.max(0.35, 0.88 - scrollProgress * 0.5);
       solidMaterial.emissiveIntensity = 0.25 + voicePulse * 0.6;
-      wireMaterial.opacity = 0.55 + voicePulse * 0.35;
-      cloudMaterial.opacity = 0.65 + voicePulse * 0.3;
+      wireMaterial.opacity = Math.min(1.0, 0.55 + scrollProgress * 0.45 + voicePulse * 0.35);
+      cloudMaterial.opacity = Math.min(1.0, 0.65 + scrollProgress * 0.35 + voicePulse * 0.3);
 
-      // Acoustic wave rings
+      // Acoustic wave rings expand with scroll depth and audio pulse
       rings.forEach(({ mesh, material, baseRotation }, index) => {
-        const ringExpansion = 1 + Math.sin(idle * 0.002 + index) * 0.04 + voicePulse * (0.2 + index * 0.08);
+        const ringExpansion = (1 + Math.sin(idle * 0.002 + index) * 0.04 + voicePulse * (0.2 + index * 0.08)) * (1 + scrollProgress * (0.3 + index * 0.15));
         mesh.scale.setScalar(ringExpansion);
         mesh.rotation.x = baseRotation.x + idle * 0.00015 * (index + 1);
         mesh.rotation.z = baseRotation.z + idle * 0.0001 * (index + 1);
-        material.opacity = 0.35 + Math.abs(Math.sin(idle * 0.0018 + index)) * 0.15 + voicePulse * 0.3;
+        material.opacity = (0.35 + Math.abs(Math.sin(idle * 0.0018 + index)) * 0.15 + voicePulse * 0.3) * (1 + scrollProgress * 0.3);
       });
 
-      particles.rotation.y = -idle * 0.00006;
+      routes.scale.setScalar(0.4 + scrollProgress * 0.25);
+      particles.rotation.y = -idle * 0.00006 - scrollProgress * 0.2;
 
       renderer.render(scene, camera);
       if (!reducedMotion && visible && pageVisible) raf = window.requestAnimationFrame(paint);
