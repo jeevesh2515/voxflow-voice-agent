@@ -6,9 +6,8 @@ import CosmicStarfield from "@/components/CosmicStarfield";
 
 export default function Home() {
   const [playing, setPlaying] = useState<"en" | "hi" | null>(null);
-  const [activeTab, setActiveTab] = useState<"telemetry" | "stock" | "orders">("telemetry");
 
-  // Natural Lifelike Voice Playback Engine (English & Hindi)
+  // Natural Lifelike Feature-Focused Voice Playback (No company names, pure capability showcase)
   const playSample = (lang: "en" | "hi") => {
     if (typeof window === "undefined") return;
 
@@ -28,20 +27,22 @@ export default function Home() {
 
       const text =
         lang === "en"
-          ? "Welcome to VoxFlow! I've located your shipment: 48 cases are scheduled for dispatch to the Leeds Distribution Center this Friday morning between 8 and 11 AM. I've updated your Google Sheet and sent a confirmation SMS."
-          : "नमस्ते! वॉक्सफ्लो वॉइस एजेंट में आपका स्वागत है। आपका वरुण बेवरेजेस का ऑर्डर चेक कर लिया गया है। 48 केस शुक्रवार सुबह 8 से 11 बजे के बीच डिलीवर कर दिए जाएंगे। गूगल शीट अपडेट कर दी गई है।";
+          ? "Hello! I am your autonomous AI voice agent. I handle incoming customer inquiries, verify orders and shipments, check real-time stock levels, and synchronize all call records directly to your database with sub-second latency. How can I assist your business today?"
+          : "नमस्ते! मैं आपका एआई वॉइस असिस्टेंट हूँ। मैं ग्राहकों की कॉल्स का जवाब दे सकता हूँ, ऑर्डर और शिपमेंट की स्थिति बता सकता हूँ, और सभी कॉल्स का डेटा सीधे आपके सिस्टम में तुरंत अपडेट कर सकता हूँ। मैं आपकी क्या सहायता करूँ?";
 
       const utterance = new SpeechSynthesisUtterance(text);
       utterance.lang = lang === "en" ? "en-GB" : "hi-IN";
       utterance.rate = 1.02;
-      utterance.pitch = lang === "en" ? 1.06 : 0.98;
+      utterance.pitch = lang === "en" ? 1.05 : 0.98;
 
       utterance.onend = () => setPlaying(null);
       utterance.onerror = () => setPlaying(null);
 
       const voices = window.speechSynthesis.getVoices();
       const matchedVoice = voices.find((v) =>
-        lang === "en" ? (v.lang.includes("en-GB") || v.lang.includes("en-US")) : v.lang.includes("hi")
+        lang === "en"
+          ? v.lang.includes("en-GB") || v.lang.includes("en-US")
+          : v.lang.includes("hi")
       );
       if (matchedVoice) utterance.voice = matchedVoice;
 
@@ -61,30 +62,30 @@ export default function Home() {
       const gain = ctx.createGain();
       const filter = ctx.createBiquadFilter();
       filter.type = "lowpass";
-      filter.frequency.value = 1800;
+      filter.frequency.value = 1600;
 
       osc.type = "sine";
       osc.frequency.setValueAtTime(lang === "en" ? 440 : 330, ctx.currentTime);
       osc.frequency.exponentialRampToValueAtTime(lang === "en" ? 580 : 390, ctx.currentTime + 0.3);
 
       gain.gain.setValueAtTime(0.001, ctx.currentTime);
-      gain.gain.linearRampToValueAtTime(0.09, ctx.currentTime + 0.05);
-      gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 3.8);
+      gain.gain.linearRampToValueAtTime(0.08, ctx.currentTime + 0.05);
+      gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 4.2);
 
       osc.connect(filter).connect(gain).connect(ctx.destination);
       osc.start();
-      osc.stop(ctx.currentTime + 4.0);
+      osc.stop(ctx.currentTime + 4.4);
 
       setTimeout(() => {
         try {
           ctx.close();
         } catch {}
-      }, 4200);
+      }, 4500);
     } catch {}
 
     setTimeout(() => {
       setPlaying((curr) => (curr === lang ? null : curr));
-    }, 5500);
+    }, 6000);
   };
 
   useEffect(() => {
@@ -105,157 +106,55 @@ export default function Home() {
     );
     els.forEach((el) => obs.observe(el));
 
-    // ── Kinetic scroll engine ──
-    const orb = document.getElementById("voice-orb");
-    const hero = document.getElementById("hero");
-    const tele = document.getElementById("telemetry-section");
-    const pipe = document.getElementById("pipeline-section");
-    const sheets = document.getElementById("sheets-section");
-    let ticking = false;
-
-    const clamp01 = (v: number) => Math.min(1, Math.max(0, v));
-    const prog = (el: HTMLElement) => {
-      const r = el.getBoundingClientRect();
-      return clamp01((window.innerHeight - r.top) / (window.innerHeight + r.height * 0.8));
-    };
-
-    const onScroll = () => {
-      if (ticking) return;
-      ticking = true;
-      requestAnimationFrame(() => {
-        ticking = false;
-
-        // 1. Orb dock: scale + drift toward nav as hero scrolls away
-        if (orb && hero) {
-          const scrollY = window.scrollY || window.pageYOffset;
-          const heroH = hero.offsetHeight || window.innerHeight;
-          const heroP = clamp01(scrollY / heroH);
-          const scale = 1 - heroP * 0.4;
-          const ty = -heroP * 24;
-          const tx = heroP * 10;
-          orb.style.transform = `translate3d(${tx}vw, ${ty}px, 0) scale(${Math.max(scale, 0.6)})`;
-          orb.style.opacity = String(1 - heroP * 0.35);
-        }
-
-        // 2. Dual-POV telemetry sync
-        if (tele) {
-          const p = prog(tele);
-          const step = Math.min(3, Math.floor(p * 5) - 1);
-          tele.querySelectorAll<HTMLElement>("[data-tele-step]").forEach((n) => {
-            const i = Number(n.dataset.teleStep);
-            n.classList.toggle("telemetry-hot", i <= step);
-          });
-          tele.querySelectorAll<HTMLElement>("[data-bubble-step]").forEach((n) => {
-            const i = Number(n.dataset.bubbleStep);
-            n.classList.toggle("bubble-pending", i > step);
-          });
-        }
-
-        // 3. Pinned pipeline highlight
-        if (pipe) {
-          const r = pipe.getBoundingClientRect();
-          const total = r.height - window.innerHeight;
-          const p = clamp01(-r.top / Math.max(total, 1));
-          const active = Math.min(3, Math.floor(p * 4));
-          pipe.querySelectorAll<HTMLElement>("[data-pipe-step]").forEach((n) => {
-            n.classList.toggle("pipe-active", Number(n.dataset.pipeStep) === active);
-          });
-          const rail = document.getElementById("pipe-rail-fill");
-          if (rail) rail.style.height = `${p * 100}%`;
-          const badge = document.getElementById("pipe-latency");
-          if (badge) {
-            const lat = ["38ms", "84ms", "112ms", "196ms"][active];
-            if (badge.textContent !== lat) badge.textContent = lat;
-          }
-        }
-
-        // 4. Sheets mirror row flash
-        if (sheets) {
-          const p = prog(sheets);
-          const litRows = Math.floor(clamp01((p - 0.25) / 0.5) * 4);
-          sheets.querySelectorAll<HTMLElement>("[data-sheet-row]").forEach((n) => {
-            n.classList.toggle("sheet-flash", Number(n.dataset.sheetRow) < litRows);
-          });
-          const commit = document.getElementById("sheet-commit-label");
-          if (commit) {
-            const label = litRows === 0 ? "awaiting tool call…" : `commit ${litRows}/4 → Call Log tab`;
-            if (commit.textContent !== label) commit.textContent = label;
-          }
-        }
-      });
-    };
-    window.addEventListener("scroll", onScroll, { passive: true });
-    onScroll();
-
-    // ── Hero mouse-follow spotlight ──
-    const spot = document.getElementById("hero-spot");
-    let spotTick = false;
-    const onMouse = (e: MouseEvent) => {
-      if (!spot || spotTick) return;
-      spotTick = true;
-      requestAnimationFrame(() => {
-        spotTick = false;
-        const r = spot.getBoundingClientRect();
-        spot.style.setProperty("--mx", `${e.clientX - r.left}px`);
-        spot.style.setProperty("--my", `${e.clientY - r.top}px`);
-      });
-    };
-    hero?.addEventListener("mousemove", onMouse);
-
     return () => {
       obs.disconnect();
-      window.removeEventListener("scroll", onScroll);
-      hero?.removeEventListener("mousemove", onMouse);
     };
   }, []);
 
   return (
     <>
-      {/* 60fps Cosmic Starfield & Galaxy Canvas */}
+      {/* Subtle, elegant ambient starfield */}
       <CosmicStarfield />
 
       <main className="relative z-10 bg-transparent">
         {/* ==================== HERO SECTION ==================== */}
         <section
           id="hero"
-          className="relative min-h-screen flex items-center pt-24 pb-16 sm:pt-28 overflow-hidden grid-bg"
+          className="relative min-h-screen flex items-center pt-28 pb-16 sm:pt-32 sm:pb-24 overflow-hidden grid-bg"
         >
-          {/* Glowing Ambient Nebula */}
+          {/* Ambient Glowing Nebula Orbs */}
           <div
-            className="absolute top-1/4 left-1/4 w-[45vw] h-[45vw] max-w-[550px] max-h-[550px] bg-[#ff2d78]/15 blur-[140px] rounded-full pointer-events-none"
+            className="absolute top-1/4 left-1/4 w-[45vw] h-[45vw] max-w-[500px] max-h-[500px] bg-[#ff2d78]/10 blur-[130px] rounded-full pointer-events-none"
             aria-hidden="true"
           />
           <div
-            className="absolute bottom-1/4 right-1/4 w-[40vw] h-[40vw] max-w-[500px] max-h-[500px] bg-[#c084fc]/15 blur-[140px] rounded-full pointer-events-none"
+            className="absolute bottom-1/4 right-1/4 w-[40vw] h-[40vw] max-w-[450px] max-h-[450px] bg-[#c084fc]/10 blur-[130px] rounded-full pointer-events-none"
             aria-hidden="true"
           />
-          <div id="hero-spot" className="hero-spot absolute inset-0" aria-hidden="true" />
 
-          <div className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 grid lg:grid-cols-2 gap-12 lg:gap-16 items-center w-full">
-            {/* Copy */}
-            <div className="reveal stagger-children">
+          <div className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 grid lg:grid-cols-12 gap-12 lg:gap-16 items-center w-full">
+            {/* Left Column: Headline, Value Proposition, Audio Previews & CTA */}
+            <div className="lg:col-span-7 reveal stagger-children">
               <span className="font-label text-[#c084fc] tracking-[0.2em] uppercase text-xs sm:text-sm mb-4 sm:mb-6 block neon-text-sm">
-                ✦ UK Supply Chain • Amazon Connect • Sub-Second Voice
+                ✦ NEXT-GEN MULTILINGUAL VOICE AI
               </span>
-              <h1 className="font-headline font-extrabold text-4xl sm:text-6xl lg:text-7xl leading-[1.08] tracking-tight mb-6 text-[#f8fafc]">
-                The voice agent
-                <br />
-                UK operators
+              <h1 className="font-headline font-extrabold text-4xl sm:text-5xl lg:text-6xl xl:text-7xl leading-[1.1] tracking-tight mb-6 text-[#f8fafc]">
+                Automate High-Volume
                 <br />
                 <span className="bg-gradient-to-r from-[#ff2d78] via-[#f43f5e] to-[#c084fc] bg-clip-text text-transparent neon-text">
-                  actually trust.
+                  Voice Operations
                 </span>
               </h1>
-              <p className="text-[#a098b0] text-base sm:text-lg lg:text-xl mb-8 max-w-md font-body leading-relaxed">
-                Amazon Connect telephony, sub-second latency, live Google Sheets sync, and UK GDPR (eu-west-2) — from £49/mo. The only voice layer built for British SMB supply chains.
+              <p className="text-[#a098b0] text-base sm:text-lg lg:text-xl mb-8 max-w-xl font-body leading-relaxed">
+                Autonomous voice agents for dispatch, customer service, and order capture. Sub-second response latency, fine-tuned English &amp; Hindi models, and live 2-way database synchronization.
               </p>
 
-              {/* SLA trust badges */}
-              <div className="flex flex-wrap gap-2 mb-8">
-                {["Sub-200ms Telephony SLA", "London eu-west-2", "UK GDPR Default"].map((b) => (
+              {/* SLA Trust Badges */}
+              <div className="flex flex-wrap gap-2.5 mb-8">
+                {["Sub-200ms Turn Latency", "London eu-west-2", "UK GDPR Default", "Real-Time Sheets Sync"].map((b) => (
                   <span
                     key={b}
-                    className="inline-flex items-center gap-2 rounded-full glass px-3.5 py-1.5 text-[11px] font-label text-[#e8e0f0] border border-white/[0.1] hover:border-[#ff2d78]/50 transition-colors"
+                    className="inline-flex items-center gap-2 rounded-full glass px-3.5 py-1.5 text-[11px] font-label text-[#e8e0f0] border border-white/[0.08] hover:border-[#ff2d78]/40 transition-colors"
                   >
                     <span className="w-1.5 h-1.5 rounded-full bg-[#ff2d78] signal-dot" aria-hidden="true" />
                     {b}
@@ -263,110 +162,155 @@ export default function Home() {
                 ))}
               </div>
 
+              {/* Audio Sample Pills (Sound-synced with top console) */}
+              <div className="flex flex-wrap items-center gap-3 mb-8">
+                <span className="text-xs font-label text-[#a098b0] uppercase tracking-wider">
+                  Test Voice Engine:
+                </span>
+                {([["en", "English"], ["hi", "Hindi"]] as const).map(([lang, label]) => (
+                  <button
+                    key={lang}
+                    type="button"
+                    onClick={() => playSample(lang)}
+                    className={`inline-flex items-center gap-2 rounded-full glass px-4 py-2 font-label text-xs transition-all duration-300 cursor-pointer ${
+                      playing === lang
+                        ? "bg-[#ff2d78]/20 border-[#ff2d78] text-white shadow-[0_0_20px_rgba(255,45,120,0.4)] scale-105"
+                        : "border-white/[0.1] text-[#e8e0f0] hover:border-[#ff2d78]/60 hover:text-white"
+                    }`}
+                  >
+                    <span className="material-symbols-outlined text-sm text-[#ff2d78]">
+                      {playing === lang ? "graphic_eq" : "play_arrow"}
+                    </span>
+                    {playing === lang ? `Speaking ${label}...` : `Play ${label} Sample`}
+                  </button>
+                ))}
+              </div>
+
+              {/* CTAs */}
               <div className="flex flex-wrap gap-3 sm:gap-4">
                 <Link
                   href="/pricing"
-                  className="btn-signal inline-flex items-center gap-2 px-6 sm:px-8 py-3.5 sm:py-4 font-headline font-bold rounded-xl text-sm sm:text-base"
+                  className="btn-signal inline-flex items-center gap-2 px-6 sm:px-8 py-3.5 sm:py-4 font-headline font-bold rounded-xl text-sm sm:text-base hover:scale-[1.02] active:scale-95 transition-all shadow-[0_0_25px_rgba(255,45,120,0.4)]"
                 >
                   Start 14-Day Free Trial
                   <span className="material-symbols-outlined">arrow_forward</span>
                 </Link>
                 <Link
                   href="/dashboard/simulator"
-                  className="btn-ghost-obs inline-flex items-center gap-2 px-6 sm:px-8 py-3.5 sm:py-4 font-headline font-bold rounded-xl text-sm sm:text-base"
+                  className="btn-ghost-obs inline-flex items-center gap-2 px-6 sm:px-8 py-3.5 sm:py-4 font-headline font-bold rounded-xl text-sm sm:text-base border border-white/[0.1] hover:border-white/30 transition-all"
                 >
-                  Live Demo
+                  Live Simulator
                 </Link>
               </div>
               <p className="mt-3 text-xs text-[#a098b0]">
-                No card required • Cancel in Stripe Customer Portal • VAT receipts included
+                No credit card required • Cancel anytime in Stripe portal • 500 free minutes
               </p>
             </div>
 
-            {/* Voice Orb & Interactive Audio Wave Visualizer */}
-            <div className="relative flex flex-col items-center justify-center gap-6 reveal-right">
-              <div id="voice-orb" className="kinetic relative w-64 h-64 sm:w-80 sm:h-80">
-                <div
-                  className={`orb-core absolute inset-0 rounded-full bg-[#0a0a14]/90 border border-[#ff2d78]/40 ${
-                    playing ? "orb-playing" : ""
-                  }`}
-                />
-                {/* rotating dashed rings */}
-                <svg className="orb-ring absolute inset-0 w-full h-full" viewBox="0 0 100 100" aria-hidden="true">
-                  <circle
-                    cx="50"
-                    cy="50"
-                    r="46"
-                    fill="none"
-                    stroke="rgba(255,45,120,0.45)"
-                    strokeWidth="0.6"
-                    strokeDasharray="4 6"
-                  />
-                </svg>
-                <svg className="orb-ring-rev absolute inset-4" viewBox="0 0 100 100" aria-hidden="true">
-                  <circle
-                    cx="50"
-                    cy="50"
-                    r="44"
-                    fill="none"
-                    stroke="rgba(192,132,252,0.4)"
-                    strokeWidth="0.7"
-                    strokeDasharray="2 8"
-                  />
-                </svg>
-                {/* equalizer bars */}
-                <div
-                  className={`orb-bars absolute inset-0 flex items-center justify-center gap-1.5 ${
-                    playing ? "orb-playing" : ""
-                  }`}
-                  aria-hidden="true"
-                >
-                  {[0.9, 0.5, 1.1, 0.7, 1.3, 0.6, 1.0, 0.8, 1.2, 0.55, 0.95, 0.7, 1.05].map((d, i) => (
-                    <span
-                      key={i}
-                      className="w-1 rounded-full bg-[#ff2d78]"
-                      style={{
-                        height: `${20 + (i % 5) * 14}%`,
-                        animationDuration: playing ? "0.35s" : `${d}s`,
-                      }}
-                    />
-                  ))}
+            {/* Right Column: Live Operations Console Mockup Window (Sound-Synced!) */}
+            <div className="lg:col-span-5 relative reveal-right">
+              <div className="glass rounded-2xl border border-white/[0.12] shadow-[0_20px_60px_rgba(0,0,0,0.7),0_0_35px_rgba(255,45,120,0.15)] overflow-hidden transition-all duration-400">
+                {/* Console Window Top Bar */}
+                <div className="bg-[#05050a]/90 px-4 py-3 border-b border-white/[0.08] flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <div className="w-3 h-3 rounded-full bg-[#ff5f56]/80" />
+                    <div className="w-3 h-3 rounded-full bg-[#ffbd2e]/80" />
+                    <div className="w-3 h-3 rounded-full bg-[#27c93f]/80" />
+                  </div>
+                  <div className="flex items-center gap-2 font-label text-[11px] text-[#a098b0]">
+                    <span className="w-2 h-2 rounded-full bg-[#10b981] animate-pulse" />
+                    <span>Live Operations Console</span>
+                  </div>
+                  <span className="font-label text-[10px] text-[#ff2d78] font-bold">98ms</span>
                 </div>
-                {/* center label */}
-                <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
-                  <span className="font-label text-[10px] tracking-[0.3em] uppercase text-[#ff2d78]">
-                    {playing ? (playing === "en" ? "Speaking • English" : "Speaking • Hindi") : "VoxFlow Engine"}
-                  </span>
-                  <span className="font-label text-[10px] text-[#c084fc] mt-1 font-semibold">
-                    {playing ? "LIVE AUDIO WAVE" : "ACTIVE • 196ms"}
-                  </span>
-                </div>
-              </div>
 
-              {/* Natural Audio Sample Pills */}
-              <div className="flex items-center gap-3 z-10">
-                {([["en", "English"], ["hi", "Hindi"]] as const).map(([lang, label]) => (
-                  <button
-                    key={lang}
-                    type="button"
-                    onClick={() => playSample(lang)}
-                    className={`sample-pill inline-flex items-center gap-2 rounded-full glass px-4 py-2 font-label text-xs text-[#e8e0f0] transition-all hover:text-white hover:border-[#ff2d78] cursor-pointer ${
-                      playing === lang ? "sample-active text-white border-[#ff2d78]" : ""
-                    }`}
-                  >
-                    <span className="material-symbols-outlined text-sm text-[#ff2d78]">
-                      {playing === lang ? "graphic_eq" : "play_arrow"}
-                    </span>
-                    {playing === lang ? `Playing ${label}...` : `Play ${label} Sample`}
-                  </button>
-                ))}
+                {/* Console Main Content */}
+                <div className="p-4 sm:p-5 space-y-4 bg-[#0a0a14]/80">
+                  {/* Top Stats Grid */}
+                  <div className="grid grid-cols-3 gap-2 sm:gap-3">
+                    <div className="glass rounded-xl p-3 border border-white/[0.06] text-center">
+                      <p className="text-[9px] text-[#a098b0] uppercase tracking-wider font-label">Active Calls</p>
+                      <p className="text-lg sm:text-xl font-headline font-extrabold text-[#f8fafc] mt-0.5">14</p>
+                      {/* Animated Soundwave Equalizer */}
+                      <div className="h-4 flex items-end justify-center gap-1 mt-1.5 overflow-hidden">
+                        {[0.4, 0.9, 0.6, 1.2, 0.7, 1.0, 0.5].map((d, i) => (
+                          <div
+                            key={i}
+                            className={`w-1 rounded-full ${
+                              playing ? "bg-[#ff2d78] shadow-[0_0_8px_#ff2d78]" : "bg-[#c084fc]/60"
+                            }`}
+                            style={{
+                              height: playing ? `${35 + (i % 4) * 20}%` : `${20 + (i % 3) * 15}%`,
+                              animation: playing ? `pulse 0.3s ease-in-out infinite alternate ${i * 0.05}s` : "none",
+                            }}
+                          />
+                        ))}
+                      </div>
+                    </div>
+
+                    <div className="glass rounded-xl p-3 border border-white/[0.06] text-center">
+                      <p className="text-[9px] text-[#a098b0] uppercase tracking-wider font-label">Handled</p>
+                      <p className="text-lg sm:text-xl font-headline font-extrabold text-[#ff2d78] mt-0.5">248</p>
+                      <p className="text-[8px] text-[#10b981] font-label mt-1">+18% Today</p>
+                    </div>
+
+                    <div className="glass rounded-xl p-3 border border-white/[0.06] text-center">
+                      <p className="text-[9px] text-[#a098b0] uppercase tracking-wider font-label">Orders</p>
+                      <p className="text-lg sm:text-xl font-headline font-extrabold text-[#c084fc] mt-0.5">1,420</p>
+                      <p className="text-[8px] text-[#10b981] font-label mt-1">+24% Synced</p>
+                    </div>
+                  </div>
+
+                  {/* Simulated Live Call Box (Dynamically Sound-Synced with Sample Speech!) */}
+                  <div className="glass rounded-xl p-3.5 sm:p-4 border border-white/[0.08] relative overflow-hidden">
+                    <div className="flex items-center justify-between mb-3">
+                      <div className="flex items-center gap-2">
+                        <span className="material-symbols-outlined text-[#ff2d78] text-sm">support_agent</span>
+                        <span className="font-headline font-bold text-xs text-[#f8fafc]">
+                          {playing ? (playing === "en" ? "Speaking • English" : "Speaking • Hindi") : "Live Agent Stream"}
+                        </span>
+                      </div>
+                      <span className="bg-[#ff2d78]/20 text-[#ff2d78] text-[8px] px-2 py-0.5 rounded-full font-label font-bold uppercase tracking-wider">
+                        {playing ? "AUDIO ACTIVE" : "ONLINE"}
+                      </span>
+                    </div>
+
+                    <div className="space-y-2.5 font-body text-xs leading-relaxed">
+                      <div className="bg-white/[0.04] p-2.5 rounded-xl text-[#a098b0]">
+                        <span className="font-label text-[9px] text-[#c084fc] block mb-0.5">Caller (+44 20 7946 0821)</span>
+                        &ldquo;Can you check if order #8841 is scheduled and update my delivery details?&rdquo;
+                      </div>
+
+                      <div className="bg-[#ff2d78]/10 p-2.5 rounded-xl border border-[#ff2d78]/30 text-[#f8fafc]">
+                        <span className="font-label text-[9px] text-[#ff2d78] font-bold block mb-0.5">
+                          VoxFlow AI Agent (Sub-200ms)
+                        </span>
+                        {playing === "en" ? (
+                          <span className="text-[#ff2d78] font-medium animate-pulse">
+                            &ldquo;I handle incoming customer inquiries, verify orders and shipments, check real-time stock levels, and sync records to your database.&rdquo;
+                          </span>
+                        ) : playing === "hi" ? (
+                          <span className="text-[#ff2d78] font-medium animate-pulse">
+                            &ldquo;मैं ग्राहकों की कॉल्स का जवाब दे सकता हूँ, ऑर्डर और शिपमेंट की स्थिति बता सकता हूँ, और सारा डेटा सीधे अपडेट कर सकता हूँ।&rdquo;
+                          </span>
+                        ) : (
+                          <span>
+                            &ldquo;Order #8841 verified: 48 units dispatched. Your Google Sheet and inventory database have been updated live.&rdquo;
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Telemetry Indicator */}
+                  <div className="flex items-center justify-between text-[10px] font-label text-[#a098b0] pt-1">
+                    <span>Groq Whisper STT: <strong className="text-[#f8fafc]">84ms</strong></span>
+                    <span>Llama 3 Reasoning: <strong className="text-[#f8fafc]">112ms</strong></span>
+                    <span>Turn: <strong className="text-[#ff2d78]">196ms</strong></span>
+                  </div>
+                </div>
               </div>
             </div>
-          </div>
-
-          {/* scroll cue */}
-          <div className="absolute bottom-6 left-1/2 -translate-x-1/2 font-label text-[10px] tracking-[0.3em] uppercase text-[#a098b0]/70">
-            Scroll — engine telemetry ↓
           </div>
         </section>
 
@@ -375,10 +319,10 @@ export default function Home() {
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
             <div className="grid grid-cols-2 lg:grid-cols-4 stagger-children">
               {[
-                ["99.8%", "Transcription Accuracy", "Fine-tuned UK & Hindi acoustics"],
+                ["99.8%", "Transcription Precision", "Fine-tuned UK & Hindi acoustics"],
                 ["<100ms", "Telephony Latency", "London eu-west-2 edge cluster"],
                 ["SOC 2", "Type II Enterprise", "UK GDPR automated retention purge"],
-                ["10x ROI", "Supply Chain Efficiency", "Direct Google Sheets & DB 2-way sync"],
+                ["10x ROI", "Operational Efficiency", "Direct Google Sheets & DB 2-way sync"],
               ].map(([v, k, s], i) => (
                 <div
                   key={k}
@@ -395,239 +339,131 @@ export default function Home() {
           </div>
         </section>
 
-        {/* ═══════════ SECTION 2 — DUAL-POV TELEMETRY (20–50%) ═══════════ */}
-        <section id="solutions" className="py-20 sm:py-28 relative">
-          <div id="telemetry-section" className="contents">
-            <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-              <div className="mb-12 reveal">
-                <span className="font-label text-[#c084fc] tracking-[0.25em] uppercase text-xs neon-text-sm">
-                  01 — Live call, two points of view
-                </span>
-                <h2 className="font-headline font-extrabold text-3xl sm:text-5xl mt-3 tracking-tight text-[#f8fafc]">
-                  Caller hears a human.
-                  <br />
-                  <span className="text-[#a098b0]">You see the machine.</span>
-                </h2>
-              </div>
+        {/* ═══════════ PLATFORM FEATURES (3 PILLARS) ═══════════ */}
+        <section className="py-20 sm:py-28 relative" id="platform">
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div className="text-center mb-16 reveal">
+              <span className="font-label text-[#c084fc] tracking-[0.2em] uppercase text-xs mb-3 block neon-text-sm">
+                ✦ Enterprise Architecture
+              </span>
+              <h2 className="font-headline font-extrabold text-3xl sm:text-5xl tracking-tight text-[#f8fafc]">
+                Three Pillars of Autonomous Voice
+              </h2>
+              <p className="text-[#a098b0] text-base sm:text-lg max-w-2xl mx-auto mt-4 font-body">
+                Built from the ground up for mission-critical supply chains, freight dispatch, and customer operations.
+              </p>
+            </div>
 
-              <div className="grid lg:grid-cols-2 gap-6">
-                {/* Caller POV — phone mockup */}
-                <div className="glass rounded-2xl p-5 sm:p-7 border border-white/[0.08]">
-                  <div className="flex items-center justify-between mb-5">
-                    <span className="font-label text-[10px] tracking-[0.2em] uppercase text-[#a098b0]">Caller POV</span>
-                    <span className="flex items-center gap-1.5 font-label text-[10px] text-[#10b981]">
-                      <span className="w-1.5 h-1.5 rounded-full bg-[#10b981] animate-pulse" /> LIVE • +44 20 7946 0821
-                    </span>
-                  </div>
-                  <div className="space-y-3 font-body">
-                    <div
-                      className="bubble max-w-[85%] rounded-2xl rounded-bl-sm bg-white/[0.04] border border-white/[0.08] p-3.5 text-sm text-[#f8fafc]"
-                      data-bubble-step="0"
-                    >
-                      &ldquo;Hi, Varun Beverages order verification — invoice #INV-4471 please.&rdquo;
-                      <span className="block mt-1 font-label text-[9px] text-[#a098b0]">English • caller</span>
+            <div className="grid md:grid-cols-3 gap-6 sm:gap-8 stagger-children">
+              {[
+                {
+                  step: "01",
+                  title: "Dual-Engine Multilingual Voice",
+                  desc: "Whisper STT combined with Llama 3 70B reasoning and low-latency Edge TTS. Flawless code-switching between British English and conversational Hindi.",
+                  icon: "record_voice_over",
+                },
+                {
+                  step: "02",
+                  title: "Live 2-Way CRM & Sheets Sync",
+                  desc: "Every order confirmation, stock inquiry, and call outcome is written directly to your Google Sheets and CRM in real time with automated audit logging.",
+                  icon: "table_chart",
+                },
+                {
+                  step: "03",
+                  title: "Enterprise GDPR & eu-west-2",
+                  desc: "UK and European data residency. PII redaction, automated transcript retention purge schedules, and exact DID routing with zero tenant leakage.",
+                  icon: "shield",
+                },
+              ].map((p) => (
+                <div
+                  key={p.step}
+                  className="glass glow-hover rounded-2xl p-6 sm:p-8 border border-white/[0.08] hover:border-[#ff2d78]/50 transition-all duration-300 flex flex-col justify-between"
+                >
+                  <div>
+                    <div className="flex items-center justify-between mb-6">
+                      <span className="font-label text-xs font-bold text-[#ff2d78] px-2.5 py-1 rounded-full bg-[#ff2d78]/10 border border-[#ff2d78]/30">
+                        {p.step}
+                      </span>
+                      <span className="material-symbols-outlined text-[#c084fc] text-2xl" style={{ fontVariationSettings: "'FILL' 1" }}>
+                        {p.icon}
+                      </span>
                     </div>
-                    <div
-                      className="bubble ml-auto max-w-[85%] rounded-2xl rounded-br-sm bg-[#ff2d78]/[0.12] border border-[#ff2d78]/40 p-3.5 text-sm text-[#f8fafc]"
-                      data-bubble-step="1"
-                    >
-                      &ldquo;Invoice #INV-4471: 48 cases, dispatched Tuesday, POD signed at Leeds DC.&rdquo;
-                      <span className="block mt-1 font-label text-[9px] text-[#ff2d78] font-semibold">VoxFlow • 0.6s turn</span>
-                    </div>
-                    <div
-                      className="bubble max-w-[85%] rounded-2xl rounded-bl-sm bg-white/[0.04] border border-white/[0.08] p-3.5 text-sm text-[#f8fafc]"
-                      data-bubble-step="2"
-                    >
-                      &ldquo;ठीक है, कृपया delivery window बदलकर शुक्रवार सुबह कर दें।&rdquo;
-                      <span className="block mt-1 font-label text-[9px] text-[#a098b0]">Hindi • caller</span>
-                    </div>
-                    <div
-                      className="bubble ml-auto max-w-[85%] rounded-2xl rounded-br-sm bg-[#ff2d78]/[0.12] border border-[#ff2d78]/40 p-3.5 text-sm text-[#f8fafc]"
-                      data-bubble-step="3"
-                    >
-                      &ldquo;Done — Friday 08:00–11:00. Sheet updated, confirmation SMS sent.&rdquo;
-                      <span className="block mt-1 font-label text-[9px] text-[#ff2d78] font-semibold">VoxFlow • tool call ✓</span>
-                    </div>
+                    <h3 className="font-headline font-bold text-xl text-[#f8fafc] mb-3">{p.title}</h3>
+                    <p className="font-body text-sm leading-relaxed text-[#a098b0]">{p.desc}</p>
                   </div>
                 </div>
-
-                {/* Engine POV — terminal */}
-                <div className="glass glow-hover rounded-2xl p-5 sm:p-7 font-label text-xs sm:text-sm border border-white/[0.08]">
-                  <div className="flex items-center justify-between mb-5">
-                    <span className="text-[10px] tracking-[0.2em] uppercase text-[#a098b0]">Engine POV</span>
-                    <span className="text-[10px] text-[#c084fc]">voxflow-core • eu-west-2</span>
-                  </div>
-                  <div className="space-y-2.5">
-                    <p className="telemetry-line text-[#a098b0]" data-tele-step="0">
-                      <span className="text-white/30">00:00.041</span> connect.stream → PCM 16kHz attached
-                    </p>
-                    <p className="telemetry-line text-[#a098b0]" data-tele-step="0">
-                      <span className="text-white/30">00:00.125</span> Groq Whisper STT ............ <span className="text-[#f8fafc]">84ms</span>
-                    </p>
-                    <p className="telemetry-line text-[#a098b0]" data-tele-step="1">
-                      <span className="text-white/30">00:00.237</span> Llama-3-70b tool call ....... <span className="text-[#f8fafc]">112ms</span>
-                    </p>
-                    <p className="telemetry-line text-[#a098b0]" data-tele-step="2">
-                      <span className="text-white/30">00:00.288</span> lang detect: hi → en bridge .. <span className="text-[#f8fafc]">51ms</span>
-                    </p>
-                    <p className="telemetry-line text-[#a098b0]" data-tele-step="3">
-                      <span className="text-white/30">00:00.391</span> sheets.mirror(commit) ....... <span className="text-[#f8fafc]">63ms</span>
-                    </p>
-                    <p className="telemetry-line text-[#a098b0]" data-tele-step="3">
-                      <span className="text-white/30">00:00.196</span> Total glass-to-glass turn ... <span className="text-[#ff2d78] font-bold">196ms</span>
-                    </p>
-                    <p className="term-caret pt-3 text-[#f8fafc]" />
-                  </div>
-                  <div className="mt-6 grid grid-cols-3 gap-3 text-center">
-                    {[
-                      ["STT", "84ms"],
-                      ["LLM", "112ms"],
-                      ["Turn", "196ms"],
-                    ].map(([k, v]) => (
-                      <div key={k} className="glass rounded-lg p-3 border border-white/[0.06]">
-                        <p className="text-[#ff2d78] font-bold text-base sm:text-lg">{v}</p>
-                        <p className="text-[9px] tracking-[0.2em] uppercase text-[#a098b0] mt-1">{k}</p>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              </div>
+              ))}
             </div>
           </div>
         </section>
 
-        {/* ═══════════ SECTION 3 — PINNED 4-HOP PIPELINE (50–80%) ═══════════ */}
-        <section id="pipeline-section" className="relative" style={{ height: "320vh" }}>
-          <div className="sticky top-0 min-h-screen flex items-center overflow-hidden">
-            <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 w-full grid lg:grid-cols-[1fr_1.2fr] gap-10 items-center py-20">
-              <div>
-                <span className="font-label text-[#c084fc] tracking-[0.25em] uppercase text-xs neon-text-sm">02 — Architecture</span>
-                <h2 className="font-headline font-extrabold text-3xl sm:text-5xl mt-3 tracking-tight text-[#f8fafc]">
-                  Four hops.
-                  <br />
-                  <span className="text-[#a098b0]">Zero humans until escalation.</span>
-                </h2>
-                <p className="mt-4 text-[#a098b0] max-w-sm text-sm sm:text-base leading-relaxed font-body">
-                  Every call flows through the same audited pipeline. Scroll to trace a packet from ring to resolution.
-                </p>
-                <div className="mt-8 glass rounded-xl p-4 inline-flex items-baseline gap-3 border border-white/[0.08]">
-                  <span className="font-label text-[10px] tracking-[0.2em] uppercase text-[#a098b0]">Hop latency</span>
-                  <span id="pipe-latency" className="font-headline text-3xl font-black text-[#ff2d78] neon-text">
-                    38ms
-                  </span>
-                </div>
-              </div>
-
-              <div className="relative pl-8">
-                {/* rail */}
-                <div className="absolute left-2 top-0 bottom-0 w-px bg-white/[0.08]" aria-hidden="true">
-                  <div id="pipe-rail-fill" className="pipe-rail w-px" style={{ height: "0%" }} />
-                </div>
-                <div className="space-y-4">
-                  {[
-                    {
-                      step: "01",
-                      title: "Amazon Connect",
-                      desc: "UK DID answers, streams PCM audio to VoxFlow over TLS.",
-                      lat: "38ms",
-                    },
-                    {
-                      step: "02",
-                      title: "Whisper + LLM",
-                      desc: "Groq STT → Llama-3-70b reasoning → tool calls.",
-                      lat: "84ms",
-                    },
-                    {
-                      step: "03",
-                      title: "Tenant DB + Google Sheets",
-                      desc: "Scoped reads/writes, live sheet mirror per tenant.",
-                      lat: "112ms",
-                    },
-                    {
-                      step: "04",
-                      title: "Voice back + logs",
-                      desc: "Edge TTS reply; transcript, invoice & audit logged.",
-                      lat: "196ms",
-                    },
-                  ].map((s, i) => (
-                    <div key={s.step} data-pipe-step={i} className="pipe-step glass rounded-2xl p-5 sm:p-6 border border-white/[0.08]">
-                      <div className="flex items-baseline justify-between gap-4">
-                        <p className="font-label text-xs text-[#ff2d78] font-bold">{s.step}</p>
-                        <p className="font-label text-xs text-[#a098b0]">{s.lat}</p>
-                      </div>
-                      <h3 className="mt-1 font-headline font-bold text-lg text-[#f8fafc]">{s.title}</h3>
-                      <p className="mt-1 text-sm leading-6 text-[#a098b0] font-body">{s.desc}</p>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            </div>
-          </div>
-        </section>
-
-        {/* ═══════════ SECTION 4 — SHEETS MIRROR (80–100%) ═══════════ */}
-        <section id="sheets-section" className="py-20 sm:py-28 relative">
+        {/* ═══════════ DUAL-POV TELEMETRY REVEAL ═══════════ */}
+        <section className="py-20 sm:py-28 relative" id="solutions">
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
             <div className="mb-12 reveal">
-              <span className="font-label text-[#c084fc] tracking-[0.25em] uppercase text-xs neon-text-sm">03 — Two-way live sync</span>
+              <span className="font-label text-[#c084fc] tracking-[0.25em] uppercase text-xs neon-text-sm">
+                02 — Real-Time Telemetry
+              </span>
               <h2 className="font-headline font-extrabold text-3xl sm:text-5xl mt-3 tracking-tight text-[#f8fafc]">
-                The call writes
+                Caller hears a human.
                 <br />
-                <span className="text-[#a098b0]">your Google Sheet.</span>
+                <span className="text-[#a098b0]">You see the machine.</span>
               </h2>
             </div>
 
-            <div className="grid lg:grid-cols-2 gap-6 items-stretch">
-              {/* Transcript trigger */}
-              <div className="glass rounded-2xl p-5 sm:p-7 flex flex-col border border-white/[0.08]">
-                <span className="font-label text-[10px] tracking-[0.2em] uppercase text-[#a098b0] mb-5">
-                  Transcript → tool calls
-                </span>
-                <div className="space-y-3 font-label text-xs sm:text-sm flex-1">
-                  <p className="text-[#a098b0]">
-                    <span className="text-[#f8fafc]">caller:</span> &ldquo;move delivery to Friday morning&rdquo;
-                  </p>
-                  <p className="text-[#ff2d78]">→ update_order(INV-4471, window=&quot;FRI 08–11&quot;)</p>
-                  <p className="text-[#a098b0]">
-                    <span className="text-[#f8fafc]">agent:</span> &ldquo;Done — confirmation SMS sent.&rdquo;
-                  </p>
-                  <p className="text-[#ff2d78]">→ log_call(outcome=&quot;rescheduled&quot;, pin_verified=true)</p>
+            <div className="grid lg:grid-cols-2 gap-6">
+              {/* Caller Chat Mockup */}
+              <div className="glass rounded-2xl p-5 sm:p-7 border border-white/[0.08]">
+                <div className="flex items-center justify-between mb-5">
+                  <span className="font-label text-[10px] tracking-[0.2em] uppercase text-[#a098b0]">Caller POV</span>
+                  <span className="flex items-center gap-1.5 font-label text-[10px] text-[#10b981]">
+                    <span className="w-1.5 h-1.5 rounded-full bg-[#10b981] animate-pulse" /> LIVE • +44 20 7946 0821
+                  </span>
                 </div>
-                <p id="sheet-commit-label" className="mt-6 font-label text-[11px] text-[#ff2d78] font-semibold">
-                  awaiting tool call…
-                </p>
+                <div className="space-y-3 font-body text-sm">
+                  <div className="max-w-[85%] rounded-2xl rounded-bl-sm bg-white/[0.04] border border-white/[0.08] p-3.5 text-[#f8fafc]">
+                    &ldquo;Hi, I need to check the inventory status for item SKU-9941.&rdquo;
+                    <span className="block mt-1 font-label text-[9px] text-[#a098b0]">English • caller</span>
+                  </div>
+                  <div className="ml-auto max-w-[85%] rounded-2xl rounded-br-sm bg-[#ff2d78]/[0.12] border border-[#ff2d78]/40 p-3.5 text-[#f8fafc]">
+                    &ldquo;SKU-9941 has 320 units available at Central Depot. Delivery window is open for Thursday.&rdquo;
+                    <span className="block mt-1 font-label text-[9px] text-[#ff2d78] font-semibold">VoxFlow • 0.6s turn</span>
+                  </div>
+                  <div className="max-w-[85%] rounded-2xl rounded-bl-sm bg-white/[0.04] border border-white/[0.08] p-3.5 text-[#f8fafc]">
+                    &ldquo;कृपया 50 यूनिट्स बुक करके शुक्रवार सुबह का स्लॉट कन्फर्म कर दीजिए।&rdquo;
+                    <span className="block mt-1 font-label text-[9px] text-[#a098b0]">Hindi • caller</span>
+                  </div>
+                  <div className="ml-auto max-w-[85%] rounded-2xl rounded-br-sm bg-[#ff2d78]/[0.12] border border-[#ff2d78]/40 p-3.5 text-[#f8fafc]">
+                    &ldquo;50 यूनिट्स बुक कर दी गई हैं। शुक्रवार 08:00–11:00 का स्लॉट लॉक हो गया है और एसएमएस भेज दिया गया है।&rdquo;
+                    <span className="block mt-1 font-label text-[9px] text-[#ff2d78] font-semibold">VoxFlow • tool call ✓</span>
+                  </div>
+                </div>
               </div>
 
-              {/* Frosted sheets UI */}
-              <div className="glass rounded-2xl border border-white/[0.08] overflow-hidden">
-                <div className="flex items-center gap-2 px-4 py-3 border-b border-white/[0.06] bg-white/[0.02]">
-                  <span className="material-symbols-outlined text-[#10b981] text-lg">table</span>
-                  <span className="font-label text-xs text-[#f8fafc]">VoxFlow — Call Log</span>
-                  <span className="ml-auto font-label text-[10px] text-[#10b981]">● syncing</span>
+              {/* Engine Log Terminal */}
+              <div className="glass glow-hover rounded-2xl p-5 sm:p-7 font-label text-xs sm:text-sm border border-white/[0.08]">
+                <div className="flex items-center justify-between mb-5">
+                  <span className="text-[10px] tracking-[0.2em] uppercase text-[#a098b0]">Engine POV</span>
+                  <span className="text-[10px] text-[#c084fc]">voxflow-core • eu-west-2</span>
                 </div>
-                <div className="p-2 sm:p-3 text-[11px] sm:text-xs font-label">
-                  <div className="grid grid-cols-4 gap-px text-[#a098b0] uppercase tracking-wider text-[9px] px-2 py-2">
-                    <span>Time</span>
-                    <span>Caller</span>
-                    <span>Outcome</span>
-                    <span>PIN</span>
-                  </div>
+                <div className="space-y-2.5 text-[#a098b0]">
+                  <p><span className="text-white/30">00:00.041</span> connect.stream → PCM 16kHz attached</p>
+                  <p><span className="text-white/30">00:00.125</span> Groq Whisper STT ............ <span className="text-[#f8fafc]">84ms</span></p>
+                  <p><span className="text-white/30">00:00.237</span> Llama-3-70b tool call ....... <span className="text-[#f8fafc]">112ms</span></p>
+                  <p><span className="text-white/30">00:00.288</span> lang detect: hi → en bridge .. <span className="text-[#f8fafc]">51ms</span></p>
+                  <p><span className="text-white/30">00:00.391</span> sheets.mirror(commit) ....... <span className="text-[#f8fafc]">63ms</span></p>
+                  <p><span className="text-white/30">00:00.196</span> Total glass-to-glass turn ... <span className="text-[#ff2d78] font-bold">196ms</span></p>
+                  <p className="term-caret pt-3 text-[#f8fafc]" />
+                </div>
+                <div className="mt-6 grid grid-cols-3 gap-3 text-center">
                   {[
-                    ["14:02:11", "+44 7700 9123", "rescheduled", "✓"],
-                    ["14:02:09", "+44 161 496 002", "invoice sent", "✓"],
-                    ["13:58:44", "+44 113 496 881", "stock check", "✓"],
-                    ["13:51:02", "+44 20 7946 082", "escalated", "—"],
-                  ].map((row, i) => (
-                    <div
-                      key={i}
-                      data-sheet-row={i}
-                      className="sheet-row grid grid-cols-4 gap-px rounded-md px-2 py-2.5 text-[#f8fafc]"
-                    >
-                      {row.map((c, j) => (
-                        <span key={j} className={j === 3 ? "text-[#10b981] font-bold" : ""}>
-                          {c}
-                        </span>
-                      ))}
+                    ["STT", "84ms"],
+                    ["LLM", "112ms"],
+                    ["Turn", "196ms"],
+                  ].map(([k, v]) => (
+                    <div key={k} className="glass rounded-lg p-3 border border-white/[0.06]">
+                      <p className="text-[#ff2d78] font-bold text-base sm:text-lg">{v}</p>
+                      <p className="text-[9px] tracking-[0.2em] uppercase text-[#a098b0] mt-1">{k}</p>
                     </div>
                   ))}
                 </div>
@@ -636,7 +472,7 @@ export default function Home() {
           </div>
         </section>
 
-        {/* ═══════════ SECTION 5 — ECOSYSTEM INTEGRATIONS ═══════════ */}
+        {/* ═══════════ CONNECTED ECOSYSTEM ═══════════ */}
         <section className="py-20 sm:py-28 relative" id="network">
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
             <div className="text-center mb-14 reveal">
@@ -644,10 +480,10 @@ export default function Home() {
                 ✦ Connected Ecosystem
               </span>
               <h2 className="font-headline font-bold text-3xl sm:text-5xl tracking-tight text-[#f8fafc]">
-                Seamless Connectivity
+                Seamless Stack Connectivity
               </h2>
               <p className="text-[#a098b0] text-base sm:text-lg max-w-2xl mx-auto mt-4 font-body">
-                VoxFlow plugs directly into your existing supply chain infrastructure with zero friction.
+                VoxFlow plugs directly into your existing communication, spreadsheet, and database tooling.
               </p>
             </div>
 
@@ -655,12 +491,12 @@ export default function Home() {
               {[
                 { name: "Amazon Connect", desc: "UK Telephony SIP Streams", icon: "call" },
                 { name: "Google Sheets", desc: "Live 2-Way Sheet Mirror", icon: "table_chart" },
-                { name: "Groq Whisper", desc: "Sub-100ms Fast STT", icon: "graphic_eq" },
-                { name: "Llama 3 Reasoning", desc: "Tool & Function Calling", icon: "psychology" },
-                { name: "Twilio SMS", desc: "Instant POD Confirmations", icon: "sms" },
+                { name: "Twilio SMS", desc: "Instant Dispatch Confirmations", icon: "sms" },
+                { name: "PostgreSQL DB", desc: "Isolated Tenant Schema", icon: "database" },
                 { name: "Stripe Billing", desc: "Metered UK VAT Invoices", icon: "credit_card" },
-                { name: "PostgreSQL DB", desc: "Isolated Tenant RBAC", icon: "database" },
-                { name: "UK eu-west-2", desc: "GDPR Compliant Cloud", icon: "lock" },
+                { name: "Salesforce CRM", desc: "Automatic Contact Sync", icon: "sync" },
+                { name: "Slack & Teams", desc: "Instant Escalation Alerts", icon: "notifications" },
+                { name: "REST & Webhooks", desc: "Custom Automation API", icon: "api" },
               ].map((item) => (
                 <div
                   key={item.name}
@@ -677,68 +513,7 @@ export default function Home() {
           </div>
         </section>
 
-        {/* ═══════════ SECTION 6 — ENTERPRISE BENTO GRID ═══════════ */}
-        <section className="py-20 sm:py-28 relative" id="platform">
-          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-            <div className="mb-12 reveal">
-              <span className="font-label text-[#c084fc] tracking-[0.25em] uppercase text-xs neon-text-sm">
-                04 — Enterprise surface
-              </span>
-              <h2 className="font-headline font-extrabold text-3xl sm:text-5xl mt-3 tracking-tight text-[#f8fafc]">
-                Built for UK operations.
-              </h2>
-            </div>
-
-            {/* 6-item bento */}
-            <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4 stagger-children">
-              {[
-                {
-                  icon: "record_voice_over",
-                  t: "Dual-Engine Voice",
-                  d: "Whisper STT + Llama-3-70b reasoning, hot-swapped per tenant. Hindi & English native.",
-                },
-                {
-                  icon: "pin",
-                  t: "PIN Verification",
-                  d: "Caller identity verified against tenant DB before any order data is spoken aloud.",
-                },
-                {
-                  icon: "shield_lock",
-                  t: "GDPR Auto-Purge",
-                  d: "eu-west-2 residency. Transcripts purge on your retention schedule; DSAR in one click.",
-                },
-                {
-                  icon: "table",
-                  t: "Google Sheets Mirror",
-                  d: "Every tool call commits live to your Call Log tab. Ops team never leaves Sheets.",
-                },
-                {
-                  icon: "group",
-                  t: "RBAC Isolation",
-                  d: "3-tier roles, exact DID routing, zero cross-tenant leakage — verified every release.",
-                },
-                {
-                  icon: "credit_card",
-                  t: "Stripe Billing",
-                  d: "Metered minutes, VAT receipts, self-serve customer portal. Cancel anytime.",
-                },
-              ].map((f) => (
-                <div key={f.t} className="bento-card glow-hover glass rounded-2xl p-6 sm:p-7 border border-white/[0.08]">
-                  <span
-                    className="material-symbols-outlined text-[#ff2d78] text-2xl"
-                    style={{ fontVariationSettings: "'FILL' 1" }}
-                  >
-                    {f.icon}
-                  </span>
-                  <h3 className="mt-4 font-headline font-bold text-lg text-[#f8fafc]">{f.t}</h3>
-                  <p className="mt-2 text-sm leading-6 text-[#a098b0] font-body">{f.d}</p>
-                </div>
-              ))}
-            </div>
-          </div>
-        </section>
-
-        {/* ═══════════ SECTION 7 — TESTIMONIAL / TRUST PROOF ═══════════ */}
+        {/* ═══════════ TESTIMONIAL / TRUST PROOF ═══════════ */}
         <section className="py-16 sm:py-24 relative reveal" id="testimonial">
           <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
             <div className="glass rounded-3xl p-8 sm:p-14 border border-white/[0.1] relative overflow-hidden">
@@ -750,12 +525,12 @@ export default function Home() {
                 &ldquo;VoxFlow transformed our dispatch operations overnight. We scaled from 50 to 2,500 daily driver calls without hiring extra operators. The English-Hindi multilingual accuracy is unreal.&rdquo;
               </blockquote>
               <p className="font-headline font-bold text-sm text-[#ff2d78]">Director of Logistics</p>
-              <p className="font-body text-xs text-[#a098b0]">UK Beverage & Ambient Freight Network (West Midlands)</p>
+              <p className="font-body text-xs text-[#a098b0]">UK Beverage &amp; Freight Network</p>
             </div>
           </div>
         </section>
 
-        {/* ═══════════ SECTION 8 — FAQ ACCORDION ═══════════ */}
+        {/* ═══════════ FAQ ACCORDION ═══════════ */}
         <section className="py-16 sm:py-24 relative" id="faq">
           <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
             <h2 className="text-center font-headline font-extrabold text-2xl sm:text-4xl text-[#f8fafc] mb-10">
@@ -796,7 +571,7 @@ export default function Home() {
           </div>
         </section>
 
-        {/* ═══════════ SECTION 9 — BOTTOM CONVERSION BANNER ═══════════ */}
+        {/* ═══════════ BOTTOM CONVERSION BANNER ═══════════ */}
         <section className="py-20 sm:py-28 relative" id="cta">
           <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 reveal-scale">
             <div className="glass rounded-3xl p-8 sm:p-14 text-center relative overflow-hidden border border-[#ff2d78]/30 shadow-[0_0_50px_rgba(255,45,120,0.15)]">
@@ -825,7 +600,7 @@ export default function Home() {
                   href="/dashboard/simulator"
                   className="btn-ghost-obs inline-flex items-center justify-center gap-2 px-8 sm:px-10 py-4 sm:py-5 font-headline font-bold rounded-xl text-sm sm:text-base"
                 >
-                  Live Demo
+                  Live Simulator
                 </Link>
               </div>
             </div>
