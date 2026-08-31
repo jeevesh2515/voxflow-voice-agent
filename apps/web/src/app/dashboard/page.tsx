@@ -203,20 +203,7 @@ export default function DashboardOverview() {
                 </div>
               </SectionCard>
 
-              {/* Active & Recent Interactions Table */}
-              <SectionCard
-                title="Recent Interactions"
-                subtitle="Latest call logs across your workspace"
-                icon={<Activity size={18} className="text-[#ff2d78]" />}
-                action={
-                  <Link
-                    href="/dashboard/calls"
-                    className="text-xs font-bold uppercase tracking-widest text-[#a098b0] hover:text-[#ff2d78] transition-colors flex items-center gap-1"
-                  >
-                    View All <ChevronRight size={14} />
-                  </Link>
-                }
-              >
+              <SectionCard className="no-pad" title="Recent Interactions" subtitle="Latest call logs across your workspace" icon={<Activity size={16} className="text-[#ff2d78]" />} action={<Link href="/dashboard/calls" className="text-[11px] font-bold uppercase tracking-widest text-[#64748b] hover:text-[#ff2d78] transition-colors flex items-center gap-1">View All <ChevronRight size={13} /></Link>}>
                 <div className="overflow-x-auto">
                   <table className="w-full text-left border-collapse">
                     <thead className="text-[10px] font-mono uppercase tracking-widest text-[#a098b0] border-b border-[#302840]/40">

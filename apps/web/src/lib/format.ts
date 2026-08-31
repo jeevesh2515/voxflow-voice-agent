@@ -25,16 +25,20 @@ export function fmtDuration(sec: number): string {
 
 export function statusColor(status: string): string {
   const s = status.toLowerCase();
-  if (["shipped", "delivered", "resolved", "confirmed"].includes(s)) return "text-success-500";
-  if (["in_transit", "out_for_delivery", "in_progress", "pending"].includes(s)) return "text-warn-500";
-  if (["cancelled", "delayed", "escalated", "abandoned", "error"].includes(s)) return "text-danger-500";
-  return "text-ink-300";
+  if (["delivered", "shipped", "resolved", "confirmed", "completed"].includes(s)) return "text-[#00ffcc]";
+  if (["in_transit", "out_for_delivery", "in_progress"].includes(s)) return "text-[#00ffcc]";
+  if (["pending", "escalated"].includes(s)) return "text-[#f59e0b]";
+  if (["past_due", "breached", "cancelled", "delayed", "abandoned", "error"].includes(s)) return "text-[#ef4444]";
+  return "text-[#94a3b8]";
 }
-
 export function statusBg(status: string): string {
   const s = status.toLowerCase();
-  if (["shipped", "delivered", "resolved", "confirmed"].includes(s)) return "bg-success-500/10 border-success-500/30";
-  if (["in_transit", "out_for_delivery", "in_progress", "pending"].includes(s)) return "bg-warn-500/10 border-warn-500/30";
-  if (["cancelled", "delayed", "escalated", "abandoned", "error"].includes(s)) return "bg-danger-500/10 border-danger-500/30";
-  return "bg-ink-700/40 border-ink-600/40";
+  if (["delivered", "shipped", "resolved", "confirmed", "completed"].includes(s)) return "bg-[#00ffcc]/10 border-[#00ffcc]/20";
+  if (["in_transit", "out_for_delivery", "in_progress"].includes(s)) return "bg-[#00ffcc]/10 border-[#00ffcc]/20";
+  if (["pending", "escalated"].includes(s)) return "bg-[#f59e0b]/10 border-[#f59e0b]/20";
+  if (["past_due", "breached", "cancelled", "delayed", "abandoned", "error"].includes(s)) return "bg-[#ef4444]/10 border-[#ef4444]/20";
+  return "bg-white/[0.04] border-white/[0.06]";
+}
+export function copyId(id: string) {
+  if (typeof navigator !== "undefined" && navigator.clipboard) navigator.clipboard.writeText(id);
 }

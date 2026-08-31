@@ -1,6 +1,13 @@
+"use client";
+
 import Link from "next/link";
+import { usePathname } from "next/navigation";
 
 export default function Footer() {
+  const pathname = usePathname();
+  const isDashboard = pathname?.startsWith("/dashboard");
+  if (isDashboard) return null;
+
   return (
     <footer
       className="bg-surface-container-lowest pt-16 sm:pt-20 pb-8 sm:pb-12 border-t border-outline-variant/15 reveal"

@@ -41,8 +41,11 @@ export default function StockPage() {
     {
       key: "sku",
       label: "SKU",
-      className: "font-mono text-vox-300 text-xs",
-      render: (s: any) => <span className="font-mono text-[#ff2d78] text-xs">{s.sku}</span>,
+      render: (s: any) => (
+        <button onClick={() => navigator.clipboard?.writeText(s.sku)} title="Copy SKU" className="font-mono text-[#ff2d78] text-xs font-bold hover:underline underline-offset-2">
+          {s.sku}
+        </button>
+      ),
     },
     {
       key: "name",
@@ -82,11 +85,8 @@ export default function StockPage() {
   ];
 
   return (
-    <div className="space-y-6">
-      <SectionCard
-        title="Stock & Inventory"
-        subtitle={`${activeTenant.name} · ${stock?.length ?? 0} SKUs`}
-        icon={<Boxes size={18} className="text-[#00ffcc]" />}
+    <div className="space-y-5">
+      <SectionCard className="no-pad" title="Stock & Inventory" subtitle={`${activeTenant.name} · ${stock?.length ?? 0} SKUs`} icon={<Boxes size={16} className="text-[#00ffcc]" />}
         action={
           <div className="flex items-center gap-2">
             <button

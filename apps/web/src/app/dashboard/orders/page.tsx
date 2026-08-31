@@ -43,7 +43,11 @@ export default function OrdersPage() {
     {
       key: "id",
       label: "Order ID",
-      render: (o: Order) => <span className="font-mono text-[#ff2d78] text-xs font-bold">{o.id}</span>,
+      render: (o: Order) => (
+        <button onClick={() => navigator.clipboard?.writeText(o.id)} title="Copy ID" className="font-mono text-[#ff2d78] text-xs font-bold hover:underline underline-offset-2 cursor-pointer">
+          {o.id.slice(0, 8)}<span className="opacity-40">…{o.id.slice(-4)}</span>
+        </button>
+      ),
     },
     {
       key: "supplier",
@@ -82,11 +86,8 @@ export default function OrdersPage() {
   ];
 
   return (
-    <div className="space-y-6">
-      <SectionCard
-        title="Purchase Orders"
-        subtitle={`${activeTenant.name} · ${orders?.length ?? 0} total`}
-        icon={<Package size={18} className="text-[#ff2d78]" />}
+    <div className="space-y-5">
+      <SectionCard className="no-pad" title="Purchase Orders" subtitle={`${activeTenant.name} · ${orders?.length ?? 0} total`} icon={<Package size={16} className="text-[#ff2d78]" />}
         action={
           <div className="flex items-center gap-2">
             <button
@@ -97,21 +98,11 @@ export default function OrdersPage() {
               <span>Import CSV</span>
             </button>
             <div className="relative">
-              <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-[#a098b0]" />
-              <input
-                type="text"
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-                placeholder="Search orders..."
-                className="pl-9 pr-4 py-2 rounded-lg bg-[#0a0a12] border border-[#302840] text-xs text-[#e8e0f0] placeholder-[#5a5068] focus:outline-none focus:border-[#ff2d78]/50 w-48"
-              />
+              <Search size={13} className="absolute left-3 top-1/2 -translate-y-1/2 text-[#64748b]" />
+              <input type="text" value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search orders…" className="pl-8 pr-3 py-2 rounded-xl bg-[#07070e] border border-white/[0.07] text-xs text-[#f8fafc] placeholder-[#64748b] focus:outline-none focus:border-[#ff2d78]/30 w-44" />
             </div>
             <div className="relative">
-              <select
-                value={statusFilter}
-                onChange={(e) => setStatusFilter(e.target.value)}
-                className="appearance-none bg-[#0a0a12] border border-[#302840] text-xs text-[#e8e0f0] rounded-lg px-3 py-2 pr-8 focus:outline-none focus:border-[#ff2d78]/50"
-              >
+              <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)} className="appearance-none bg-[#07070e] border border-white/[0.07] text-xs text-[#f8fafc] rounded-xl px-3 py-2 pr-7 focus:outline-none focus:border-[#ff2d78]/30">
                 <option value="all">All Status</option>
                 {statuses.map((s) => (
                   <option key={s} value={s}>{s}</option>

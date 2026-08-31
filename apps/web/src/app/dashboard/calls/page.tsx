@@ -85,7 +85,7 @@ export default function CallsPage() {
       key: "id",
       label: "ID",
       render: (c: Call) => (
-        <span className="font-mono text-[#ff2d78] font-bold text-xs">#{c.id.slice(0, 8)}</span>
+        <button onClick={() => navigator.clipboard?.writeText(c.id)} title="Copy ID" className="font-mono text-[#ff2d78] font-bold text-xs hover:underline underline-offset-2">#{c.id.slice(0, 8)}</button>
       ),
     },
     {
@@ -143,11 +143,8 @@ export default function CallsPage() {
   ];
 
   return (
-    <div className="space-y-6">
-      <SectionCard
-        title="Call Logs & Transcripts"
-        subtitle={`${activeTenant.name} · ${calls?.length ?? 0} calls`}
-        icon={<PhoneCall size={18} className="text-[#ff2d78]" />}
+    <div className="space-y-5">
+      <SectionCard className="no-pad" title="Call Logs & Transcripts" subtitle={`${activeTenant.name} · ${calls?.length ?? 0} calls`} icon={<PhoneCall size={16} className="text-[#ff2d78]" />}
         action={
           <div className="flex items-center gap-2">
             <div className="relative">

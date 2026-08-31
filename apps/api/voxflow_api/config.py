@@ -78,7 +78,7 @@ class Settings(BaseSettings):
     # ----- API -----
     api_host: str = "0.0.0.0"
     api_port: int = 8000
-    api_cors_origins: str = "http://localhost:3000"
+    api_cors_origins: str = "http://localhost:3000,http://127.0.0.1:3000,https://voxflow-voice-agent.vercel.app"
 
     # ----- Database & Supabase -----
     database_url: str = "sqlite:////tmp/voxflow-data/voxflow.db"

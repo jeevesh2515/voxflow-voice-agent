@@ -173,61 +173,43 @@ export default function PricingPage() {
         </span>
       </div>
 
-      {/* Pricing Cards — 3 Columns */}
-      <StaggerContainer className="max-w-6xl mx-auto grid grid-cols-1 md:grid-cols-3 gap-6 mb-14">
-        {TIERS.map((tier) => (
-          <StaggerItem
-            key={tier.id}
-            className={`relative rounded-2xl border p-6 sm:p-7 flex flex-col transition-all duration-300 ${
-              tier.popular
-                ? "border-[#ff2d78]/60 bg-[#141422] shadow-[0_0_40px_rgba(255,45,120,0.18)] hover:border-[#ff2d78] scale-[1.02] z-10"
-                : "border-[#302840]/40 bg-[#0f0f1a]/80 hover:border-[#ff2d78]/40"
-            }`}
-          >
-            {tier.tag && (
-              <span className="absolute -top-3 left-1/2 -translate-x-1/2 whitespace-nowrap text-[10px] font-label font-bold uppercase tracking-widest bg-[#ff2d78] text-[#1a0010] px-3.5 py-1 rounded-full shadow-[0_0_12px_rgba(255,45,120,0.6)]">
-                {tier.tag}
-              </span>
-            )}
+      <StaggerContainer className="max-w-6xl mx-auto grid grid-cols-1 md:grid-cols-3 gap-5 mb-12">
+        {TIERS.map((tier) =>
+          tier.popular ? (
+            <div key={tier.id} className="relative bg-gradient-to-b from-[#ff2d78] to-[#00ffcc] p-[1px] rounded-2xl shadow-[0_0_40px_rgba(255,45,120,0.18)] scale-[1.02] z-10">
+              <StaggerItem className="relative rounded-2xl bg-[#0f0f1c] p-6 sm:p-7 flex flex-col h-full">
+                <span className="absolute -top-3 left-1/2 -translate-x-1/2 whitespace-nowrap text-[10px] font-mono font-bold uppercase tracking-widest bg-[#ff2d78] text-white px-3.5 py-1 rounded-full shadow-[0_0_12px_rgba(255,45,120,0.6)]">
+                  {tier.tag}
+                </span>
             <div className="mb-1 flex items-center gap-2">
-              <h3 className="font-headline font-bold text-xl text-[#e8e0f0]">{tier.name}</h3>
-              {tier.id === "enterprise" && <Sparkles size={14} className="text-[#ffe04a]" />}
+              <h3 className="font-headline font-bold text-xl text-[#f8fafc]">{tier.name}</h3>
+              {tier.id === "enterprise" && <Sparkles size={14} className="text-[#f59e0b]" />}
+              {tier.id === "starter" && <span className="text-[10px] font-mono tracking-widest uppercase text-[#64748b]">Single depot</span>}
             </div>
             <div className="flex items-baseline gap-1 mb-1">
-              <span className="font-headline font-black text-4xl sm:text-5xl text-[#e8e0f0]">
-                {displayPrice(tier)}
-              </span>
-              <span className="text-xs font-label text-[#a098b0]">/ month</span>
+              <span className="font-headline font-black text-4xl sm:text-5xl text-[#f8fafc]">{displayPrice(tier)}</span>
+              <span className="text-xs font-mono text-[#64748b]">/ month</span>
             </div>
-            <p className="mb-5 text-[11px] text-[#a098b0]">
-              {annual ? "Billed annually" : "Billed monthly"} • 14-day free trial
-            </p>
-            <ul className="space-y-3 mb-8 flex-1">
-              {tier.features.map((f) => (
-                <li
-                  key={f}
-                  className="flex items-start gap-2.5 text-xs sm:text-sm text-[#e8e0f0]/90 font-body"
-                >
-                  <Check size={15} className="text-[#00ffcc] mt-0.5 shrink-0" />
-                  {f}
-                </li>
-              ))}
+            <p className="mb-5 text-[11px] text-[#64748b]">{annual ? "Billed annually" : "Billed monthly"} • 14-day trial</p>
+            <ul className="space-y-2.5 mb-7 flex-1">
+              {tier.features.map((f) => (<li key={f} className="flex items-start gap-2.5 text-[13px] text-[#f8fafc]/90 leading-5"><Check size={14} className="text-[#00ffcc] mt-0.5 shrink-0" />{f}</li>))}
             </ul>
-            <Link
-              href={tier.href}
-              className={`text-center font-headline font-bold text-xs sm:text-sm px-5 py-3 rounded-xl transition-all duration-200 active:scale-95 ${
-                tier.popular
-                  ? "bg-[#ff2d78] text-[#1a0010] hover:shadow-[0_0_25px_rgba(255,45,120,0.5)]"
-                  : "bg-[#1e1e30] text-[#e8e0f0] hover:bg-[#28283e] border border-[#302840]/60"
-              }`}
-            >
-              {tier.cta}
-            </Link>
-            <p className="mt-3 text-center text-[10px] text-[#a098b0]">
-              {currency === "gbp" ? "£ GBP" : "$ USD"} • Cancel in Stripe Portal
-            </p>
-          </StaggerItem>
-        ))}
+            <Link href={tier.href} className={`text-center font-bold text-sm px-5 py-3 rounded-xl transition-all active:scale-95 ${tier.popular ? "bg-[#ff2d78] text-white shadow-[0_0_25px_rgba(255,45,120,0.35)] hover:shadow-[0_0_30px_rgba(255,45,120,0.5)]" : "bg-white/[0.06] text-[#f8fafc] hover:bg-white/[0.10] border border-white/[0.07]"}`}>{tier.cta}</Link>
+            <p className="mt-3 text-center text-[10px] text-[#64748b]">{currency === "gbp" ? "£ GBP" : "$ USD"} • Cancel in Stripe Portal</p>
+              </StaggerItem>
+            </div>
+          ) : (
+            <StaggerItem key={tier.id} className="relative rounded-2xl border border-white/[0.06] bg-[#0f0f1c]/80 backdrop-blur-2xl p-6 sm:p-7 flex flex-col hover:border-white/[0.10] transition-all">
+              {tier.tag && (<span className="absolute -top-3 left-1/2 -translate-x-1/2 whitespace-nowrap text-[10px] font-mono font-bold uppercase tracking-widest bg-white/[0.08] text-[#94a3b8] border border-white/[0.07] px-3.5 py-1 rounded-full">{tier.tag}</span>)}
+              <div className="mb-1 flex items-center gap-2"><h3 className="font-bold text-xl text-[#f8fafc]">{tier.name}</h3>{tier.id === "enterprise" && <Sparkles size={14} className="text-[#f59e0b]" />}</div>
+              <div className="flex items-baseline gap-1 mb-1"><span className="font-black text-4xl sm:text-5xl text-[#f8fafc]">{displayPrice(tier)}</span><span className="text-xs font-mono text-[#64748b]">/ month</span></div>
+              <p className="mb-5 text-[11px] text-[#64748b]">{annual ? "Billed annually" : "Billed monthly"} • 14-day trial</p>
+              <ul className="space-y-2.5 mb-7 flex-1">{tier.features.map((f) => (<li key={f} className="flex items-start gap-2.5 text-[13px] text-[#f8fafc]/90 leading-5"><Check size={14} className="text-[#00ffcc] mt-0.5 shrink-0" />{f}</li>))}</ul>
+              <Link href={tier.href} className="text-center font-bold text-sm px-5 py-3 rounded-xl bg-white/[0.06] text-[#f8fafc] hover:bg-white/[0.10] border border-white/[0.07] transition-all active:scale-95">{tier.cta}</Link>
+              <p className="mt-3 text-center text-[10px] text-[#64748b]">{currency === "gbp" ? "£ GBP" : "$ USD"} • Cancel in Stripe Portal</p>
+            </StaggerItem>
+          )
+        )}
       </StaggerContainer>
 
       <p className="mx-auto mb-16 max-w-3xl text-center text-xs leading-5 text-[#a098b0]">
@@ -262,16 +244,6 @@ export default function PricingPage() {
           ))}
         </StaggerContainer>
       </div>
-
-      {/* Footer Legal & Stripe Links */}
-      <footer className="mt-20 pt-8 border-t border-[#302840]/60 flex flex-col sm:flex-row items-center justify-between text-xs text-[#a098b0] gap-4">
-        <p>© 2026 VoxFlow Technologies Ltd. UK Company. VAT receipts delivered via Stripe Portal.</p>
-        <div className="flex items-center gap-6">
-          <Link href="/terms" className="hover:text-white transition">Terms of Service</Link>
-          <Link href="/privacy" className="hover:text-white transition">Privacy Policy</Link>
-          <Link href="/refund" className="hover:text-white transition">Refund Policy</Link>
-        </div>
-      </footer>
     </div>
   );
 }
