@@ -222,10 +222,12 @@ def create_checkout_session(
 
     session = stripe.checkout.Session.create(**params)
     log.info("billing.checkout_session_created tenant_id=%s plan_tier=%s", tenant_id, tier)
+    session_id = getattr(session, "id", None) or (session.get("id") if isinstance(session, dict) else None)
+    checkout_url = getattr(session, "url", None) or (session.get("url") if isinstance(session, dict) else None)
     return {
         "mode": "live",
-        "session_id": session.get("id"),
-        "checkout_url": session.get("url"),
+        "session_id": session_id,
+        "checkout_url": checkout_url,
         "plan_tier": tier,
         "price_id": price_id or None,
         "amount_pence": PLAN_CATALOG[tier]["amount_pence"],
@@ -271,10 +273,11 @@ def create_customer_portal_session(
         customer=tenant.stripe_customer_id,
         return_url=destination,
     )
+    portal_url = getattr(session, "url", None) or (session.get("url") if isinstance(session, dict) else None)
     log.info("billing.portal_session_created tenant_id=%s", tenant_id)
     return {
         "mode": "live",
-        "portal_url": session.get("url"),
+        "portal_url": portal_url,
         "customer_id": tenant.stripe_customer_id,
         "return_url": destination,
     }

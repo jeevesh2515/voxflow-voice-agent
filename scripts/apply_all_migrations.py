@@ -17,17 +17,15 @@ def apply_migrations():
     migrations_dir = Path(__file__).resolve().parent.parent / "migrations"
     migration_files = sorted(migrations_dir.glob("*.sql"))
 
-    with engine.begin() as conn:
-        for sql_file in migration_files:
-            print(f"Applying migration: {sql_file.name} ...")
-            content = sql_file.read_text(encoding="utf-8")
-            # For Postgres, execute the script
-            # Note: 000_base_schema is a complete create table if not exists
-            try:
+    for sql_file in migration_files:
+        print(f"Applying migration: {sql_file.name} ...")
+        content = sql_file.read_text(encoding="utf-8")
+        try:
+            with engine.begin() as conn:
                 conn.execute(text(content))
-                print(f"  ✓ {sql_file.name} applied successfully.")
-            except Exception as exc:
-                print(f"  ⚠ {sql_file.name} notice/error: {exc}")
+            print(f"  ✓ {sql_file.name} applied successfully.")
+        except Exception as exc:
+            print(f"  ⚠ {sql_file.name} notice/error: {exc}")
 
 
 if __name__ == "__main__":
