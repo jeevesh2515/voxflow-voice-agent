@@ -5,10 +5,49 @@ import { useEffect, useState } from "react";
 import CosmicStarfield from "@/components/CosmicStarfield";
 
 export default function Home() {
-  const [playing, setPlaying] = useState<"en" | "hi" | null>(null);
+  const [playing, setPlaying] = useState<VoiceKey | null>(null);
+  const [roiCalls, setRoiCalls] = useState(800);
+  const [roiMins, setRoiMins] = useState(4);
+  const [annualBilling, setAnnualBilling] = useState(true);
+
+  type VoiceKey = "en" | "hi" | "hinglish" | "us";
+  const VOICE_META: Record<VoiceKey, { label: string; lang: string; pitch: number; freq: [number, number]; text: string; bubble: string }> = {
+    en: {
+      label: "English",
+      lang: "en-GB",
+      pitch: 1.05,
+      freq: [440, 580],
+      text: "Hello! I am your autonomous AI voice agent. I handle incoming customer inquiries, verify orders and shipments, check real-time stock levels, and synchronize all call records directly to your database with sub-second latency.",
+      bubble: "“I handle incoming inquiries, verify orders and shipments, check real-time stock, and sync every record to your database — sub-second.”",
+    },
+    us: {
+      label: "US English",
+      lang: "en-US",
+      pitch: 1.0,
+      freq: [460, 600],
+      text: "Hey there! This is your AI voice agent. I answer inbound calls, check live inventory, confirm delivery windows, and write every outcome straight back to your systems. No hold music required.",
+      bubble: "“I answer inbound calls, check live inventory, confirm delivery windows, and write outcomes straight back to your systems.”",
+    },
+    hi: {
+      label: "Hindi",
+      lang: "hi-IN",
+      pitch: 0.98,
+      freq: [330, 390],
+      text: "नमस्ते! मैं आपका एआई वॉइस असिस्टेंट हूँ। मैं ग्राहकों की कॉल्स का जवाब दे सकता हूँ, ऑर्डर और शिपमेंट की स्थिति बता सकता हूँ, और सभी कॉल्स का डेटा सीधे आपके सिस्टम में तुरंत अपडेट कर सकता हूँ।",
+      bubble: "“मैं ग्राहकों की कॉल्स का जवाब दे सकता हूँ, ऑर्डर और शिपमेंट की स्थिति बता सकता हूँ, और सारा डेटा सीधे अपडेट कर सकता हूँ।”",
+    },
+    hinglish: {
+      label: "Hinglish",
+      lang: "hi-IN",
+      pitch: 1.0,
+      freq: [380, 480],
+      text: "नमस्ते! आपका ऑर्डर verify हो गया है। 48 units dispatch हो चुके हैं, और delivery Friday सुबह 8 से 11 बजे confirm कर दी है। Sheet भी update कर दी है।",
+      bubble: "“ऑर्डर verify हो गया — 48 units dispatched, delivery Friday 8–11 confirm. Sheet भी update कर दी।”",
+    },
+  };
 
   // Natural Lifelike Feature-Focused Voice Playback (No company names, pure capability showcase)
-  const playSample = (lang: "en" | "hi") => {
+  const playSample = (lang: VoiceKey) => {
     if (typeof window === "undefined") return;
 
     if (playing) {
@@ -20,29 +59,23 @@ export default function Home() {
     }
 
     setPlaying(lang);
+    const meta = VOICE_META[lang];
 
     // 1. Natural Spoken Audio via SpeechSynthesis
     if ("speechSynthesis" in window) {
       window.speechSynthesis.cancel();
 
-      const text =
-        lang === "en"
-          ? "Hello! I am your autonomous AI voice agent. I handle incoming customer inquiries, verify orders and shipments, check real-time stock levels, and synchronize all call records directly to your database with sub-second latency. How can I assist your business today?"
-          : "नमस्ते! मैं आपका एआई वॉइस असिस्टेंट हूँ। मैं ग्राहकों की कॉल्स का जवाब दे सकता हूँ, ऑर्डर और शिपमेंट की स्थिति बता सकता हूँ, और सभी कॉल्स का डेटा सीधे आपके सिस्टम में तुरंत अपडेट कर सकता हूँ। मैं आपकी क्या सहायता करूँ?";
-
-      const utterance = new SpeechSynthesisUtterance(text);
-      utterance.lang = lang === "en" ? "en-GB" : "hi-IN";
+      const utterance = new SpeechSynthesisUtterance(meta.text);
+      utterance.lang = meta.lang;
       utterance.rate = 1.02;
-      utterance.pitch = lang === "en" ? 1.05 : 0.98;
+      utterance.pitch = meta.pitch;
 
       utterance.onend = () => setPlaying(null);
       utterance.onerror = () => setPlaying(null);
 
       const voices = window.speechSynthesis.getVoices();
       const matchedVoice = voices.find((v) =>
-        lang === "en"
-          ? v.lang.includes("en-GB") || v.lang.includes("en-US")
-          : v.lang.includes("hi")
+        lang === "hi" || lang === "hinglish" ? v.lang.includes("hi") : v.lang.includes(meta.lang)
       );
       if (matchedVoice) utterance.voice = matchedVoice;
 
@@ -65,8 +98,8 @@ export default function Home() {
       filter.frequency.value = 1600;
 
       osc.type = "sine";
-      osc.frequency.setValueAtTime(lang === "en" ? 440 : 330, ctx.currentTime);
-      osc.frequency.exponentialRampToValueAtTime(lang === "en" ? 580 : 390, ctx.currentTime + 0.3);
+      osc.frequency.setValueAtTime(meta.freq[0], ctx.currentTime);
+      osc.frequency.exponentialRampToValueAtTime(meta.freq[1], ctx.currentTime + 0.3);
 
       gain.gain.setValueAtTime(0.001, ctx.currentTime);
       gain.gain.linearRampToValueAtTime(0.08, ctx.currentTime + 0.05);
@@ -106,8 +139,74 @@ export default function Home() {
     );
     els.forEach((el) => obs.observe(el));
 
+    // ── Kinetic scroll engine (rAF, class toggles only) ──
+    const tele = document.getElementById("solutions");
+    const pipe = document.getElementById("pipeline-section");
+    const sheets = document.getElementById("sheets-section");
+    let ticking = false;
+
+    const clamp01 = (v: number) => Math.min(1, Math.max(0, v));
+    const prog = (el: HTMLElement) => {
+      const r = el.getBoundingClientRect();
+      return clamp01((window.innerHeight - r.top) / (window.innerHeight + r.height * 0.8));
+    };
+
+    const onScroll = () => {
+      if (ticking) return;
+      ticking = true;
+      requestAnimationFrame(() => {
+        ticking = false;
+
+        // Dual-POV sync
+        if (tele) {
+          const p = prog(tele);
+          const step = Math.min(3, Math.floor(p * 5) - 1);
+          tele.querySelectorAll<HTMLElement>("[data-tele-step]").forEach((n) => {
+            n.classList.toggle("telemetry-hot", Number(n.dataset.teleStep) <= step);
+          });
+          tele.querySelectorAll<HTMLElement>("[data-bubble-step]").forEach((n) => {
+            n.classList.toggle("bubble-pending", Number(n.dataset.bubbleStep) > step);
+          });
+        }
+
+        // Pinned pipeline highlight
+        if (pipe) {
+          const r = pipe.getBoundingClientRect();
+          const p = clamp01(-r.top / Math.max(r.height - window.innerHeight, 1));
+          const active = Math.min(3, Math.floor(p * 4));
+          pipe.querySelectorAll<HTMLElement>("[data-pipe-step]").forEach((n) => {
+            n.classList.toggle("pipe-active", Number(n.dataset.pipeStep) === active);
+          });
+          const rail = document.getElementById("pipe-rail-fill");
+          if (rail) rail.style.height = `${p * 100}%`;
+          const badge = document.getElementById("pipe-latency");
+          if (badge) {
+            const lat = ["38ms", "84ms", "112ms", "196ms"][active];
+            if (badge.textContent !== lat) badge.textContent = lat;
+          }
+        }
+
+        // Sheets mirror row flash
+        if (sheets) {
+          const p = prog(sheets);
+          const litRows = Math.floor(clamp01((p - 0.25) / 0.5) * 4);
+          sheets.querySelectorAll<HTMLElement>("[data-sheet-row]").forEach((n) => {
+            n.classList.toggle("sheet-flash", Number(n.dataset.sheetRow) < litRows);
+          });
+          const commit = document.getElementById("sheet-commit-label");
+          if (commit) {
+            const label = litRows === 0 ? "awaiting tool call…" : `commit ${litRows}/4 → Call Log tab`;
+            if (commit.textContent !== label) commit.textContent = label;
+          }
+        }
+      });
+    };
+    window.addEventListener("scroll", onScroll, { passive: true });
+    onScroll();
+
     return () => {
       obs.disconnect();
+      window.removeEventListener("scroll", onScroll);
     };
   }, []);
 
@@ -167,7 +266,9 @@ export default function Home() {
                 <span className="text-xs font-label text-[#a098b0] uppercase tracking-wider">
                   Test Voice Engine:
                 </span>
-                {([["en", "English"], ["hi", "Hindi"]] as const).map(([lang, label]) => (
+                {(Object.keys(VOICE_META) as VoiceKey[]).map((lang) => {
+                  const label = VOICE_META[lang].label;
+                  return (
                   <button
                     key={lang}
                     type="button"
@@ -181,9 +282,10 @@ export default function Home() {
                     <span className="material-symbols-outlined text-sm text-[#ff2d78]">
                       {playing === lang ? "graphic_eq" : "play_arrow"}
                     </span>
-                    {playing === lang ? `Speaking ${label}...` : `Play ${label} Sample`}
+                    {playing === lang ? `Speaking ${label}...` : `Play ${label}`}
                   </button>
-                ))}
+                  );
+                })}
               </div>
 
               {/* CTAs */}
@@ -231,9 +333,9 @@ export default function Home() {
                     <div className="glass rounded-xl p-3 border border-white/[0.06] text-center">
                       <p className="text-[9px] text-[#a098b0] uppercase tracking-wider font-label">Active Calls</p>
                       <p className="text-lg sm:text-xl font-headline font-extrabold text-[#f8fafc] mt-0.5">14</p>
-                      {/* Animated Soundwave Equalizer */}
-                      <div className="h-4 flex items-end justify-center gap-1 mt-1.5 overflow-hidden">
-                        {[0.4, 0.9, 0.6, 1.2, 0.7, 1.0, 0.5].map((d, i) => (
+                      {/* Animated 14-bar Soundwave Equalizer */}
+                      <div className="h-4 flex items-end justify-center gap-[3px] mt-1.5 overflow-hidden">
+                        {[0.4, 0.9, 0.6, 1.2, 0.7, 1.0, 0.5, 1.1, 0.65, 0.95, 0.45, 1.15, 0.8, 0.55].map((d, i) => (
                           <div
                             key={i}
                             className={`w-1 rounded-full ${
@@ -257,7 +359,7 @@ export default function Home() {
                     <div className="glass rounded-xl p-3 border border-white/[0.06] text-center">
                       <p className="text-[9px] text-[#a098b0] uppercase tracking-wider font-label">Orders</p>
                       <p className="text-lg sm:text-xl font-headline font-extrabold text-[#c084fc] mt-0.5">1,420</p>
-                      <p className="text-[8px] text-[#10b981] font-label mt-1">+24% Synced</p>
+                      <p data-tele-step="0" className="telemetry-line text-[8px] text-[#10b981] font-label mt-1">+24% Synced</p>
                     </div>
                   </div>
 
@@ -267,7 +369,7 @@ export default function Home() {
                       <div className="flex items-center gap-2">
                         <span className="material-symbols-outlined text-[#ff2d78] text-sm">support_agent</span>
                         <span className="font-headline font-bold text-xs text-[#f8fafc]">
-                          {playing ? (playing === "en" ? "Speaking • English" : "Speaking • Hindi") : "Live Agent Stream"}
+                          {playing ? `Speaking • ${VOICE_META[playing].label}` : "Live Agent Stream"}
                         </span>
                       </div>
                       <span className="bg-[#ff2d78]/20 text-[#ff2d78] text-[8px] px-2 py-0.5 rounded-full font-label font-bold uppercase tracking-wider">
@@ -285,13 +387,9 @@ export default function Home() {
                         <span className="font-label text-[9px] text-[#ff2d78] font-bold block mb-0.5">
                           VoxFlow AI Agent (Sub-200ms)
                         </span>
-                        {playing === "en" ? (
+                        {playing ? (
                           <span className="text-[#ff2d78] font-medium animate-pulse">
-                            &ldquo;I handle incoming customer inquiries, verify orders and shipments, check real-time stock levels, and sync records to your database.&rdquo;
-                          </span>
-                        ) : playing === "hi" ? (
-                          <span className="text-[#ff2d78] font-medium animate-pulse">
-                            &ldquo;मैं ग्राहकों की कॉल्स का जवाब दे सकता हूँ, ऑर्डर और शिपमेंट की स्थिति बता सकता हूँ, और सारा डेटा सीधे अपडेट कर सकता हूँ।&rdquo;
+                            {VOICE_META[playing].bubble}
                           </span>
                         ) : (
                           <span>
@@ -421,19 +519,19 @@ export default function Home() {
                   </span>
                 </div>
                 <div className="space-y-3 font-body text-sm">
-                  <div className="max-w-[85%] rounded-2xl rounded-bl-sm bg-white/[0.04] border border-white/[0.08] p-3.5 text-[#f8fafc]">
+                  <div data-bubble-step="0" className="bubble max-w-[85%] rounded-2xl rounded-bl-sm bg-white/[0.04] border border-white/[0.08] p-3.5 text-[#f8fafc]">
                     &ldquo;Hi, I need to check the inventory status for item SKU-9941.&rdquo;
                     <span className="block mt-1 font-label text-[9px] text-[#a098b0]">English • caller</span>
                   </div>
-                  <div className="ml-auto max-w-[85%] rounded-2xl rounded-br-sm bg-[#ff2d78]/[0.12] border border-[#ff2d78]/40 p-3.5 text-[#f8fafc]">
+                  <div data-bubble-step="1" className="bubble ml-auto max-w-[85%] rounded-2xl rounded-br-sm bg-[#ff2d78]/[0.12] border border-[#ff2d78]/40 p-3.5 text-[#f8fafc]">
                     &ldquo;SKU-9941 has 320 units available at Central Depot. Delivery window is open for Thursday.&rdquo;
                     <span className="block mt-1 font-label text-[9px] text-[#ff2d78] font-semibold">VoxFlow • 0.6s turn</span>
                   </div>
-                  <div className="max-w-[85%] rounded-2xl rounded-bl-sm bg-white/[0.04] border border-white/[0.08] p-3.5 text-[#f8fafc]">
+                  <div data-bubble-step="2" className="bubble max-w-[85%] rounded-2xl rounded-bl-sm bg-white/[0.04] border border-white/[0.08] p-3.5 text-[#f8fafc]">
                     &ldquo;कृपया 50 यूनिट्स बुक करके शुक्रवार सुबह का स्लॉट कन्फर्म कर दीजिए।&rdquo;
                     <span className="block mt-1 font-label text-[9px] text-[#a098b0]">Hindi • caller</span>
                   </div>
-                  <div className="ml-auto max-w-[85%] rounded-2xl rounded-br-sm bg-[#ff2d78]/[0.12] border border-[#ff2d78]/40 p-3.5 text-[#f8fafc]">
+                  <div data-bubble-step="3" className="bubble ml-auto max-w-[85%] rounded-2xl rounded-br-sm bg-[#ff2d78]/[0.12] border border-[#ff2d78]/40 p-3.5 text-[#f8fafc]">
                     &ldquo;50 यूनिट्स बुक कर दी गई हैं। शुक्रवार 08:00–11:00 का स्लॉट लॉक हो गया है और एसएमएस भेज दिया गया है।&rdquo;
                     <span className="block mt-1 font-label text-[9px] text-[#ff2d78] font-semibold">VoxFlow • tool call ✓</span>
                   </div>
@@ -447,12 +545,12 @@ export default function Home() {
                   <span className="text-[10px] text-[#c084fc]">voxflow-core • eu-west-2</span>
                 </div>
                 <div className="space-y-2.5 text-[#a098b0]">
-                  <p><span className="text-white/30">00:00.041</span> connect.stream → PCM 16kHz attached</p>
+                  <p data-tele-step="0" className="telemetry-line text-[#a098b0]"><span className="text-white/30">00:00.041</span> connect.stream → PCM 16kHz attached</p>
                   <p><span className="text-white/30">00:00.125</span> Groq Whisper STT ............ <span className="text-[#f8fafc]">84ms</span></p>
-                  <p><span className="text-white/30">00:00.237</span> Llama-3-70b tool call ....... <span className="text-[#f8fafc]">112ms</span></p>
-                  <p><span className="text-white/30">00:00.288</span> lang detect: hi → en bridge .. <span className="text-[#f8fafc]">51ms</span></p>
-                  <p><span className="text-white/30">00:00.391</span> sheets.mirror(commit) ....... <span className="text-[#f8fafc]">63ms</span></p>
-                  <p><span className="text-white/30">00:00.196</span> Total glass-to-glass turn ... <span className="text-[#ff2d78] font-bold">196ms</span></p>
+                  <p data-tele-step="1" className="telemetry-line text-[#a098b0]"><span className="text-white/30">00:00.237</span> Llama-3-70b tool call ....... <span className="text-[#f8fafc]">112ms</span></p>
+                  <p data-tele-step="2" className="telemetry-line text-[#a098b0]"><span className="text-white/30">00:00.288</span> lang detect: hi → en bridge .. <span className="text-[#f8fafc]">51ms</span></p>
+                  <p data-tele-step="3" className="telemetry-line text-[#a098b0]"><span className="text-white/30">00:00.391</span> sheets.mirror(commit) ....... <span className="text-[#f8fafc]">63ms</span></p>
+                  <p data-tele-step="3" className="telemetry-line text-[#a098b0]"><span className="text-white/30">00:00.196</span> Total glass-to-glass turn ... <span className="text-[#ff2d78] font-bold">196ms</span></p>
                   <p className="term-caret pt-3 text-[#f8fafc]" />
                 </div>
                 <div className="mt-6 grid grid-cols-3 gap-3 text-center">
@@ -466,6 +564,181 @@ export default function Home() {
                       <p className="text-[9px] tracking-[0.2em] uppercase text-[#a098b0] mt-1">{k}</p>
                     </div>
                   ))}
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        {/* ═══════════ PINNED KINETIC 4-HOP PIPELINE ═══════════ */}
+        <section id="pipeline-section" className="relative border-t border-white/[0.06]" style={{ height: "320vh" }}>
+          <div className="sticky top-0 min-h-screen flex items-center overflow-hidden grid-bg">
+            <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 w-full grid lg:grid-cols-[1fr_1.2fr] gap-10 items-center py-20">
+              <div>
+                <span className="font-label text-[#c084fc] tracking-[0.25em] uppercase text-xs neon-text-sm">03 — Architecture</span>
+                <h2 className="font-headline font-extrabold text-3xl sm:text-5xl mt-3 tracking-tight text-[#f8fafc]">
+                  Four hops.
+                  <br />
+                  <span className="text-[#a098b0]">Zero humans until escalation.</span>
+                </h2>
+                <p className="mt-4 text-[#a098b0] max-w-sm text-sm sm:text-base leading-relaxed font-body">
+                  Every call flows through the same audited pipeline. Scroll to trace a packet from ring to resolution.
+                </p>
+                <div className="mt-8 glass rounded-xl p-4 inline-flex items-baseline gap-3 border border-white/[0.08]">
+                  <span className="font-label text-[10px] tracking-[0.2em] uppercase text-[#a098b0]">Hop latency</span>
+                  <span id="pipe-latency" className="font-label text-3xl font-bold text-[#00ffcc]">38ms</span>
+                </div>
+              </div>
+
+              <div className="relative pl-8">
+                <div className="absolute left-2 top-0 bottom-0 w-px bg-white/[0.08]" aria-hidden="true">
+                  <div id="pipe-rail-fill" className="pipe-rail w-px" style={{ height: "0%" }} />
+                </div>
+                <div className="space-y-4">
+                  {[
+                    { step: "01", title: "Amazon Connect", desc: "UK SIP streams terminate, PCM 16kHz audio attached over TLS.", lat: "38ms" },
+                    { step: "02", title: "Whisper STT + Llama 3 70B", desc: "Groq transcription → 70B reasoning → function calling.", lat: "84ms" },
+                    { step: "03", title: "Tenant PostgreSQL + Sheets", desc: "Scoped tenant reads/writes, live Google Sheets mirror.", lat: "112ms" },
+                    { step: "04", title: "Edge TTS + Audit Logging", desc: "Voice synthesized back; transcript, invoice & audit logged.", lat: "196ms" },
+                  ].map((s, i) => (
+                    <div key={s.step} data-pipe-step={i} className="pipe-step glass rounded-2xl p-5 sm:p-6">
+                      <div className="flex items-baseline justify-between gap-4">
+                        <p className="font-label text-xs text-[#ff2d78] font-bold">{s.step}</p>
+                        <p className="font-label text-xs text-[#00ffcc]">{s.lat}</p>
+                      </div>
+                      <h3 className="mt-1 font-headline font-bold text-lg text-[#f8fafc]">{s.title}</h3>
+                      <p className="mt-1 text-sm leading-6 text-[#a098b0] font-body">{s.desc}</p>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        {/* ═══════════ 2-WAY GOOGLE SHEETS LIVE MIRROR ═══════════ */}
+        <section id="sheets-section" className="relative py-20 sm:py-28 border-t border-white/[0.06]">
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div className="mb-12 reveal">
+              <span className="font-label text-[#c084fc] tracking-[0.25em] uppercase text-xs neon-text-sm">04 — Two-way live sync</span>
+              <h2 className="font-headline font-extrabold text-3xl sm:text-5xl mt-3 tracking-tight text-[#f8fafc]">
+                The call writes
+                <br />
+                <span className="text-[#a098b0]">your Google Sheet.</span>
+              </h2>
+            </div>
+
+            <div className="grid lg:grid-cols-2 gap-6 items-stretch">
+              {/* Transcript trigger */}
+              <div className="glass glow-hover rounded-2xl p-5 sm:p-7 border border-white/[0.08] flex flex-col">
+                <span className="font-label text-[10px] tracking-[0.2em] uppercase text-[#a098b0] mb-5">Transcript → tool calls</span>
+                <div className="space-y-3 font-label text-xs sm:text-sm flex-1">
+                  <p className="text-[#a098b0]"><span className="text-[#f8fafc]">caller:</span> &ldquo;move delivery to Friday morning&rdquo;</p>
+                  <p className="text-[#00ffcc]">→ update_order(#8841, window=&quot;FRI 08–11&quot;)</p>
+                  <p className="text-[#a098b0]"><span className="text-[#f8fafc]">agent:</span> &ldquo;Done — confirmation SMS sent.&rdquo;</p>
+                  <p className="text-[#00ffcc]">→ log_call(outcome=&quot;rescheduled&quot;, pin_verified=true)</p>
+                </div>
+                <p id="sheet-commit-label" className="mt-6 font-label text-[11px] text-[#00ffcc]">awaiting tool call…</p>
+              </div>
+
+              {/* Frosted sheets UI */}
+              <div className="glass rounded-2xl border border-white/[0.08] overflow-hidden">
+                <div className="flex items-center gap-2 px-4 py-3 border-b border-white/[0.08] bg-white/[0.02]">
+                  <span className="material-symbols-outlined text-[#10b981] text-lg">table</span>
+                  <span className="font-label text-xs text-[#f8fafc]">VoxFlow — Call Log</span>
+                  <span className="ml-auto inline-flex items-center gap-1.5 font-label text-[10px] text-[#10b981]">
+                    <span className="w-1.5 h-1.5 rounded-full bg-[#10b981] animate-pulse" /> syncing
+                  </span>
+                </div>
+                <div className="p-2 sm:p-3 text-[11px] sm:text-xs font-label">
+                  <div className="grid grid-cols-4 gap-px text-[#a098b0] uppercase tracking-wider text-[9px] px-2 py-2">
+                    <span>Time</span><span>Caller</span><span>Outcome</span><span>PIN</span>
+                  </div>
+                  {[
+                    ["14:02:11", "+44 7700 9123", "rescheduled", "✓"],
+                    ["14:02:09", "+44 161 496 002", "invoice sent", "✓"],
+                    ["13:58:44", "+44 113 496 881", "stock check", "✓"],
+                    ["13:51:02", "+44 20 7946 082", "escalated", "—"],
+                  ].map((row, i) => (
+                    <div key={i} data-sheet-row={i} className="sheet-row grid grid-cols-4 gap-px rounded-md px-2 py-2.5 text-[#f8fafc]">
+                      {row.map((c, j) => <span key={j} className={j === 3 ? "text-[#00ffcc]" : ""}>{c}</span>)}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        {/* ═══════════ ROI & COST SAVINGS CALCULATOR ═══════════ */}
+        <section className="py-20 sm:py-28 relative border-t border-white/[0.06]" id="roi">
+          <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div className="text-center mb-12 reveal">
+              <span className="font-label text-[#ffe04a] tracking-[0.25em] uppercase text-xs neon-text-sm">05 — Prove the math</span>
+              <h2 className="font-headline font-extrabold text-3xl sm:text-5xl mt-3 tracking-tight text-[#f8fafc]">
+                Your ROI, <span className="text-[#ffe04a]">live.</span>
+              </h2>
+            </div>
+
+            <div className="glass rounded-3xl border border-white/[0.1] p-6 sm:p-10 grid lg:grid-cols-2 gap-10">
+              {/* Sliders */}
+              <div className="space-y-8">
+                <div>
+                  <div className="flex justify-between font-label text-xs mb-3">
+                    <span className="text-[#a098b0] uppercase tracking-wider">Daily inbound calls</span>
+                    <span className="text-[#f8fafc] font-bold">{roiCalls.toLocaleString()}</span>
+                  </div>
+                  <input
+                    type="range"
+                    min={50}
+                    max={5000}
+                    step={50}
+                    value={roiCalls}
+                    onChange={(e) => setRoiCalls(Number(e.target.value))}
+                    className="roi-slider w-full"
+                    aria-label="Daily inbound calls"
+                  />
+                </div>
+                <div>
+                  <div className="flex justify-between font-label text-xs mb-3">
+                    <span className="text-[#a098b0] uppercase tracking-wider">Avg call duration</span>
+                    <span className="text-[#f8fafc] font-bold">{roiMins} min</span>
+                  </div>
+                  <input
+                    type="range"
+                    min={2}
+                    max={10}
+                    step={1}
+                    value={roiMins}
+                    onChange={(e) => setRoiMins(Number(e.target.value))}
+                    className="roi-slider w-full"
+                    aria-label="Average call duration"
+                  />
+                </div>
+                <p className="font-body text-xs text-[#a098b0] leading-relaxed">
+                  Model: fully-loaded operator £14/h vs VoxFlow ~£0.12/min. 90% automation containment.
+                </p>
+              </div>
+
+              {/* Output */}
+              <div className="grid grid-cols-2 gap-4 content-center">
+                <div className="glass rounded-2xl p-5 border border-[#ffe04a]/25 col-span-2 text-center glow-hover">
+                  <p className="font-headline font-black text-3xl sm:text-5xl text-[#ffe04a]">
+                    £{Math.max(0, Math.round((roiCalls * roiMins * (14 / 60 - 0.12) * 365 * 0.9) / 100) * 100).toLocaleString()}
+                  </p>
+                  <p className="mt-2 font-label text-[10px] tracking-[0.2em] uppercase text-[#a098b0]">Net annual savings</p>
+                </div>
+                <div className="glass rounded-2xl p-4 border border-white/[0.08] text-center">
+                  <p className="font-headline font-bold text-xl sm:text-2xl text-[#00ffcc]">
+                    {Math.round((roiCalls * roiMins * 30 * 0.9) / 60).toLocaleString()}h
+                  </p>
+                  <p className="mt-1 font-label text-[9px] tracking-[0.2em] uppercase text-[#a098b0]">Hours saved / mo</p>
+                </div>
+                <div className="glass rounded-2xl p-4 border border-white/[0.08] text-center">
+                  <p className="font-headline font-bold text-xl sm:text-2xl text-[#ff2d78]">
+                    {Math.max(1, Math.round((roiCalls * roiMins * 0.9) / 60 / 7))}
+                  </p>
+                  <p className="mt-1 font-label text-[9px] tracking-[0.2em] uppercase text-[#a098b0]">FTE equivalent</p>
                 </div>
               </div>
             </div>
@@ -510,6 +783,105 @@ export default function Home() {
                 </div>
               ))}
             </div>
+          </div>
+        </section>
+
+        {/* ═══════════ PRICING TIER MATRIX ═══════════ */}
+        <section className="py-20 sm:py-28 relative border-t border-white/[0.06]" id="pricing-preview">
+          <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div className="text-center mb-12 reveal">
+              <span className="font-label text-[#c084fc] tracking-[0.25em] uppercase text-xs neon-text-sm">06 — Pricing</span>
+              <h2 className="font-headline font-extrabold text-3xl sm:text-5xl mt-3 tracking-tight text-[#f8fafc]">
+                Simple, metered, <span className="text-[#ff2d78]">VAT-ready.</span>
+              </h2>
+
+              {/* Billing toggle */}
+              <div className="mt-6 inline-flex items-center gap-1 glass rounded-full p-1 border border-white/[0.1]">
+                {([false, true] as const).map((annual) => (
+                  <button
+                    key={String(annual)}
+                    type="button"
+                    onClick={() => setAnnualBilling(annual)}
+                    className={`px-5 py-2 rounded-full font-label text-xs transition-all duration-300 ${
+                      annualBilling === annual
+                        ? "bg-[#ff2d78] text-white shadow-[0_0_16px_rgba(255,45,120,0.4)]"
+                        : "text-[#a098b0] hover:text-white"
+                    }`}
+                  >
+                    {annual ? "Annual −20%" : "Monthly"}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <div className="grid md:grid-cols-3 gap-5 stagger-children">
+              {[
+                {
+                  name: "Starter",
+                  monthly: 49,
+                  tag: null,
+                  features: ["1 voice line", "500 call mins / mo", "English + Hindi", "Email support"],
+                  plan: "starter",
+                },
+                {
+                  name: "Growth",
+                  monthly: 149,
+                  tag: "Most Popular",
+                  features: ["3 voice lines", "2,500 call mins / mo", "PIN verification", "Live Sheet editing", "Priority support"],
+                  plan: "growth",
+                },
+                {
+                  name: "Enterprise",
+                  monthly: 399,
+                  tag: null,
+                  features: ["Unlimited lines", "Unmetered minutes", "Dedicated UK DID", "24/7 SLA", "Custom retention & DSAR"],
+                  plan: "enterprise",
+                },
+              ].map((t) => {
+                const price = annualBilling ? Math.round(t.monthly * 0.8) : t.monthly;
+                const popular = t.tag !== null;
+                return (
+                  <div
+                    key={t.name}
+                    className={`glass glow-hover rounded-2xl p-6 sm:p-8 flex flex-col transition-all duration-300 ${
+                      popular
+                        ? "border border-[#ff2d78]/50 shadow-[0_0_35px_rgba(255,45,120,0.18)] md:-translate-y-2"
+                        : "border border-white/[0.08]"
+                    }`}
+                  >
+                    {t.tag && (
+                      <span className="self-start font-label text-[9px] font-bold uppercase tracking-widest bg-[#ff2d78] text-white px-2.5 py-1 rounded-full mb-4">
+                        {t.tag}
+                      </span>
+                    )}
+                    <h3 className="font-headline font-bold text-lg text-[#f8fafc]">{t.name}</h3>
+                    <p className="mt-3">
+                      <span className="font-headline font-black text-4xl text-[#f8fafc]">£{price}</span>
+                      <span className="font-body text-sm text-[#a098b0]">/mo{annualBilling ? " billed annually" : ""}</span>
+                    </p>
+                    <ul className="mt-6 space-y-2.5 flex-1">
+                      {t.features.map((f) => (
+                        <li key={f} className="flex items-start gap-2 font-body text-sm text-[#a098b0]">
+                          <span className="text-[#00ffcc] mt-0.5">✓</span>
+                          {f}
+                        </li>
+                      ))}
+                    </ul>
+                    <Link
+                      href={`/sign-up?plan=${t.plan}`}
+                      className={`mt-8 inline-flex items-center justify-center gap-2 px-6 py-3 font-headline font-bold rounded-xl text-sm transition-all active:scale-95 ${
+                        popular ? "btn-signal" : "btn-ghost-obs border border-white/[0.1]"
+                      }`}
+                    >
+                      Start Free Trial
+                    </Link>
+                  </div>
+                );
+              })}
+            </div>
+            <p className="mt-6 text-center text-xs text-[#a098b0] font-body">
+              Full comparison on <Link href="/pricing" className="text-[#00ffcc] hover:underline">/pricing</Link> • VAT receipts via Stripe • Cancel anytime
+            </p>
           </div>
         </section>
 

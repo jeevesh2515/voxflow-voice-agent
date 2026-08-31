@@ -11,7 +11,7 @@ async def main():
         context = await browser.new_context(viewport={"width": 1440, "height": 900})
         page = await context.new_page()
 
-        print("=== PART 1: HERO & AUDIO SYNTHESIS ===")
+        print("=== PART 1: HERO & MULTILINGUAL VOICE STUDIO ===")
         await page.goto("http://127.0.0.1:3000/", wait_until="networkidle")
         await page.wait_for_timeout(1000)
 
@@ -21,23 +21,27 @@ async def main():
             await hero_el.screenshot(path=f"{OUTPUT_DIR}/01_hero_idle.png")
             print("  ✓ Saved 01_hero_idle.png")
 
-        # Click English Audio Preview button
-        print("  Clicking English audio preview button...")
-        await page.click("text=Play English Sample")
-        await page.wait_for_timeout(800)
-        if hero_el:
-            await hero_el.screenshot(path=f"{OUTPUT_DIR}/02_hero_playing_en.png")
-            print("  ✓ Saved 02_hero_playing_en.png (active waveform state)")
-        await page.wait_for_timeout(2600)
+        # Click EN (UK) Persona button
+        print("  Clicking EN (UK) audio preview button...")
+        btn_en = await page.query_selector("button:has-text('EN (UK)')")
+        if btn_en:
+            await btn_en.click()
+            await page.wait_for_timeout(800)
+            if hero_el:
+                await hero_el.screenshot(path=f"{OUTPUT_DIR}/02_hero_playing_en.png")
+                print("  ✓ Saved 02_hero_playing_en.png (active waveform state)")
+            await page.wait_for_timeout(2000)
 
-        # Click Hindi Audio Preview button
+        # Click Hindi Persona button
         print("  Clicking Hindi audio preview button...")
-        await page.click("text=Play Hindi Sample")
-        await page.wait_for_timeout(800)
-        if hero_el:
-            await hero_el.screenshot(path=f"{OUTPUT_DIR}/03_hero_playing_hi.png")
-            print("  ✓ Saved 03_hero_playing_hi.png (active waveform state)")
-        await page.wait_for_timeout(2600)
+        btn_hi = await page.query_selector("button:has-text('Hindi')")
+        if btn_hi:
+            await btn_hi.click()
+            await page.wait_for_timeout(800)
+            if hero_el:
+                await hero_el.screenshot(path=f"{OUTPUT_DIR}/03_hero_playing_hi.png")
+                print("  ✓ Saved 03_hero_playing_hi.png (active waveform state)")
+            await page.wait_for_timeout(2000)
 
         print("\n=== PART 2: TRUST METRICS STRIP ===")
         metrics_el = await page.query_selector("section:nth-of-type(2)")
@@ -54,7 +58,7 @@ async def main():
             print("  ✓ Saved 05_dual_pov.png")
 
         print("\n=== PART 4: 4-HOP PIPELINE ===")
-        pipeline = await page.query_selector("section:has-text('Four hops')")
+        pipeline = await page.query_selector("#pipeline-section")
         if pipeline:
             await pipeline.scroll_into_view_if_needed()
             await page.wait_for_timeout(600)
@@ -62,34 +66,35 @@ async def main():
             print("  ✓ Saved 06_four_hop_pipeline.png")
 
         print("\n=== PART 5: SHEETS LIVE MIRROR ===")
-        sheets = await page.query_selector("section:has-text('Google Sheet')")
+        sheets = await page.query_selector("#sheets-section")
         if sheets:
             await sheets.scroll_into_view_if_needed()
             await page.wait_for_timeout(600)
             await sheets.screenshot(path=f"{OUTPUT_DIR}/07_sheets_mirror.png")
             print("  ✓ Saved 07_sheets_mirror.png")
 
-        print("\n=== PART 6: BENTO GRID & FAQ ===")
-        bento = await page.query_selector("section:has-text('Built for UK operations')")
-        if bento:
-            await bento.scroll_into_view_if_needed()
+        print("\n=== PART 6: ROI CALCULATOR ===")
+        roi = await page.query_selector("#roi")
+        if roi:
+            await roi.scroll_into_view_if_needed()
             await page.wait_for_timeout(600)
-            await bento.screenshot(path=f"{OUTPUT_DIR}/08_bento_grid.png")
-            print("  ✓ Saved 08_bento_grid.png")
+            await roi.screenshot(path=f"{OUTPUT_DIR}/08_roi_calculator.png")
+            print("  ✓ Saved 08_roi_calculator.png")
 
-        faq = await page.query_selector("section:has-text('FAQ')")
-        if faq:
-            await faq.scroll_into_view_if_needed()
-            details = await page.query_selector("details")
-            if details:
-                await details.click()
-                await page.wait_for_timeout(300)
-            await faq.screenshot(path=f"{OUTPUT_DIR}/09_faq_expanded.png")
-            print("  ✓ Saved 09_faq_expanded.png")
+        print("\n=== PART 7: PRICING MATRIX ===")
+        pricing = await page.query_selector("#pricing-preview")
+        if pricing:
+            await pricing.scroll_into_view_if_needed()
+            await page.wait_for_timeout(600)
+            await pricing.screenshot(path=f"{OUTPUT_DIR}/09_pricing_matrix.png")
+            print("  ✓ Saved 09_pricing_matrix.png")
 
-        # Full Landing Page Capture
+        # Full page scroll capture
+        print("\n=== PART 8: FULL LANDING PAGE ===")
+        await page.goto("http://127.0.0.1:3000/", wait_until="networkidle")
+        await page.wait_for_timeout(1000)
         await page.screenshot(path=f"{OUTPUT_DIR}/10_full_landing.png", full_page=True)
-        print("\n  ✓ Saved 10_full_landing.png (Complete Landing Page)")
+        print("  ✓ Saved 10_full_landing.png (Complete Landing Page)")
 
         await browser.close()
         print("\n🎉 Deep visual audit complete!")
