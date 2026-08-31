@@ -2,28 +2,38 @@
 
 import { useEffect } from "react";
 import Lenis from "lenis";
+import gsap from "gsap";
+import { ScrollTrigger } from "gsap/ScrollTrigger";
 
 export default function SmoothScroll() {
   useEffect(() => {
     if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
 
+    gsap.registerPlugin(ScrollTrigger);
+
     const lenis = new Lenis({
-      duration: 1.08,
-      easing: (value: number) => 1 - Math.pow(1 - value, 4),
+      duration: 0.85,
+      easing: (t: number) => Math.min(1, 1.001 - Math.pow(2, -10 * t)),
       smoothWheel: true,
-      touchMultiplier: 1.15,
-      wheelMultiplier: 0.85,
+      wheelMultiplier: 1.0,
+      touchMultiplier: 1.0,
+      infinite: false,
     });
 
-    let animationFrame = 0;
-    const raf = (time: number) => {
-      lenis.raf(time);
-      animationFrame = window.requestAnimationFrame(raf);
+    const syncScroll = () => {
+      ScrollTrigger.update();
     };
+    lenis.on("scroll", syncScroll);
 
-    animationFrame = window.requestAnimationFrame(raf);
+    const raf = (time: number) => {
+      lenis.raf(time * 1000);
+    };
+    gsap.ticker.add(raf);
+    gsap.ticker.lagSmoothing(500, 33);
+
     return () => {
-      window.cancelAnimationFrame(animationFrame);
+      gsap.ticker.remove(raf);
+      lenis.off("scroll", syncScroll);
       lenis.destroy();
     };
   }, []);

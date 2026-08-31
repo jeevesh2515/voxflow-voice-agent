@@ -615,47 +615,45 @@ export default function Home() {
           </div>
         </section>
 
-        {/* ═══════════ PINNED KINETIC 4-HOP PIPELINE ═══════════ */}
-        <section id="pipeline-section" className="relative border-t border-white/[0.06]" style={{ height: "320vh" }}>
-          <div className="sticky top-0 min-h-screen flex items-center overflow-hidden grid-bg">
-            <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 w-full grid lg:grid-cols-[1fr_1.2fr] gap-10 items-center py-20">
-              <div>
-                <span className="font-label text-[#c084fc] tracking-[0.25em] uppercase text-xs neon-text-sm">03 — Architecture</span>
-                <h2 className="font-headline font-extrabold text-3xl sm:text-5xl mt-3 tracking-tight text-[#f8fafc]">
-                  Four hops.
-                  <br />
-                  <span className="text-[#a098b0]">Zero humans until escalation.</span>
-                </h2>
-                <p className="mt-4 text-[#a098b0] max-w-sm text-sm sm:text-base leading-relaxed font-body">
-                  Every call flows through the same audited pipeline. Scroll to trace a packet from ring to resolution.
-                </p>
-                <div className="mt-8 glass rounded-xl p-4 inline-flex items-baseline gap-3 border border-white/[0.08]">
-                  <span className="font-label text-[10px] tracking-[0.2em] uppercase text-[#a098b0]">Hop latency</span>
-                  <span id="pipe-latency" className="font-label text-3xl font-bold text-[#00ffcc]">38ms</span>
-                </div>
+        {/* ═══════════ KINETIC 4-HOP PIPELINE ═══════════ */}
+        <section id="pipeline-section" className="relative py-20 sm:py-28 border-t border-white/[0.06]">
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 w-full grid lg:grid-cols-[1fr_1.2fr] gap-10 items-start">
+            <div className="lg:sticky lg:top-28">
+              <span className="font-label text-[#c084fc] tracking-[0.25em] uppercase text-xs neon-text-sm">03 — Architecture</span>
+              <h2 className="font-headline font-extrabold text-3xl sm:text-5xl mt-3 tracking-tight text-[#f8fafc]">
+                Four hops.
+                <br />
+                <span className="text-[#a098b0]">Zero humans until escalation.</span>
+              </h2>
+              <p className="mt-4 text-[#a098b0] max-w-sm text-sm sm:text-base leading-relaxed font-body">
+                Every call flows through the same audited pipeline. From UK SIP stream ingestion to edge voice synthesis and live sheet commits.
+              </p>
+              <div className="mt-8 glass rounded-xl p-4 inline-flex items-baseline gap-3 border border-white/[0.08]">
+                <span className="font-label text-[10px] tracking-[0.2em] uppercase text-[#a098b0]">Total Pipeline Turn</span>
+                <span id="pipe-latency" className="font-label text-3xl font-bold text-[#00ffcc]">196ms</span>
               </div>
+            </div>
 
-              <div className="relative pl-8">
-                <div className="absolute left-2 top-0 bottom-0 w-px bg-white/[0.08]" aria-hidden="true">
-                  <div id="pipe-rail-fill" className="pipe-rail w-px" style={{ height: "0%" }} />
-                </div>
-                <div className="space-y-4">
-                  {[
-                    { step: "01", title: "Amazon Connect", desc: "UK SIP streams terminate, PCM 16kHz audio attached over TLS.", lat: "38ms" },
-                    { step: "02", title: "Whisper STT + Llama 3 70B", desc: "Groq transcription → 70B reasoning → function calling.", lat: "84ms" },
-                    { step: "03", title: "Tenant PostgreSQL + Sheets", desc: "Scoped tenant reads/writes, live Google Sheets mirror.", lat: "112ms" },
-                    { step: "04", title: "Edge TTS + Audit Logging", desc: "Voice synthesized back; transcript, invoice & audit logged.", lat: "196ms" },
-                  ].map((s, i) => (
-                    <div key={s.step} data-pipe-step={i} className="pipe-step glass rounded-2xl p-5 sm:p-6">
-                      <div className="flex items-baseline justify-between gap-4">
-                        <p className="font-label text-xs text-[#ff2d78] font-bold">{s.step}</p>
-                        <p className="font-label text-xs text-[#00ffcc]">{s.lat}</p>
-                      </div>
-                      <h3 className="mt-1 font-headline font-bold text-lg text-[#f8fafc]">{s.title}</h3>
-                      <p className="mt-1 text-sm leading-6 text-[#a098b0] font-body">{s.desc}</p>
+            <div className="relative pl-8">
+              <div className="absolute left-2 top-0 bottom-0 w-px bg-white/[0.08]" aria-hidden="true">
+                <div id="pipe-rail-fill" className="pipe-rail w-px bg-gradient-to-b from-[#ff2d78] to-[#00ffcc]" style={{ height: "100%" }} />
+              </div>
+              <div className="space-y-4">
+                {[
+                  { step: "01", title: "Amazon Connect", desc: "UK SIP streams terminate, PCM 16kHz audio attached over TLS.", lat: "38ms" },
+                  { step: "02", title: "Whisper STT + Llama 3 70B", desc: "Groq transcription → 70B reasoning → function calling.", lat: "84ms" },
+                  { step: "03", title: "Tenant PostgreSQL + Sheets", desc: "Scoped tenant reads/writes, live Google Sheets mirror.", lat: "112ms" },
+                  { step: "04", title: "Edge TTS + Audit Logging", desc: "Voice synthesized back; transcript, invoice & audit logged.", lat: "196ms" },
+                ].map((s, i) => (
+                  <div key={s.step} data-pipe-step={i} className="pipe-step glass rounded-2xl p-5 sm:p-6 border border-white/[0.08] hover:border-[#ff2d78]/40 transition-colors">
+                    <div className="flex items-baseline justify-between gap-4">
+                      <p className="font-label text-xs text-[#ff2d78] font-bold">{s.step}</p>
+                      <p className="font-label text-xs text-[#00ffcc]">{s.lat}</p>
                     </div>
-                  ))}
-                </div>
+                    <h3 className="mt-1 font-headline font-bold text-lg text-[#f8fafc]">{s.title}</h3>
+                    <p className="mt-1 text-sm leading-6 text-[#a098b0] font-body">{s.desc}</p>
+                  </div>
+                ))}
               </div>
             </div>
           </div>
