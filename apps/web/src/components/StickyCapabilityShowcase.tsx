@@ -89,30 +89,40 @@ function RadarVisual({ accent }: { accent: string }) {
         <path d="M150 190 L176 96 L245 105 L285 185" fill="none" stroke={accent} strokeWidth="1" strokeOpacity="0.65" strokeDasharray="3 5" />
       </svg>
       <div className="showcase-radar-sweep" style={{ background: `conic-gradient(from 0deg, ${accent}30, transparent 72deg)` }} />
+      
+      {/* Realtime Telemetry Overlay */}
+      <div className="absolute bottom-4 left-4 right-4 flex items-center justify-between rounded-lg border border-white/[0.08] bg-black/75 px-4 py-2.5 backdrop-blur-md font-mono text-[10px]">
+        <div className="flex items-center gap-2">
+          <span className="h-1.5 w-1.5 rounded-full animate-ping" style={{ backgroundColor: accent }} />
+          <span className="text-[#d7e1e5]">RADAR NODE: UK-M6-DISPATCH</span>
+        </div>
+        <div className="flex items-center gap-3">
+          <span className="text-[#a098b0]">LAT: <span className="text-[#00ffcc]">53.4808</span></span>
+          <span className="rounded px-1.5 py-0.5" style={{ background: `${accent}22`, color: accent }}>14 ACTIVE TRUCKS</span>
+        </div>
+      </div>
     </div>
   );
 }
 
-function HeatmapVisual({ accent }: { accent: string }) {
-  const cells = [0.9,0.4,0.7,0.2,0.55,0.85,0.3,0.65,0.45,0.95,0.25,0.6,0.75,0.35,0.8,0.5,0.15,0.7,0.9,0.4,0.6,0.3,0.85,0.2,0.55,0.75,0.45,0.95,0.3,0.65,0.5,0.8,0.25,0.7,0.4,0.9];
+function WarehouseVisual({ accent }: { accent: string }) {
   return (
-    <div className="showcase-visual-inner p-6 sm:p-8">
-      <div className="grid h-full grid-cols-6 content-center gap-1.5" aria-hidden="true">
-        {cells.map((v, i) => (
-          <div
-            key={i}
-            className="showcase-heat-cell"
-            style={{
-              backgroundColor: v > 0.75 ? accent : v > 0.45 ? `${accent}66` : "rgba(255,255,255,0.05)",
-              boxShadow: v > 0.75 ? `0 0 14px ${accent}55` : "none",
-              animationDelay: `${(i % 7) * 0.35}s`,
-            }}
-          />
-        ))}
+    <div className="showcase-visual-inner">
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      <img src="/warehouse-lidar.jpg" alt="" aria-hidden="true" className="showcase-visual-bg" />
+      <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-transparent to-black/30" />
+      
+      {/* Realtime Telemetry Overlay */}
+      <div className="absolute bottom-4 left-4 right-4 flex items-center justify-between rounded-lg border border-white/[0.08] bg-black/75 px-4 py-2.5 backdrop-blur-md font-mono text-[10px]">
+        <div className="flex items-center gap-2">
+          <span className="h-1.5 w-1.5 rounded-full animate-ping" style={{ backgroundColor: accent }} />
+          <span className="text-[#d7e1e5]">PALLET BAY #04-A</span>
+        </div>
+        <div className="flex items-center gap-3">
+          <span className="text-[#a098b0]">DENSITY: <span className="text-[#00ffcc]">98.4%</span></span>
+          <span className="rounded px-1.5 py-0.5" style={{ background: `${accent}22`, color: accent }}>AGV-04 EN ROUTE</span>
+        </div>
       </div>
-      <p className="mt-5 font-label text-[9px] uppercase tracking-[0.2em] text-[#71808a]">
-        SKU bay density — live
-      </p>
     </div>
   );
 }
@@ -173,7 +183,7 @@ function CommitFeedVisual({ accent }: { accent: string }) {
 function StepVisual({ step }: { step: Step }) {
   switch (step.id) {
     case "dispatch": return <RadarVisual accent={step.accent} />;
-    case "warehouse": return <HeatmapVisual accent={step.accent} />;
+    case "warehouse": return <WarehouseVisual accent={step.accent} />;
     case "support": return <WaveformVisual accent={step.accent} />;
     default: return <CommitFeedVisual accent={step.accent} />;
   }

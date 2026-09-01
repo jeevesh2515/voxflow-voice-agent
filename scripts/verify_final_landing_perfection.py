@@ -16,7 +16,7 @@ async def main():
         page.on("pageerror", lambda exc: console_errors.append(str(exc)))
 
         print("1. Opening Landing Page (Testing Preloader & Initial Still Black Hole)...")
-        await page.goto("http://127.0.0.1:3000/", wait_until="domcontentloaded")
+        await page.goto("http://127.0.0.1:3333/", wait_until="domcontentloaded")
         # Capture preloader if present
         await page.wait_for_timeout(200)
         await page.screenshot(path=f"{OUTPUT_DIR}/01_preloader_pulse.png")

@@ -710,22 +710,54 @@ html {
   transform: none;
 }
 
-/* Stage A minimalist aperture prompt beneath the centered core. */
-.hero-aperture-cue {
-  position: absolute;
-  bottom: clamp(4.5rem, 9vh, 7rem);
-  left: 50%;
-  z-index: 3;
-  transform: translateX(-50%);
-  color: rgba(232, 224, 240, 0.62);
+/* Stage A pointer cue. The JS component only writes x/y custom properties;
+   opacity remains a pure function of hero progress so reverse scroll is exact. */
+.hero-cursor-badge {
+  --cursor-x: -10rem;
+  --cursor-y: -10rem;
+  position: fixed;
+  top: 0;
+  left: 0;
+  z-index: 24;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 32px;
+  padding: 0.375rem 0.75rem;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 9999px;
+  background:
+    linear-gradient(115deg, rgba(0, 255, 204, 0.22), rgba(4, 8, 12, 0.82) 38%, rgba(255, 45, 120, 0.18) 72%, rgba(0, 255, 204, 0.22));
+  background-size: 220% 100%;
+  box-shadow: 0 0 0 1px rgba(0, 255, 204, 0.08), 0 16px 44px rgba(0, 0, 0, 0.38), 0 0 22px rgba(0, 255, 204, 0.14);
+  backdrop-filter: blur(14px) saturate(145%);
+  -webkit-backdrop-filter: blur(14px) saturate(145%);
+  color: #00ffcc;
   font-family: "Space Grotesk", sans-serif;
   font-size: 10px;
   font-weight: 600;
-  letter-spacing: 0.25em;
+  letter-spacing: 0.18em;
+  line-height: 1;
   text-transform: uppercase;
   white-space: nowrap;
   pointer-events: none;
-  opacity: clamp(0, calc(1 - var(--hero-progress) * 6), 1);
+  opacity: 0;
+  transform: translate3d(calc(var(--cursor-x) - 50%), calc(var(--cursor-y) - 50%), 0) rotate(-1deg);
+  transition: opacity 180ms ease;
+  will-change: transform, opacity;
+}
+
+.hero-cursor-badge[data-active="true"] {
+  opacity: clamp(0, calc(1 - var(--hero-progress) * 6.66), 1);
+  animation: hero-cursor-gradient 2.8s linear infinite;
+}
+
+@keyframes hero-cursor-gradient {
+  to { background-position: 220% 0; }
+}
+
+@media (hover: none), (pointer: coarse), (prefers-reduced-motion: reduce) {
+  .hero-cursor-badge { display: none; }
 }
 
 /* Stage B HUD diagnostic markers along the edges. */
@@ -1339,37 +1371,69 @@ html {
   display: grid;
   place-items: center;
   pointer-events: none;
-  animation: vox-preloader-dissolve 0.5s cubic-bezier(0.32, 0.72, 0, 1) 1.2s both;
+  animation: vox-preloader-dissolve 0.5s cubic-bezier(0.32, 0.72, 0, 1) 1.3s both;
 }
 
 .vox-preloader-mark {
-  display: grid;
-  place-items: center;
-  width: 92px;
-  height: 92px;
-  border-radius: 9999px;
-  border: 1px solid rgba(0, 255, 204, 0.35);
-  background: rgba(0, 255, 204, 0.06);
-  box-shadow: 0 0 60px rgba(0, 255, 204, 0.35), inset 0 0 24px rgba(0, 255, 204, 0.12);
-  animation: vox-preloader-pulse 1.2s cubic-bezier(0.32, 0.72, 0, 1) both;
+  width: min(180px, 46vw);
+  overflow: visible;
+  filter: drop-shadow(0 0 18px rgba(0, 255, 204, 0.22));
 }
 
-.vox-preloader-mark .material-symbols-outlined {
-  font-size: 42px;
-  color: #00ffcc;
-  text-shadow: 0 0 22px rgba(0, 255, 204, 0.8);
+.vox-preloader-wire {
+  fill: none;
+  stroke: url(#vox-wire-gradient);
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-width: 1.65;
+  stroke-dasharray: 340;
+  stroke-dashoffset: 340;
+  opacity: 0;
+  filter: url(#vox-wire-glow);
 }
 
-@keyframes vox-preloader-pulse {
-  0%   { opacity: 0; transform: scale(0.82); }
-  35%  { opacity: 1; transform: scale(1.04); }
-  60%  { transform: scale(0.98); }
-  100% { opacity: 1; transform: scale(1); }
+.vox-preloader-wire-base {
+  animation: vox-preloader-trace 0.8s cubic-bezier(0.48, 0.03, 0.38, 1) both;
+}
+
+.vox-preloader-wire-echo {
+  stroke-width: 1.1;
+  opacity: 0;
+  animation: vox-preloader-trace 0.64s cubic-bezier(0.48, 0.03, 0.38, 1) 0.12s both;
+}
+
+.vox-preloader-wire-rail {
+  stroke-width: 0.85;
+  opacity: 0;
+  animation: vox-preloader-trace 0.52s cubic-bezier(0.48, 0.03, 0.38, 1) 0.24s both;
+}
+
+.vox-preloader-core {
+  fill: #00ffcc;
+  stroke: #a8fff1;
+  stroke-linecap: round;
+  stroke-width: 1.5;
+  opacity: 0;
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: vox-preloader-core-pulse 0.5s cubic-bezier(0.32, 0.72, 0, 1) 0.8s both;
+}
+
+@keyframes vox-preloader-trace {
+  0% { stroke-dashoffset: 340; opacity: 0; }
+  18% { opacity: 0.52; }
+  100% { stroke-dashoffset: 0; opacity: 1; }
+}
+
+@keyframes vox-preloader-core-pulse {
+  0% { opacity: 0; transform: scale(0.7); filter: brightness(1); }
+  48% { opacity: 1; transform: scale(1.2); filter: brightness(1.75); }
+  100% { opacity: 1; transform: scale(1); filter: brightness(1.1); }
 }
 
 @keyframes vox-preloader-dissolve {
-  from { opacity: 1; transform: scale(1); }
-  to   { opacity: 0; transform: scale(1.15); }
+  from { opacity: 1; transform: scale(1); filter: blur(0); }
+  to   { opacity: 0; transform: scale(1.15); filter: blur(3px); }
 }
 
 /* ════════════════════════════════════════════════════════════

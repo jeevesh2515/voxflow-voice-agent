@@ -2,7 +2,6 @@
 
 import { useEffect, useRef } from "react";
 import * as THREE from "three";
-import { heroProgress } from "@/lib/hero-progress";
 
 /**
  * Physically-motivated Schwarzschild black hole, rendered as a single
@@ -42,7 +41,6 @@ const FRAG = /* glsl */ `
 
   uniform vec2  uResolution;
   uniform float uTime;
-  uniform float uScroll;      // hero progress 0 -> 1
   uniform float uVoicePulse;  // 0 -> 1, spikes on voice playback
   uniform float uFade;        // master opacity, driven by stage crossfade
   uniform sampler2D uStars;
@@ -54,6 +52,9 @@ const FRAG = /* glsl */ `
   // which is where a real thin accretion disk truncates.
   const float DISK_INNER = 3.0;
   const float DISK_OUTER = 10.5;
+  const float SHADOW_RADIUS = 2.6;
+  const float PHOTON_RING_RADIUS = 2.598;
+  const float CAMERA_DISTANCE = 14.5;
 
   // Equirectangular lookup for a bent ray direction.
   vec2 dirToEquirect(vec3 d) {
@@ -95,17 +96,16 @@ const FRAG = /* glsl */ `
     // Acoustic response: a radial pulse travelling outward on voice playback.
     float pulse = uVoicePulse * (0.6 + 0.4 * sin(r * 4.0 - uTime * 7.0));
 
-    // Blackbody-ish temperature ramp. Hot core is nearly white with a faint
-    // blue lift; the body is golden; the rim cools to deep orange.
-    vec3 core = vec3(1.000, 0.980, 0.930);
-    vec3 mid  = vec3(1.000, 0.760, 0.400);
-    vec3 rim  = vec3(0.920, 0.480, 0.170);
-    vec3 col = mix(core, mid, smoothstep(0.0, 0.34, norm));
-    col = mix(col, rim, smoothstep(0.32, 1.0, norm));
-
-    // A whisper of the brand teal in the coolest outer gas only — enough to
-    // sit with the palette, far too little to break the photoreal read.
-    col = mix(col, vec3(0.35, 0.85, 0.78), smoothstep(0.80, 1.0, norm) * 0.16);
+    // Blackbody-inspired temperature ramp: 5400 K at the ISCO falls to
+    // 2700 K at the dusty rim. The warm end is deliberately amber rather
+    // than red so it keeps the high-energy, technical look of the hero.
+    float temperature = mix(5400.0, 2700.0, norm);
+    float thermal = clamp((temperature - 2700.0) / 2700.0, 0.0, 1.0);
+    vec3 amber = vec3(0.98, 0.34, 0.08);
+    vec3 gold = vec3(1.00, 0.73, 0.30);
+    vec3 whiteGold = vec3(1.00, 0.96, 0.80);
+    vec3 col = mix(amber, gold, smoothstep(0.0, 0.62, thermal));
+    col = mix(col, whiteGold, smoothstep(0.54, 1.0, thermal));
 
     // Radial intensity: fierce inner edge, steep physical falloff (thin-disk
     // emission drops fast with r). The steep curve is what keeps the inner
@@ -120,16 +120,13 @@ const FRAG = /* glsl */ `
   void main() {
     vec2 frag = (vUv - 0.5) * vec2(uResolution.x / uResolution.y, 1.0);
 
-    // Camera pulls back through the aperture stages. Rebased far enough out
-    // that the whole disk + shadow sit inside the frame — closer framing read
-    // as flying through gas rather than observing the hole.
-    float camDist = mix(12.5, 17.5, smoothstep(0.0, 0.55, uScroll));
-    // Near edge-on inclination is what makes the lensed far side of the disk
-    // arc up over the shadow and back under it — the defining Gargantua
-    // silhouette. FIXED: no pointer parallax. The hero gate requires the hole
-    // to sit 100% still in space, so there is deliberately no camera wobble.
-    float yaw   = uScroll * 0.5;
-    float pitch = 0.105 + uScroll * 0.06;
+    // The camera is intentionally immutable. Scroll only changes the CSS
+    // layer treatment outside this shader; it never alters the geodesic
+    // solution, framing, or disk inclination. This keeps the hole anchored
+    // in deep space with no pointer or scroll wobble.
+    float camDist = CAMERA_DISTANCE;
+    float yaw   = 0.0;
+    float pitch = 0.115;
 
     vec3 camPos = vec3(
       sin(yaw) * cos(pitch) * camDist,
@@ -201,17 +198,19 @@ const FRAG = /* glsl */ `
       // The ray survived, so its final (bent) direction samples the sky.
       // This is where the Einstein ring comes from.
       vec3 sky = sampleStars(normalize(vel));
-      colour += sky * (0.55 + uScroll * 0.12);
+      colour += sky * 0.58;
     }
 
-    // Photon-ring bloom hugging the shadow edge. NOTE: length(cross) / |camPos|
-    // is sin of the ray's angle from the centre line, so the target must be
-    // expressed in the same normalised units — the earlier version compared
-    // against an absolute radius and the term never fired at all.
+    // A pure Schwarzschild shadow with a razor-thin golden Einstein ring.
+    // length(cross) / |camPos| is sin(theta), so the radii are normalised by
+    // the fixed camera distance before comparison.
     float impact = length(cross(camPos, dir)) / max(length(camPos), 0.001);
-    float grazing = 2.6 / camDist; // straight-line impact parameter for grazing rays
-    float ring = exp(-pow((impact - grazing) * 34.0, 2.0));
-    colour += ring * vec3(0.55, 0.44, 0.30) * (0.5 + uVoicePulse * 1.1);
+    float shadowEdge = SHADOW_RADIUS / camDist;
+    float photonRing = PHOTON_RING_RADIUS / camDist;
+    float shadow = 1.0 - smoothstep(shadowEdge - 0.004, shadowEdge + 0.006, impact);
+    float ring = exp(-pow((impact - photonRing) * camDist * 42.0, 2.0));
+    colour *= 1.0 - shadow;
+    colour += ring * vec3(1.0, 0.68, 0.25) * (0.68 + uVoicePulse * 0.42);
 
     // Slight exposure lift, filmic-ish tonemap, then a mild gamma so the warm
     // disk keeps its glow without clipping to flat white.
@@ -265,7 +264,6 @@ export default function AcousticBlackHoleCanvas() {
     const uniforms: Record<string, THREE.IUniform> = {
       uResolution: { value: new THREE.Vector2(1, 1) },
       uTime: { value: 0 },
-      uScroll: { value: 0 },
       uVoicePulse: { value: 0 },
       uFade: { value: 1 },
       uStars: { value: null },
@@ -320,15 +318,12 @@ export default function AcousticBlackHoleCanvas() {
     };
 
     const frame = () => {
-      const progress = Math.min(1, Math.max(0, heroProgress.value));
-
       // The hole no longer fades out — it RECEDES (CSS layer opacity/scale
       // handles that in Stage C) so it stays as a clean deep-space backdrop
       // behind the hero copy and console.
       voicePulse *= 0.95;
 
       uniforms.uTime.value = (performance.now() - start) / 1000;
-      uniforms.uScroll.value = progress;
       uniforms.uVoicePulse.value = voicePulse;
       uniforms.uFade.value = 1;
 

@@ -11,7 +11,7 @@ async def main():
         context = await browser.new_context(viewport={"width": 1440, "height": 900}, reduced_motion="no-preference")
         page = await context.new_page()
 
-        await page.goto("http://127.0.0.1:3000/", wait_until="networkidle")
+        await page.goto("http://127.0.0.1:3333/", wait_until="domcontentloaded")
         await page.wait_for_timeout(1000)
 
         # Scroll into #capabilities

@@ -7,6 +7,7 @@ import SmoothScroll from "@/components/SmoothScroll";
 import HeroChoreography from "@/components/HeroChoreography";
 import VoxPreloader from "@/components/VoxPreloader";
 import AcousticBlackHoleCanvas from "@/components/AcousticBlackHoleCanvas";
+import HeroCursorFollower from "@/components/HeroCursorFollower";
 import KineticScrollText from "@/components/KineticScrollText";
 import SignalWires from "@/components/SignalWires";
 import AmbientGradient from "@/components/AmbientGradient";
@@ -266,11 +267,7 @@ export default function Home() {
 
             <div className="hero-vignette absolute inset-0 pointer-events-none" aria-hidden="true" />
 
-            {/* Stage A — the only text permitted over the pure aperture frame.
-                Fades out by progress ~0.17 (see .hero-aperture-cue in globals.css). */}
-            <p className="hero-aperture-cue" aria-hidden="true">
-              [ SCROLL TO EXPLORE ↓ ]
-            </p>
+            <HeroCursorFollower />
 
             {/* Stage B — diagnostic markers, in at 0.15, out by 0.9. */}
             <div className="hero-hud hero-hud-left" aria-hidden="true">
