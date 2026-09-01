@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import AmbientGradient from "@/components/AmbientGradient";
 
 const hubs = [
   { name: "London Central", code: "LDN / 01", phone: "+44 20 •••• 0821", state: "SPEAKING", color: "#ff2d78", level: 82, intent: "delivery_status", route: "Central Depot → Thursday window" },
@@ -16,8 +17,9 @@ export default function DispatchSwitchboard() {
   const hub = hubs[activeHub];
 
   return (
-    <section className="relative py-28 sm:py-40" id="switchboard">
-      <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+    <section className="grid-horizon relative overflow-hidden py-28 sm:py-40" id="switchboard">
+      <AmbientGradient />
+      <div className="relative z-10 mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
         <div className="grid gap-10 lg:grid-cols-[0.72fr_1.28fr] lg:items-end lg:gap-20">
           <div>
             <span className="font-label text-[10px] uppercase tracking-[0.25em] text-[#ff2d78]">04 — Multi-depot switchboard</span>

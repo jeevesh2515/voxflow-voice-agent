@@ -5,6 +5,13 @@ import { useEffect, useState } from "react";
 import CosmicStarfield from "@/components/CosmicStarfield";
 import SmoothScroll from "@/components/SmoothScroll";
 import HeroChoreography from "@/components/HeroChoreography";
+import AcousticBlackHoleCanvas from "@/components/AcousticBlackHoleCanvas";
+import KineticScrollText from "@/components/KineticScrollText";
+import SignalWires from "@/components/SignalWires";
+import AmbientGradient from "@/components/AmbientGradient";
+import AsymmetricCapabilitySlider from "@/components/AsymmetricCapabilitySlider";
+import NotchedContainer from "@/components/NotchedContainer";
+import ParallaxQuotes from "@/components/ParallaxQuotes";
 import VoiceCoreCanvas from "@/components/VoiceCoreCanvas";
 import VoiceXray from "@/components/VoiceXray";
 import DispatchSwitchboard from "@/components/DispatchSwitchboard";
@@ -250,13 +257,23 @@ export default function Home() {
         {/* ==================== HERO SECTION ==================== */}
         <section id="hero-stage" className="hero-stage relative" aria-label="VoxFlow autonomous voice operations introduction">
           <div className="hero-stage-sticky relative min-h-[100svh] flex items-center overflow-hidden grid-bg pt-28 pb-16 sm:pt-32 sm:pb-24">
-            <VoiceCoreCanvas />
+            {/* Stage 1-2: the acoustic event horizon. Hands off during Stage 3. */}
+            <div className="hero-blackhole-layer">
+              <AcousticBlackHoleCanvas />
+            </div>
+
+            {/* Stage 3-4: generated LiDAR blueprint, then the wireframe core. */}
+            <div className="hero-blueprint-layer" aria-hidden="true" />
+            <div className="hero-core-layer">
+              <VoiceCoreCanvas />
+            </div>
+
             <div className="hero-vignette absolute inset-0 pointer-events-none" aria-hidden="true" />
 
             {/* Stage A — the only text permitted over the pure aperture frame.
                 Fades out by progress ~0.17 (see .hero-aperture-cue in globals.css). */}
             <p className="hero-aperture-cue" aria-hidden="true">
-              [ 01 / VOICE CORE ] — SCROLL TO INITIALIZE SIGNAL
+              SCROLL TO EXPLORE ↓
             </p>
 
             {/* Stage B — diagnostic markers, in at 0.15, out by 0.9. */}
@@ -461,8 +478,9 @@ export default function Home() {
         </section>
 
         {/* ═══════════ TRUST METRICS STRIP ═══════════ */}
-        <section className="relative border-y border-white/[0.08] bg-[#050508]/40 backdrop-blur-md">
-          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <section className="relative">
+          <NotchedContainer>
+            <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
             <div className="grid grid-cols-2 lg:grid-cols-4 stagger-children">
               {[
                 ["99.8%", "Transcription Precision", "Fine-tuned UK & Hindi acoustics"],
@@ -482,11 +500,14 @@ export default function Home() {
                 </div>
               ))}
             </div>
-          </div>
+            </div>
+          </NotchedContainer>
         </section>
 
         {/* ═══════════ KINETIC NARRATIVE ═══════════ */}
         <section className="kinetic-narrative relative py-28 sm:py-40 border-y border-white/[0.06]" id="narrative">
+          {/* Live traffic flowing behind the narrative. */}
+          <SignalWires className="opacity-70" />
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 grid lg:grid-cols-[0.62fr_1.38fr] gap-10 lg:gap-20 items-start">
             <div className="lg:sticky lg:top-36">
               <span className="font-label text-[#00ffcc] tracking-[0.24em] uppercase text-[10px] sm:text-xs">01 — Autonomous conversation layer</span>
@@ -498,17 +519,22 @@ export default function Home() {
                 Scroll-led signal narrative
               </div>
             </div>
-            <p data-word-reveal className="word-reveal font-headline text-4xl leading-[1.05] tracking-[-0.045em] text-[#f8fafc] sm:text-6xl lg:text-7xl xl:text-8xl">
-              {"Your caller hears a calm, capable human. Your operation sees every intent, decision, and update arrive exactly where it needs to go.".split(" ").map((word, index) => (
-                <span key={`${word}-${index}`} data-word-index={index}>{word}{" "}</span>
-              ))}
-            </p>
+            {/* Letter-level scrub reveal. Retracts in the same order on the way
+                back up — see KineticScrollText for why that symmetry is free. */}
+            <KineticScrollText
+              lines={[
+                "Technology that turns chaotic phone traffic",
+                "into one connected voice operating system.",
+              ]}
+              className="font-headline text-4xl leading-[1.05] tracking-[-0.045em] sm:text-6xl lg:text-7xl xl:text-8xl"
+            />
           </div>
         </section>
 
         {/* ═══════════ PLATFORM FEATURES (3 PILLARS) ═══════════ */}
-        <section className="py-20 sm:py-28 relative" id="platform">
-          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <section className="py-20 sm:py-28 relative overflow-hidden" id="platform">
+          <AmbientGradient />
+          <div className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
             <div className="text-center mb-16 reveal">
               <span className="font-label text-[#c084fc] tracking-[0.2em] uppercase text-xs mb-3 block neon-text-sm">
                 ✦ Enterprise Architecture
@@ -566,8 +592,11 @@ export default function Home() {
 
         <VoiceXray />
 
+        {/* Asymmetric capability deck — tabs + 58/42 cards, Terminal pattern. */}
+        <AsymmetricCapabilitySlider />
+
         {/* ═══════════ DUAL-POV TELEMETRY REVEAL ═══════════ */}
-        <section className="py-20 sm:py-28 relative" id="solutions">
+        <section className="grid-horizon py-20 sm:py-28 relative overflow-hidden" id="solutions">
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
             <div className="mb-12 reveal">
               <span className="font-label text-[#c084fc] tracking-[0.25em] uppercase text-xs neon-text-sm">
@@ -741,9 +770,13 @@ export default function Home() {
 
         <DispatchSwitchboard />
 
+        {/* Deep fixed-background parallax — Gargantua poster, gliding quotes. */}
+        <ParallaxQuotes />
+
         {/* ═══════════ ROI & COST SAVINGS CALCULATOR ═══════════ */}
-        <section className="py-20 sm:py-28 relative border-t border-white/[0.06]" id="roi">
-          <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8">
+        <section className="py-20 sm:py-28 relative overflow-hidden border-t border-white/[0.06]" id="roi">
+          <AmbientGradient />
+          <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
             <div className="text-center mb-12 reveal">
               <span className="font-label text-[#ffe04a] tracking-[0.25em] uppercase text-xs neon-text-sm">05 — Prove the math</span>
               <h2 className="font-headline font-extrabold text-3xl sm:text-5xl mt-3 tracking-tight text-[#f8fafc]">
@@ -1019,8 +1052,9 @@ export default function Home() {
         </section>
 
         {/* ═══════════ BOTTOM CONVERSION BANNER ═══════════ */}
-        <section className="py-20 sm:py-28 relative" id="cta">
-          <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 reveal-scale">
+        <section className="py-20 sm:py-28 relative overflow-hidden" id="cta">
+          <AmbientGradient />
+          <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 reveal-scale relative z-10">
             <div className="glass rounded-3xl p-8 sm:p-14 text-center relative overflow-hidden border border-[#ff2d78]/30 shadow-[0_0_50px_rgba(255,45,120,0.15)]">
               <div
                 className="absolute -top-24 left-1/2 -translate-x-1/2 w-72 h-72 bg-[#ff2d78]/20 blur-[120px] rounded-full pointer-events-none"
