@@ -258,7 +258,7 @@ export default function Home() {
       <main className="relative z-10 bg-transparent">
         {/* ==================== HERO SECTION ==================== */}
         <section id="hero-stage" className="hero-stage relative" aria-label="VoxFlow autonomous voice operations introduction">
-          <div className="hero-stage-sticky relative min-h-[100svh] flex items-center overflow-hidden grid-bg pt-28 pb-16 sm:pt-32 sm:pb-24">
+          <div className="hero-stage-sticky min-h-[100svh] flex items-center overflow-hidden grid-bg pt-28 pb-16 sm:pt-32 sm:pb-24">
             {/* Stages 1-3: the acoustic event horizon. Recedes to a quiet
                 backdrop (opacity 0.25, scale 0.85) once the copy docks. */}
             <div className="hero-blackhole-layer">

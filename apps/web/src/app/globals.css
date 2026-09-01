@@ -1116,10 +1116,12 @@ html {
     }
 
     .hero-stage.hero-stage-ready .hero-stage-sticky {
-      position: sticky;
-      top: 0;
-      height: 100svh;
-      min-height: 100svh;
+      position: sticky !important;
+      top: 0 !important;
+      height: 100svh !important;
+      min-height: 100svh !important;
+      width: 100% !important;
+      z-index: 10;
     }
 
     /* Staged Punchlines 1 & 2 */
