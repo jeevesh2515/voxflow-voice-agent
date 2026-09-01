@@ -278,6 +278,32 @@ export default function Home() {
               <span>LATENCY TARGET</span>
               <span>&lt;100ms</span>
             </div>
+
+            {/* Staged Hero Scroll Punchlines (Terminal Industries Pattern) */}
+            <div className="hero-punchlines absolute inset-0 flex items-center justify-center pointer-events-none z-20 px-6">
+              {/* Punchline 1 */}
+              <div className="hero-punchline hero-punchline-1 max-w-4xl text-center">
+                <div className="mb-6 inline-flex items-center gap-2 rounded-full border border-[#00ffcc]/30 bg-black/70 px-4 py-1.5 font-mono text-xs uppercase tracking-[0.22em] text-[#00ffcc] backdrop-blur-md shadow-2xl">
+                  <span className="h-2 w-2 rounded-full bg-[#00ffcc] animate-ping" />
+                  01 // AUTONOMOUS VOICE ENGINE
+                </div>
+                <h2 className="font-headline text-4xl sm:text-6xl lg:text-7xl font-extrabold tracking-tight text-white leading-[1.08] drop-shadow-[0_12px_32px_rgba(0,0,0,0.9)]">
+                  We have reinvented enterprise voice operations from the core.
+                </h2>
+              </div>
+
+              {/* Punchline 2 */}
+              <div className="hero-punchline hero-punchline-2 max-w-4xl text-center">
+                <div className="mb-6 inline-flex items-center gap-2 rounded-full border border-[#ff2d78]/30 bg-black/70 px-4 py-1.5 font-mono text-xs uppercase tracking-[0.22em] text-[#ff2d78] backdrop-blur-md shadow-2xl">
+                  <span className="h-2 w-2 rounded-full bg-[#ff2d78] animate-ping" />
+                  02 // REAL-TIME DISPATCH & ERP
+                </div>
+                <h2 className="font-headline text-4xl sm:text-6xl lg:text-7xl font-extrabold tracking-tight text-white leading-[1.08] drop-shadow-[0_12px_32px_rgba(0,0,0,0.9)]">
+                  Zero human queues. Sub-200ms latency. 100% two-way ERP sync.
+                </h2>
+              </div>
+            </div>
+
           {/* Ambient Glowing Nebula Orbs */}
           <div
             className="absolute top-1/4 left-1/4 w-[45vw] h-[45vw] max-w-[500px] max-h-[500px] bg-[#ff2d78]/10 blur-[130px] rounded-full pointer-events-none"

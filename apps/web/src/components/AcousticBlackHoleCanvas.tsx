@@ -4,18 +4,19 @@ import { useEffect, useRef } from "react";
 import * as THREE from "three";
 
 /**
- * Geodesic-traced Schwarzschild black hole for VoxFlow.
+ * Geodesic-traced Schwarzschild black hole with on-scroll spatial waves.
  * Ported from Eric Bruneton / Ghostty Black Hole (github.com/s0xDk/ghostty-blackhole).
  *
  * Implements numerical integration of null geodesics:
  *   a = -(3/2) * h² * x / r⁵   where h = |x × v|
  *
  * Computes:
- * - Pure Schwarzschild shadow sphere at b_crit = (3√3/2) r_s
+ * - Pure Schwarzschild shadow sphere at b_crit = (3√3/2) r_s (centered via vUv)
  * - Gravitational lensing & photon sphere winding
  * - Shakura-Sunyaev Keplerian accretion disk with edge-on inclination (arcs over & under)
- * - Relativistic Doppler boosting & gravitational redshift g = √(1 - 1.5 r_s/r) / (1 - β·k̂)
+ * - Relativistic Doppler boosting & gravitational redshift
  * - Tanner-Helland blackbody temperature radiance (5500K -> 2400K)
+ * - On-scroll spatial acoustic shockwaves and camera recession into deep cosmos
  * - Audio-reactive pulse modulation during voice persona playback
  */
 
@@ -34,7 +35,8 @@ const FRAG = /* glsl */ `
 
   uniform vec2  uResolution;
   uniform float uTime;
-  uniform float uVoicePulse;  // 0 -> 1 on voice playback
+  uniform float uScrollProgress; // 0 -> 1 through hero scroll
+  uniform float uVoicePulse;     // 0 -> 1 on voice playback
   uniform float uFade;
   uniform sampler2D uStars;
   uniform float uHasStars;
@@ -58,7 +60,7 @@ const FRAG = /* glsl */ `
   const float DISK_CONTRAST = 1.4;    // Gas filament contrast
   const float EXPOSURE      = 1.45;   // HDR tonemap exposure
   const float B_CRIT        = 2.598076; // (3√3 / 2) critical impact parameter
-  const float Z0            = 14.5;   // Fixed camera distance in space
+  const float Z0            = 14.5;   // Fixed base camera distance in space
 
   // Rotation in 2D
   vec2 rot(vec2 p, float a) {
@@ -71,17 +73,6 @@ const FRAG = /* glsl */ `
     p = fract(p * vec2(123.34, 456.21));
     p += dot(p, p + 45.32);
     return fract(p.x * p.y);
-  }
-
-  float vnoise(vec2 p) {
-    vec2 i = floor(p);
-    vec2 f = fract(p);
-    f = f * f * (3.0 - 2.0 * f);
-    float a = hash21(i);
-    float b = hash21(i + vec2(1.0, 0.0));
-    float c = hash21(i + vec2(0.0, 1.0));
-    float d = hash21(i + vec2(1.0, 1.0));
-    return mix(mix(a, b, f.x), mix(c, d, f.x), f.y);
   }
 
   float vnoiseWrapY(vec2 p, float periodY) {
@@ -123,16 +114,16 @@ const FRAG = /* glsl */ `
   }
 
   void main() {
-    vec2 res = uResolution.xy;
-    vec2 uv = gl_FragCoord.xy / res;
-    float aspect = res.x / res.y;
+    float aspect = uResolution.x / max(uResolution.y, 1.0);
 
-    // Centered screen coordinate
-    vec2 p = (uv - 0.5) * vec2(aspect, 1.0);
+    // Guaranteed mathematically dead-centered coordinates using varying vUv
+    vec2 p = (vUv - vec2(0.5, 0.5)) * vec2(aspect, 1.0);
     float plen = length(p);
 
-    // Screen-to-world mapping scaling
-    float rh = 0.22; // Normalized shadow radius on screen
+    // On-scroll camera recession: black hole smoothly recedes into deep space
+    float progress = clamp(uScrollProgress, 0.0, 1.0);
+    float camZ = Z0 + progress * 16.0;
+    float rh = mix(0.24, 0.11, progress); // Normalized shadow radius on screen
     float W = B_CRIT / max(rh, 1e-4);
     vec2 pr = rot(p, DISK_ROLL) * W;
     float b = length(pr);
@@ -140,8 +131,8 @@ const FRAG = /* glsl */ `
     float rin = max(DISK_INNER, 1.6);
     float rout = max(DISK_OUTER, rin + 0.5);
 
-    // Ray origin & conserved angular momentum h²
-    vec3 x = vec3(pr, Z0);
+    // Ray origin with receding distance & conserved angular momentum h²
+    vec3 x = vec3(pr, camZ);
     vec3 v = vec3(0.0, 0.0, -1.0);
     float h2 = dot(pr, pr);
 
@@ -160,8 +151,8 @@ const FRAG = /* glsl */ `
     for (int i = 0; i < N_STEPS; i++) {
       float r2 = dot(x, x);
       if (r2 < 1.0) { captured = true; break; }
-      if (x.z < -Z0 && v.z < 0.0) break;
-      if (r2 > 4.0 * Z0 * Z0) break;
+      if (x.z < -camZ && v.z < 0.0) break;
+      if (r2 > 4.0 * camZ * camZ) break;
 
       float r = sqrt(r2);
       float dt = clamp(0.15 * r, 0.03, 1.4);
@@ -233,13 +224,28 @@ const FRAG = /* glsl */ `
     }
 
     // Einstein photon ring razor glow
-    float impact = length(cross(vec3(pr, Z0), normalize(v))) / max(length(vec3(pr, Z0)), 0.001);
-    float photonRing = 2.598 / Z0;
-    float ring = exp(-pow((impact - photonRing) * Z0 * 46.0, 2.0));
+    float impact = length(cross(vec3(pr, camZ), normalize(v))) / max(length(vec3(pr, camZ)), 0.001);
+    float photonRing = 2.598 / camZ;
+    float ring = exp(-pow((impact - photonRing) * camZ * 46.0, 2.0));
     vec3 ringColor = ring * vec3(1.0, 0.72, 0.32) * (0.8 + uVoicePulse * 0.6);
 
+    // On-scroll spatial acoustic shockwaves radiating from event horizon
+    vec3 waveGlow = vec3(0.0);
+    if (progress > 0.04) {
+      float waveDist = plen;
+      float waveFreq = 22.0;
+      float waveSpeed = 12.0;
+      float wavePhase = waveDist * waveFreq - progress * 24.0 - uTime * 1.5;
+      float waveRipples = sin(wavePhase);
+      float waveMask = smoothstep(0.05, 0.5, progress) * (1.0 - smoothstep(0.85, 1.0, progress));
+      float waveSharp = pow(clamp(waveRipples, 0.0, 1.0), 3.0);
+      float distFalloff = exp(-waveDist * 2.2);
+      waveGlow = vec3(0.0, 0.95, 0.85) * (waveSharp * waveMask * distFalloff * 0.42);
+      waveGlow += vec3(1.0, 0.2, 0.5) * (pow(clamp(-waveRipples, 0.0, 1.0), 4.0) * waveMask * distFalloff * 0.25);
+    }
+
     // HDR exposure tonemap
-    vec3 col = bg * trans + (vec3(1.0) - exp(-emitc * EXPOSURE)) + ringColor;
+    vec3 col = bg * trans + (vec3(1.0) - exp(-emitc * EXPOSURE)) + ringColor + waveGlow;
 
     gl_FragColor = vec4(col * uFade, 1.0);
   }
@@ -277,6 +283,7 @@ export default function AcousticBlackHoleCanvas() {
     const uniforms: Record<string, THREE.IUniform> = {
       uResolution: { value: new THREE.Vector2(window.innerWidth, window.innerHeight) },
       uTime: { value: 0 },
+      uScrollProgress: { value: 0 },
       uVoicePulse: { value: 0 },
       uFade: { value: 1 },
       uStars: { value: null },
@@ -333,6 +340,12 @@ export default function AcousticBlackHoleCanvas() {
       voicePulse *= 0.95;
       uniforms.uTime.value = (performance.now() - start) / 1000;
       uniforms.uVoicePulse.value = voicePulse;
+
+      // Track hero scroll progress custom property
+      const rawProgress = parseFloat(
+        document.documentElement.style.getPropertyValue("--hero-progress") || "0"
+      );
+      uniforms.uScrollProgress.value = Math.max(0, Math.min(1, isNaN(rawProgress) ? 0 : rawProgress));
 
       if (renderer) renderer.render(scene, camera);
       animId = requestAnimationFrame(frame);

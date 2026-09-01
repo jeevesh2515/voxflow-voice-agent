@@ -1084,21 +1084,17 @@ html {
    One source of truth: --hero-progress (0 → 1), written by
    HeroChoreography.tsx via GSAP ScrollTrigger scrub.
 
-   Every rule below is a PURE FUNCTION of that value — no one-way
-   class toggles, no stateful triggers. That is what makes reverse
-   scrolling identical to forward scrolling with zero jumpiness.
-
-     0.00–0.15  Stage A  pure aperture, core centered, copy hidden
-     0.15–0.50  Stage B  blueprint morph, HUD diagnostics visible
-     0.50–1.00  Stage C  core docks right, copy + console glide in
+     0.00–0.20  Stage 1  pure centered black hole aperture
+     0.20–0.48  Stage 2  Punchline 1 (Engine) + spatial ripples
+     0.48–0.76  Stage 3  Punchline 2 (Dispatch & ERP) + receding cosmos
+     0.76–1.00  Stage 4  docked headline & live operations console
    ════════════════════════════════════════════════════════════ */
 
 .hero-stage {
   --hero-progress: 0;
 }
 
-/* Pre-JS: hide copy so the opening frame is a clean visual, never a
-   flash of unstyled headline. <noscript> below restores it. */
+/* Pre-JS: hide copy so the opening frame is a clean visual */
 .hero-stage:not(.hero-stage-ready) .hero-copy,
 .hero-stage:not(.hero-stage-ready) .hero-console { opacity: 0; }
 
@@ -1107,15 +1103,16 @@ html {
   .hero-stage:not(.hero-stage-ready) .hero-console { opacity: 1; }
 }
 
-/* Desktop + motion-allowed only. On mobile the layout stacks, so a tall
-   pinned hero would just read as a dead zone — there it stays a normal
-   single-viewport section with all copy visible immediately. */
+.hero-punchlines {
+  display: none;
+}
+
+/* Desktop + motion-allowed only */
 @media (min-width: 1024px) {
   @media (prefers-reduced-motion: no-preference) {
     .hero-stage.hero-stage-ready {
-      /* 200vh total = 100vh of pinned choreography. Deliberately short:
-         long pins are what create the dead-zone feel. */
-      height: 200vh;
+      /* 350vh total = 250vh of pinned staged choreography (Terminal Industries pattern). */
+      height: 350vh;
     }
 
     .hero-stage.hero-stage-ready .hero-stage-sticky {
@@ -1125,22 +1122,58 @@ html {
       min-height: 100svh;
     }
 
-    /* Stage C — headline block resolves in from the left. */
-    .hero-stage.hero-stage-ready .hero-copy {
-      opacity: clamp(0, (var(--hero-progress) - 0.5) * 3.4, 1);
+    /* Staged Punchlines 1 & 2 */
+    .hero-stage.hero-stage-ready .hero-punchlines {
+      display: flex;
+    }
+
+    .hero-stage.hero-stage-ready .hero-punchline {
+      position: absolute;
+      will-change: opacity, transform;
+    }
+
+    /* Punchline 1: in at 0.16, peaks at 0.32, out by 0.44 */
+    .hero-stage.hero-stage-ready .hero-punchline-1 {
+      opacity: calc(
+        clamp(0, (var(--hero-progress) - 0.15) * 8.0, 1) *
+        clamp(0, 1 - (var(--hero-progress) - 0.34) * 8.0, 1)
+      );
       transform: translate3d(
-        calc(-30px * clamp(0, 1 - (var(--hero-progress) - 0.5) * 3.4, 1)),
+        0,
+        calc(28px * (1 - clamp(0, (var(--hero-progress) - 0.15) * 8.0, 1))),
+        0
+      );
+    }
+
+    /* Punchline 2: in at 0.45, peaks at 0.60, out by 0.72 */
+    .hero-stage.hero-stage-ready .hero-punchline-2 {
+      opacity: calc(
+        clamp(0, (var(--hero-progress) - 0.45) * 8.0, 1) *
+        clamp(0, 1 - (var(--hero-progress) - 0.62) * 8.0, 1)
+      );
+      transform: translate3d(
+        0,
+        calc(28px * (1 - clamp(0, (var(--hero-progress) - 0.45) * 8.0, 1))),
+        0
+      );
+    }
+
+    /* Stage 4 — Final headline block resolves in from the left after punchlines */
+    .hero-stage.hero-stage-ready .hero-copy {
+      opacity: clamp(0, (var(--hero-progress) - 0.74) * 4.5, 1);
+      transform: translate3d(
+        calc(-36px * clamp(0, 1 - (var(--hero-progress) - 0.74) * 4.5, 1)),
         0,
         0
       );
       will-change: opacity, transform;
     }
 
-    /* Console follows a beat later so the two don't arrive as one slab. */
+    /* Console follows a beat later so the two dock seamlessly */
     .hero-stage.hero-stage-ready .hero-console {
-      opacity: clamp(0, (var(--hero-progress) - 0.58) * 3.4, 1);
+      opacity: clamp(0, (var(--hero-progress) - 0.80) * 4.5, 1);
       transform: translate3d(
-        calc(36px * clamp(0, 1 - (var(--hero-progress) - 0.58) * 3.4, 1)),
+        calc(36px * clamp(0, 1 - (var(--hero-progress) - 0.80) * 4.5, 1)),
         0,
         0
       );
@@ -1240,14 +1273,14 @@ html {
   position: absolute;
   inset: 0;
   z-index: 0;
-  opacity: calc(1 - clamp(0, (var(--hero-progress) - 0.5) * 5, 1) * 0.75);
-  transform: scale(calc(1 - clamp(0, (var(--hero-progress) - 0.5) * 5, 1) * 0.15));
-  transform-origin: center 42%;
+  opacity: calc(1 - clamp(0, (var(--hero-progress) - 0.70) * 3.3, 1) * 0.75);
+  transform: scale(calc(1 - clamp(0, var(--hero-progress) * 0.85, 1) * 0.35));
+  transform-origin: center center;
   will-change: opacity, transform;
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .hero-blackhole-layer { opacity: 0.25; transform: scale(0.85); }
+  .hero-blackhole-layer { opacity: 0.25; transform: scale(0.75); }
 }
 
 /* ════════════════════════════════════════════════════════════
