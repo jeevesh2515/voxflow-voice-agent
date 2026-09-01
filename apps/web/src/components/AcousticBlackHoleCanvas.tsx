@@ -4,26 +4,19 @@ import { useEffect, useRef } from "react";
 import * as THREE from "three";
 
 /**
- * Physically-motivated Schwarzschild black hole, rendered as a single
- * full-screen fragment shader.
+ * Geodesic-traced Schwarzschild black hole for VoxFlow.
+ * Ported from Eric Bruneton / Ghostty Black Hole (github.com/s0xDk/ghostty-blackhole).
  *
- * WHY A RAY MARCHER AND NOT A GENERATED IMAGE
- * The feature that makes a black hole read as real is gravitational lensing:
- * light from behind is bent around the hole, so you see the FAR side of the
- * accretion disk arcing above and below the shadow, and the background
- * starfield smeared into an Einstein ring. That is a light-path effect. It
- * cannot be baked into a texture, because a texture has no notion of the rays
- * that formed it. So the starfield is the only generated asset here, and the
- * shader bends it.
+ * Implements numerical integration of null geodesics:
+ *   a = -(3/2) * h² * x / r⁵   where h = |x × v|
  *
- * INTEGRATION
- * Null geodesics in Schwarzschild geometry, Cartesian form, Rs = 1:
- *
- *     d²x/dλ² = -3/2 · h² · x / r⁵      where h = x × dx/dλ  (angular momentum)
- *
- * h² is conserved along a ray, so it is computed once per pixel and the
- * integration is a cheap Verlet-style step. This is the standard formulation
- * and is accurate enough for a convincing photon ring at ~80 steps.
+ * Computes:
+ * - Pure Schwarzschild shadow sphere at b_crit = (3√3/2) r_s
+ * - Gravitational lensing & photon sphere winding
+ * - Shakura-Sunyaev Keplerian accretion disk with edge-on inclination (arcs over & under)
+ * - Relativistic Doppler boosting & gravitational redshift g = √(1 - 1.5 r_s/r) / (1 - β·k̂)
+ * - Tanner-Helland blackbody temperature radiance (5500K -> 2400K)
+ * - Audio-reactive pulse modulation during voice persona playback
  */
 
 const VERT = /* glsl */ `
@@ -41,228 +34,248 @@ const FRAG = /* glsl */ `
 
   uniform vec2  uResolution;
   uniform float uTime;
-  uniform float uVoicePulse;  // 0 -> 1, spikes on voice playback
-  uniform float uFade;        // master opacity, driven by stage crossfade
+  uniform float uVoicePulse;  // 0 -> 1 on voice playback
+  uniform float uFade;
   uniform sampler2D uStars;
   uniform float uHasStars;
 
   #define PI 3.14159265359
+  #define N_STEPS 52
 
-  // Disk geometry in Schwarzschild radii. Inner edge sits at the ISCO (3Rs),
-  // which is where a real thin accretion disk truncates.
-  const float DISK_INNER = 3.0;
-  const float DISK_OUTER = 10.5;
-  const float SHADOW_RADIUS = 2.6;
-  const float PHOTON_RING_RADIUS = 2.598;
-  const float CAMERA_DISTANCE = 14.5;
+  // Tunables calibrated to the Gargantua / Interstellar astrophysical look
+  const float LENS_DEPTH    = 14.0;
+  const float DISK_INNER    = 2.0;    // Inner edge (ISCO)
+  const float DISK_OUTER    = 8.2;    // Outer edge
+  const float DISK_INCL     = 1.52;   // Edge-on tilt in radians (87°) -> arcs over and under
+  const float DISK_ROLL     = 0.05;   // Screen roll
+  const float DISK_TEMP     = 5500.0; // Peak temperature in Kelvin
+  const float DISK_GAIN     = 2.4;    // Emission brightness
+  const float DISK_OPACITY  = 0.92;   // Near disk opacity
+  const float DOPPLER_MIX   = 0.65;   // Relativistic asymmetry
+  const float DISK_BEAM     = 2.6;    // Beaming exponent g^N
+  const float DISK_SPEED    = 4.8;    // Orbit streak speed
+  const float DISK_WIND     = 6.5;    // Spiral tightness
+  const float DISK_CONTRAST = 1.4;    // Gas filament contrast
+  const float EXPOSURE      = 1.45;   // HDR tonemap exposure
+  const float B_CRIT        = 2.598076; // (3√3 / 2) critical impact parameter
+  const float Z0            = 14.5;   // Fixed camera distance in space
 
-  // Equirectangular lookup for a bent ray direction.
-  vec2 dirToEquirect(vec3 d) {
-    return vec2(
-      atan(d.z, d.x) / (2.0 * PI) + 0.5,
-      asin(clamp(d.y, -1.0, 1.0)) / PI + 0.5
-    );
+  // Rotation in 2D
+  vec2 rot(vec2 p, float a) {
+    float c = cos(a), s = sin(a);
+    return vec2(c * p.x - s * p.y, s * p.x + c * p.y);
   }
 
-  vec3 sampleStars(vec3 dir) {
-    if (uHasStars < 0.5) {
-      // Procedural fallback so a missing texture degrades to plausible sky
-      // rather than a flat void.
-      float h = fract(sin(dot(floor(dir * 420.0), vec3(12.9898, 78.233, 45.164))) * 43758.5453);
-      float star = smoothstep(0.9985, 1.0, h);
-      return vec3(star) * vec3(0.9, 0.95, 1.0);
-    }
-    return texture2D(uStars, dirToEquirect(dir)).rgb;
+  // Hash / value noise for gas streaks
+  float hash21(vec2 p) {
+    p = fract(p * vec2(123.34, 456.21));
+    p += dot(p, p + 45.32);
+    return fract(p.x * p.y);
   }
 
-  // Accretion disk, tuned to the Gargantua look from Interstellar: a razor-thin
-  // blackbody disk running from near-white at the ISCO out to deep amber at the
-  // rim. The voice signal modulates BRIGHTNESS rather than hue, so the disk
-  // stays photoreal while still reacting to playback.
-  vec3 diskEmission(vec3 hitPos, float beaming) {
-    float r = length(hitPos.xz);
-    float norm = clamp((r - DISK_INNER) / (DISK_OUTER - DISK_INNER), 0.0, 1.0);
-    float angle = atan(hitPos.z, hitPos.x);
+  float vnoise(vec2 p) {
+    vec2 i = floor(p);
+    vec2 f = fract(p);
+    f = f * f * (3.0 - 2.0 * f);
+    float a = hash21(i);
+    float b = hash21(i + vec2(1.0, 0.0));
+    float c = hash21(i + vec2(0.0, 1.0));
+    float d = hash21(i + vec2(1.0, 1.0));
+    return mix(mix(a, b, f.x), mix(c, d, f.x), f.y);
+  }
 
-    // Keplerian shear: inner annuli orbit faster.
-    float orbit = uTime * 0.5 / pow(max(r, 0.8), 1.5);
+  float vnoiseWrapY(vec2 p, float periodY) {
+    vec2 i = floor(p);
+    vec2 f = fract(p);
+    f = f * f * (3.0 - 2.0 * f);
+    float iY1 = mod(i.y, periodY);
+    float iY2 = mod(i.y + 1.0, periodY);
+    float a = hash21(vec2(i.x, iY1));
+    float b = hash21(vec2(i.x + 1.0, iY1));
+    float c = hash21(vec2(i.x, iY2));
+    float d = hash21(vec2(i.x + 1.0, iY2));
+    return mix(mix(a, b, f.x), mix(c, d, f.x), f.y);
+  }
 
-    // Turbulent banding. Kept low-contrast so it reads as gas structure
-    // rather than a decorative pattern.
-    float band = 0.82
-      + 0.10 * sin(r * 7.0 - uTime * 1.1 + angle * 2.0)
-      + 0.06 * sin(r * 15.0 + orbit * 6.0 - angle * 4.0);
+  // Tanner Helland blackbody color fit (Kelvin -> normalized RGB)
+  vec3 blackbody(float T) {
+    float t = clamp(T, 1500.0, 40000.0) / 100.0;
+    float r = t <= 66.0 ? 1.0 : clamp(1.292936 * pow(t - 60.0, -0.1332047), 0.0, 1.0);
+    float g = t <= 66.0 ? clamp(0.3900816 * log(t) - 0.6318414, 0.0, 1.0)
+                        : clamp(1.1298909 * pow(t - 60.0, -0.0755148), 0.0, 1.0);
+    float b = t >= 66.0 ? 1.0 : (t <= 19.0 ? 0.0 : clamp(0.5432068 * log(t - 10.0) - 1.1962540, 0.0, 1.0));
+    return vec3(r, g, b);
+  }
 
-    // Acoustic response: a radial pulse travelling outward on voice playback.
-    float pulse = uVoicePulse * (0.6 + 0.4 * sin(r * 4.0 - uTime * 7.0));
-
-    // Blackbody-inspired temperature ramp: 5400 K at the ISCO falls to
-    // 2700 K at the dusty rim. The warm end is deliberately amber rather
-    // than red so it keeps the high-energy, technical look of the hero.
-    float temperature = mix(5400.0, 2700.0, norm);
-    float thermal = clamp((temperature - 2700.0) / 2700.0, 0.0, 1.0);
-    vec3 amber = vec3(0.98, 0.34, 0.08);
-    vec3 gold = vec3(1.00, 0.73, 0.30);
-    vec3 whiteGold = vec3(1.00, 0.96, 0.80);
-    vec3 col = mix(amber, gold, smoothstep(0.0, 0.62, thermal));
-    col = mix(col, whiteGold, smoothstep(0.54, 1.0, thermal));
-
-    // Radial intensity: fierce inner edge, steep physical falloff (thin-disk
-    // emission drops fast with r). The steep curve is what keeps the inner
-    // annulus from clipping to a flat white sheet across the whole disk.
-    float falloff = (1.0 / (0.55 + norm * 6.5));
-    float edgeIn = smoothstep(0.0, 0.045, norm);
-    float edgeOut = 1.0 - smoothstep(0.72, 1.0, norm);
-
-    return col * band * falloff * edgeIn * edgeOut * beaming * (1.0 + pulse * 1.6);
+  // Procedural lensed background starfield
+  vec3 stars(vec3 d) {
+    vec2 sph = vec2(atan(d.x, -d.z), asin(clamp(d.y, -1.0, 1.0)));
+    vec2 g   = sph * 45.0;
+    vec2 id  = floor(g);
+    float h  = hash21(id);
+    if (h < 0.93) return vec3(0.0);
+    vec2 f   = fract(g) - 0.5;
+    vec2 off = (vec2(hash21(id + 17.3), hash21(id + 31.7)) - 0.5) * 0.7;
+    float spark = smoothstep(0.12, 0.0, length(f - off));
+    float tw    = 0.7 + 0.3 * sin(uTime * (0.8 + 2.0 * hash21(id + 5.1)) + 40.0 * h);
+    vec3 tint   = mix(vec3(1.0, 0.85, 0.65), vec3(0.70, 0.90, 1.0), hash21(id + 2.9));
+    return tint * spark * tw * ((h - 0.93) / 0.07) * 0.85;
   }
 
   void main() {
-    vec2 frag = (vUv - 0.5) * vec2(uResolution.x / uResolution.y, 1.0);
+    vec2 res = uResolution.xy;
+    vec2 uv = gl_FragCoord.xy / res;
+    float aspect = res.x / res.y;
 
-    // The camera is intentionally immutable. Scroll only changes the CSS
-    // layer treatment outside this shader; it never alters the geodesic
-    // solution, framing, or disk inclination. This keeps the hole anchored
-    // in deep space with no pointer or scroll wobble.
-    float camDist = CAMERA_DISTANCE;
-    float yaw   = 0.0;
-    float pitch = 0.115;
+    // Centered screen coordinate
+    vec2 p = (uv - 0.5) * vec2(aspect, 1.0);
+    float plen = length(p);
 
-    vec3 camPos = vec3(
-      sin(yaw) * cos(pitch) * camDist,
-      sin(pitch) * camDist,
-      cos(yaw) * cos(pitch) * camDist
-    );
+    // Screen-to-world mapping scaling
+    float rh = 0.22; // Normalized shadow radius on screen
+    float W = B_CRIT / max(rh, 1e-4);
+    vec2 pr = rot(p, DISK_ROLL) * W;
+    float b = length(pr);
 
-    // Basis pointing back at the singularity.
-    vec3 fwd   = normalize(-camPos);
-    vec3 right = normalize(cross(vec3(0.0, 1.0, 0.0), fwd));
-    vec3 up    = cross(fwd, right);
+    float rin = max(DISK_INNER, 1.6);
+    float rout = max(DISK_OUTER, rin + 0.5);
 
-    // ~50deg vertical FOV.
-    vec3 dir = normalize(fwd + right * frag.x * 1.05 + up * frag.y * 1.05);
+    // Ray origin & conserved angular momentum h²
+    vec3 x = vec3(pr, Z0);
+    vec3 v = vec3(0.0, 0.0, -1.0);
+    float h2 = dot(pr, pr);
 
-    vec3 pos = camPos;
-    vec3 vel = dir;
+    // Disk coordinate frame
+    float ci = cos(DISK_INCL), si = sin(DISK_INCL);
+    vec3 n = vec3(0.0, si, ci);
+    vec3 e2 = vec3(0.0, ci, -si);
 
-    // Conserved angular momentum for this ray.
-    vec3 hVec = cross(pos, vel);
-    float h2 = dot(hVec, hVec);
-
-    vec3 colour = vec3(0.0);
+    vec3 emitc = vec3(0.0);
+    float trans = 1.0;
     bool captured = false;
+    float sPrev = dot(x, n);
+    vec3 xPrev = x;
 
-    // Step size grows with distance: fine detail near the photon sphere where
-    // the bending is violent, coarse strides out in flat space.
-    for (int i = 0; i < 160; i++) {
-      if (i >= STEP_COUNT) break;
+    // Leapfrog geodesic integration
+    for (int i = 0; i < N_STEPS; i++) {
+      float r2 = dot(x, x);
+      if (r2 < 1.0) { captured = true; break; }
+      if (x.z < -Z0 && v.z < 0.0) break;
+      if (r2 > 4.0 * Z0 * Z0) break;
 
-      float r = length(pos);
-      if (r < 1.0) { captured = true; break; }   // crossed the horizon
-      if (r > 42.0) break;                        // escaped to the sky
+      float r = sqrt(r2);
+      float dt = clamp(0.15 * r, 0.03, 1.4);
 
-      float dt = clamp(r * 0.052, 0.018, 0.85);
+      // Kick-drift-kick leapfrog
+      vec3 a = -1.5 * h2 * x / (r2 * r2 * r);
+      v += a * (0.5 * dt);
+      x += v * dt;
+      r2 = dot(x, x);
+      r = sqrt(r2);
+      a = -1.5 * h2 * x / (r2 * r2 * r);
+      v += a * (0.5 * dt);
 
-      vec3 prevPos = pos;
+      // Check thin-disk plane crossing
+      float s = dot(x, n);
+      if (s * sPrev < 0.0 && trans > 0.02) {
+        float tc = sPrev / (sPrev - s);
+        vec3 xc = mix(xPrev, x, tc);
+        float rc = length(xc);
 
-      // Geodesic step.
-      vec3 acc = -1.5 * h2 * pos / pow(dot(pos, pos), 2.5);
-      vel += acc * dt;
-      pos += vel * dt;
+        if (rc > rin && rc < rout) {
+          float band = smoothstep(rin, rin * 1.25, rc) * (1.0 - smoothstep(rout * 0.72, rout, rc));
 
-      // Equatorial disk crossing, detected by a sign change in y.
-      if (prevPos.y * pos.y < 0.0) {
-        float t = prevPos.y / (prevPos.y - pos.y);
-        vec3 hit = mix(prevPos, pos, t);
-        float hr = length(hit.xz);
+          float phi = atan(dot(xc, e2), xc.x);
+          float turns = phi / (2.0 * PI);
+          float kep = pow(rin / rc, 1.5);
+          float gloc = sqrt(max(1.0 - 1.5 / rc, 0.02));
+          float swirl = rc * DISK_WIND * 0.12 - uTime * kep * DISK_SPEED * gloc * 0.12;
 
-        if (hr > DISK_INNER && hr < DISK_OUTER) {
-          // Relativistic beaming: the limb rotating toward the viewer is
-          // brighter. This asymmetry is a large part of why the image reads
-          // as a real black hole rather than a symmetrical halo.
-          // Doppler beaming deliberately subdued. Interstellar's effects team
-          // found the physically accurate one-sided brightness read as
-          // confusing on screen and muted it; kept here as a gentle asymmetry
-          // rather than removed outright.
-          vec3 orbitDir = normalize(vec3(-hit.z, 0.0, hit.x));
-          float toward = dot(orbitDir, normalize(vel));
-          float speed = 0.5 / sqrt(max(hr, 1.2));
-          float beaming = pow(clamp(1.0 + toward * speed * 1.15, 0.4, 2.0), 1.35);
+          float streaks = vnoiseWrapY(vec2(rc * 2.8, turns * 19.0 + swirl * 3.0), 19.0) * 0.65 +
+                          vnoiseWrapY(vec2(rc * 1.0, turns * 9.0  + swirl * 1.5 + 7.0), 9.0) * 0.35;
+          streaks = 0.35 + DISK_CONTRAST * streaks * streaks;
 
-          colour += diskEmission(hit, beaming);
+          // Relativistic Doppler boosting
+          vec3 gasdir = normalize(cross(n, xc));
+          float beta = clamp(inversesqrt(max(2.0 * (rc - 1.0), 0.2)), 0.0, 0.99);
+          float g = gloc / max(1.0 + beta * dot(gasdir, normalize(v)), 0.05);
+          g = mix(1.0, g, DOPPLER_MIX);
+
+          // Shakura-Sunyaev temperature profile
+          float xpr = max(1.0 - sqrt(rin / rc), 0.0);
+          float tprof = pow(rin / rc, 0.75) * pow(xpr, 0.25) / 0.488;
+          vec3 cbb = blackbody(DISK_TEMP * tprof * g);
+          float boost = pow(g, DISK_BEAM);
+
+          // Voice audio reactivity pulse
+          float voiceMod = 1.0 + uVoicePulse * 0.8 * sin(rc * 5.0 - uTime * 6.0);
+
+          float density = band * streaks;
+          emitc += trans * cbb * (DISK_GAIN * 2.2 * density * tprof * tprof * boost * voiceMod);
+          trans *= 1.0 - clamp(DISK_OPACITY * density, 0.0, 1.0);
         }
+      }
+      sPrev = s;
+      xPrev = x;
+    }
+
+    if (!captured && dot(x, x) < 3.2) captured = true;
+
+    // Background sky & photon ring
+    vec3 bg = vec3(0.0);
+    if (!captured) {
+      vec3 d = normalize(v);
+      bg = stars(d);
+      if (uHasStars > 0.5) {
+        vec2 eqUv = vec2(atan(d.z, d.x) / (2.0 * PI) + 0.5, asin(clamp(d.y, -1.0, 1.0)) / PI + 0.5);
+        bg += texture2D(uStars, eqUv).rgb * 0.55;
       }
     }
 
-    if (!captured) {
-      // The ray survived, so its final (bent) direction samples the sky.
-      // This is where the Einstein ring comes from.
-      vec3 sky = sampleStars(normalize(vel));
-      colour += sky * 0.58;
-    }
+    // Einstein photon ring razor glow
+    float impact = length(cross(vec3(pr, Z0), normalize(v))) / max(length(vec3(pr, Z0)), 0.001);
+    float photonRing = 2.598 / Z0;
+    float ring = exp(-pow((impact - photonRing) * Z0 * 46.0, 2.0));
+    vec3 ringColor = ring * vec3(1.0, 0.72, 0.32) * (0.8 + uVoicePulse * 0.6);
 
-    // A pure Schwarzschild shadow with a razor-thin golden Einstein ring.
-    // length(cross) / |camPos| is sin(theta), so the radii are normalised by
-    // the fixed camera distance before comparison.
-    float impact = length(cross(camPos, dir)) / max(length(camPos), 0.001);
-    float shadowEdge = SHADOW_RADIUS / camDist;
-    float photonRing = PHOTON_RING_RADIUS / camDist;
-    float shadow = 1.0 - smoothstep(shadowEdge - 0.004, shadowEdge + 0.006, impact);
-    float ring = exp(-pow((impact - photonRing) * camDist * 42.0, 2.0));
-    colour *= 1.0 - shadow;
-    colour += ring * vec3(1.0, 0.68, 0.25) * (0.68 + uVoicePulse * 0.42);
+    // HDR exposure tonemap
+    vec3 col = bg * trans + (vec3(1.0) - exp(-emitc * EXPOSURE)) + ringColor;
 
-    // Slight exposure lift, filmic-ish tonemap, then a mild gamma so the warm
-    // disk keeps its glow without clipping to flat white.
-    colour *= 1.12;
-    colour = colour / (colour + vec3(0.78));
-    colour = pow(colour, vec3(0.92));
-
-    gl_FragColor = vec4(colour * uFade, uFade);
+    gl_FragColor = vec4(col * uFade, 1.0);
   }
 `;
 
 export default function AcousticBlackHoleCanvas() {
-  const canvasRef = useRef<HTMLCanvasElement | null>(null);
+  const containerRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
-    const canvas = canvasRef.current;
-    if (!canvas) return;
+    const container = containerRef.current;
+    if (!container) return;
 
-    const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-
-    // Reduced-motion and no-WebGL clients both fall through to the generated
-    // Gargantua-style poster (<img> rendered beneath this canvas in the hero),
-    // so a real black-hole image is always present even when the shader is not.
-    if (reducedMotion) return;
-
-    // Integration depth is the entire cost of this shader, so it is the knob
-    // that gets turned down on weaker hardware rather than dropping the effect.
-    const isSmall = window.innerWidth < 768;
-    const stepCount = isSmall ? 52 : 96;
-
-    let renderer: THREE.WebGLRenderer;
+    let renderer: THREE.WebGLRenderer | null = null;
     try {
       renderer = new THREE.WebGLRenderer({
-        canvas,
-        alpha: true,
-        antialias: false, // full-screen shader; MSAA buys nothing here
+        antialias: false,
+        alpha: false,
         powerPreference: "high-performance",
+        stencil: false,
+        depth: false,
       });
     } catch {
-      return; // No WebGL: the poster image beneath carries the visual.
+      return;
     }
 
-    // Ray marching is fragment-bound, so pixel count matters more than DPR
-    // fidelity. Capped harder on small screens.
-    renderer.setPixelRatio(Math.min(window.devicePixelRatio, isSmall ? 1.25 : 1.75));
-    renderer.setClearColor(0x000000, 0);
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 1.75));
+    renderer.setSize(window.innerWidth, window.innerHeight);
+    renderer.domElement.className = "acoustic-blackhole-webgl absolute inset-0 h-full w-full pointer-events-none";
+    container.appendChild(renderer.domElement);
 
     const scene = new THREE.Scene();
     const camera = new THREE.OrthographicCamera(-1, 1, 1, -1, 0, 1);
+    const geometry = new THREE.PlaneGeometry(2, 2);
 
     const uniforms: Record<string, THREE.IUniform> = {
-      uResolution: { value: new THREE.Vector2(1, 1) },
+      uResolution: { value: new THREE.Vector2(window.innerWidth, window.innerHeight) },
       uTime: { value: 0 },
       uVoicePulse: { value: 0 },
       uFade: { value: 1 },
@@ -270,125 +283,84 @@ export default function AcousticBlackHoleCanvas() {
       uHasStars: { value: 0 },
     };
 
+    const textureLoader = new THREE.TextureLoader();
+    textureLoader.load(
+      "/space-starfield.jpg",
+      (tex) => {
+        tex.wrapS = THREE.RepeatWrapping;
+        tex.wrapT = THREE.ClampToEdgeWrapping;
+        tex.minFilter = THREE.LinearFilter;
+        tex.magFilter = THREE.LinearFilter;
+        uniforms.uStars.value = tex;
+        uniforms.uHasStars.value = 1;
+      },
+      undefined,
+      () => {
+        uniforms.uHasStars.value = 0;
+      }
+    );
+
     const material = new THREE.ShaderMaterial({
       vertexShader: VERT,
       fragmentShader: FRAG,
       uniforms,
-      transparent: true,
+      depthTest: false,
       depthWrite: false,
-      defines: { STEP_COUNT: stepCount },
     });
 
-    const quad = new THREE.Mesh(new THREE.PlaneGeometry(2, 2), material);
-    quad.frustumCulled = false;
-    scene.add(quad);
+    const mesh = new THREE.Mesh(geometry, material);
+    scene.add(mesh);
 
-    // Starfield that gets lensed. Async and optional.
-    let starTexture: THREE.Texture | null = null;
-    new THREE.TextureLoader().load(
-      "/space-starfield.jpg",
-      (tex) => {
-        tex.colorSpace = THREE.SRGBColorSpace;
-        tex.wrapS = THREE.RepeatWrapping; // seam continuity around the panorama
-        tex.wrapT = THREE.ClampToEdgeWrapping;
-        tex.minFilter = THREE.LinearFilter;
-        tex.generateMipmaps = false;
-        uniforms.uStars.value = tex;
-        uniforms.uHasStars.value = 1;
-        starTexture = tex;
-      },
-      undefined,
-      () => {
-        /* keep the procedural fallback */
-      }
-    );
-
-    let raf = 0;
-    let visible = true;
-    let pageVisible = !document.hidden;
     let voicePulse = 0;
-    const start = performance.now();
-
-    const resize = () => {
-      const b = canvas.getBoundingClientRect();
-      const w = Math.max(b.width, 1);
-      const h = Math.max(b.height, 1);
-      renderer.setSize(w, h, false);
-      (uniforms.uResolution.value as THREE.Vector2).set(w, h);
+    const onVoice = () => {
+      voicePulse = 1.0;
     };
+    window.addEventListener("voxflow:voice-active", onVoice);
+
+    const onResize = () => {
+      if (!renderer) return;
+      const w = window.innerWidth;
+      const h = window.innerHeight;
+      renderer.setSize(w, h);
+      uniforms.uResolution.value.set(w, h);
+    };
+    window.addEventListener("resize", onResize);
+
+    const start = performance.now();
+    let animId = 0;
 
     const frame = () => {
-      // The hole no longer fades out — it RECEDES (CSS layer opacity/scale
-      // handles that in Stage C) so it stays as a clean deep-space backdrop
-      // behind the hero copy and console.
       voicePulse *= 0.95;
-
       uniforms.uTime.value = (performance.now() - start) / 1000;
       uniforms.uVoicePulse.value = voicePulse;
-      uniforms.uFade.value = 1;
 
-      renderer.render(scene, camera);
-
-      if (visible && pageVisible) raf = requestAnimationFrame(frame);
+      if (renderer) renderer.render(scene, camera);
+      animId = requestAnimationFrame(frame);
     };
-
-    const onVoice = () => {
-      voicePulse = 1;
-    };
-    const onVisibility = () => {
-      pageVisible = !document.hidden;
-      cancelAnimationFrame(raf);
-      if (pageVisible && visible) raf = requestAnimationFrame(frame);
-    };
-
-    const observer = new IntersectionObserver(
-      ([entry]) => {
-        visible = entry.isIntersecting;
-        cancelAnimationFrame(raf);
-        if (visible && pageVisible) raf = requestAnimationFrame(frame);
-      },
-      { threshold: 0.01 }
-    );
-
-    observer.observe(canvas);
-    resize();
-    window.addEventListener("resize", resize);
-    window.addEventListener("voxflow:voice-play", onVoice);
-    document.addEventListener("visibilitychange", onVisibility);
-
     frame();
 
     return () => {
-      cancelAnimationFrame(raf);
-      observer.disconnect();
-      window.removeEventListener("resize", resize);
-      window.removeEventListener("voxflow:voice-play", onVoice);
-      document.removeEventListener("visibilitychange", onVisibility);
-      quad.geometry.dispose();
+      cancelAnimationFrame(animId);
+      window.removeEventListener("voxflow:voice-active", onVoice);
+      window.removeEventListener("resize", onResize);
+      if (renderer && renderer.domElement.parentElement) {
+        renderer.domElement.parentElement.removeChild(renderer.domElement.parentElement);
+        renderer.dispose();
+      }
+      geometry.dispose();
       material.dispose();
-      starTexture?.dispose();
-      renderer.dispose();
     };
   }, []);
 
   return (
-    <>
-      {/* Static fallback: always rendered. The live shader canvas above paints
-          opaque over it when WebGL is available, so this only becomes visible
-          for reduced-motion or no-WebGL clients. Either way the opening frame
-          is a real Gargantua-style black hole, never a blank viewport. */}
+    <div ref={containerRef} className="absolute inset-0 h-full w-full overflow-hidden bg-[#000000]">
       {/* eslint-disable-next-line @next/next/no-img-element */}
       <img
         src="/blackhole-poster.jpg"
         alt=""
         aria-hidden="true"
-        className="absolute inset-0 h-full w-full object-cover pointer-events-none"
+        className="acoustic-blackhole-fallback absolute inset-0 h-full w-full object-cover"
       />
-      <canvas
-        ref={canvasRef}
-        aria-hidden="true"
-        className="absolute inset-0 h-full w-full pointer-events-none z-0"
-      />
-    </>
+    </div>
   );
 }

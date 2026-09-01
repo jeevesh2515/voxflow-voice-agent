@@ -15,6 +15,7 @@ export default function Nav() {
   const pathname = usePathname();
   const [open, setOpen] = useState(false);
   const [scrolled, setScrolled] = useState(false);
+  const [navCoords, setNavCoords] = useState<{ x: number; y: number; active: boolean }>({ x: 0, y: 0, active: false });
   const isDashboard = pathname.startsWith("/dashboard");
 
   useEffect(() => {
@@ -24,11 +25,47 @@ export default function Nav() {
     return () => window.removeEventListener("scroll", onScroll);
   }, []);
 
+  const handleNavPointerMove = (e: React.PointerEvent<HTMLDivElement>) => {
+    const rect = e.currentTarget.getBoundingClientRect();
+    setNavCoords({
+      x: e.clientX - rect.left,
+      y: e.clientY - rect.top,
+      active: true,
+    });
+  };
+
+  const handleNavPointerLeave = () => {
+    setNavCoords((prev) => ({ ...prev, active: false }));
+  };
+
   if (isDashboard) return null;
 
   return (
     <header className="pointer-events-none fixed inset-x-0 top-0 z-50 px-3 pt-3 sm:px-5 sm:pt-5" id="site-header">
-      <div className={`site-nav pointer-events-auto mx-auto flex max-w-6xl items-center justify-between ${scrolled ? "site-nav-scrolled" : ""}`}>
+      <div
+        onPointerMove={handleNavPointerMove}
+        onPointerLeave={handleNavPointerLeave}
+        className={`site-nav pointer-events-auto relative mx-auto flex max-w-6xl items-center justify-between overflow-hidden transition-all duration-300 ${
+          scrolled ? "site-nav-scrolled" : ""
+        }`}
+        style={
+          navCoords.active
+            ? ({
+                "--nav-x": `${navCoords.x}px`,
+                "--nav-y": `${navCoords.y}px`,
+              } as React.CSSProperties)
+            : undefined
+        }
+      >
+        {/* Terminal Industries Interactive Cursor Spotlight Beam */}
+        <div
+          className="nav-spotlight-beam absolute inset-0 pointer-events-none transition-opacity duration-300"
+          style={{
+            opacity: navCoords.active ? 1 : 0,
+            background: `radial-gradient(130px circle at var(--nav-x, 50%) var(--nav-y, 50%), rgba(0, 255, 204, 0.16), rgba(255, 45, 120, 0.06) 45%, transparent 75%)`,
+          }}
+          aria-hidden="true"
+        />
         <Link href="/" className="group relative z-10 flex items-center gap-2.5" aria-label="VoxFlow home">
           <span className="nav-mark flex h-8 w-8 items-center justify-center" aria-hidden="true">
             <span className="material-symbols-outlined text-[18px]">graphic_eq</span>
