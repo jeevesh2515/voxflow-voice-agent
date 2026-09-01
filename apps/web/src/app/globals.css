@@ -870,12 +870,11 @@ html {
 }
 
 @media (max-width: 1023px) {
-  .hero-stage { height: 170vh; }
+  .hero-stage { height: auto; }
   .hero-console { transform-origin: center; }
 }
 
 @media (max-width: 639px) {
-  .hero-stage { height: 150vh; }
   .hero-stage-sticky::before { inset: 10px; }
   .hero-index { font-size: 8px; letter-spacing: 0.12em; }
   .hero-index-left { bottom: 1.2rem; }
@@ -888,13 +887,30 @@ html {
   .nav-status { display: none; }
 }
 
+@media (min-width: 1024px) and (max-height: 800px) {
+  .hero-stage-sticky {
+    padding-top: 6rem !important;
+    padding-bottom: 2rem !important;
+  }
+
+  .hero-copy h1 {
+    margin-bottom: 1rem;
+    font-size: 3rem;
+  }
+
+  .hero-copy > p,
+  .hero-copy > div {
+    margin-bottom: 1rem;
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   .hero-stage { height: auto; }
   .hero-stage-sticky { position: relative; }
   .hero-copy, .hero-console { opacity: 1 !important; transform: none !important; }
   .hero-phase { opacity: 1; transform: none; }
   .hero-aperture-cue { display: none; }
-  .hero-hud { opacity: 1; }
+  .hero-hud { display: none; }
   .word-reveal span { opacity: 1 !important; transform: none !important; }
   .nav-status .h-1\.5 { animation: none; }
 }
@@ -1186,45 +1202,25 @@ html {
 }
 
 /* ════════════════════════════════════════════════════════════
-   BLACK HOLE STAGE — the aperture backdrop layers.
-   Both canvases are stacked; --hero-progress crossfades between
-   them, so the hole hands off to the wireframe core.
+   BLACK HOLE STAGE — the aperture backdrop.
+   The hole stays for the WHOLE hero: full strength through the
+   aperture stages, then RECEDES (0.25 opacity, 0.85 scale) as the
+   copy and console dock. No wireframe sphere, no blueprint lines —
+   Stage C is pristine copy over deep space.
    ════════════════════════════════════════════════════════════ */
 
 .hero-blackhole-layer {
   position: absolute;
   inset: 0;
   z-index: 0;
-  /* Fades out across Stage 3 as the blueprint takes over. */
-  opacity: clamp(0, calc(1 - (var(--hero-progress) - 0.40) * 5.6), 1);
-}
-
-.hero-core-layer {
-  position: absolute;
-  inset: 0;
-  z-index: 0;
-  /* Mirror image of the above: arrives exactly as the hole leaves. */
-  opacity: clamp(0, calc((var(--hero-progress) - 0.42) * 5.2), 1);
-}
-
-/* Generated LiDAR blueprint, parallaxed in behind the wireframe core. */
-.hero-blueprint-layer {
-  position: absolute;
-  inset: -8%;
-  z-index: 0;
-  background-image: url("/lidar-blueprint.jpg");
-  background-size: cover;
-  background-position: center;
-  mix-blend-mode: screen;
-  opacity: clamp(0, calc((var(--hero-progress) - 0.48) * 2.6), 0.18);
-  transform: translate3d(0, calc(var(--hero-progress) * -3.5%), 0) scale(calc(1 + var(--hero-progress) * 0.06));
-  filter: saturate(1.15) contrast(1.1);
+  opacity: calc(1 - clamp(0, (var(--hero-progress) - 0.5) * 5, 1) * 0.75);
+  transform: scale(calc(1 - clamp(0, (var(--hero-progress) - 0.5) * 5, 1) * 0.15));
+  transform-origin: center 42%;
+  will-change: opacity, transform;
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .hero-blackhole-layer { opacity: 0.55; }
-  .hero-core-layer { opacity: 1; }
-  .hero-blueprint-layer { opacity: 0.2; transform: none; }
+  .hero-blackhole-layer { opacity: 0.25; transform: scale(0.85); }
 }
 
 /* ════════════════════════════════════════════════════════════
@@ -1329,4 +1325,195 @@ html {
   -webkit-mask-image: linear-gradient(to top, rgba(0, 0, 0, 0.55), transparent 85%);
   mask-image: linear-gradient(to top, rgba(0, 0, 0, 0.55), transparent 85%);
   pointer-events: none;
+}
+
+/* ════════════════════════════════════════════════════════════
+   VOX PRELOADER — waveform mark pulse + dissolve over the event
+   horizon. It remains inert and transparent; reduced-motion skips.
+   ════════════════════════════════════════════════════════════ */
+
+.vox-preloader {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  display: grid;
+  place-items: center;
+  pointer-events: none;
+  animation: vox-preloader-dissolve 0.5s cubic-bezier(0.32, 0.72, 0, 1) 1.2s both;
+}
+
+.vox-preloader-mark {
+  display: grid;
+  place-items: center;
+  width: 92px;
+  height: 92px;
+  border-radius: 9999px;
+  border: 1px solid rgba(0, 255, 204, 0.35);
+  background: rgba(0, 255, 204, 0.06);
+  box-shadow: 0 0 60px rgba(0, 255, 204, 0.35), inset 0 0 24px rgba(0, 255, 204, 0.12);
+  animation: vox-preloader-pulse 1.2s cubic-bezier(0.32, 0.72, 0, 1) both;
+}
+
+.vox-preloader-mark .material-symbols-outlined {
+  font-size: 42px;
+  color: #00ffcc;
+  text-shadow: 0 0 22px rgba(0, 255, 204, 0.8);
+}
+
+@keyframes vox-preloader-pulse {
+  0%   { opacity: 0; transform: scale(0.82); }
+  35%  { opacity: 1; transform: scale(1.04); }
+  60%  { transform: scale(0.98); }
+  100% { opacity: 1; transform: scale(1); }
+}
+
+@keyframes vox-preloader-dissolve {
+  from { opacity: 1; transform: scale(1); }
+  to   { opacity: 0; transform: scale(1.15); }
+}
+
+/* ════════════════════════════════════════════════════════════
+   STICKY CAPABILITY SHOWCASE — notched hardware stage with
+   machined corner brackets + crossfading technical displays.
+   ════════════════════════════════════════════════════════════ */
+
+.showcase-stage {
+  position: relative;
+  border-radius: 1.75rem;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: rgba(255, 255, 255, 0.03);
+  padding: 0.375rem;
+  box-shadow: 0 24px 80px rgba(0, 0, 0, 0.7);
+}
+
+/* Machined corner brackets. */
+.showcase-stage::before,
+.showcase-stage::after,
+.showcase-stage-core::before,
+.showcase-stage-core::after {
+  content: "";
+  position: absolute;
+  width: 18px;
+  height: 18px;
+  border-color: rgba(0, 255, 204, 0.55);
+  border-style: solid;
+  z-index: 2;
+}
+
+.showcase-stage::before { top: -1px; left: -1px; border-width: 2px 0 0 2px; border-radius: 1.75rem 0 0 0; }
+.showcase-stage::after  { top: -1px; right: -1px; border-width: 2px 2px 0 0; border-radius: 0 1.75rem 0 0; }
+.showcase-stage-core::before { bottom: -1px; left: -1px; border-width: 0 0 2px 2px; border-radius: 0 0 0 1.5rem; }
+.showcase-stage-core::after  { bottom: -1px; right: -1px; border-width: 0 2px 2px 0; border-radius: 0 0 1.5rem 0; }
+
+.showcase-stage-core {
+  position: relative;
+  height: min(62vh, 540px);
+  border-radius: calc(1.75rem - 0.375rem);
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  background: #07080f;
+  overflow: hidden;
+  box-shadow: inset 0 1px 1px rgba(255, 255, 255, 0.08);
+}
+
+.showcase-stage-core-static { height: 300px; }
+
+/* Crossfading display layers: state-driven via .active, so reversing
+   scroll walks the exact same opacity curve backwards. */
+.showcase-visual {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  transform: scale(0.985);
+  transition: opacity 0.55s cubic-bezier(0.32, 0.72, 0, 1),
+    transform 0.55s cubic-bezier(0.32, 0.72, 0, 1);
+  pointer-events: none;
+}
+
+.showcase-visual-active {
+  opacity: 1;
+  transform: scale(1);
+}
+
+.showcase-visual-inner { position: absolute; inset: 0; }
+
+.showcase-visual-bg {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  opacity: 0.22;
+  filter: saturate(1.1);
+}
+
+.showcase-visual-fg { position: absolute; inset: 0; width: 100%; height: 100%; }
+
+/* Rotating radar sweep. */
+.showcase-radar-sweep {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 280px;
+  height: 280px;
+  margin: -140px 0 0 -140px;
+  border-radius: 9999px;
+  animation: showcase-sweep 5.5s linear infinite;
+  -webkit-mask-image: radial-gradient(circle, black 0 68%, transparent 70%);
+  mask-image: radial-gradient(circle, black 0 68%, transparent 70%);
+}
+
+@keyframes showcase-sweep {
+  to { transform: rotate(360deg); }
+}
+
+/* Heatmap cells. */
+.showcase-heat-cell {
+  aspect-ratio: 1;
+  border-radius: 6px;
+  animation: showcase-heat-pulse 3.4s ease-in-out infinite alternate;
+}
+
+@keyframes showcase-heat-pulse {
+  from { opacity: 0.75; }
+  to   { opacity: 1; }
+}
+
+/* Voice waveform bars. */
+.showcase-wave-bar {
+  width: 5px;
+  border-radius: 9999px;
+  opacity: 0.9;
+  animation: showcase-wave 1.15s ease-in-out infinite alternate;
+}
+
+@keyframes showcase-wave {
+  from { transform: scaleY(0.35); }
+  to   { transform: scaleY(1); }
+}
+
+/* Hot commit row. */
+.showcase-commit-hot {
+  animation: showcase-commit-flash 2.2s ease-in-out infinite;
+}
+
+@keyframes showcase-commit-flash {
+  0%, 100% { box-shadow: 0 0 0 rgba(0, 255, 204, 0); }
+  50%      { box-shadow: 0 0 22px rgba(0, 255, 204, 0.25); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .showcase-radar-sweep,
+  .showcase-heat-cell,
+  .showcase-wave-bar,
+  .showcase-commit-hot { animation: none; }
+  .showcase-visual { transition: none; }
+  .vox-preloader { display: none; }
+
+  .capability-showcase { height: auto !important; }
+  .capability-showcase-sticky { display: none !important; }
+  .capability-showcase-static { display: block !important; }
+
+  .parallax-quotes { min-height: auto; }
+  .parallax-quotes-backdrop { position: absolute; inset: 0; height: auto; }
+  .parallax-quotes-copy { margin-top: 0; padding-top: 8rem; padding-bottom: 8rem; }
 }

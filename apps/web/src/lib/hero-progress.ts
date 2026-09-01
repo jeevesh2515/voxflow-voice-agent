@@ -2,7 +2,7 @@
  * Single source of truth for the hero aperture scroll progress (0 → 1).
  *
  * Written once per scroll tick by HeroChoreography (GSAP ScrollTrigger scrub),
- * read every frame by VoiceCoreCanvas.
+ * read every frame by AcousticBlackHoleCanvas.
  *
  * Deliberately a mutable ref object rather than React state or a CSS-var
  * read-back: the canvas samples this inside requestAnimationFrame, so it must

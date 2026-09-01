@@ -47,15 +47,16 @@ export default function KineticScrollText({
   // keeps the stagger ramp identical to an imperative counter.
   const glyphs = useMemo(
     () =>
-      lines.map((line) => {
+      lines.map((line, lineIndex) => {
         const words = line.split(" ");
+        const lineOffset = lines.slice(0, lineIndex).reduce((n, value) => n + value.length, 0);
         // Character offset at the start of each word (words + 1 space each).
         const offsets = words.reduce<number[]>((acc, w, i) => {
           acc.push(i === 0 ? 0 : acc[i - 1] + w.length + 1);
           return acc;
         }, []);
         return words.map((word, wi) =>
-          Array.from(word).map((ch, ci) => ({ ch, i: offsets[wi] + ci }))
+          Array.from(word).map((ch, ci) => ({ ch, i: lineOffset + offsets[wi] + ci }))
         );
       }),
     [lines]

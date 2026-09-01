@@ -43,7 +43,6 @@ const FRAG = /* glsl */ `
   uniform vec2  uResolution;
   uniform float uTime;
   uniform float uScroll;      // hero progress 0 -> 1
-  uniform vec2  uPointer;     // -1 .. 1
   uniform float uVoicePulse;  // 0 -> 1, spikes on voice playback
   uniform float uFade;        // master opacity, driven by stage crossfade
   uniform sampler2D uStars;
@@ -127,10 +126,10 @@ const FRAG = /* glsl */ `
     float camDist = mix(12.5, 17.5, smoothstep(0.0, 0.55, uScroll));
     // Near edge-on inclination is what makes the lensed far side of the disk
     // arc up over the shadow and back under it — the defining Gargantua
-    // silhouette. Tilting much past ~15 degrees collapses that read into an
-    // ordinary ring, so pointer parallax is deliberately given a small range.
-    float yaw   = uPointer.x * 0.26 + uScroll * 0.5;
-    float pitch = 0.105 + uPointer.y * 0.075 + uScroll * 0.06;
+    // silhouette. FIXED: no pointer parallax. The hero gate requires the hole
+    // to sit 100% still in space, so there is deliberately no camera wobble.
+    float yaw   = uScroll * 0.5;
+    float pitch = 0.105 + uScroll * 0.06;
 
     vec3 camPos = vec3(
       sin(yaw) * cos(pitch) * camDist,
@@ -267,7 +266,6 @@ export default function AcousticBlackHoleCanvas() {
       uResolution: { value: new THREE.Vector2(1, 1) },
       uTime: { value: 0 },
       uScroll: { value: 0 },
-      uPointer: { value: new THREE.Vector2(0, 0) },
       uVoicePulse: { value: 0 },
       uFade: { value: 1 },
       uStars: { value: null },
@@ -310,10 +308,6 @@ export default function AcousticBlackHoleCanvas() {
     let raf = 0;
     let visible = true;
     let pageVisible = !document.hidden;
-    let pointerX = 0;
-    let pointerY = 0;
-    let targetX = 0;
-    let targetY = 0;
     let voicePulse = 0;
     const start = performance.now();
 
@@ -328,45 +322,35 @@ export default function AcousticBlackHoleCanvas() {
     const frame = () => {
       const progress = Math.min(1, Math.max(0, heroProgress.value));
 
-      // The hole owns Stages 1-2 and hands off to the wireframe core during
-      // Stage 3, so it stops shading entirely once fully faded.
-      const fade = 1 - Math.min(1, Math.max(0, (progress - 0.40) / 0.18));
-
+      // The hole no longer fades out — it RECEDES (CSS layer opacity/scale
+      // handles that in Stage C) so it stays as a clean deep-space backdrop
+      // behind the hero copy and console.
       voicePulse *= 0.95;
-      pointerX += (targetX - pointerX) * 0.045;
-      pointerY += (targetY - pointerY) * 0.045;
 
-      uniforms.uTime.value = reducedMotion ? 0 : (performance.now() - start) / 1000;
+      uniforms.uTime.value = (performance.now() - start) / 1000;
       uniforms.uScroll.value = progress;
       uniforms.uVoicePulse.value = voicePulse;
-      uniforms.uFade.value = fade;
-      (uniforms.uPointer.value as THREE.Vector2).set(pointerX, pointerY);
+      uniforms.uFade.value = 1;
 
-      if (fade > 0.004) renderer.render(scene, camera);
-      else renderer.clear();
+      renderer.render(scene, camera);
 
-      if (visible && pageVisible && !reducedMotion) raf = requestAnimationFrame(frame);
+      if (visible && pageVisible) raf = requestAnimationFrame(frame);
     };
 
-    const onPointer = (e: PointerEvent) => {
-      targetX = (e.clientX / Math.max(window.innerWidth, 1) - 0.5) * 2;
-      targetY = (e.clientY / Math.max(window.innerHeight, 1) - 0.5) * 2;
-    };
     const onVoice = () => {
       voicePulse = 1;
     };
     const onVisibility = () => {
       pageVisible = !document.hidden;
       cancelAnimationFrame(raf);
-      if (pageVisible && visible && !reducedMotion) raf = requestAnimationFrame(frame);
-      else frame();
+      if (pageVisible && visible) raf = requestAnimationFrame(frame);
     };
 
     const observer = new IntersectionObserver(
       ([entry]) => {
         visible = entry.isIntersecting;
         cancelAnimationFrame(raf);
-        if (visible && pageVisible && !reducedMotion) raf = requestAnimationFrame(frame);
+        if (visible && pageVisible) raf = requestAnimationFrame(frame);
       },
       { threshold: 0.01 }
     );
@@ -374,7 +358,6 @@ export default function AcousticBlackHoleCanvas() {
     observer.observe(canvas);
     resize();
     window.addEventListener("resize", resize);
-    window.addEventListener("pointermove", onPointer, { passive: true });
     window.addEventListener("voxflow:voice-play", onVoice);
     document.addEventListener("visibilitychange", onVisibility);
 
@@ -384,7 +367,6 @@ export default function AcousticBlackHoleCanvas() {
       cancelAnimationFrame(raf);
       observer.disconnect();
       window.removeEventListener("resize", resize);
-      window.removeEventListener("pointermove", onPointer);
       window.removeEventListener("voxflow:voice-play", onVoice);
       document.removeEventListener("visibilitychange", onVisibility);
       quad.geometry.dispose();

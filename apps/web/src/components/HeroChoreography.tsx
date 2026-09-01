@@ -11,7 +11,7 @@ import { heroProgress } from "@/lib/hero-progress";
  * Publishes a single normalised scroll value (0 → 1) across the hero section to
  * two consumers:
  *   1. the `--hero-progress` CSS custom property (copy/console/HUD reveal)
- *   2. the `heroProgress` ref object (read per-frame by VoiceCoreCanvas)
+ *   2. the `heroProgress` ref object (read per-frame by AcousticBlackHoleCanvas)
  *
  * Uses ScrollTrigger `scrub` rather than toggle/callback actions on purpose.
  * Scrub maps progress as a pure function of scroll offset, so scrolling back up

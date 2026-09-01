@@ -5,14 +5,14 @@ import { useEffect, useState } from "react";
 import CosmicStarfield from "@/components/CosmicStarfield";
 import SmoothScroll from "@/components/SmoothScroll";
 import HeroChoreography from "@/components/HeroChoreography";
+import VoxPreloader from "@/components/VoxPreloader";
 import AcousticBlackHoleCanvas from "@/components/AcousticBlackHoleCanvas";
 import KineticScrollText from "@/components/KineticScrollText";
 import SignalWires from "@/components/SignalWires";
 import AmbientGradient from "@/components/AmbientGradient";
-import AsymmetricCapabilitySlider from "@/components/AsymmetricCapabilitySlider";
+import StickyCapabilityShowcase from "@/components/StickyCapabilityShowcase";
 import NotchedContainer from "@/components/NotchedContainer";
 import ParallaxQuotes from "@/components/ParallaxQuotes";
-import VoiceCoreCanvas from "@/components/VoiceCoreCanvas";
 import VoiceXray from "@/components/VoiceXray";
 import DispatchSwitchboard from "@/components/DispatchSwitchboard";
 
@@ -252,20 +252,16 @@ export default function Home() {
       <CosmicStarfield />
       <SmoothScroll />
       <HeroChoreography />
+      <VoxPreloader />
 
       <main className="relative z-10 bg-transparent">
         {/* ==================== HERO SECTION ==================== */}
         <section id="hero-stage" className="hero-stage relative" aria-label="VoxFlow autonomous voice operations introduction">
           <div className="hero-stage-sticky relative min-h-[100svh] flex items-center overflow-hidden grid-bg pt-28 pb-16 sm:pt-32 sm:pb-24">
-            {/* Stage 1-2: the acoustic event horizon. Hands off during Stage 3. */}
+            {/* Stages 1-3: the acoustic event horizon. Recedes to a quiet
+                backdrop (opacity 0.25, scale 0.85) once the copy docks. */}
             <div className="hero-blackhole-layer">
               <AcousticBlackHoleCanvas />
-            </div>
-
-            {/* Stage 3-4: generated LiDAR blueprint, then the wireframe core. */}
-            <div className="hero-blueprint-layer" aria-hidden="true" />
-            <div className="hero-core-layer">
-              <VoiceCoreCanvas />
             </div>
 
             <div className="hero-vignette absolute inset-0 pointer-events-none" aria-hidden="true" />
@@ -273,7 +269,7 @@ export default function Home() {
             {/* Stage A — the only text permitted over the pure aperture frame.
                 Fades out by progress ~0.17 (see .hero-aperture-cue in globals.css). */}
             <p className="hero-aperture-cue" aria-hidden="true">
-              SCROLL TO EXPLORE ↓
+              [ SCROLL TO EXPLORE ↓ ]
             </p>
 
             {/* Stage B — diagnostic markers, in at 0.15, out by 0.9. */}
@@ -327,7 +323,7 @@ export default function Home() {
 
               {/* Audio Sample Pills (Sound-synced with top console) */}
               <div className="flex flex-wrap items-center gap-3 mb-8">
-                <span className="text-xs font-label text-[#a098b0] uppercase tracking-wider">
+                <span className="w-full text-xs font-label text-[#a098b0] uppercase tracking-wider">
                   Test Voice Engine:
                 </span>
                 {(Object.keys(VOICE_META) as VoiceKey[]).map((lang) => {
@@ -384,7 +380,7 @@ export default function Home() {
                     <div className="w-3 h-3 rounded-full bg-[#27c93f]/80" />
                   </div>
                   <div className="flex items-center gap-2 font-label text-[11px] text-[#a098b0]">
-                    <span className="w-2 h-2 rounded-full bg-[#10b981] animate-pulse" />
+                    <span className="w-2 h-2 rounded-full bg-[#10b981] motion-safe:animate-pulse" />
                     <span>Live Operations Console</span>
                   </div>
                   <span className="font-label text-[10px] text-[#ff2d78] font-bold">98ms</span>
@@ -452,7 +448,7 @@ export default function Home() {
                           VoxFlow AI Agent (Sub-200ms)
                         </span>
                         {playing ? (
-                          <span className="text-[#ff2d78] font-medium animate-pulse">
+                          <span className="text-[#ff2d78] font-medium motion-safe:animate-pulse">
                             {VOICE_META[playing].bubble}
                           </span>
                         ) : (
@@ -465,7 +461,7 @@ export default function Home() {
                   </div>
 
                   {/* Telemetry Indicator */}
-                  <div className="flex items-center justify-between text-[10px] font-label text-[#a098b0] pt-1">
+                  <div className="grid grid-cols-3 gap-2 text-center text-[10px] font-label text-[#a098b0] pt-1">
                     <span>Groq Whisper STT: <strong className="text-[#f8fafc]">84ms</strong></span>
                     <span>Llama 3 Reasoning: <strong className="text-[#f8fafc]">112ms</strong></span>
                     <span>Turn: <strong className="text-[#ff2d78]">196ms</strong></span>
@@ -592,8 +588,8 @@ export default function Home() {
 
         <VoiceXray />
 
-        {/* Asymmetric capability deck — tabs + 58/42 cards, Terminal pattern. */}
-        <AsymmetricCapabilitySlider />
+        {/* Sticky split capability showcase — pinned swap deck + notched stage. */}
+        <StickyCapabilityShowcase />
 
         {/* ═══════════ DUAL-POV TELEMETRY REVEAL ═══════════ */}
         <section className="grid-horizon py-20 sm:py-28 relative overflow-hidden" id="solutions">
@@ -615,7 +611,7 @@ export default function Home() {
                 <div className="flex items-center justify-between mb-5">
                   <span className="font-label text-[10px] tracking-[0.2em] uppercase text-[#a098b0]">Caller POV</span>
                   <span className="flex items-center gap-1.5 font-label text-[10px] text-[#10b981]">
-                    <span className="w-1.5 h-1.5 rounded-full bg-[#10b981] animate-pulse" /> LIVE • +44 20 7946 0821
+                    <span className="w-1.5 h-1.5 rounded-full bg-[#10b981] motion-safe:animate-pulse" /> LIVE • +44 20 7946 0821
                   </span>
                 </div>
                 <div className="space-y-3 font-body text-sm">
@@ -745,7 +741,7 @@ export default function Home() {
                   <span className="material-symbols-outlined text-[#10b981] text-lg">table</span>
                   <span className="font-label text-xs text-[#f8fafc]">VoxFlow — Call Log</span>
                   <span className="ml-auto inline-flex items-center gap-1.5 font-label text-[10px] text-[#10b981]">
-                    <span className="w-1.5 h-1.5 rounded-full bg-[#10b981] animate-pulse" /> syncing
+                    <span className="w-1.5 h-1.5 rounded-full bg-[#10b981] motion-safe:animate-pulse" /> syncing
                   </span>
                 </div>
                 <div className="p-2 sm:p-3 text-[11px] sm:text-xs font-label">
