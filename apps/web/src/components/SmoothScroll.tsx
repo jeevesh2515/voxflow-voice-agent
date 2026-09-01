@@ -20,6 +20,8 @@ export default function SmoothScroll() {
       infinite: false,
     });
 
+    (window as unknown as { __lenis?: Lenis }).__lenis = lenis;
+
     const syncScroll = () => {
       ScrollTrigger.update();
     };
