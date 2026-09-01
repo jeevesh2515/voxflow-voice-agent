@@ -638,30 +638,6 @@ html {
     linear-gradient(120deg, rgba(5, 5, 8, 0.35), rgba(5, 5, 8, 0.08));
 }
 
-.hero-stage-sticky::before,
-.hero-stage-sticky::after {
-  content: "";
-  position: absolute;
-  z-index: 1;
-  pointer-events: none;
-}
-
-.hero-stage-sticky::before {
-  inset: 20px;
-  border: 1px solid rgba(255, 255, 255, 0.075);
-  clip-path: polygon(0 18px, 18px 0, calc(100% - 18px) 0, 100% 18px, 100% calc(100% - 18px), calc(100% - 18px) 100%, 18px 100%, 0 calc(100% - 18px));
-  opacity: 0.8;
-}
-
-.hero-stage-sticky::after {
-  top: 50%;
-  left: 0;
-  height: 1px;
-  width: 100%;
-  background: linear-gradient(90deg, transparent, rgba(0, 255, 204, 0.22), transparent);
-  opacity: 0.6;
-}
-
 .hero-vignette {
   z-index: 1;
   background: radial-gradient(circle at 50% 50%, transparent 38%, rgba(5, 5, 8, 0.18) 78%, rgba(5, 5, 8, 0.78) 100%);
@@ -1111,8 +1087,8 @@ html {
 @media (min-width: 1024px) {
   @media (prefers-reduced-motion: no-preference) {
     .hero-stage.hero-stage-ready {
-      /* 350vh total = 250vh of pinned staged choreography (Terminal Industries pattern). */
-      height: 350vh;
+      /* 500vh total = 400vh of generous pinned staged choreography (Terminal Industries pattern). */
+      height: 500vh;
     }
 
     .hero-stage.hero-stage-ready .hero-stage-sticky {
@@ -1134,37 +1110,37 @@ html {
       will-change: opacity, transform;
     }
 
-    /* Punchline 1: in at 0.16, peaks at 0.32, out by 0.44 */
+    /* Punchline 1: in at 0.12, peaks 0.16-0.38, out by 0.44 */
     .hero-stage.hero-stage-ready .hero-punchline-1 {
       opacity: calc(
-        clamp(0, (var(--hero-progress) - 0.15) * 8.0, 1) *
-        clamp(0, 1 - (var(--hero-progress) - 0.34) * 8.0, 1)
+        clamp(0, (var(--hero-progress) - 0.12) * 9.0, 1) *
+        clamp(0, 1 - (var(--hero-progress) - 0.38) * 8.0, 1)
       );
       transform: translate3d(
         0,
-        calc(28px * (1 - clamp(0, (var(--hero-progress) - 0.15) * 8.0, 1))),
+        calc(24px * (1 - clamp(0, (var(--hero-progress) - 0.12) * 9.0, 1))),
         0
       );
     }
 
-    /* Punchline 2: in at 0.45, peaks at 0.60, out by 0.72 */
+    /* Punchline 2: in at 0.44, peaks 0.46-0.68, out by 0.74 */
     .hero-stage.hero-stage-ready .hero-punchline-2 {
       opacity: calc(
-        clamp(0, (var(--hero-progress) - 0.45) * 8.0, 1) *
-        clamp(0, 1 - (var(--hero-progress) - 0.62) * 8.0, 1)
+        clamp(0, (var(--hero-progress) - 0.44) * 9.0, 1) *
+        clamp(0, 1 - (var(--hero-progress) - 0.68) * 8.0, 1)
       );
       transform: translate3d(
         0,
-        calc(28px * (1 - clamp(0, (var(--hero-progress) - 0.45) * 8.0, 1))),
+        calc(24px * (1 - clamp(0, (var(--hero-progress) - 0.44) * 9.0, 1))),
         0
       );
     }
 
     /* Stage 4 — Final headline block resolves in from the left after punchlines */
     .hero-stage.hero-stage-ready .hero-copy {
-      opacity: clamp(0, (var(--hero-progress) - 0.74) * 4.5, 1);
+      opacity: clamp(0, (var(--hero-progress) - 0.76) * 4.5, 1);
       transform: translate3d(
-        calc(-36px * clamp(0, 1 - (var(--hero-progress) - 0.74) * 4.5, 1)),
+        calc(-36px * clamp(0, 1 - (var(--hero-progress) - 0.76) * 4.5, 1)),
         0,
         0
       );
@@ -1173,9 +1149,9 @@ html {
 
     /* Console follows a beat later so the two dock seamlessly */
     .hero-stage.hero-stage-ready .hero-console {
-      opacity: clamp(0, (var(--hero-progress) - 0.80) * 4.5, 1);
+      opacity: clamp(0, (var(--hero-progress) - 0.82) * 4.5, 1);
       transform: translate3d(
-        calc(36px * clamp(0, 1 - (var(--hero-progress) - 0.80) * 4.5, 1)),
+        calc(36px * clamp(0, 1 - (var(--hero-progress) - 0.82) * 4.5, 1)),
         0,
         0
       );

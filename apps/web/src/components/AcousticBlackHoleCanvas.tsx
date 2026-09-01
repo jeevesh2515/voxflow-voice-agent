@@ -223,29 +223,40 @@ const FRAG = /* glsl */ `
       }
     }
 
-    // Einstein photon ring razor glow
-    float impact = length(cross(vec3(pr, camZ), normalize(v))) / max(length(vec3(pr, camZ)), 0.001);
-    float photonRing = 2.598 / camZ;
-    float ring = exp(-pow((impact - photonRing) * camZ * 46.0, 2.0));
-    vec3 ringColor = ring * vec3(1.0, 0.72, 0.32) * (0.8 + uVoicePulse * 0.6);
-
-    // On-scroll spatial acoustic shockwaves radiating from event horizon
+    // Continuous on-scroll spatial acoustic shockwaves radiating from event horizon
     vec3 waveGlow = vec3(0.0);
-    if (progress > 0.04) {
+    if (progress > 0.02) {
       float waveDist = plen;
-      float waveFreq = 22.0;
-      float waveSpeed = 12.0;
-      float wavePhase = waveDist * waveFreq - progress * 24.0 - uTime * 1.5;
-      float waveRipples = sin(wavePhase);
-      float waveMask = smoothstep(0.05, 0.5, progress) * (1.0 - smoothstep(0.85, 1.0, progress));
-      float waveSharp = pow(clamp(waveRipples, 0.0, 1.0), 3.0);
-      float distFalloff = exp(-waveDist * 2.2);
-      waveGlow = vec3(0.0, 0.95, 0.85) * (waveSharp * waveMask * distFalloff * 0.42);
-      waveGlow += vec3(1.0, 0.2, 0.5) * (pow(clamp(-waveRipples, 0.0, 1.0), 4.0) * waveMask * distFalloff * 0.25);
+      // Resonant harmonic waves (16Hz / 32Hz audio analogy)
+      float waveFreq1 = 18.0;
+      float waveFreq2 = 36.0;
+      float wavePhase1 = waveDist * waveFreq1 - progress * 22.0 - uTime * 1.8;
+      float wavePhase2 = waveDist * waveFreq2 - progress * 34.0 - uTime * 2.4;
+      
+      float waveRipples1 = sin(wavePhase1);
+      float waveRipples2 = cos(wavePhase2);
+      
+      float waveMask = smoothstep(0.04, 0.45, progress) * (1.0 - smoothstep(0.80, 0.98, progress));
+      float waveSharp1 = pow(clamp(waveRipples1, 0.0, 1.0), 3.2);
+      float waveSharp2 = pow(clamp(waveRipples2, 0.0, 1.0), 4.0);
+      float distFalloff = exp(-waveDist * 1.85);
+
+      // Cyan-teal primary voice wave + magenta secondary harmonic wave
+      waveGlow += vec3(0.0, 1.0, 0.85) * (waveSharp1 * waveMask * distFalloff * 0.55);
+      waveGlow += vec3(1.0, 0.18, 0.48) * (waveSharp2 * waveMask * distFalloff * 0.35);
+      
+      // Voice audio reactivity surge
+      if (uVoicePulse > 0.05) {
+        waveGlow += vec3(0.0, 1.0, 0.85) * (uVoicePulse * sin(waveDist * 28.0 - uTime * 8.0) * distFalloff * 0.4);
+      }
     }
 
-    // HDR exposure tonemap
-    vec3 col = bg * trans + (vec3(1.0) - exp(-emitc * EXPOSURE)) + ringColor + waveGlow;
+    // HDR exposure tonemap — natural Schwarzschild shadow and Keplerian accretion disk with zero artificial rings
+    vec3 col = bg * trans + (vec3(1.0) - exp(-emitc * EXPOSURE)) + waveGlow;
+
+    // Seamless radial vignette falloff into deep cosmic space (zero rectangular boundaries)
+    float edgeBlend = smoothstep(1.45, 0.65, plen);
+    col *= edgeBlend;
 
     gl_FragColor = vec4(col * uFade, 1.0);
   }
@@ -366,14 +377,10 @@ export default function AcousticBlackHoleCanvas() {
   }, []);
 
   return (
-    <div ref={containerRef} className="absolute inset-0 h-full w-full overflow-hidden bg-[#000000]">
-      {/* eslint-disable-next-line @next/next/no-img-element */}
-      <img
-        src="/blackhole-poster.jpg"
-        alt=""
-        aria-hidden="true"
-        className="acoustic-blackhole-fallback absolute inset-0 h-full w-full object-cover"
-      />
-    </div>
+    <div
+      ref={containerRef}
+      className="absolute inset-0 h-full w-full overflow-hidden pointer-events-none bg-transparent"
+      aria-hidden="true"
+    />
   );
 }

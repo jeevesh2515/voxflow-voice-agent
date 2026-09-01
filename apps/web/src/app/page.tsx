@@ -16,6 +16,7 @@ import NotchedContainer from "@/components/NotchedContainer";
 import ParallaxQuotes from "@/components/ParallaxQuotes";
 import VoiceXray from "@/components/VoiceXray";
 import DispatchSwitchboard from "@/components/DispatchSwitchboard";
+import ScrollCharReveal from "@/components/ScrollCharReveal";
 
 export default function Home() {
   const [playing, setPlaying] = useState<VoiceKey | null>(null);
@@ -287,9 +288,13 @@ export default function Home() {
                   <span className="h-2 w-2 rounded-full bg-[#00ffcc] animate-ping" />
                   01 // AUTONOMOUS VOICE ENGINE
                 </div>
-                <h2 className="font-headline text-4xl sm:text-6xl lg:text-7xl font-extrabold tracking-tight text-white leading-[1.08] drop-shadow-[0_12px_32px_rgba(0,0,0,0.9)]">
-                  We have reinvented enterprise voice operations from the core.
-                </h2>
+                <ScrollCharReveal
+                  text="We have reinvented enterprise voice operations from the core."
+                  startProgress={0.16}
+                  endProgress={0.38}
+                  highlightColor="#00ffcc"
+                  className="font-headline text-4xl sm:text-6xl lg:text-7xl font-extrabold tracking-tight leading-[1.08] drop-shadow-[0_12px_32px_rgba(0,0,0,0.9)]"
+                />
               </div>
 
               {/* Punchline 2 */}
@@ -298,9 +303,13 @@ export default function Home() {
                   <span className="h-2 w-2 rounded-full bg-[#ff2d78] animate-ping" />
                   02 // REAL-TIME DISPATCH & ERP
                 </div>
-                <h2 className="font-headline text-4xl sm:text-6xl lg:text-7xl font-extrabold tracking-tight text-white leading-[1.08] drop-shadow-[0_12px_32px_rgba(0,0,0,0.9)]">
-                  Zero human queues. Sub-200ms latency. 100% two-way ERP sync.
-                </h2>
+                <ScrollCharReveal
+                  text="Zero human queues. Sub-200ms latency. 100% two-way ERP sync."
+                  startProgress={0.46}
+                  endProgress={0.68}
+                  highlightColor="#ff2d78"
+                  className="font-headline text-4xl sm:text-6xl lg:text-7xl font-extrabold tracking-tight leading-[1.08] drop-shadow-[0_12px_32px_rgba(0,0,0,0.9)]"
+                />
               </div>
             </div>
 
