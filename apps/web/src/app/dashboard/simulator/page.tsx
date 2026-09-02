@@ -324,22 +324,41 @@ export default function PhoneSimulator() {
     }
   }, []);
 
-  // ---------- Text input (fallback) ----------
-
   const sendText = useCallback(async () => {
     const text = textInput.trim();
     if (!text || !simulatorPrepared) return;
     setBusy(true);
     setTextInput("");
+    setTurns((prev) => [...prev, { role: "caller", text, at: Date.now() }]);
     try {
-      const ws = await connect();
-      ws.send(JSON.stringify({ type: "text", text }));
+      if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
+        wsRef.current.send(JSON.stringify({ type: "text", text }));
+      } else {
+        try {
+          const ws = await connect();
+          ws.send(JSON.stringify({ type: "text", text }));
+        } catch {
+          // HTTP Fallback if WebSocket is unreachable
+          const res = await api.agentRun({
+            text,
+            language,
+            caller_name: activeTenant?.name || "Operations User",
+          });
+          if (res?.reply) {
+            setTurns((prev) => [...prev, { role: "agent", text: res.reply, at: Date.now() }]);
+            if (res.actions?.length) {
+              setActions((prev) => [...prev, ...res.actions]);
+            }
+            speakWithBrowserFallback(res.reply, language);
+          }
+        }
+      }
     } catch (e: any) {
       setError(e.message);
     } finally {
       setBusy(false);
     }
-  }, [textInput, connect, simulatorPrepared]);
+  }, [textInput, connect, simulatorPrepared, language, activeTenant]);
 
   // ---------- Manual commit (for testing) ----------
 

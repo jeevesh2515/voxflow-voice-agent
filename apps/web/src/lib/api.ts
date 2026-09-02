@@ -682,5 +682,22 @@ export const api = {
         { method: "DELETE" }
       ),
   },
+
+  // Agent Direct Execution
+  agentRun: (payload: {
+    text: string;
+    caller_phone?: string;
+    caller_name?: string;
+    language?: string;
+  }) =>
+    http<{
+      call_id: string;
+      reply: string;
+      actions: any[];
+      language: string;
+    }>("/agent/run", {
+      method: "POST",
+      body: JSON.stringify(payload),
+    }),
 };
 

@@ -26,6 +26,9 @@ const nextConfig = {
   async rewrites() {
     return [
       { source: "/api/:path*", destination: `${apiUrl}/api/:path*` },
+      { source: "/agent/:path*", destination: `${apiUrl}/agent/:path*` },
+      { source: "/tts", destination: `${apiUrl}/tts` },
+      { source: "/chat", destination: `${apiUrl}/chat` },
     ];
   },
 };

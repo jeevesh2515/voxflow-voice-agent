@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import {
   AlertCircle,
   CheckCircle2,
@@ -69,7 +69,8 @@ export default function TeamMembersSettings() {
 
   const isOwner = activeTenant.role === "owner" && !demoMode;
 
-  const fetchMembers = async () => {
+  const fetchMembers = useCallback(async () => {
+    if (!activeTenant?.id) return;
     try {
       setLoading(true);
       setError(null);
@@ -80,13 +81,11 @@ export default function TeamMembersSettings() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [activeTenant.id]);
 
   useEffect(() => {
-    if (activeTenant?.id) {
-      fetchMembers();
-    }
-  }, [activeTenant?.id]);
+    fetchMembers();
+  }, [fetchMembers]);
 
   const handleInvite = async (e: React.FormEvent) => {
     e.preventDefault();
