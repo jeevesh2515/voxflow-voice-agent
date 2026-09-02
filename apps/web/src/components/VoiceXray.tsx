@@ -96,7 +96,7 @@ function WaveformVisualizer({ progress, active }: { progress: number; active: bo
       {Array.from({ length: bars }).map((_, i) => {
         const barPos = (i / bars) * 196;
         const isPassed = barPos <= progress;
-        const heightPct = 20 + Math.sin(i * 0.45) * 35 + ((i * 19) % 40);
+        const heightPct = Math.round(20 + Math.sin(i * 0.45) * 35 + ((i * 19) % 40));
         return (
           <div
             key={i}
