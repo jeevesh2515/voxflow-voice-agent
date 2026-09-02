@@ -12,7 +12,7 @@
  */
 export default function ParallaxQuotes() {
   return (
-    <section className="parallax-quotes relative overflow-hidden border-y border-white/[0.08] bg-[#04060c] py-28 sm:py-36 lg:py-44" aria-label="Customer outcomes">
+    <section className="parallax-quotes relative overflow-hidden border-y border-white/[0.08] bg-[#04060c] py-28 sm:py-36 lg:py-44" aria-label="Production architecture specification">
       {/* Signature Terminal Notched Top Seam */}
       <div className="absolute top-0 left-1/2 z-20 h-[3px] w-64 -translate-x-1/2 bg-gradient-to-r from-transparent via-[#00ffcc] to-transparent sm:w-96" aria-hidden="true" />
       <div className="absolute top-2.5 left-1/2 z-20 h-1.5 w-10 -translate-x-1/2 rounded-full bg-white/20 backdrop-blur-sm" aria-hidden="true" />
@@ -36,16 +36,16 @@ export default function ParallaxQuotes() {
         <div className="relative mb-20 max-w-3xl">
           <div className="mb-4 inline-flex items-center gap-2 rounded-full border border-[#00ffcc]/30 bg-black/60 px-4 py-1 font-mono text-[11px] uppercase tracking-[0.2em] text-[#00ffcc] backdrop-blur-md">
             <span className="h-1.5 w-1.5 rounded-full bg-[#00ffcc] animate-ping" />
-            OUTCOMES // ENTERPRISE IMPACT
+            ENGINEERING // PRODUCTION ARCHITECTURE
           </div>
           <h2 className="font-headline text-3xl sm:text-5xl lg:text-6xl font-extrabold tracking-tight text-white leading-[1.08]">
-            Validated by high-throughput fleet &amp; supply chain operators.
+            Engineered for mission-critical voice operations.
           </h2>
         </div>
 
         {/* 2-Column High-Impact Editorial Grid */}
         <div className="grid gap-12 lg:grid-cols-2 lg:gap-16 items-stretch">
-          {/* Quote Card 1 with Terminal Crosshairs */}
+          {/* Architecture Pillar 1 with Terminal Crosshairs */}
           <div className="relative flex flex-col justify-between rounded-3xl border border-white/[0.08] bg-black/50 p-8 sm:p-12 backdrop-blur-xl shadow-2xl transition-all duration-300 hover:border-[#00ffcc]/40">
             {/* Terminal Industries Mechanical Corner Crosshairs */}
             <div className="absolute -top-2 -left-2 text-sm font-mono text-[#00ffcc]/60 select-none" aria-hidden="true">+</div>
@@ -56,22 +56,25 @@ export default function ParallaxQuotes() {
             <div>
               <div className="mb-6 flex items-center justify-between border-b border-white/[0.08] pb-4">
                 <span className="font-mono text-[11px] uppercase tracking-widest text-[#00ffcc]">
-                  CASE 01 // UK DISPATCH OPERATIONS
+                  PIPELINE 01 // SUB-200MS AUDIO STREAM
                 </span>
                 <span className="font-mono text-[11px] text-white/40">SLA: 99.98%</span>
               </div>
-              <blockquote className="font-headline text-2xl sm:text-3xl lg:text-4xl font-bold leading-snug tracking-tight text-white">
-                &ldquo;We replaced 14 manual dispatcher queues with one autonomous voice signal. Turnaround latency dropped under 180ms.&rdquo;
-              </blockquote>
+              <div className="font-headline text-xl sm:text-2xl lg:text-3xl font-bold leading-snug tracking-tight text-white">
+                Streaming int16 PCM audio directly to Groq Whisper v3 Turbo with speculative tool reasoning and neural edge TTS synthesis.
+              </div>
+              <p className="mt-4 font-body text-sm sm:text-base text-[#a098b0] leading-relaxed">
+                Deterministic order routing, warehouse lookup, and inventory dispatch executed in real time without human intervention.
+              </p>
             </div>
 
-            <figcaption className="mt-8 border-t border-white/[0.08] pt-4 flex items-center justify-between font-label text-xs uppercase tracking-[0.2em] text-[#00ffcc]/90">
-              <span>— Head of Fleet Operations</span>
-              <span className="font-mono text-[10px] text-white/40">UK National Logistics</span>
-            </figcaption>
+            <div className="mt-8 border-t border-white/[0.08] pt-4 flex items-center justify-between font-label text-xs uppercase tracking-[0.2em] text-[#00ffcc]/90">
+              <span>GROQ WHISPER V3 TURBO • LLAMA 3.3</span>
+              <span className="font-mono text-[10px] text-white/40">~200ms turn, UK edge</span>
+            </div>
           </div>
 
-          {/* Quote Card 2 with Terminal Crosshairs */}
+          {/* Architecture Pillar 2 with Terminal Crosshairs */}
           <div className="relative flex flex-col justify-between rounded-3xl border border-white/[0.08] bg-black/50 p-8 sm:p-12 backdrop-blur-xl shadow-2xl transition-all duration-300 hover:border-[#ff2d78]/40">
             {/* Terminal Industries Mechanical Corner Crosshairs */}
             <div className="absolute -top-2 -left-2 text-sm font-mono text-[#ff2d78]/60 select-none" aria-hidden="true">+</div>
@@ -82,19 +85,22 @@ export default function ParallaxQuotes() {
             <div>
               <div className="mb-6 flex items-center justify-between border-b border-white/[0.08] pb-4">
                 <span className="font-mono text-[11px] uppercase tracking-widest text-[#ff2d78]">
-                  CASE 02 // RETURN VELOCITY
+                  SECURITY 02 // ZERO-LEAKAGE ENTERPRISE ISOLATION
                 </span>
-                <span className="font-mono text-[11px] text-white/40">PAYBACK: 14 DAYS</span>
+                <span className="font-mono text-[11px] text-white/40">AWS EU-WEST-2</span>
               </div>
-              <blockquote className="font-headline text-2xl sm:text-3xl lg:text-4xl font-bold leading-snug tracking-tight text-white">
-                &ldquo;Measurable payback in 14 days without a capital infrastructure overhaul. It integrates directly into our ERP.&rdquo;
-              </blockquote>
+              <div className="font-headline text-xl sm:text-2xl lg:text-3xl font-bold leading-snug tracking-tight text-white">
+                Row-level PostgreSQL multi-tenancy, SHA-256 caller PIN verification, and bidirectional Google Sheets synchronization.
+              </div>
+              <p className="mt-4 font-body text-sm sm:text-base text-[#a098b0] leading-relaxed">
+                Automated GDPR DSAR lifecycle management, HMAC signature verified Stripe billing, and Amazon Connect SIP telephony.
+              </p>
             </div>
 
-            <figcaption className="mt-8 border-t border-white/[0.08] pt-4 flex items-center justify-between font-label text-xs uppercase tracking-[0.2em] text-[#ff2d78]/90">
-              <span>— Chief Financial Officer</span>
-              <span className="font-mono text-[10px] text-white/40">National Distribution Group</span>
-            </figcaption>
+            <div className="mt-8 border-t border-white/[0.08] pt-4 flex items-center justify-between font-label text-xs uppercase tracking-[0.2em] text-[#ff2d78]/90">
+              <span>POSTGRESQL • SHEETS 2-WAY SYNC</span>
+              <span className="font-mono text-[10px] text-white/40">100% TENANT ISOLATION</span>
+            </div>
           </div>
         </div>
       </div>

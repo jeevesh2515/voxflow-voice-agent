@@ -1148,21 +1148,50 @@ export default function Home() {
           </div>
         </section>
 
-        {/* ═══════════ OPERATOR PROOF / TESTIMONIAL ═══════════ */}
-        <section className="py-16 sm:py-24 relative reveal" id="testimonial">
-          <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
-            <div className="glass rounded-3xl p-8 sm:p-14 border border-white/[0.1] relative overflow-hidden">
-              <div className="absolute top-0 left-1/2 -translate-x-1/2 w-48 h-48 bg-[#ff2d78]/10 blur-[100px] rounded-full pointer-events-none" />
-              <div className="mb-6 flex justify-center text-[#ff2d78]/30">
-                <svg width="48" height="48" viewBox="0 0 24 24" fill="currentColor">
-                  <path d="M14.017 21v-7.391c0-5.704 3.731-9.57 8.983-10.609l.995 2.151c-2.432.917-3.995 3.638-3.995 5.849h4v10h-9.983zm-14.017 0v-7.391c0-5.704 3.748-9.57 9-10.609l.996 2.151c-2.433.917-3.996 3.638-3.996 5.849h3.983v10h-9.983z" />
-                </svg>
+        {/* ═══════════ PRODUCTION ARCHITECTURE SPECIFICATION ═══════════ */}
+        <section className="py-16 sm:py-24 relative reveal" id="architecture-spec">
+          <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div className="glass rounded-3xl p-8 sm:p-12 border border-white/[0.1] relative overflow-hidden bg-gradient-to-br from-[#0c0d18]/90 via-[#030308]/95 to-[#0c0d18]/90 shadow-[0_20px_50px_rgba(0,0,0,0.8)]">
+              <div className="absolute top-0 right-0 w-96 h-96 bg-[#5EEAD4]/5 blur-[120px] rounded-full pointer-events-none" />
+              <div className="absolute bottom-0 left-0 w-96 h-96 bg-[#ff2d78]/5 blur-[120px] rounded-full pointer-events-none" />
+
+              <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 border-b border-white/[0.08] pb-8 mb-8">
+                <div>
+                  <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full border border-[#5EEAD4]/30 bg-[#5EEAD4]/10 text-xs font-mono tracking-widest text-[#5EEAD4] uppercase mb-3">
+                    <span className="h-1.5 w-1.5 rounded-full bg-[#5EEAD4] animate-pulse" />
+                    ENTERPRISE STACK SPECIFICATION
+                  </div>
+                  <h3 className="font-headline font-black text-2xl sm:text-3xl text-white tracking-tight">
+                    Production-Ready Voice Agent Infrastructure
+                  </h3>
+                </div>
+                <div className="font-mono text-xs text-white/50 border border-white/[0.08] rounded-xl px-4 py-2 bg-black/40">
+                  <span className="text-[#5EEAD4]">CANONICAL SLA:</span> ~200ms turn, UK edge
+                </div>
               </div>
-              <blockquote className="text-lg sm:text-2xl font-body leading-relaxed text-[#f8fafc] mb-6 italic">
-                &ldquo;Voxflow transformed our dispatch operations overnight. We scaled from 50 to 2,500 daily driver calls without hiring extra operators. The English-Hindi multilingual accuracy is unreal.&rdquo;
-              </blockquote>
-              <p className="font-headline font-bold text-sm text-[#ff2d78]">Director of Logistics</p>
-              <p className="font-body text-xs text-[#a098b0]">UK Beverage &amp; Freight Network</p>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 text-left">
+                <div className="border-l border-[#5EEAD4]/30 pl-4">
+                  <div className="font-mono text-[10px] uppercase tracking-widest text-[#5EEAD4] mb-1">VOICE &amp; STT ENGINE</div>
+                  <div className="font-headline font-bold text-base text-white">Groq Whisper v3 Turbo</div>
+                  <p className="font-sans text-xs text-white/60 mt-1 leading-relaxed">Streaming int16 audio with sub-100ms transcription turnarounds.</p>
+                </div>
+                <div className="border-l border-[#ff2d78]/30 pl-4">
+                  <div className="font-mono text-[10px] uppercase tracking-widest text-[#ff2d78] mb-1">REASONING &amp; ROUTING</div>
+                  <div className="font-headline font-bold text-base text-white">Llama 3.3 70B &amp; Qwen</div>
+                  <p className="font-sans text-xs text-white/60 mt-1 leading-relaxed">Deterministic tool calls for stock queries, POs, and logistics updates.</p>
+                </div>
+                <div className="border-l border-[#00ffcc]/30 pl-4">
+                  <div className="font-mono text-[10px] uppercase tracking-widest text-[#00ffcc] mb-1">DATA PLATFORM</div>
+                  <div className="font-headline font-bold text-base text-white">PostgreSQL + Sheets Sync</div>
+                  <p className="font-sans text-xs text-white/60 mt-1 leading-relaxed">Real-time two-way synchronization into dispatch operations workbooks.</p>
+                </div>
+                <div className="border-l border-white/20 pl-4">
+                  <div className="font-mono text-[10px] uppercase tracking-widest text-white/40 mb-1">TELEPHONY BRIDGE</div>
+                  <div className="font-headline font-bold text-base text-white">Amazon Connect SIP</div>
+                  <p className="font-sans text-xs text-white/60 mt-1 leading-relaxed">Zero hardware changes with direct UK DID routing and failover.</p>
+                </div>
+              </div>
             </div>
           </div>
         </section>
