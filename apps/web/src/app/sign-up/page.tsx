@@ -61,8 +61,9 @@ function SignUpForm() {
 
       // 2. Call backend self-serve signup provisioning or fallback
       let tenantId = "";
+      let provisionRes: any = null;
       try {
-        const provisionRes = await api.signupTenant({
+        provisionRes = await api.signupTenant({
           company_name: company.trim(),
           email: email.trim().toLowerCase(),
           name: name.trim(),
@@ -86,9 +87,18 @@ function SignUpForm() {
 
       // 3. Set active tenant in storage & cookie
       if (typeof window !== "undefined") {
+        const demoUser = JSON.stringify({
+          id: provisionRes?.owner_user_id || `owner-${tenantId}`,
+          email: email.trim().toLowerCase(),
+          name: name.trim() || company.trim(),
+          tenant_id: tenantId,
+        });
         localStorage.setItem("voxflow_active_tenant", tenantId);
         localStorage.setItem("voxflow_demo_tenant", tenantId);
+        localStorage.setItem("voxflow_demo_user", demoUser);
         document.cookie = `auth-token=demo-user-${tenantId}; path=/; max-age=86400; SameSite=Lax`;
+        document.cookie = `voxflow_demo_tenant=${tenantId}; path=/; max-age=86400; SameSite=Lax`;
+        document.cookie = `voxflow_demo_user=${encodeURIComponent(demoUser)}; path=/; max-age=86400; SameSite=Lax`;
         localStorage.setItem(
           "voxflow_onboarding_data",
           JSON.stringify({
