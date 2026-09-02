@@ -104,6 +104,7 @@ export default function VoiceSamples() {
     }
 
     setPlayingId(sample.id);
+    if (typeof window !== "undefined") window.dispatchEvent(new CustomEvent("voxflow:voice-play", { detail: { lang: sample.id } }));
 
     if ("speechSynthesis" in window) {
       // Speak caller then agent response with natural pause
@@ -128,6 +129,7 @@ export default function VoiceSamples() {
       utteranceAgent.onerror = () => {
         setPlayingId(null);
       };
+      // audio end/error already resets playingId; hero pulse decays via VoiceCoreCanvas damping
 
       utteranceCaller.onerror = () => {
         setPlayingId(null);

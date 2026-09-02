@@ -20,7 +20,7 @@ export default function AboutPage() {
           ✦ About Voxflow Voice Agent
         </span>
         <h1 className="font-headline font-extrabold text-4xl sm:text-6xl tracking-tight text-white mb-6 leading-tight">
-          The voice layer for <span className="text-[#5EEAD4]">modern operations.</span>
+          The voice layer for <span className="text-[#ff2d78] neon-text">modern operations.</span>
         </h1>
         <p className="text-lg sm:text-xl text-white/70 leading-relaxed max-w-3xl mx-auto font-sans">
           Voxflow provides operational teams with an autonomous, high-precision voice intelligence engine. Built for scale, engineered for mission-critical logistics, freight, and supply-chain operations.

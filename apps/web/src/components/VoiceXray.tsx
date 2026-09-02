@@ -209,6 +209,8 @@ export default function VoiceXray() {
       draggingRef.current = true;
       (e.currentTarget as HTMLDivElement).setPointerCapture(e.pointerId);
       updateFromClientX(e.clientX);
+      // keep single focusable slider: move focus to the range input
+      (trackRef.current?.querySelector('input[type="range"]') as HTMLElement | null)?.focus();
       e.preventDefault();
     },
     [reducedMotion, updateFromClientX]
@@ -261,14 +263,16 @@ export default function VoiceXray() {
             </div>
             <button
               type="button"
-              disabled={reducedMotion}
               onClick={() => {
-                if (reducedMotion) return;
+                if (reducedMotion) {
+                  setMsProgress(196);
+                  setIsPlaying(false);
+                  return;
+                }
                 setMsProgress(0);
                 setIsPlaying(true);
               }}
-              className="inline-flex items-center gap-2 px-4 py-1.5 rounded-xl border border-[#5EEAD4]/40 bg-[#5EEAD4]/10 hover:bg-[#5EEAD4]/20 text-[#5EEAD4] font-mono text-xs font-bold transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
-              aria-disabled={reducedMotion}
+              className="inline-flex items-center gap-2 px-4 py-1.5 rounded-xl border border-[#5EEAD4]/40 bg-[#5EEAD4]/10 hover:bg-[#5EEAD4]/20 text-[#5EEAD4] font-mono text-xs font-bold transition-colors"
             >
               <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
                 <polygon points="5 3 19 12 5 21 5 3" />

@@ -293,7 +293,7 @@ export default function FourZones() {
                 }`}
               >
                 <span className="font-mono text-[10px] uppercase tracking-wider text-[#5EEAD4] font-bold mb-1">
-                  {z.index} // {z.subtitle}
+                  {`${z.index} // ${z.subtitle}`}
                 </span>
                 <span className="font-headline font-bold text-xs sm:text-sm text-white tracking-wide truncate w-full">
                   {z.tabLabel.replace(/^\d+\s*\/\/\s*/, "")}

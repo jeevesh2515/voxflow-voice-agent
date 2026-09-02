@@ -8,12 +8,14 @@
   --bg-surface: #0a0a12;
   --color-accent: #5eead4;
   --neon-primary: #5eead4;
-  --neon-secondary: #5eead4;
+  --neon-secondary: #ff2d78;
   --neon-tertiary: #ffe04a;
   --text-primary: #ffffff;
   --text-muted: #a098b0;
   --glow-primary: 0 0 12px rgba(94, 234, 212, 0.4);
-  --glow-secondary: 0 0 12px rgba(94, 234, 212, 0.3);
+  --glow-secondary: 0 0 10px rgba(255, 45, 120, 0.22);
+  --ease-vox: cubic-bezier(0.16, 1, 0.3, 1);
+  --ease-vox-out: cubic-bezier(0.22, 1, 0.36, 1);
 }
 
 html {
@@ -626,17 +628,21 @@ html {
   scroll-behavior: auto;
 }
 
+/* VoxFlow hero: pinned 240vh stage, sticky viewport, voice core morph */
 .hero-stage {
-  height: auto;
+  height: 240vh;
   position: relative;
 }
 
 .hero-stage-sticky {
-  position: relative;
+  position: sticky;
+  top: 0;
+  height: 100svh;
   z-index: 1;
+  overflow: hidden;
   background:
-    radial-gradient(circle at 73% 48%, rgba(0, 255, 204, 0.075), transparent 20%),
-    radial-gradient(circle at 21% 22%, rgba(255, 45, 120, 0.09), transparent 26%),
+    radial-gradient(circle at 73% 48%, rgba(94, 234, 212, 0.07), transparent 22%),
+    radial-gradient(circle at 21% 22%, rgba(255, 45, 120, 0.06), transparent 28%),
     linear-gradient(120deg, rgba(5, 5, 8, 0.35), rgba(5, 5, 8, 0.08));
 }
 

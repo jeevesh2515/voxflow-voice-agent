@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useEffect, useRef } from "react";
 import gsap from "gsap";
 import { ScrollTrigger } from "gsap/ScrollTrigger";
+import VoiceCoreCanvas from "@/components/VoiceCoreCanvas";
 import VoiceXray from "@/components/VoiceXray";
 import FourZones from "@/components/FourZones";
 import RoiCalculator from "@/components/RoiCalculator";
@@ -176,16 +177,30 @@ export default function Home() {
   return (
     <div className="relative w-full overflow-hidden text-white font-sans">
       {/* ========================================================================= */}
-      {/* 01: HERO                                                                  */}
+      {/* 01: HERO — pinned voice core morph (sphere → dispatch mesh)              */}
       {/* ========================================================================= */}
       <section
         ref={heroRef}
-        id="section-01"
+        id="hero-stage"
         data-section="01"
         aria-label="01 // Hero"
-        className="relative min-h-[92vh] sm:min-h-screen flex flex-col justify-center items-center px-4 sm:px-6 lg:px-8 pt-32 pb-20 sm:py-36 text-center"
+        className="hero-stage relative"
       >
-        <div className="w-full max-w-5xl mx-auto flex flex-col items-center justify-center">
+        <span id="section-01" className="absolute top-0 pointer-events-none" aria-hidden="true" />
+        <div className="hero-stage-sticky flex flex-col justify-center items-center px-4 sm:px-6 lg:px-8 text-center">
+          {/* VoiceCoreCanvas: primary freight voice visual (sphere → routes → warehouse) */}
+          <VoiceCoreCanvas />
+          <div className="hero-vignette absolute inset-0 pointer-events-none" aria-hidden="true" />
+          {/* quiet system metadata — product context never lost */}
+          <div className="absolute top-24 left-4 sm:left-6 lg:left-8 hidden sm:flex flex-col gap-1 text-left pointer-events-none z-10" aria-hidden="true">
+            <span className="font-mono text-[9px] tracking-[0.2em] uppercase text-white/30">VOXFLOW / VOICE OS</span>
+            <span className="font-mono text-[9px] tracking-wider text-[#5EEAD4]/60">16kHz PCM · SIP · eu-west-2</span>
+          </div>
+          <div className="absolute top-24 right-4 sm:right-6 lg:right-8 hidden sm:flex flex-col items-end gap-1 text-right pointer-events-none z-10" aria-hidden="true">
+            <span className="font-mono text-[9px] tracking-[0.2em] uppercase text-white/30">GLASS-TO-GLASS TURN</span>
+            <span className="font-mono text-[9px] tracking-wider text-[#5EEAD4]">~200ms · UK edge</span>
+          </div>
+          <div className="hero-copy w-full max-w-5xl mx-auto flex flex-col items-center justify-center relative z-10">
           {/* Spec Chip */}
           <div className="hero-fade inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full border border-white/[0.1] bg-[#030308]/60 backdrop-blur-md text-xs font-mono tracking-wider text-[#5EEAD4] uppercase mb-8 shadow-[0_0_20px_rgba(94,234,212,0.12)]">
             <span className="h-1.5 w-1.5 rounded-full bg-[#5EEAD4] animate-pulse" />
@@ -210,7 +225,7 @@ export default function Home() {
               ))}
               {" "}
               {/* Focal Anomaly Pill: black hole */}
-              <span className="hero-anomaly-pill inline-flex items-center px-2.5 sm:px-4 py-0.5 sm:py-1 rounded-2xl bg-[#5EEAD4]/10 border border-[#5EEAD4]/35 text-[#5EEAD4] shadow-[0_0_25px_rgba(94,234,212,0.22)] align-baseline">
+              <span className="hero-anomaly-pill inline-flex items-center px-2.5 sm:px-4 py-0.5 sm:py-1 rounded-2xl bg-[#ff2d78]/10 border border-[#ff2d78]/35 text-[#ff2d78] shadow-[0_0_25px_rgba(255,45,120,0.25)] align-baseline">
                 {anomalyWord.split(" ").map((w, wIdx) => (
                   <span key={wIdx} className="inline-block whitespace-nowrap mr-[0.24em] last:mr-0">
                     {w.split("").map((c, cIdx) => (
@@ -287,6 +302,7 @@ export default function Home() {
               </svg>
             </Link>
           </div>
+        </div>
         </div>
       </section>
 
