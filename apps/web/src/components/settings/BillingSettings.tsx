@@ -82,8 +82,11 @@ export default function BillingSettings() {
         cancel_url: `${origin}/pricing`,
       });
       const url = result.checkout.checkout_url;
-      if (url) window.location.href = url;
-      else setErrorMessage("Checkout session created but no redirect URL was returned.");
+      if (url) {
+        window.location.assign(url);
+      } else {
+        setErrorMessage("Checkout session created but no redirect URL was returned.");
+      }
     } catch (err: unknown) {
       setErrorMessage(err instanceof Error ? err.message : "Checkout failed");
     } finally {
@@ -198,7 +201,7 @@ export default function BillingSettings() {
             type="button"
             onClick={handlePortal}
             disabled={!isOwner || isOpeningPortal}
-            className="inline-flex items-center gap-2 rounded-xl border border-[#302840] bg-[#1e1e30] px-4 py-2.5 text-xs font-bold text-[#e8e0f0] transition hover:border-[#00ffcc]/40 disabled:opacity-50"
+            className="inline-flex items-center gap-2 rounded-xl border border-[#302840] bg-[#1e1e30] px-4 py-2.5 min-h-[44px] text-xs font-bold text-[#e8e0f0] transition hover:border-[#00ffcc]/40 disabled:opacity-50"
           >
             {isOpeningPortal ? <Loader2 size={14} className="animate-spin" /> : <ExternalLink size={14} />}
             Manage Billing & Payment Methods
@@ -207,7 +210,7 @@ export default function BillingSettings() {
             type="button"
             onClick={() => setUpgradeOpen((v) => !v)}
             disabled={!isOwner}
-            className="inline-flex items-center gap-2 rounded-xl bg-[#ff2d78] px-4 py-2.5 text-xs font-bold text-white transition hover:bg-[#ff4470] disabled:opacity-50"
+            className="inline-flex items-center gap-2 rounded-xl bg-[#ff2d78] px-4 py-2.5 min-h-[44px] text-xs font-bold text-white transition hover:bg-[#ff4470] disabled:opacity-50"
           >
             <Sparkles size={14} /> {upgradeOpen ? "Close" : "Change Plan"}
           </button>

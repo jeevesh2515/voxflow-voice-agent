@@ -161,7 +161,7 @@ export function VoiceEvalScorecard({ tenantId, tenantName }: Props) {
             <button
               onClick={handleRunEval}
               disabled={isRunning}
-              className={`inline-flex items-center gap-2 rounded-xl px-4 py-2.5 text-xs font-semibold shadow-lg transition-all ${
+              className={`inline-flex items-center gap-2 rounded-xl px-4 py-2.5 min-h-[44px] text-xs font-semibold shadow-lg transition-all ${
                 isRunning
                   ? "cursor-not-allowed border border-[#302840] bg-[#1a1a2e] text-[#64748b]"
                   : "border border-[#00ffcc]/40 bg-[#00ffcc]/15 text-[#00ffcc] hover:bg-[#00ffcc]/25 active:scale-95"
@@ -489,14 +489,14 @@ export function VoiceEvalScorecard({ tenantId, tenantName }: Props) {
                           <span className="rounded bg-[#00ffcc]/10 px-1.5 py-0.5 font-mono text-[10px] text-[#00ffcc]">
                             USER
                           </span>
-                          <p className="text-white text-xs font-medium">"{turn.user_text}"</p>
+                          <p className="text-white text-xs font-medium">&ldquo;{turn.user_text}&rdquo;</p>
                         </div>
 
                         <div className="flex items-start gap-2">
                           <span className="rounded bg-[#7928ca]/20 px-1.5 py-0.5 font-mono text-[10px] text-[#c084fc]">
                             AGENT
                           </span>
-                          <p className="text-[#cbd5e1] text-xs">"{turn.reply_text}"</p>
+                          <p className="text-[#cbd5e1] text-xs">&ldquo;{turn.reply_text}&rdquo;</p>
                         </div>
 
                         <div className="flex flex-wrap items-center gap-4 text-[10px] font-mono text-[#64748b] pt-1">

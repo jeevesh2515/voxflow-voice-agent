@@ -1,14 +1,13 @@
 import type { Metadata } from "next";
 import Nav from "@/components/Nav";
 import Footer from "@/components/Footer";
+import SmoothScroll from "@/components/SmoothScroll";
+import AcousticBlackHoleCanvas from "@/components/AcousticBlackHoleCanvas";
 import { ThemeProvider } from "@/lib/theme-context";
 import { AuthProvider } from "@/lib/auth-context";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  // Required for og:image / twitter:image to serialise as absolute URLs.
-  // Without it Next falls back to http://localhost:3000 and the share card
-  // silently 404s in production.
   metadataBase: new URL(
     process.env.NEXT_PUBLIC_SITE_URL ?? "https://voxflow-voice-agent.vercel.app"
   ),
@@ -47,24 +46,14 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           href="https://fonts.googleapis.com/css2?family=Sora:wght@400;600;700;800;900&family=Inter:wght@400;500;600;700&family=Space+Grotesk:wght@500;600;700&display=swap"
           rel="stylesheet"
         />
-        <link
-          href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200&display=swap"
-          rel="stylesheet"
-        />
-        {/* The hero hides its copy until JS marks the stage ready, so the opening
-            frame is a clean visual. Without JS that class never lands, which would
-            leave the headline permanently invisible to crawlers and no-JS clients. */}
-        <noscript
-          dangerouslySetInnerHTML={{
-            __html: `<style>.hero-stage .hero-copy,.hero-stage .hero-console{opacity:1!important;transform:none!important}</style>`,
-          }}
-        />
       </head>
-      <body className="min-h-screen bg-[#0a0a12] text-[#e8e0f0] font-sans antialiased flex flex-col selection:bg-[#ff2d78] selection:text-[#1a0010] transition-colors duration-300">
+      <body className="min-h-screen bg-[#030308] text-white font-sans antialiased flex flex-col selection:bg-[#5EEAD4] selection:text-[#030308] transition-colors duration-300">
         <ThemeProvider>
           <AuthProvider>
+            <SmoothScroll />
+            <AcousticBlackHoleCanvas />
             <Nav />
-            <main className="flex-1">{children}</main>
+            <main className="flex-1 relative z-10">{children}</main>
             <Footer />
           </AuthProvider>
         </ThemeProvider>

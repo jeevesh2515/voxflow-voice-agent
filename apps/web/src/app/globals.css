@@ -3,15 +3,17 @@
 @tailwind utilities;
 
 :root {
-  --neon-primary: #ff2d78;
-  --neon-secondary: #00ffcc;
-  --neon-tertiary: #ffe04a;
-  --bg-deep: #07070f;
+  --bg-void: #030308;
+  --bg-deep: #030308;
   --bg-surface: #0a0a12;
-  --text-primary: #e8e0f0;
+  --color-accent: #5eead4;
+  --neon-primary: #5eead4;
+  --neon-secondary: #5eead4;
+  --neon-tertiary: #ffe04a;
+  --text-primary: #ffffff;
   --text-muted: #a098b0;
-  --glow-primary: 0 0 8px var(--neon-primary);
-  --glow-secondary: 0 0 8px var(--neon-secondary);
+  --glow-primary: 0 0 12px rgba(94, 234, 212, 0.4);
+  --glow-secondary: 0 0 12px rgba(94, 234, 212, 0.3);
 }
 
 html {
@@ -19,10 +21,10 @@ html {
 }
 
 body {
-  background-color: var(--bg-deep);
-  color: var(--text-primary);
+  background-color: var(--bg-void, #030308);
+  color: var(--text-primary, #ffffff);
   font-family: 'Inter', sans-serif;
-  overflow-x: clip;
+  overflow-x: hidden;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }

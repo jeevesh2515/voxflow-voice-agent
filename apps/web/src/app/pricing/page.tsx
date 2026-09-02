@@ -34,7 +34,7 @@ const TIERS: Tier[] = [
       "Google Sheets live mirror",
       "Email escalations",
       "UK GDPR retention controls",
-      "Sub-second latency voice agent",
+      "~200ms turn, UK edge voice agent",
     ],
   },
   {
@@ -111,32 +111,32 @@ export default function PricingPage() {
   }
 
   return (
-    <div className="pt-[5.5rem] pb-24 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+    <div className="pt-[5.5rem] pb-24 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-white relative z-10">
       <FadeUp className="text-center max-w-3xl mx-auto mb-10 pt-12">
-        <span className="font-label text-[#00ffcc] uppercase tracking-[0.2em] text-xs mb-4 block">
+        <span className="font-mono text-[#5EEAD4] uppercase tracking-[0.2em] text-xs mb-4 block">
           ✦ Transparent UK Pricing
         </span>
-        <h1 className="font-headline font-extrabold text-4xl sm:text-6xl tracking-tight text-[#e8e0f0] mb-4 leading-tight">
-          Plans for every <span className="text-[#ff2d78] neon-text">operations team.</span>
+        <h1 className="font-headline font-extrabold text-4xl sm:text-6xl tracking-tight text-white mb-4 leading-tight">
+          Plans for every <span className="text-[#5EEAD4]">operations team.</span>
         </h1>
-        <p className="text-lg text-[#a098b0] font-body">
-          Sub-second voice, Amazon Connect telephony, Google Sheets sync, and UK GDPR — billed in £ GBP or $ USD.
+        <p className="text-lg text-white/70 font-sans">
+          ~200ms turn, UK edge, Amazon Connect telephony, Google Sheets sync, and UK GDPR — billed in £ GBP or $ USD.
           14-day free trial on every tier.
         </p>
       </FadeUp>
 
       {/* Toggles */}
       <div className="flex flex-wrap items-center justify-center gap-4 mb-10">
-        <div className="inline-flex rounded-full border border-[#302840]/50 bg-[#0f0f1a]/60 p-1">
+        <div className="inline-flex rounded-full border border-white/[0.08] bg-white/[0.02] p-1">
           {(["gbp", "usd"] as Currency[]).map((c) => (
             <button
               key={c}
               type="button"
               onClick={() => setCurrency(c)}
-              className={`rounded-full px-4 py-1.5 text-xs font-bold uppercase tracking-widest transition ${
+              className={`rounded-full px-4 py-1.5 text-xs font-bold uppercase tracking-widest transition font-mono ${
                 currency === c
-                  ? "bg-[#ff2d78] text-white shadow"
-                  : "text-[#a098b0] hover:text-[#e8e0f0]"
+                  ? "bg-[#5EEAD4] text-[#030308] shadow"
+                  : "text-white/60 hover:text-white"
               }`}
             >
               {c === "gbp" ? "£ GBP" : "$ USD"}
@@ -146,30 +146,30 @@ export default function PricingPage() {
         <button
           type="button"
           onClick={() => setAnnual((v) => !v)}
-          className="inline-flex items-center gap-2 rounded-full border border-[#302840]/50 bg-[#0f0f1a]/60 px-4 py-2 text-xs font-bold text-[#e8e0f0] transition hover:border-[#00ffcc]/40"
+          className="inline-flex items-center gap-2 rounded-full border border-white/[0.08] bg-white/[0.02] px-4 py-2 text-xs font-bold text-white transition hover:border-[#5EEAD4]/40 font-mono"
           aria-pressed={annual}
         >
           <span
-            className={`h-4 w-8 rounded-full p-0.5 transition ${annual ? "bg-[#00ffcc]" : "bg-[#302840]"}`}
+            className={`h-4 w-8 rounded-full p-0.5 transition ${annual ? "bg-[#5EEAD4]" : "bg-white/20"}`}
           >
             <span
-              className={`block h-3 w-3 rounded-full bg-white transition ${annual ? "translate-x-4" : ""}`}
+              className={`block h-3 w-3 rounded-full bg-white transition ${annual ? "translate-x-4 bg-[#030308]" : ""}`}
             />
           </span>
-          Annual <span className="text-[#00ffcc]">–20%</span>
+          Annual <span className="text-[#5EEAD4]">–20%</span>
         </button>
       </div>
 
       {/* Trust strip */}
-      <div className="mx-auto mb-8 flex max-w-3xl flex-wrap justify-center gap-2 text-[11px] text-[#a098b0]">
-        <span className="inline-flex items-center gap-1.5 rounded-full border border-[#302840]/40 bg-[#141422]/60 px-3 py-1.5">
-          <ShieldCheck size={12} className="text-[#00ffcc]" /> UK GDPR • eu-west-2
+      <div className="mx-auto mb-8 flex max-w-3xl flex-wrap justify-center gap-2 text-[11px] text-white/60 font-mono">
+        <span className="inline-flex items-center gap-1.5 rounded-full border border-white/[0.06] bg-white/[0.02] px-3 py-1.5">
+          <ShieldCheck size={12} className="text-[#5EEAD4]" /> UK GDPR • eu-west-2
         </span>
-        <span className="inline-flex items-center gap-1.5 rounded-full border border-[#302840]/40 bg-[#141422]/60 px-3 py-1.5">
-          <Zap size={12} className="text-[#ffe04a]" /> Sub-second latency
+        <span className="inline-flex items-center gap-1.5 rounded-full border border-white/[0.06] bg-white/[0.02] px-3 py-1.5">
+          <Zap size={12} className="text-[#5EEAD4]" /> ~200ms turn, UK edge
         </span>
-        <span className="inline-flex items-center gap-1.5 rounded-full border border-[#302840]/40 bg-[#141422]/60 px-3 py-1.5">
-          <Crown size={12} className="text-[#ff2d78]" /> Stripe billing • VAT receipts
+        <span className="inline-flex items-center gap-1.5 rounded-full border border-white/[0.06] bg-white/[0.02] px-3 py-1.5">
+          <Crown size={12} className="text-[#5EEAD4]" /> Stripe billing • VAT receipts
         </span>
       </div>
 
@@ -180,60 +180,65 @@ export default function PricingPage() {
             key={tier.id}
             className={`relative rounded-2xl border p-6 sm:p-7 flex flex-col transition-all duration-300 ${
               tier.popular
-                ? "border-[#ff2d78]/60 bg-[#141422] shadow-[0_0_40px_rgba(255,45,120,0.18)] hover:border-[#ff2d78] scale-[1.02] z-10"
-                : "border-[#302840]/40 bg-[#0f0f1a]/80 hover:border-[#ff2d78]/40"
+                ? "border-[#5EEAD4]/60 bg-[#0a0a12]/90 shadow-[0_0_35px_rgba(94,234,212,0.15)] hover:border-[#5EEAD4] scale-[1.02] z-10"
+                : "border-white/[0.08] bg-[#0a0a12]/60 hover:border-[#5EEAD4]/40"
             }`}
           >
             {tier.tag && (
-              <span className="absolute -top-3 left-1/2 -translate-x-1/2 whitespace-nowrap text-[10px] font-label font-bold uppercase tracking-widest bg-[#ff2d78] text-[#1a0010] px-3.5 py-1 rounded-full shadow-[0_0_12px_rgba(255,45,120,0.6)]">
+              <span className="absolute -top-3 left-1/2 -translate-x-1/2 whitespace-nowrap text-[10px] font-mono font-bold uppercase tracking-widest bg-[#5EEAD4] text-[#030308] px-3.5 py-1 rounded-full shadow-[0_0_12px_rgba(94,234,212,0.5)]">
                 {tier.tag}
               </span>
             )}
             <div className="mb-1 flex items-center gap-2">
-              <h3 className="font-headline font-bold text-xl text-[#e8e0f0]">{tier.name}</h3>
+              <h3 className="font-headline font-bold text-xl text-white">{tier.name}</h3>
               {tier.id === "enterprise" && <Sparkles size={14} className="text-[#ffe04a]" />}
             </div>
             <div className="flex items-baseline gap-1 mb-1">
-              <span className="font-headline font-black text-4xl sm:text-5xl text-[#e8e0f0]">
+              <span
+                id={`price-${tier.id}`}
+                data-currency={currency}
+                data-billing={annual ? "annual" : "monthly"}
+                className="font-headline font-black text-4xl sm:text-5xl text-white"
+              >
                 {displayPrice(tier)}
               </span>
-              <span className="text-xs font-label text-[#a098b0]">/ month</span>
+              <span className="text-xs font-mono text-white/50">/ month</span>
             </div>
-            <p className="mb-5 text-[11px] text-[#a098b0]">
-              {annual ? "Billed annually" : "Billed monthly"} • 14-day free trial
+            <p className="mb-5 text-[11px] text-white/50 font-mono">
+              {annual ? `Billed annually (${displayPrice(tier)}/mo)` : `Billed monthly (${displayPrice(tier)}/mo)`} • 14-day free trial
             </p>
             <ul className="space-y-3 mb-8 flex-1">
               {tier.features.map((f) => (
                 <li
                   key={f}
-                  className="flex items-start gap-2.5 text-xs sm:text-sm text-[#e8e0f0]/90 font-body"
+                  className="flex items-start gap-2.5 text-xs sm:text-sm text-white/80 font-sans"
                 >
-                  <Check size={15} className="text-[#00ffcc] mt-0.5 shrink-0" />
+                  <Check size={15} className="text-[#5EEAD4] mt-0.5 shrink-0" />
                   {f}
                 </li>
               ))}
             </ul>
             <Link
               href={tier.href}
-              className={`text-center font-headline font-bold text-xs sm:text-sm px-5 py-3 rounded-xl transition-all duration-200 active:scale-95 ${
+              className={`text-center font-headline font-bold text-xs sm:text-sm px-5 py-3 min-h-[44px] rounded-xl transition-all duration-200 active:scale-95 ${
                 tier.popular
-                  ? "bg-[#ff2d78] text-[#1a0010] hover:shadow-[0_0_25px_rgba(255,45,120,0.5)]"
-                  : "bg-[#1e1e30] text-[#e8e0f0] hover:bg-[#28283e] border border-[#302840]/60"
+                  ? "bg-[#5EEAD4] text-[#030308] hover:shadow-[0_0_25px_rgba(94,234,212,0.4)]"
+                  : "bg-white/[0.04] text-white hover:bg-white/[0.08] border border-white/[0.08]"
               }`}
             >
               {tier.cta}
             </Link>
-            <p className="mt-3 text-center text-[10px] text-[#a098b0]">
+            <p className="mt-3 text-center text-[10px] text-white/40 font-mono">
               {currency === "gbp" ? "£ GBP" : "$ USD"} • Cancel in Stripe Portal
             </p>
           </StaggerItem>
         ))}
       </StaggerContainer>
 
-      <p className="mx-auto mb-16 max-w-3xl text-center text-xs leading-5 text-[#a098b0]">
+      <p className="mx-auto mb-16 max-w-3xl text-center text-xs leading-5 text-white/50 font-mono">
         Prices exclude VAT where applicable. Invoices and VAT receipts are issued by Stripe. Need a custom volume,
         on-prem, or multi-region deployment?{" "}
-        <Link href="/sign-up?plan=enterprise" className="text-[#00ffcc] hover:underline">
+        <Link href="/sign-up?plan=enterprise" className="text-[#5EEAD4] hover:underline">
           Talk to sales
         </Link>
         .
@@ -242,21 +247,21 @@ export default function PricingPage() {
       {/* FAQ */}
       <div className="max-w-4xl mx-auto">
         <FadeUp>
-          <h2 className="font-headline font-extrabold text-3xl text-[#e8e0f0] text-center mb-10">
+          <h2 className="font-headline font-extrabold text-3xl text-white text-center mb-10">
             Frequently Asked Questions
           </h2>
         </FadeUp>
         <StaggerContainer className="space-y-4">
           {FAQS.map((faq) => (
             <StaggerItem key={faq.q}>
-              <details className="rounded-xl border border-[#302840]/40 bg-[#141422]/70 group">
-                <summary className="px-6 py-5 text-base font-headline font-semibold text-[#e8e0f0] cursor-pointer list-none flex items-center justify-between group-open:text-[#ff2d78] transition-colors">
+              <details className="rounded-xl border border-white/[0.08] bg-[#0a0a12]/80 group">
+                <summary className="px-6 py-5 text-base font-headline font-semibold text-white cursor-pointer list-none flex items-center justify-between group-open:text-[#5EEAD4] transition-colors">
                   {faq.q}
-                  <span className="text-[#a098b0] group-open:rotate-180 transition-transform duration-200 text-lg">
+                  <span className="text-white/40 group-open:rotate-180 transition-transform duration-200 text-lg">
                     ▾
                   </span>
                 </summary>
-                <div className="px-6 pb-5 text-sm text-[#a098b0] font-body leading-relaxed">{faq.a}</div>
+                <div className="px-6 pb-5 text-sm text-white/60 font-sans leading-relaxed">{faq.a}</div>
               </details>
             </StaggerItem>
           ))}

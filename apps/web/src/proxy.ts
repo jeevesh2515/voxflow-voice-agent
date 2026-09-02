@@ -40,7 +40,8 @@ export async function proxy(request: NextRequest) {
       return NextResponse.redirect(url);
     }
 
-    if (isAuthenticated && (request.nextUrl.pathname === "/sign-in" || request.nextUrl.pathname === "/sign-up")) {
+    // Note: /sign-up is always accessible so visitors can sign up without being trapped in dashboard redirects
+    if (session && request.nextUrl.pathname === "/sign-in") {
       const url = request.nextUrl.clone();
       url.pathname = "/dashboard";
       return NextResponse.redirect(url);

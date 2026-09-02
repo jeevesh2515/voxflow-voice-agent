@@ -4,20 +4,12 @@ import { useEffect, useRef } from "react";
 import * as THREE from "three";
 
 /**
- * Geodesic-traced Schwarzschild black hole with on-scroll spatial waves.
- * Ported from Eric Bruneton / Ghostty Black Hole (github.com/s0xDk/ghostty-blackhole).
- *
- * Implements numerical integration of null geodesics:
- *   a = -(3/2) * h² * x / r⁵   where h = |x × v|
- *
- * Computes:
- * - Pure Schwarzschild shadow sphere at b_crit = (3√3/2) r_s (centered via vUv)
- * - Gravitational lensing & photon sphere winding
- * - Shakura-Sunyaev Keplerian accretion disk with edge-on inclination (arcs over & under)
- * - Relativistic Doppler boosting & gravitational redshift
- * - Tanner-Helland blackbody temperature radiance (5500K -> 2400K)
- * - On-scroll spatial acoustic shockwaves and camera recession into deep cosmos
- * - Audio-reactive pulse modulation during voice persona playback
+ * Fullscreen WebGL Schwarzschild Black Hole & Sparse Starfield.
+ * - Scroll-linked scale and spin
+ * - Simpler shader and reduced steps on mobile / small screens
+ * - Pauses RAF loop when document.hidden or off-screen
+ * - Renders a single static frame when prefers-reduced-motion is active
+ * - Background void token: #030308, Accent: #5EEAD4
  */
 
 const VERT = /* glsl */ `
@@ -35,40 +27,32 @@ const FRAG = /* glsl */ `
 
   uniform vec2  uResolution;
   uniform float uTime;
-  uniform float uScrollProgress; // 0 -> 1 through hero scroll
-  uniform float uVoicePulse;     // 0 -> 1 on voice playback
-  uniform float uFade;
-  uniform sampler2D uStars;
-  uniform float uHasStars;
+  uniform float uScrollProgress; // 0 -> 1 normalized scroll
+  uniform float uScrollSpin;     // cumulative spin radians
+  uniform float uVoicePulse;     // 0 -> 1 on audio events
+  uniform float uIsMobile;       // 1.0 if mobile, 0.0 if desktop
 
   #define PI 3.14159265359
-  #define N_STEPS 52
 
-  // Tunables calibrated to the Gargantua / Interstellar astrophysical look
-  const float LENS_DEPTH    = 14.0;
-  const float DISK_INNER    = 2.0;    // Inner edge (ISCO)
-  const float DISK_OUTER    = 8.2;    // Outer edge
-  const float DISK_INCL     = 1.52;   // Edge-on tilt in radians (87°) -> arcs over and under
-  const float DISK_ROLL     = 0.05;   // Screen roll
-  const float DISK_TEMP     = 5500.0; // Peak temperature in Kelvin
-  const float DISK_GAIN     = 2.4;    // Emission brightness
-  const float DISK_OPACITY  = 0.92;   // Near disk opacity
-  const float DOPPLER_MIX   = 0.65;   // Relativistic asymmetry
-  const float DISK_BEAM     = 2.6;    // Beaming exponent g^N
-  const float DISK_SPEED    = 4.8;    // Orbit streak speed
-  const float DISK_WIND     = 6.5;    // Spiral tightness
-  const float DISK_CONTRAST = 1.4;    // Gas filament contrast
-  const float EXPOSURE      = 1.45;   // HDR tonemap exposure
-  const float B_CRIT        = 2.598076; // (3√3 / 2) critical impact parameter
-  const float Z0            = 14.5;   // Fixed base camera distance in space
+  // Gravitational & accretion disk parameters
+  const float DISK_INNER    = 2.0;    // ISCO
+  const float DISK_OUTER    = 7.8;    // Outer accretion disk boundary
+  const float DISK_INCL     = 1.50;   // ~86° edge-on inclination
+  const float DISK_TEMP     = 5600.0; // Blackbody Kelvin
+  const float DISK_GAIN     = 2.3;
+  const float DISK_OPACITY  = 0.90;
+  const float DOPPLER_MIX   = 0.65;
+  const float DISK_BEAM     = 2.5;
+  const float DISK_SPEED    = 4.2;
+  const float DISK_WIND     = 6.0;
+  const float B_CRIT        = 2.598076;
+  const float Z0            = 14.0;
 
-  // Rotation in 2D
   vec2 rot(vec2 p, float a) {
     float c = cos(a), s = sin(a);
     return vec2(c * p.x - s * p.y, s * p.x + c * p.y);
   }
 
-  // Hash / value noise for gas streaks
   float hash21(vec2 p) {
     p = fract(p * vec2(123.34, 456.21));
     p += dot(p, p + 45.32);
@@ -88,7 +72,6 @@ const FRAG = /* glsl */ `
     return mix(mix(a, b, f.x), mix(c, d, f.x), f.y);
   }
 
-  // Tanner Helland blackbody color fit (Kelvin -> normalized RGB)
   vec3 blackbody(float T) {
     float t = clamp(T, 1500.0, 40000.0) / 100.0;
     float r = t <= 66.0 ? 1.0 : clamp(1.292936 * pow(t - 60.0, -0.1332047), 0.0, 1.0);
@@ -98,45 +81,43 @@ const FRAG = /* glsl */ `
     return vec3(r, g, b);
   }
 
-  // Procedural lensed background starfield
-  vec3 stars(vec3 d) {
+  // Sparse cosmic starfield in deep void
+  vec3 sparseStars(vec3 d) {
     vec2 sph = vec2(atan(d.x, -d.z), asin(clamp(d.y, -1.0, 1.0)));
-    vec2 g   = sph * 45.0;
+    vec2 g   = sph * 42.0;
     vec2 id  = floor(g);
     float h  = hash21(id);
-    if (h < 0.93) return vec3(0.0);
+    if (h < 0.94) return vec3(0.0);
     vec2 f   = fract(g) - 0.5;
     vec2 off = (vec2(hash21(id + 17.3), hash21(id + 31.7)) - 0.5) * 0.7;
-    float spark = smoothstep(0.12, 0.0, length(f - off));
-    float tw    = 0.7 + 0.3 * sin(uTime * (0.8 + 2.0 * hash21(id + 5.1)) + 40.0 * h);
-    vec3 tint   = mix(vec3(1.0, 0.85, 0.65), vec3(0.70, 0.90, 1.0), hash21(id + 2.9));
-    return tint * spark * tw * ((h - 0.93) / 0.07) * 0.85;
+    float spark = smoothstep(0.11, 0.0, length(f - off));
+    float tw    = 0.65 + 0.35 * sin(uTime * (0.8 + 2.0 * hash21(id + 5.1)) + 40.0 * h);
+    vec3 tint   = mix(vec3(0.9, 0.95, 1.0), vec3(0.37, 0.92, 0.83), hash21(id + 2.9)); // #5EEAD4 accent tint
+    return tint * spark * tw * ((h - 0.94) / 0.06) * 0.75;
   }
 
   void main() {
     float aspect = uResolution.x / max(uResolution.y, 1.0);
-
-    // Guaranteed mathematically dead-centered coordinates using varying vUv
     vec2 p = (vUv - vec2(0.5, 0.5)) * vec2(aspect, 1.0);
     float plen = length(p);
 
-    // On-scroll camera recession: black hole smoothly recedes into deep space
+    // Scroll-linked scale & spin
     float progress = clamp(uScrollProgress, 0.0, 1.0);
-    float camZ = Z0 + progress * 16.0;
-    float rh = mix(0.24, 0.11, progress); // Normalized shadow radius on screen
+    float camZ = Z0 + progress * 14.0;
+    float rh = mix(0.23, 0.12, progress);
     float W = B_CRIT / max(rh, 1e-4);
-    vec2 pr = rot(p, DISK_ROLL) * W;
-    float b = length(pr);
+
+    // Apply scroll-linked rotation angle
+    float currentRoll = 0.05 + uScrollSpin * 0.6 + progress * 0.4;
+    vec2 pr = rot(p, currentRoll) * W;
 
     float rin = max(DISK_INNER, 1.6);
     float rout = max(DISK_OUTER, rin + 0.5);
 
-    // Ray origin with receding distance & conserved angular momentum h²
     vec3 x = vec3(pr, camZ);
     vec3 v = vec3(0.0, 0.0, -1.0);
     float h2 = dot(pr, pr);
 
-    // Disk coordinate frame
     float ci = cos(DISK_INCL), si = sin(DISK_INCL);
     vec3 n = vec3(0.0, si, ci);
     vec3 e2 = vec3(0.0, ci, -si);
@@ -147,17 +128,20 @@ const FRAG = /* glsl */ `
     float sPrev = dot(x, n);
     vec3 xPrev = x;
 
-    // Leapfrog geodesic integration
-    for (int i = 0; i < N_STEPS; i++) {
+    // Raymarching steps: 24 on mobile, 48 on desktop
+    int maxSteps = uIsMobile > 0.5 ? 24 : 48;
+
+    for (int i = 0; i < 48; i++) {
+      if (i >= maxSteps) break;
+
       float r2 = dot(x, x);
       if (r2 < 1.0) { captured = true; break; }
       if (x.z < -camZ && v.z < 0.0) break;
       if (r2 > 4.0 * camZ * camZ) break;
 
       float r = sqrt(r2);
-      float dt = clamp(0.15 * r, 0.03, 1.4);
+      float dt = clamp((uIsMobile > 0.5 ? 0.22 : 0.15) * r, 0.04, 1.6);
 
-      // Kick-drift-kick leapfrog
       vec3 a = -1.5 * h2 * x / (r2 * r2 * r);
       v += a * (0.5 * dt);
       x += v * dt;
@@ -166,7 +150,7 @@ const FRAG = /* glsl */ `
       a = -1.5 * h2 * x / (r2 * r2 * r);
       v += a * (0.5 * dt);
 
-      // Check thin-disk plane crossing
+      // Check thin accretion disk intersection
       float s = dot(x, n);
       if (s * sPrev < 0.0 && trans > 0.02) {
         float tc = sPrev / (sPrev - s);
@@ -175,34 +159,33 @@ const FRAG = /* glsl */ `
 
         if (rc > rin && rc < rout) {
           float band = smoothstep(rin, rin * 1.25, rc) * (1.0 - smoothstep(rout * 0.72, rout, rc));
-
           float phi = atan(dot(xc, e2), xc.x);
           float turns = phi / (2.0 * PI);
           float kep = pow(rin / rc, 1.5);
           float gloc = sqrt(max(1.0 - 1.5 / rc, 0.02));
-          float swirl = rc * DISK_WIND * 0.12 - uTime * kep * DISK_SPEED * gloc * 0.12;
+          float swirl = rc * DISK_WIND * 0.12 - (uTime * 0.8 + uScrollSpin * 0.4) * kep * DISK_SPEED * gloc * 0.12;
 
-          float streaks = vnoiseWrapY(vec2(rc * 2.8, turns * 19.0 + swirl * 3.0), 19.0) * 0.65 +
-                          vnoiseWrapY(vec2(rc * 1.0, turns * 9.0  + swirl * 1.5 + 7.0), 9.0) * 0.35;
-          streaks = 0.35 + DISK_CONTRAST * streaks * streaks;
+          float streaks = 0.5;
+          if (uIsMobile > 0.5) {
+            streaks = vnoiseWrapY(vec2(rc * 2.2, turns * 12.0 + swirl * 2.5), 12.0);
+          } else {
+            streaks = vnoiseWrapY(vec2(rc * 2.8, turns * 18.0 + swirl * 3.0), 18.0) * 0.65 +
+                      vnoiseWrapY(vec2(rc * 1.0, turns * 8.0  + swirl * 1.5 + 7.0), 8.0) * 0.35;
+          }
+          streaks = 0.35 + 1.3 * streaks * streaks;
 
-          // Relativistic Doppler boosting
           vec3 gasdir = normalize(cross(n, xc));
           float beta = clamp(inversesqrt(max(2.0 * (rc - 1.0), 0.2)), 0.0, 0.99);
           float g = gloc / max(1.0 + beta * dot(gasdir, normalize(v)), 0.05);
           g = mix(1.0, g, DOPPLER_MIX);
 
-          // Shakura-Sunyaev temperature profile
           float xpr = max(1.0 - sqrt(rin / rc), 0.0);
           float tprof = pow(rin / rc, 0.75) * pow(xpr, 0.25) / 0.488;
           vec3 cbb = blackbody(DISK_TEMP * tprof * g);
           float boost = pow(g, DISK_BEAM);
 
-          // Voice audio reactivity pulse
-          float voiceMod = 1.0 + uVoicePulse * 0.8 * sin(rc * 5.0 - uTime * 6.0);
-
           float density = band * streaks;
-          emitc += trans * cbb * (DISK_GAIN * 2.2 * density * tprof * tprof * boost * voiceMod);
+          emitc += trans * cbb * (DISK_GAIN * 2.1 * density * tprof * tprof * boost);
           trans *= 1.0 - clamp(DISK_OPACITY * density, 0.0, 1.0);
         }
       }
@@ -212,53 +195,36 @@ const FRAG = /* glsl */ `
 
     if (!captured && dot(x, x) < 3.2) captured = true;
 
-    // Background sky & photon ring
-    vec3 bg = vec3(0.0);
+    // Void background (#030308) + sparse stars
+    vec3 voidColor = vec3(0.01176, 0.01176, 0.03137); // #030308
+    vec3 bg = voidColor;
     if (!captured) {
       vec3 d = normalize(v);
-      bg = stars(d);
-      if (uHasStars > 0.5) {
-        vec2 eqUv = vec2(atan(d.z, d.x) / (2.0 * PI) + 0.5, asin(clamp(d.y, -1.0, 1.0)) / PI + 0.5);
-        bg += texture2D(uStars, eqUv).rgb * 0.55;
-      }
+      bg += sparseStars(d);
     }
 
-    // Continuous on-scroll spatial acoustic shockwaves radiating from event horizon
+    // Scroll-linked acoustic teal/cyan wave harmonics
     vec3 waveGlow = vec3(0.0);
-    if (progress > 0.02) {
+    if (progress > 0.01) {
       float waveDist = plen;
-      // Resonant harmonic waves (16Hz / 32Hz audio analogy)
-      float waveFreq1 = 18.0;
-      float waveFreq2 = 36.0;
-      float wavePhase1 = waveDist * waveFreq1 - progress * 22.0 - uTime * 1.8;
-      float wavePhase2 = waveDist * waveFreq2 - progress * 34.0 - uTime * 2.4;
-      
-      float waveRipples1 = sin(wavePhase1);
-      float waveRipples2 = cos(wavePhase2);
-      
-      float waveMask = smoothstep(0.04, 0.45, progress) * (1.0 - smoothstep(0.80, 0.98, progress));
-      float waveSharp1 = pow(clamp(waveRipples1, 0.0, 1.0), 3.2);
-      float waveSharp2 = pow(clamp(waveRipples2, 0.0, 1.0), 4.0);
-      float distFalloff = exp(-waveDist * 1.85);
+      float wavePhase = waveDist * 16.0 - progress * 18.0 - uTime * 1.5;
+      float waveRipples = sin(wavePhase);
+      float waveMask = smoothstep(0.03, 0.35, progress) * (1.0 - smoothstep(0.80, 0.99, progress));
+      float waveSharp = pow(clamp(waveRipples, 0.0, 1.0), 3.0);
+      float distFalloff = exp(-waveDist * 1.8);
 
-      // Cyan-teal primary voice wave + magenta secondary harmonic wave
-      waveGlow += vec3(0.0, 1.0, 0.85) * (waveSharp1 * waveMask * distFalloff * 0.55);
-      waveGlow += vec3(1.0, 0.18, 0.48) * (waveSharp2 * waveMask * distFalloff * 0.35);
-      
-      // Voice audio reactivity surge
-      if (uVoicePulse > 0.05) {
-        waveGlow += vec3(0.0, 1.0, 0.85) * (uVoicePulse * sin(waveDist * 28.0 - uTime * 8.0) * distFalloff * 0.4);
-      }
+      // Accent #5EEAD4 (RGB: 0.368, 0.917, 0.831)
+      waveGlow += vec3(0.368, 0.917, 0.831) * (waveSharp * waveMask * distFalloff * 0.45);
     }
 
-    // HDR exposure tonemap — natural Schwarzschild shadow and Keplerian accretion disk with zero artificial rings
-    vec3 col = bg * trans + (vec3(1.0) - exp(-emitc * EXPOSURE)) + waveGlow;
+    // Exposure tonemapping onto void background
+    vec3 col = bg * trans + (vec3(1.0) - exp(-emitc * 1.4)) + waveGlow;
 
-    // Seamless radial vignette falloff into deep cosmic space (zero rectangular boundaries)
-    float edgeBlend = smoothstep(1.45, 0.65, plen);
-    col *= edgeBlend;
+    // Radial vignette into deep void #030308
+    float edgeBlend = smoothstep(1.4, 0.55, plen);
+    col = mix(voidColor, col, edgeBlend);
 
-    gl_FragColor = vec4(col * uFade, 1.0);
+    gl_FragColor = vec4(col, 1.0);
   }
 `;
 
@@ -267,14 +233,19 @@ export default function AcousticBlackHoleCanvas() {
 
   useEffect(() => {
     const container = containerRef.current;
-    if (!container) return;
+    if (!container || typeof window === "undefined") return;
+
+    const prefersReducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    const isMobile =
+      window.innerWidth < 768 ||
+      /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
 
     let renderer: THREE.WebGLRenderer | null = null;
     try {
       renderer = new THREE.WebGLRenderer({
         antialias: false,
         alpha: false,
-        powerPreference: "high-performance",
+        powerPreference: isMobile ? "default" : "high-performance",
         stencil: false,
         depth: false,
       });
@@ -282,9 +253,10 @@ export default function AcousticBlackHoleCanvas() {
       return;
     }
 
-    renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 1.75));
+    const dpr = isMobile ? 1.0 : Math.min(window.devicePixelRatio || 1, 1.5);
+    renderer.setPixelRatio(dpr);
     renderer.setSize(window.innerWidth, window.innerHeight);
-    renderer.domElement.className = "acoustic-blackhole-webgl absolute inset-0 h-full w-full pointer-events-none";
+    renderer.domElement.className = "w-full h-full pointer-events-none";
     container.appendChild(renderer.domElement);
 
     const scene = new THREE.Scene();
@@ -295,28 +267,10 @@ export default function AcousticBlackHoleCanvas() {
       uResolution: { value: new THREE.Vector2(window.innerWidth, window.innerHeight) },
       uTime: { value: 0 },
       uScrollProgress: { value: 0 },
+      uScrollSpin: { value: 0 },
       uVoicePulse: { value: 0 },
-      uFade: { value: 1 },
-      uStars: { value: null },
-      uHasStars: { value: 0 },
+      uIsMobile: { value: isMobile ? 1.0 : 0.0 },
     };
-
-    const textureLoader = new THREE.TextureLoader();
-    textureLoader.load(
-      "/space-starfield.jpg",
-      (tex) => {
-        tex.wrapS = THREE.RepeatWrapping;
-        tex.wrapT = THREE.ClampToEdgeWrapping;
-        tex.minFilter = THREE.LinearFilter;
-        tex.magFilter = THREE.LinearFilter;
-        uniforms.uStars.value = tex;
-        uniforms.uHasStars.value = 1;
-      },
-      undefined,
-      () => {
-        uniforms.uHasStars.value = 0;
-      }
-    );
 
     const material = new THREE.ShaderMaterial({
       vertexShader: VERT,
@@ -329,11 +283,24 @@ export default function AcousticBlackHoleCanvas() {
     const mesh = new THREE.Mesh(geometry, material);
     scene.add(mesh);
 
-    let voicePulse = 0;
-    const onVoice = () => {
-      voicePulse = 1.0;
+    let animId = 0;
+    let isRunning = true;
+    let lastScrollY = window.scrollY;
+    let targetSpin = 0;
+    let currentSpin = 0;
+
+    const onScroll = () => {
+      const scrollY = window.scrollY;
+      const maxScroll = Math.max(1, document.documentElement.scrollHeight - window.innerHeight);
+      const progress = Math.min(1, Math.max(0, scrollY / maxScroll));
+      uniforms.uScrollProgress.value = progress;
+
+      const deltaY = scrollY - lastScrollY;
+      lastScrollY = scrollY;
+      targetSpin += deltaY * 0.0015;
     };
-    window.addEventListener("voxflow:voice-active", onVoice);
+    window.addEventListener("scroll", onScroll, { passive: true });
+    onScroll();
 
     const onResize = () => {
       if (!renderer) return;
@@ -344,31 +311,53 @@ export default function AcousticBlackHoleCanvas() {
     };
     window.addEventListener("resize", onResize);
 
-    const start = performance.now();
-    let animId = 0;
-
-    const frame = () => {
-      voicePulse *= 0.95;
-      uniforms.uTime.value = (performance.now() - start) / 1000;
-      uniforms.uVoicePulse.value = voicePulse;
-
-      // Track hero scroll progress custom property
-      const rawProgress = parseFloat(
-        document.documentElement.style.getPropertyValue("--hero-progress") || "0"
-      );
-      uniforms.uScrollProgress.value = Math.max(0, Math.min(1, isNaN(rawProgress) ? 0 : rawProgress));
-
-      if (renderer) renderer.render(scene, camera);
-      animId = requestAnimationFrame(frame);
+    const onVisibilityChange = () => {
+      if (document.hidden) {
+        isRunning = false;
+        cancelAnimationFrame(animId);
+      } else if (!isRunning && !prefersReducedMotion) {
+        isRunning = true;
+        renderLoop();
+      }
     };
-    frame();
+    document.addEventListener("visibilitychange", onVisibilityChange);
+
+    const start = performance.now();
+
+    const renderLoop = () => {
+      if (!renderer) return;
+
+      currentSpin += (targetSpin - currentSpin) * 0.08;
+      uniforms.uTime.value = (performance.now() - start) / 1000;
+      uniforms.uScrollSpin.value = currentSpin;
+
+      renderer.render(scene, camera);
+
+      if (isRunning && !prefersReducedMotion) {
+        animId = requestAnimationFrame(renderLoop);
+      }
+    };
+
+    if (prefersReducedMotion) {
+      // Render static single frame for reduced motion preference
+      uniforms.uTime.value = 1.0;
+      uniforms.uScrollProgress.value = 0.0;
+      uniforms.uScrollSpin.value = 0.0;
+      renderer.render(scene, camera);
+    } else {
+      renderLoop();
+    }
 
     return () => {
+      isRunning = false;
       cancelAnimationFrame(animId);
-      window.removeEventListener("voxflow:voice-active", onVoice);
+      window.removeEventListener("scroll", onScroll);
       window.removeEventListener("resize", onResize);
-      if (renderer && renderer.domElement.parentElement) {
-        renderer.domElement.parentElement.removeChild(renderer.domElement.parentElement);
+      document.removeEventListener("visibilitychange", onVisibilityChange);
+      if (renderer) {
+        if (renderer.domElement && renderer.domElement.parentNode) {
+          renderer.domElement.parentNode.removeChild(renderer.domElement);
+        }
         renderer.dispose();
       }
       geometry.dispose();
@@ -379,7 +368,7 @@ export default function AcousticBlackHoleCanvas() {
   return (
     <div
       ref={containerRef}
-      className="absolute inset-0 h-full w-full overflow-hidden pointer-events-none bg-transparent"
+      className="fixed inset-0 pointer-events-none -z-10 w-full h-full overflow-hidden bg-[#030308]"
       aria-hidden="true"
     />
   );
