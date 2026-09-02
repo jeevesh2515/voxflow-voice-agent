@@ -11,29 +11,29 @@ export const metadata: Metadata = {
   metadataBase: new URL(
     process.env.NEXT_PUBLIC_SITE_URL ?? "https://voxflow-voice-agent.vercel.app"
   ),
-  title: "VoxFlow Voice Agent | Voice operations, automated",
+  title: "Voxflow Voice Agent | Voice operations, automated",
   description:
-    "VoxFlow Voice Agent handles Hindi-English business calls, captures POs and orders, checks stock and shipment status, and records every conversation.",
+    "Voxflow Voice Agent handles Hindi-English business calls, captures POs and orders, checks stock and shipment status, and records every conversation.",
   openGraph: {
     type: "website",
-    siteName: "VoxFlow Voice Agent",
-    title: "VoxFlow Voice Agent | Voice operations, automated",
+    siteName: "Voxflow Voice Agent",
+    title: "Voxflow Voice Agent | Voice operations, automated",
     description:
-      "Autonomous voice agents for dispatch, customer service, and order capture. Sub-second response latency, fine-tuned English & Hindi models, and live 2-way database synchronization.",
+      "Autonomous voice agents for dispatch, customer service, and order capture. ~200ms turn, UK edge, fine-tuned English & Hindi models, and live 2-way database synchronization.",
     images: [
       {
         url: "/og-voxflow.jpg",
         width: 1200,
         height: 630,
-        alt: "VoxFlow autonomous voice operations core",
+        alt: "Voxflow autonomous voice operations core",
       },
     ],
   },
   twitter: {
     card: "summary_large_image",
-    title: "VoxFlow Voice Agent | Voice operations, automated",
+    title: "Voxflow Voice Agent | Voice operations, automated",
     description:
-      "Autonomous voice agents for dispatch, customer service, and order capture. Sub-200ms turn latency, English & Hindi, live database sync.",
+      "Autonomous voice agents for dispatch, customer service, and order capture. ~200ms turn, UK edge, English & Hindi, live database sync.",
     images: ["/og-voxflow.jpg"],
   },
 };

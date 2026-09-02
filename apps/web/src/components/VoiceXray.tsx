@@ -229,16 +229,6 @@ export default function VoiceXray() {
     } catch {}
   }, []);
 
-  // touch fallback for browsers without pointer capture on input overlay
-  const onTouchMove = useCallback(
-    (e: React.TouchEvent) => {
-      if (reducedMotion) return;
-      // let pointer path handle it; this is extra for scroll-lock
-      // touchAction:none on container prevents page scroll while dragging
-    },
-    [reducedMotion]
-  );
-
   return (
     <section
       ref={sectionRef}
@@ -393,7 +383,6 @@ export default function VoiceXray() {
                   onPointerDown={onPointerDown}
                   onPointerMove={onPointerMove}
                   onPointerUp={onPointerUp}
-                  onTouchMove={onTouchMove}
                   className="relative flex items-center py-3 select-none"
                   style={{ touchAction: "none" }}
                 >

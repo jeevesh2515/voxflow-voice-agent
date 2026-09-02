@@ -16,4 +16,4 @@ assert.equal(getActiveLayerIndex(-5), 0);
 assert.equal(clampMs(300), 196);
 assert.equal(clampMs(-10), 0);
 assert.equal(clampMs(84.4), 84);
-console.log("voiceXray: 12/12 pass");
+console.log("voiceXray: 14/14 pass");

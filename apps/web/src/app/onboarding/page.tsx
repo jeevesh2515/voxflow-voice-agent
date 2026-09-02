@@ -2,9 +2,7 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-
 import { useEffect, useState } from "react";
-import { FadeUp } from "@/components/ScrollAnimations";
 import { useAuth } from "@/lib/auth-context";
 import { useTenant } from "@/lib/tenant-context";
 import CsvImportModal from "@/components/dashboard/CsvImportModal";
@@ -30,14 +28,13 @@ export default function OnboardingPage() {
   const [modalOpen, setModalOpen] = useState(false);
   const [data, setData] = useState<OnboardingData>({
     tenantId: "workspace",
-    companyName: "Your Company",
-    agentName: "Vaani",
+    companyName: "Your Logistics Co",
+    agentName: "Operations Assistant",
     language: "en",
     stats: { products: 3, suppliers: 1, stock_units: 190, orders: 1 },
   });
 
-
-  const [agentName, setAgentName] = useState("Vaani");
+  const [agentName, setAgentName] = useState("Operations Assistant");
   const [greeting, setGreeting] = useState("");
   const [selectedLanguage, setSelectedLanguage] = useState<"en" | "hi">("en");
 
@@ -48,9 +45,9 @@ export default function OnboardingPage() {
         try {
           const parsed = JSON.parse(raw);
           setData(parsed);
-          setAgentName(parsed.agentName || "Vaani");
+          setAgentName(parsed.agentName || "Operations Assistant");
           setSelectedLanguage(parsed.language === "hi" ? "hi" : "en");
-          setGreeting(`Hello, and welcome to ${parsed.companyName}. How can I help you today?`);
+          setGreeting(`Hello, and welcome to ${parsed.companyName}. How can I help with your delivery or dispatch today?`);
           if (parsed.tenantId) {
             setActiveTenantId(parsed.tenantId);
           }
@@ -71,112 +68,108 @@ export default function OnboardingPage() {
         JSON.stringify({
           id: `owner-${data.tenantId}`,
           email: `${data.tenantId}@voxflow.invalid`,
-          name: `${data.companyName} Owner`,
+          name: `${data.companyName} Operations Lead`,
           tenant_id: data.tenantId,
         })
       );
-      document.cookie = `voxflow_demo_user=${encodeURIComponent(
-        JSON.stringify({
-          id: `owner-${data.tenantId}`,
-          email: "demo@voxflow.invalid",
-          name: `${data.companyName} Owner`,
-          tenant_id: "varun",
-        })
-      )}; path=/; max-age=86400`;
+      document.cookie = `auth-token=demo-user-${data.tenantId}; path=/; max-age=86400; SameSite=Lax`;
     }
     await refreshTenants().catch(() => {});
     router.push("/dashboard");
   };
 
   return (
-    <div className="min-h-screen flex flex-col items-center justify-center px-4 sm:px-6 pt-[5rem] pb-16 bg-[#0a0a12] grid-bg relative overflow-hidden">
-      <div className="absolute top-1/4 left-1/2 -translate-x-1/2 w-[32rem] h-[32rem] bg-[#00ffcc]/10 blur-[140px] rounded-full pointer-events-none" />
+    <div className="min-h-screen flex flex-col items-center justify-center px-4 sm:px-6 pt-[5rem] pb-16 bg-[#030308] relative overflow-hidden selection:bg-[#5EEAD4]/30 selection:text-[#5EEAD4]">
+      {/* Subtle background glow */}
+      <div className="absolute top-1/4 left-1/2 -translate-x-1/2 w-[32rem] h-[32rem] bg-[#5EEAD4]/5 blur-[140px] rounded-full pointer-events-none" />
 
-      <FadeUp className="w-full max-w-2xl relative z-10">
+      <div className="w-full max-w-2xl relative z-10">
         {/* Progress Bar Header */}
         <div className="mb-8">
-          <div className="flex items-center justify-between text-xs font-label uppercase tracking-wider text-[#a098b0] mb-3">
-            <span className={step >= 1 ? "text-[#00ffcc] font-bold" : ""}>1. Workspace Persona</span>
-            <span className={step >= 2 ? "text-[#00ffcc] font-bold" : ""}>2. Starter Data</span>
-            <span className={step >= 3 ? "text-[#00ffcc] font-bold" : ""}>3. Test Agent</span>
-            <span className={step >= 4 ? "text-[#00ffcc] font-bold" : ""}>4. Launch</span>
+          <div className="flex items-center justify-between text-xs font-mono uppercase tracking-widest text-white/50 mb-3">
+            <span className={step >= 1 ? "text-[#5EEAD4] font-bold" : ""}>1. Persona</span>
+            <span className={step >= 2 ? "text-[#5EEAD4] font-bold" : ""}>2. Starter Data</span>
+            <span className={step >= 3 ? "text-[#5EEAD4] font-bold" : ""}>3. Test Voice</span>
+            <span className={step >= 4 ? "text-[#5EEAD4] font-bold" : ""}>4. Launch</span>
           </div>
-          <div className="w-full h-1.5 bg-[#1e1a2e] rounded-full overflow-hidden">
+          <div className="w-full h-1 bg-white/[0.08] rounded-full overflow-hidden">
             <div
-              className="h-full bg-gradient-to-r from-[#ff2d78] to-[#00ffcc] transition-all duration-500"
+              className="h-full bg-[#5EEAD4] transition-all duration-500 shadow-[0_0_10px_#5EEAD4]"
               style={{ width: `${(step / 4) * 100}%` }}
             />
           </div>
         </div>
 
         {/* Wizard Card Container */}
-        <div className="glass neon-border rounded-2xl p-6 sm:p-10 border border-[#00ffcc]/30 shadow-[0_0_50px_rgba(0,0,0,0.5)]">
+        <div className="rounded-3xl border border-white/[0.09] bg-[#0a0a12]/95 backdrop-blur-2xl p-6 sm:p-10 shadow-[inset_0_1px_1px_rgba(255,255,255,0.06),0_25px_50px_rgba(0,0,0,0.85)]">
           {/* STEP 1: Persona & Language */}
           {step === 1 && (
             <div>
               <div className="flex items-center gap-3 mb-4">
-                <span className="p-2 rounded-xl bg-[#00ffcc]/10 border border-[#00ffcc]/30 text-xl">🎙️</span>
+                <span className="p-2.5 rounded-xl bg-[#5EEAD4]/10 border border-[#5EEAD4]/30 text-xl text-[#5EEAD4]">
+                  🎙️
+                </span>
                 <div>
-                  <h2 className="font-headline font-bold text-2xl text-[#e8e0f0]">Voice Agent Configuration</h2>
-                  <p className="text-xs text-[#a098b0] font-body mt-0.5">Customize your AI agent&apos;s identity for {data.companyName}.</p>
+                  <h2 className="font-headline font-bold text-2xl text-white">Voice Agent Configuration</h2>
+                  <p className="text-xs text-white/50 font-sans mt-0.5">Customize your AI agent&apos;s identity for {data.companyName}.</p>
                 </div>
               </div>
 
               <div className="space-y-4 my-6">
                 <div>
-                  <label className="text-xs font-label uppercase tracking-widest text-[#e8e0f0] block mb-1.5">
+                  <label className="text-xs font-mono uppercase tracking-widest text-white/80 block mb-1.5">
                     Agent Persona Name
                   </label>
                   <input
                     type="text"
                     value={agentName}
                     onChange={(e) => setAgentName(e.target.value)}
-                    className="w-full px-4 py-3 rounded-xl bg-[#141422] border border-[#302840]/60 text-[#e8e0f0] text-sm focus:outline-none focus:border-[#00ffcc] transition-all font-body"
-                    placeholder="e.g. Vaani, Sara, Alex"
+                    className="w-full px-4 py-3 rounded-xl bg-[#11111a] border border-white/[0.08] text-white text-sm focus:outline-none focus:border-[#5EEAD4] transition-all font-sans"
+                    placeholder="e.g. Operations Assistant, Sara, Alex"
                   />
                 </div>
 
                 <div>
-                  <label className="text-xs font-label uppercase tracking-widest text-[#e8e0f0] block mb-1.5">
+                  <label className="text-xs font-mono uppercase tracking-widest text-white/80 block mb-1.5">
                     Primary Operational Language
                   </label>
-                  <div className="grid grid-cols-2 gap-3">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                     <button
                       type="button"
                       onClick={() => setSelectedLanguage("en")}
-                      className={`p-3 rounded-xl border text-left transition-all ${
+                      className={`p-3.5 rounded-xl border text-left transition-all ${
                         selectedLanguage === "en"
-                          ? "border-[#00ffcc] bg-[#00ffcc]/10 text-[#00ffcc]"
-                          : "border-[#302840]/60 bg-[#141422] text-[#a098b0]"
+                          ? "border-[#5EEAD4] bg-[#5EEAD4]/10 text-[#5EEAD4] shadow-[0_0_15px_rgba(94,234,212,0.15)]"
+                          : "border-white/[0.08] bg-white/[0.02] text-white/70 hover:border-white/20"
                       }`}
                     >
-                      <div className="text-sm font-bold flex items-center gap-1.5">🇬🇧 UK English (en)</div>
-                      <div className="text-[10px] text-[#a098b0] mt-1">Natural British English, automated tool calls</div>
+                      <div className="text-sm font-bold flex items-center gap-1.5 text-white">🇬🇧 UK English (en)</div>
+                      <div className="text-[11px] text-white/50 mt-1">Natural British English, automated tool calls</div>
                     </button>
                     <button
                       type="button"
                       onClick={() => setSelectedLanguage("hi")}
-                      className={`p-3 rounded-xl border text-left transition-all ${
+                      className={`p-3.5 rounded-xl border text-left transition-all ${
                         selectedLanguage === "hi"
-                          ? "border-[#ff2d78] bg-[#ff2d78]/10 text-[#ff2d78]"
-                          : "border-[#302840]/60 bg-[#141422] text-[#a098b0]"
+                          ? "border-[#5EEAD4] bg-[#5EEAD4]/10 text-[#5EEAD4] shadow-[0_0_15px_rgba(94,234,212,0.15)]"
+                          : "border-white/[0.08] bg-white/[0.02] text-white/70 hover:border-white/20"
                       }`}
                     >
-                      <div className="text-sm font-bold flex items-center gap-1.5">🇮🇳 Hindi (hi)</div>
-                      <div className="text-[10px] text-[#a098b0] mt-1">Natural Devanagari Hindi with English fallback</div>
+                      <div className="text-sm font-bold flex items-center gap-1.5 text-white">🇮🇳 Hindi (हिन्दी)</div>
+                      <div className="text-[11px] text-white/50 mt-1">Devanagari &amp; Hinglish code-switching</div>
                     </button>
                   </div>
                 </div>
 
                 <div>
-                  <label className="text-xs font-label uppercase tracking-widest text-[#e8e0f0] block mb-1.5">
+                  <label className="text-xs font-mono uppercase tracking-widest text-white/80 block mb-1.5">
                     Opening Greeting
                   </label>
                   <textarea
                     rows={2}
                     value={greeting}
                     onChange={(e) => setGreeting(e.target.value)}
-                    className="w-full px-4 py-2.5 rounded-xl bg-[#141422] border border-[#302840]/60 text-[#e8e0f0] text-sm focus:outline-none focus:border-[#00ffcc] transition-all font-body resize-none"
+                    className="w-full px-4 py-2.5 rounded-xl bg-[#11111a] border border-white/[0.08] text-white text-sm focus:outline-none focus:border-[#5EEAD4] transition-all font-sans resize-none"
                   />
                 </div>
               </div>
@@ -185,7 +178,7 @@ export default function OnboardingPage() {
                 <button
                   type="button"
                   onClick={() => setStep(2)}
-                  className="px-6 py-3 rounded-xl bg-[#00ffcc] text-[#0a0a12] font-headline font-bold text-sm hover:shadow-[0_0_20px_rgba(0,255,204,0.5)] transition-all duration-200"
+                  className="px-6 py-3 rounded-xl bg-[#5EEAD4] text-[#030308] font-headline font-bold text-sm hover:shadow-[0_0_20px_rgba(94,234,212,0.5)] transition-all duration-200 active:scale-95 cursor-pointer"
                 >
                   Continue to Starter Data →
                 </button>
@@ -197,48 +190,50 @@ export default function OnboardingPage() {
           {step === 2 && (
             <div>
               <div className="flex items-center gap-3 mb-4">
-                <span className="p-2 rounded-xl bg-[#00ffcc]/10 border border-[#00ffcc]/30 text-xl">📦</span>
+                <span className="p-2.5 rounded-xl bg-[#5EEAD4]/10 border border-[#5EEAD4]/30 text-xl text-[#5EEAD4]">
+                  📦
+                </span>
                 <div>
-                  <h2 className="font-headline font-bold text-2xl text-[#e8e0f0]">Isolated Workspace Provisioned</h2>
-                  <p className="text-xs text-[#a098b0] font-body mt-0.5">
-                    Tenant ID: <span className="font-mono text-[#00ffcc]">{data.tenantId}</span>
+                  <h2 className="font-headline font-bold text-2xl text-white">Isolated Workspace Provisioned</h2>
+                  <p className="text-xs text-white/50 font-sans mt-0.5">
+                    Tenant ID: <span className="font-mono text-[#5EEAD4]">{data.tenantId}</span>
                   </p>
                 </div>
               </div>
 
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 my-6">
-                <div className="p-4 rounded-xl bg-[#141422] border border-[#302840]/60 text-center">
-                  <div className="text-2xl font-mono font-bold text-[#00ffcc]">{data.stats?.products || 3}</div>
-                  <div className="text-[11px] text-[#a098b0] uppercase font-label mt-1">Products</div>
+                <div className="p-4 rounded-xl bg-[#11111a] border border-white/[0.06] text-center">
+                  <div className="text-2xl font-mono font-bold text-[#5EEAD4]">{data.stats?.products || 3}</div>
+                  <div className="text-[10px] text-white/50 uppercase font-mono mt-1">Products</div>
                 </div>
-                <div className="p-4 rounded-xl bg-[#141422] border border-[#302840]/60 text-center">
-                  <div className="text-2xl font-mono font-bold text-[#ff2d78]">{data.stats?.suppliers || 1}</div>
-                  <div className="text-[11px] text-[#a098b0] uppercase font-label mt-1">Suppliers</div>
+                <div className="p-4 rounded-xl bg-[#11111a] border border-white/[0.06] text-center">
+                  <div className="text-2xl font-mono font-bold text-white">{data.stats?.suppliers || 1}</div>
+                  <div className="text-[10px] text-white/50 uppercase font-mono mt-1">Suppliers</div>
                 </div>
-                <div className="p-4 rounded-xl bg-[#141422] border border-[#302840]/60 text-center">
-                  <div className="text-2xl font-mono font-bold text-[#ffe04a]">{data.stats?.stock_units || 190}</div>
-                  <div className="text-[11px] text-[#a098b0] uppercase font-label mt-1">Stock Units</div>
+                <div className="p-4 rounded-xl bg-[#11111a] border border-white/[0.06] text-center">
+                  <div className="text-2xl font-mono font-bold text-emerald-400">{data.stats?.stock_units || 190}</div>
+                  <div className="text-[10px] text-white/50 uppercase font-mono mt-1">Stock Units</div>
                 </div>
-                <div className="p-4 rounded-xl bg-[#141422] border border-[#302840]/60 text-center">
-                  <div className="text-2xl font-mono font-bold text-[#a78bfa]">{data.stats?.orders || 1}</div>
-                  <div className="text-[11px] text-[#a098b0] uppercase font-label mt-1">Active POs</div>
+                <div className="p-4 rounded-xl bg-[#11111a] border border-white/[0.06] text-center">
+                  <div className="text-2xl font-mono font-bold text-[#5EEAD4]">{data.stats?.orders || 1}</div>
+                  <div className="text-[10px] text-white/50 uppercase font-mono mt-1">Active POs</div>
                 </div>
               </div>
 
-              <div className="rounded-xl border border-[#302840]/60 bg-[#141422]/60 p-4 text-xs text-[#e8e0f0] space-y-3">
+              <div className="rounded-xl border border-white/[0.08] bg-[#11111a]/80 p-4 text-xs text-white space-y-3">
                 <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2 text-[#00ffcc] font-bold">
+                  <div className="flex items-center gap-2 text-[#5EEAD4] font-bold">
                     <span>✓</span> Starter supply chain catalog pre-loaded
                   </div>
                   <button
                     type="button"
                     onClick={() => setModalOpen(true)}
-                    className="text-[11px] font-mono text-[#00ffcc] hover:underline flex items-center gap-1"
+                    className="text-[11px] font-mono text-[#5EEAD4] hover:underline flex items-center gap-1 cursor-pointer"
                   >
                     <span>+ Upload Custom CSV Instead</span>
                   </button>
                 </div>
-                <p className="text-[#a098b0] text-[11px]">
+                <p className="text-white/60 text-[11px] leading-relaxed">
                   Your voice agent can immediately query stock levels, lookup tracking for PO-1001, and verify supplier credentials without any manual database setup.
                 </p>
               </div>
@@ -247,14 +242,14 @@ export default function OnboardingPage() {
                 <button
                   type="button"
                   onClick={() => setStep(1)}
-                  className="px-4 py-2.5 rounded-xl border border-[#302840] text-xs text-[#a098b0] hover:text-[#e8e0f0]"
+                  className="px-4 py-2.5 rounded-xl border border-white/[0.08] bg-white/[0.02] text-xs text-white/70 hover:text-white cursor-pointer"
                 >
                   ← Back
                 </button>
                 <button
                   type="button"
                   onClick={() => setStep(3)}
-                  className="px-6 py-3 rounded-xl bg-[#00ffcc] text-[#0a0a12] font-headline font-bold text-sm hover:shadow-[0_0_20px_rgba(0,255,204,0.5)] transition-all duration-200"
+                  className="px-6 py-3 rounded-xl bg-[#5EEAD4] text-[#030308] font-headline font-bold text-sm hover:shadow-[0_0_20px_rgba(94,234,212,0.5)] transition-all duration-200 active:scale-95 cursor-pointer"
                 >
                   Test Voice Agent Live →
                 </button>
@@ -262,28 +257,29 @@ export default function OnboardingPage() {
             </div>
           )}
 
-
           {/* STEP 3: Live Simulator Test */}
           {step === 3 && (
             <div>
               <div className="flex items-center gap-3 mb-4">
-                <span className="p-2 rounded-xl bg-[#ff2d78]/10 border border-[#ff2d78]/30 text-xl">⚡</span>
+                <span className="p-2.5 rounded-xl bg-[#5EEAD4]/10 border border-[#5EEAD4]/30 text-xl text-[#5EEAD4]">
+                  ⚡
+                </span>
                 <div>
-                  <h2 className="font-headline font-bold text-2xl text-[#e8e0f0]">Try Your Voice Agent</h2>
-                  <p className="text-xs text-[#a098b0] font-body mt-0.5">Test real-time voice latency and tool execution in your browser.</p>
+                  <h2 className="font-headline font-bold text-2xl text-white">Try Your Voice Agent</h2>
+                  <p className="text-xs text-white/50 font-sans mt-0.5">Test real-time voice latency and tool execution in your browser.</p>
                 </div>
               </div>
 
               <div className="space-y-4 my-6">
-                <div className="p-4 rounded-xl bg-[#141422] border border-[#ff2d78]/30 space-y-3">
-                  <div className="text-xs font-semibold text-[#ff2d78] uppercase tracking-wider">
+                <div className="p-4 rounded-xl bg-[#11111a] border border-white/[0.08] space-y-3">
+                  <div className="text-xs font-mono font-semibold text-[#5EEAD4] uppercase tracking-wider">
                     Recommended Test Prompts:
                   </div>
                   <div className="space-y-2 text-xs">
-                    <div className="p-2.5 rounded-lg bg-[#0a0a12] border border-[#302840]/60 text-[#e8e0f0] font-mono">
+                    <div className="p-2.5 rounded-lg bg-[#030308] border border-white/[0.06] text-white/90 font-mono">
                       &quot;Hello, can you check our current inventory for cartons?&quot;
                     </div>
-                    <div className="p-2.5 rounded-lg bg-[#0a0a12] border border-[#302840]/60 text-[#e8e0f0] font-mono">
+                    <div className="p-2.5 rounded-lg bg-[#030308] border border-white/[0.06] text-white/90 font-mono">
                       &quot;What is the status of purchase order PO-1001?&quot;
                     </div>
                   </div>
@@ -292,7 +288,7 @@ export default function OnboardingPage() {
                 <Link
                   href="/dashboard/simulator"
                   target="_blank"
-                  className="w-full py-3.5 rounded-xl border border-[#00ffcc] bg-[#00ffcc]/10 text-[#00ffcc] font-headline font-bold text-sm flex items-center justify-center gap-2 hover:bg-[#00ffcc]/20 transition-all shadow-[0_0_20px_rgba(0,255,204,0.2)]"
+                  className="w-full py-3.5 rounded-xl border border-[#5EEAD4]/40 bg-[#5EEAD4]/10 text-[#5EEAD4] font-headline font-bold text-sm flex items-center justify-center gap-2 hover:bg-[#5EEAD4]/20 transition-all shadow-[0_0_20px_rgba(94,234,212,0.15)]"
                 >
                   <span>📞</span> Launch Phone Simulator (New Tab) ↗
                 </Link>
@@ -302,14 +298,14 @@ export default function OnboardingPage() {
                 <button
                   type="button"
                   onClick={() => setStep(2)}
-                  className="px-4 py-2.5 rounded-xl border border-[#302840] text-xs text-[#a098b0] hover:text-[#e8e0f0]"
+                  className="px-4 py-2.5 rounded-xl border border-white/[0.08] bg-white/[0.02] text-xs text-white/70 hover:text-white cursor-pointer"
                 >
                   ← Back
                 </button>
                 <button
                   type="button"
                   onClick={() => setStep(4)}
-                  className="px-6 py-3 rounded-xl bg-[#ff2d78] text-[#1a0010] font-headline font-bold text-sm hover:shadow-[0_0_20px_rgba(255,45,120,0.5)] transition-all duration-200"
+                  className="px-6 py-3 rounded-xl bg-[#5EEAD4] text-[#030308] font-headline font-bold text-sm hover:shadow-[0_0_20px_rgba(94,234,212,0.5)] transition-all duration-200 active:scale-95 cursor-pointer"
                 >
                   Ready to Launch →
                 </button>
@@ -320,19 +316,19 @@ export default function OnboardingPage() {
           {/* STEP 4: Ready / Go to Dashboard */}
           {step === 4 && (
             <div className="text-center py-4">
-              <div className="h-16 w-16 rounded-2xl bg-gradient-to-tr from-[#ff2d78] to-[#00ffcc] grid place-items-center text-3xl mx-auto mb-5 shadow-[0_0_30px_rgba(0,255,204,0.4)]">
+              <div className="h-16 w-16 rounded-2xl bg-[#5EEAD4]/15 border border-[#5EEAD4]/40 grid place-items-center text-3xl mx-auto mb-5 shadow-[0_0_30px_rgba(94,234,212,0.25)] text-[#5EEAD4]">
                 🚀
               </div>
-              <h2 className="font-headline font-bold text-3xl text-[#e8e0f0]">Workspace Ready!</h2>
-              <p className="text-sm text-[#a098b0] mt-2 max-w-md mx-auto font-body">
-                {data.companyName} is set up with owner authorization and isolated tenant access.
+              <h2 className="font-headline font-bold text-3xl text-white">Workspace Ready!</h2>
+              <p className="text-sm text-white/70 mt-2 max-w-md mx-auto font-sans leading-relaxed">
+                <span className="text-[#5EEAD4] font-bold">{data.companyName}</span> is configured with isolated tenant access, 500 trial minutes, and ~200ms turn, UK edge voice runtime.
               </p>
 
               <div className="mt-8 flex flex-col sm:flex-row items-center justify-center gap-4">
                 <button
                   type="button"
                   onClick={handleFinish}
-                  className="w-full sm:w-auto px-8 py-3.5 rounded-xl bg-[#00ffcc] text-[#0a0a12] font-headline font-bold text-sm hover:shadow-[0_0_25px_rgba(0,255,204,0.5)] transition-all duration-200"
+                  className="w-full sm:w-auto px-8 py-3.5 rounded-xl bg-[#5EEAD4] text-[#030308] font-headline font-bold text-sm hover:shadow-[0_0_25px_rgba(94,234,212,0.5)] transition-all duration-200 active:scale-95 cursor-pointer"
                 >
                   Enter Operations Dashboard →
                 </button>
@@ -340,7 +336,7 @@ export default function OnboardingPage() {
             </div>
           )}
         </div>
-      </FadeUp>
+      </div>
 
       <CsvImportModal
         isOpen={modalOpen}
@@ -362,4 +358,3 @@ export default function OnboardingPage() {
     </div>
   );
 }
-

@@ -90,7 +90,7 @@ const FAQS = [
     a: "Yes. Upgrade, downgrade, or cancel from Dashboard → Settings → Billing. Downgrades take effect at the next renewal; cancellation keeps your historical call data under your retention policy.",
   },
   {
-    q: "Is VoxFlow UK GDPR compliant?",
+    q: "Is Voxflow UK GDPR compliant?",
     a: "Yes. Data residency is eu-west-2 (London), transcripts are purged on your retention schedule, and DSAR export/erasure plus the automated purge runner ship with every workspace.",
   },
   {

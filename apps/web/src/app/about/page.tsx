@@ -16,14 +16,14 @@ export default function AboutPage() {
     <div className="pt-[5.5rem] pb-24 px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto">
       {/* Hero */}
       <FadeUp className="max-w-4xl mx-auto text-center mb-16 pt-12">
-        <span className="font-label text-[#00ffcc] uppercase tracking-[0.2em] text-xs mb-4 block text-shadow-sm">
-          ✦ About VoxFlow Voice Agent
+        <span className="font-mono text-[#5EEAD4] uppercase tracking-[0.2em] text-xs mb-4 block">
+          ✦ About Voxflow Voice Agent
         </span>
-        <h1 className="font-headline font-extrabold text-4xl sm:text-6xl tracking-tight text-[#e8e0f0] mb-6 leading-tight">
-          The voice layer for <span className="text-[#ff2d78] neon-text">modern operations.</span>
+        <h1 className="font-headline font-extrabold text-4xl sm:text-6xl tracking-tight text-white mb-6 leading-tight">
+          The voice layer for <span className="text-[#5EEAD4]">modern operations.</span>
         </h1>
-        <p className="text-lg sm:text-xl text-[#a098b0] leading-relaxed max-w-3xl mx-auto font-body">
-          VoxFlow provides enterprise operational teams with an autonomous, high-precision voice intelligence engine. Built for scale, trusted by industry leaders to automate high-stakes supplier and customer calls.
+        <p className="text-lg sm:text-xl text-white/70 leading-relaxed max-w-3xl mx-auto font-sans">
+          Voxflow provides operational teams with an autonomous, high-precision voice intelligence engine. Built for scale, engineered for mission-critical logistics, freight, and supply-chain operations.
         </p>
       </FadeUp>
 

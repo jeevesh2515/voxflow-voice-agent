@@ -132,7 +132,7 @@ export default function Footer() {
 
         <div className="border-t border-white/[0.06] pt-6 sm:pt-8 flex flex-col sm:flex-row justify-between items-center gap-4">
           <p className="text-white/40 text-xs sm:text-sm font-body">
-            &copy; 2026 VoxFlow AI. Voice Operations. Automated.
+            &copy; 2026 Voxflow AI. Voice Operations. Automated.
           </p>
           <div className="flex gap-4 sm:gap-6">
             <span className="text-white/40 text-xs sm:text-sm font-mono">

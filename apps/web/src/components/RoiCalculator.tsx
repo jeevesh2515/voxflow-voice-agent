@@ -361,7 +361,7 @@ export default function RoiCalculator() {
           <div className="rounded-2xl border border-[#5EEAD4]/30 bg-[#5EEAD4]/[0.05] p-5 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
             <div>
               <div className="font-headline font-bold text-sm text-white">
-                Ready to eliminate missed calls and reclaims hours?
+                Ready to eliminate missed calls and reclaim hours?
               </div>
               <div className="font-mono text-xs text-white/60 mt-0.5">
                 Start on 500 free minutes with our 14-day trial.

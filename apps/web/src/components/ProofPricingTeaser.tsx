@@ -77,7 +77,7 @@ const TIERS_TEASER = [
       "Dedicated Technical Account Lead",
     ],
     cta: "Contact Operations Sales",
-    href: "/sign-up?plan=enterprise",
+    href: "mailto:operations@voxflow.ai?subject=Enterprise%20Operations%20Mesh%20Inquiry",
   },
 ];
 

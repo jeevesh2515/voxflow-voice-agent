@@ -58,9 +58,9 @@ const SAMPLES: VoiceSample[] = [
   },
   {
     id: "en-us",
-    lang: "US English",
+    lang: "US Freight",
     langCode: "en-US",
-    badge: "Transatlantic Gateway",
+    badge: "US Freight Gateway",
     scenario: "High-Priority Express Re-Route",
     callerLabel: "Logistics Carrier",
     callerAudioText: "Need urgent dock reassignment for express trailer 8841.",
@@ -98,10 +98,14 @@ export default function VoiceSamples() {
       return;
     }
 
+    // Cancel any ongoing playback
     if ("speechSynthesis" in window) {
       window.speechSynthesis.cancel();
-      setPlayingId(sample.id);
+    }
 
+    setPlayingId(sample.id);
+
+    if ("speechSynthesis" in window) {
       // Speak caller then agent response with natural pause
       const utteranceCaller = new SpeechSynthesisUtterance(sample.callerAudioText);
       utteranceCaller.lang = sample.langCode;
@@ -113,9 +117,7 @@ export default function VoiceSamples() {
 
       utteranceCaller.onend = () => {
         window.setTimeout(() => {
-          if (playingId === sample.id || true) {
-            window.speechSynthesis.speak(utteranceAgent);
-          }
+          window.speechSynthesis.speak(utteranceAgent);
         }, 120);
       };
 
@@ -152,7 +154,7 @@ export default function VoiceSamples() {
             Hear it in English. <span className="text-white/60">Hear it in Hindi.</span>
           </h3>
           <p className="font-sans text-sm text-white/70 max-w-xl mt-2 leading-relaxed">
-            Listen to sub-second glass-to-glass turns across British English, Hindi, and natural code-switching.
+            Listen to ~200ms turn, UK edge operations across British English, Hindi, and natural code-switching.
           </p>
         </div>
 
@@ -212,8 +214,8 @@ export default function VoiceSamples() {
                 {isPlaying && (
                   <span className="flex items-center gap-0.5">
                     <span className="h-2.5 w-0.5 bg-[#5EEAD4] animate-pulse" />
-                    <span className="h-4 w-0.5 bg-[#5EEAD4] animate-pulse delay-75" />
-                    <span className="h-2 w-0.5 bg-[#5EEAD4] animate-pulse delay-150" />
+                    <span className="h-4 w-0.5 bg-[#5EEAD4] animate-pulse" style={{ animationDelay: "0.15s" }} />
+                    <span className="h-2 w-0.5 bg-[#5EEAD4] animate-pulse" style={{ animationDelay: "0.3s" }} />
                   </span>
                 )}
               </div>
