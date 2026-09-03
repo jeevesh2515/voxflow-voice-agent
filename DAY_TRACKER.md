@@ -22,8 +22,8 @@
 | **Phase 7** | 29–32 | Controlled Cutover & Provider Lifecycle | ✅ Complete | Canary worker filters, tenant policy engine, consent checks, enterprise analytics CSV, signed callback quarantine. |
 | **Phase 8** | 33–36 | Adapters, Side Effects & Pilot Evidence | ✅ Complete | Dial sandbox HMAC adapter, typed side-effect jobs ledger, fail-closed pilot admission, same-cohort hold points. |
 | **Phase 9** | Production | Infrastructure, Resilience & UI Overhaul | ✅ Complete | Oracle ARM VM + Caddy Auto-TLS, Next.js 16 standalone Docker, LLM resilience fallback, 16 dashboard views overhaul. |
-| **Phase 10** | 41–45 | UK Voice, SaaS Onboarding & CSV Engine | ✅ Complete | Amazon Connect en-GB, Postgres+Sheets call logs, resilience & backups, self-serve signup & onboarding, streaming CSV ingestion & validation engine. |
-
+| **Phase 11** | 55 | Landing Page Cosmic Journey & Polish | ✅ Complete | 5-keyframe hero scroll, solar system vista, Three.js WebGL + CSS progress bus. |
+| **Phase 12** | 56 | Anti-Hallucination & Deterministic Precision | ✅ Complete | Zero-hallucination negative grounding invariant, ambiguity disambiguation, temperature clamping (0.1), tenant guidelines injection. |
 
 ---
 
@@ -772,6 +772,27 @@
   - **Reduced motion:** CDP `Emulation.setEmulatedMedia prefers-reduced-motion:reduce` before nav → `kf2 display:none`, `kf5 1`, `j1 display:none`, `copy 1`.
   - **Mobile 390px:** Playwright `is_mobile: true` viewport → `heroH auto`, `kf5 1`, `j1 display:none`, `bh 0`.
   - **Build:** `npm run build --workspace=apps/web` clean; all 5 WebPs `200 image/webp`; SSR html contains all journey markers.
+
+---
+
+### 🔹 Phase 12: Anti-Hallucination & Deterministic Precision (Day 56)
+
+#### 🗓️ Day 56: Zero-Hallucination Negative Grounding, Disambiguation & Low-Temperature Clamping
+- **Objective:** Eliminate supply-chain hallucination risks by enforcing absolute negative grounding invariants, query disambiguation, deterministic low-temperature clamping, and tenant knowledge injection.
+- **Implementation:**
+  - **Negative Grounding Invariant:** Updated `BASE_PROMPT_TEMPLATE` in `apps/api/voxflow_api/agent/prompts.py` to strictly enforce that if tools return `found: false`, `records: []`, or `null`, the agent MUST state verbatim: *"I do not have a record for [item/PO] in our system"*, never estimate or fabricate a date/quantity, and offer human escalation immediately.
+  - **Ambiguity Disambiguation:** Added prompt flow to present multiple matching PO references to callers rather than guessing or picking an arbitrary order.
+  - **Deterministic Temperature Clamping:** In `apps/api/voxflow_api/agent/runner.py`, explicitly clamped `temperature=0.1` during LLM tool-calling turns to eliminate token hallucination drift.
+  - **Company Knowledge Grounding:** Connected tenant business guidelines, operating hours, dock protocols, and Google Sheets tabs from `Tenant` settings directly into the voice agent prompt.
+- **Artifacts:**
+  - `apps/api/voxflow_api/agent/prompts.py` (anti-hallucination invariants & grounding rules)
+  - `apps/api/voxflow_api/agent/runner.py` (temperature clamping)
+  - `.learning/day-56-anti-hallucination-and-deterministic-rag-grounding.md` (full documentation)
+- **Verification:**
+  - `pytest apps/api/tests` → **508 passed in 62.48s** (100% green).
+  - `npx tsx apps/web/src/lib/roi.test.ts` → **5 suites pass** (22 asserts).
+  - `npx tsx apps/web/src/lib/voiceXray.test.ts` → **14/14 pass**.
+  - `npm run lint --workspace=apps/web` → **0 errors, 0 warnings**.
 
 ---
 
