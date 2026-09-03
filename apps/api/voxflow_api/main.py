@@ -131,6 +131,14 @@ def create_app() -> FastAPI:
             "dashboard": "see apps/web",
         }
 
+    @app.api_route("/health", methods=["GET", "HEAD"])
+    def health_check() -> dict[str, Any]:
+        return {
+            "status": "ok",
+            "service": "VoxFlow Voice Agent",
+            "timestamp": datetime.now(timezone.utc).isoformat(),
+        }
+
     # Mount routers
     app.include_router(data_routes.router, prefix="/api", tags=["data"])
     app.include_router(admin_routes.router, prefix="/api/admin", tags=["admin"])
