@@ -16,7 +16,6 @@
   <img src="https://img.shields.io/badge/TESTS-508%20PASSED-10B981?style=for-the-badge&logo=pytest&logoColor=white&labelColor=111827" alt="508 Pytest Tests Passed" />
   <img src="https://img.shields.io/badge/FRONTEND-29%20ROUTES-6366F1?style=for-the-badge&logo=nextdotjs&logoColor=white&labelColor=111827" alt="29 Next.js Routes" />
   <img src="https://img.shields.io/badge/VOICE-ENGLISH%20%28UK%29%20%2B%20HINDI-F97316?style=for-the-badge&labelColor=111827" alt="English (UK) + Hindi Multilingual" />
-  <img src="https://img.shields.io/badge/HERO-5%20KEYFRAME%20JOURNEY-8B5CF6?style=for-the-badge&logo=vercel&logoColor=white&labelColor=111827" alt="5-Keyframe Cosmic Journey" />
   <img src="https://img.shields.io/badge/GROUNDING-ZERO--HALLUCINATION%20RAG-0F766E?style=for-the-badge&logo=shield&logoColor=white&labelColor=111827" alt="Zero-Hallucination Grounding" />
 </p>
 
@@ -61,27 +60,6 @@ Supply chain and logistics enterprises handle tens of thousands of repetitive, t
 | **Language & Dialect Adaptability**: Multi-region drivers and suppliers communicate across regional UK & global dialects. | **Adaptive Speech & Neural Voice Intelligence**: Amazon Lex V2 STT, Groq Whisper Turbo, and Polly/Edge neural speech. |
 | **Data Silos & Delayed Data Entry**: Call outcomes are lost in spreadsheets or updated hours after the call ends. | **Real-Time Data Write-Back**: Idempotent synchronization directly into Google Sheets, PostgreSQL, and ERP databases. |
 | **Legacy IVR Friction**: Keypad DTMF menus frustrate drivers and delay operational updates. | **Conversational Voice AI**: Spoken natural language understanding powered by **Amazon Connect + Amazon Lex V2**. |
-
----
-
-## 🌌 Hero Cosmic Journey — 5-Keyframe Scroll Narrative
-
-VoxFlow's landing page opens with a **pinned 5-keyframe cosmic journey** that visually tells the product's core promise: from communication black hole → to signal → to connection → to arrival.
-
-| Frame | Progress | Keyframe | Copy | Technique |
-|---|---|---|---|---|
-| **KF1** | 0.00–0.16 | **Black Hole** (WebGL `AcousticBlackHoleCanvas`) | — | Existing Three.js aperture, still poster fallback |
-| **KF2** | 0.16–0.34 | **Starfield / Nebula** | *"Out here, signals go quiet."* | Still image crossfade, `background-size: cover` |
-| **KF3** | 0.34–0.52 | **Solar System Panorama** (Mercury→Neptune) | *"A signal, still moving."* | Still image crossfade, scale push |
-| **KF4** | 0.52–0.70 | **Telescope + Satellite** | *"Someone's listening now."* | Still image + CSS streak sweep (zero asset) |
-| **KF5** | 0.70–0.76 | **Earth Arrival** (Blue marble, 55% frame) | *(empty beat)* | Still image freezes, becomes sticky plate |
-| **Dock** | 0.76–1.00 | **Earth (sticky)** | *"We closed the black hole on the dispatch line."* | Existing `hero-copy` + `hero-console` dock over Earth |
-
-**Architecture:** Pure CSS/JS driven by the existing `--hero-progress` custom property (0→1) published by `HeroChoreography.tsx` via GSAP ScrollTrigger scrub. No canvas scrubbing, no IntersectionObserver, no Three.js additions. Total scroll distance: existing 500vh pin envelope. Fallbacks: `prefers-reduced-motion` + mobile (`max-width: 1023px`) resolve to static Earth plate with no sequence.
-
-**Assets:** 5 WebP stills generated via Higgsfield `nano_banana_pro` (2 cr/frame, 8/10 credits, 2 spare). Total payload 556KB. Each layer declares a gradient fallback beneath its image URL so the sequence renders correctly even before images load.
-
-**Files:** `apps/web/src/components/CosmicJourney.tsx` (new), `apps/web/src/app/globals.css` (+247 lines), `apps/web/src/app/page.tsx` (punctlines → journey lines), `apps/web/public/images/journey/*.webp`.
 
 ---
 
