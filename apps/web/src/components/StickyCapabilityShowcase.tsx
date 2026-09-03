@@ -73,7 +73,7 @@ function RadarVisual({ accent }: { accent: string }) {
   return (
     <div className="showcase-visual-inner">
       {/* eslint-disable-next-line @next/next/no-img-element */}
-      <img src="/lidar-blueprint.jpg" alt="" aria-hidden="true" className="showcase-visual-bg" />
+      <img src="/lidar-blueprint.webp" alt="" aria-hidden="true" className="showcase-visual-bg" loading="lazy" decoding="async" />
       <svg viewBox="0 0 400 300" className="showcase-visual-fg" aria-hidden="true">
         <g fill="none" stroke={accent} strokeOpacity="0.5">
           <circle cx="200" cy="150" r="40" strokeWidth="1" />
@@ -109,7 +109,7 @@ function WarehouseVisual({ accent }: { accent: string }) {
   return (
     <div className="showcase-visual-inner">
       {/* eslint-disable-next-line @next/next/no-img-element */}
-      <img src="/warehouse-lidar.jpg" alt="" aria-hidden="true" className="showcase-visual-bg" />
+      <img src="/warehouse-lidar.webp" alt="" aria-hidden="true" className="showcase-visual-bg" loading="lazy" decoding="async" />
       <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-transparent to-black/30" />
       
       {/* Realtime Telemetry Overlay */}

@@ -166,6 +166,21 @@ export default function Home() {
     let ticking = false;
 
     const clamp01 = (v: number) => Math.min(1, Math.max(0, v));
+    // Skip DOM reads/writes for sections nowhere near the viewport.
+    const nearView = (r: DOMRect) => r.bottom > -150 && r.top < window.innerHeight + 150;
+    // Pre-cache every queried node once: per-frame querySelectorAll across all
+    // words/rows was forcing full layout on each scroll tick.
+    const wordBlocks = Array.from(wordReveals).map((paragraph) => ({
+      el: paragraph,
+      words: Array.from(paragraph.querySelectorAll<HTMLElement>("[data-word-index]")),
+    }));
+    const teleSteps = tele ? Array.from(tele.querySelectorAll<HTMLElement>("[data-tele-step]")) : [];
+    const teleBubbles = tele ? Array.from(tele.querySelectorAll<HTMLElement>("[data-bubble-step]")) : [];
+    const pipeCards = pipe ? Array.from(pipe.querySelectorAll<HTMLElement>("[data-pipe-step]")) : [];
+    const pipeRail = document.getElementById("pipe-rail-fill");
+    const pipeBadge = document.getElementById("pipe-latency");
+    const sheetRows = sheets ? Array.from(sheets.querySelectorAll<HTMLElement>("[data-sheet-row]")) : [];
+    const sheetCommit = document.getElementById("sheet-commit-label");
     const prog = (el: HTMLElement) => {
       const r = el.getBoundingClientRect();
       return clamp01((window.innerHeight - r.top) / (window.innerHeight + r.height * 0.8));
@@ -178,10 +193,10 @@ export default function Home() {
         ticking = false;
 
         // Word-level narrative illumination, driven by scroll position.
-        wordReveals.forEach((paragraph) => {
+        wordBlocks.forEach(({ el: paragraph, words }) => {
           const r = paragraph.getBoundingClientRect();
+          if (!nearView(r) || words.length === 0) return;
           const p = clamp01((window.innerHeight * 0.85 - r.top) / (r.height + window.innerHeight * 0.4));
-          const words = paragraph.querySelectorAll<HTMLElement>("[data-word-index]");
           words.forEach((word, index) => {
             const reveal = clamp01(p * words.length - index + 0.35);
             word.style.opacity = `${0.16 + reveal * 0.84}`;
@@ -192,47 +207,49 @@ export default function Home() {
         // Dual-POV sync
         if (tele) {
           const r = tele.getBoundingClientRect();
+          if (nearView(r)) {
           const p = clamp01((window.innerHeight * 0.75 - r.top) / (r.height + window.innerHeight * 0.3));
           const step = Math.min(3, Math.floor(p * 4.5));
-          tele.querySelectorAll<HTMLElement>("[data-tele-step]").forEach((n) => {
+          teleSteps.forEach((n) => {
             n.classList.toggle("telemetry-hot", Number(n.dataset.teleStep) <= step);
           });
-          tele.querySelectorAll<HTMLElement>("[data-bubble-step]").forEach((n) => {
+          teleBubbles.forEach((n) => {
             n.classList.toggle("bubble-pending", Number(n.dataset.bubbleStep) > step);
           });
+          }
         }
 
         // 4-Hop Architecture Pipeline scroll sync
-        if (pipe) {
+        if (pipe && pipeCards.length > 0) {
           const r = pipe.getBoundingClientRect();
+          if (nearView(r)) {
           const viewportCenter = window.innerHeight * 0.55;
           const p = clamp01((viewportCenter - r.top) / (r.height * 0.85));
-          const pipeCards = pipe.querySelectorAll<HTMLElement>("[data-pipe-step]");
           const active = Math.min(pipeCards.length - 1, Math.max(0, Math.floor(p * pipeCards.length)));
           pipeCards.forEach((n, i) => {
             n.classList.toggle("pipe-active", i === active);
           });
-          const rail = document.getElementById("pipe-rail-fill");
-          if (rail) rail.style.height = `${((active + 1) / pipeCards.length) * 100}%`;
-          const badge = document.getElementById("pipe-latency");
-          if (badge) {
+          if (pipeRail) pipeRail.style.height = `${((active + 1) / pipeCards.length) * 100}%`;
+          if (pipeBadge) {
             const lat = ["38ms", "84ms", "112ms", "196ms"][active];
-            if (badge.textContent !== lat) badge.textContent = lat;
+            if (pipeBadge.textContent !== lat) pipeBadge.textContent = lat;
+          }
           }
         }
 
         // Sheets mirror row flash
         if (sheets) {
           const r = sheets.getBoundingClientRect();
+          if (nearView(r)) {
           const p = clamp01((window.innerHeight * 0.7 - r.top) / (r.height + window.innerHeight * 0.2));
           const litRows = Math.floor(p * 5);
-          sheets.querySelectorAll<HTMLElement>("[data-sheet-row]").forEach((n) => {
+          sheetRows.forEach((n) => {
             n.classList.toggle("sheet-flash", Number(n.dataset.sheetRow) < litRows);
           });
-          const commit = document.getElementById("sheet-commit-label");
-          if (commit) {
+          if (sheetCommit) {
             const label = litRows === 0 ? "awaiting tool call…" : `commit ${Math.min(4, litRows)}/4 → Call Log tab`;
-            if (commit.textContent !== label) commit.textContent = label;
+            if (sheetCommit.textContent !== label) sheetCommit.textContent = label;
+          }
           }
         }
       });

@@ -24,6 +24,10 @@ export default function CosmicStarfield() {
 
     let animationId = 0;
     let isRunning = true;
+    // Canvas is fixed fullscreen, so its own box is always "visible" — gate on
+    // the hero stage instead. Identical pixels on return: particle state is
+    // preserved, the loop just stops advancing while away.
+    let heroVisible = true;
     let width = (canvas.width = window.innerWidth);
     let height = (canvas.height = window.innerHeight);
 
@@ -162,16 +166,33 @@ export default function CosmicStarfield() {
         ctx.fill();
       }
 
-      if (!prefersReducedMotion && isRunning) {
+      if (!prefersReducedMotion && isRunning && heroVisible) {
         animationId = requestAnimationFrame(render);
+      } else {
+        animationId = 0;
       }
     };
 
     render();
 
+    const hero = document.getElementById("hero-stage");
+    const heroObserver = new IntersectionObserver(
+      ([entry]) => {
+        heroVisible = entry.isIntersecting;
+        if (heroVisible && isRunning && !prefersReducedMotion && !animationId) render();
+        else if (!heroVisible && animationId) {
+          cancelAnimationFrame(animationId);
+          animationId = 0;
+        }
+      },
+      { threshold: 0 }
+    );
+    if (hero) heroObserver.observe(hero);
+
     return () => {
       isRunning = false;
       cancelAnimationFrame(animationId);
+      heroObserver.disconnect();
       window.removeEventListener("mousemove", onMouseMove);
       window.removeEventListener("resize", onResize);
       document.removeEventListener("visibilitychange", onVisibilityChange);

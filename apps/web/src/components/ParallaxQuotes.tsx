@@ -21,8 +21,10 @@ export default function ParallaxQuotes() {
       <div className="absolute inset-0 pointer-events-none overflow-hidden" aria-hidden="true">
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img
-          src="/galaxy-nebula.jpg"
+          src="/galaxy-nebula.webp"
           alt=""
+          loading="lazy"
+          decoding="async"
           className="absolute inset-0 h-full w-full object-cover opacity-35 scale-105"
         />
         {/* Dark Obsidian Radial Scrim */}

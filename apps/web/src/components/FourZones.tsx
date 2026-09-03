@@ -25,7 +25,7 @@ const ZONES: ZoneModule[] = [
     subtitle: "SIP, POD, dock",
     body: "Sub-second SIP stream response with automated POD capture and dock reassignment while the driver is still on the line.",
     tags: ["Sub-second SIP response", "Automated POD capture", "Dock reassignment"],
-    imageSrc: "/lidar-blueprint.jpg",
+    imageSrc: "/lidar-blueprint.webp",
   },
   {
     id: "warehouse",
@@ -35,7 +35,7 @@ const ZONES: ZoneModule[] = [
     subtitle: "SKU, bay, congestion",
     body: "Voice-queried SKU lookups, pallet bay counts and dock congestion status — answered directly from the floor, not a terminal.",
     tags: ["Voice SKU lookups", "Pallet bay counts", "Congestion status"],
-    imageSrc: "/warehouse-lidar.jpg",
+    imageSrc: "/warehouse-lidar.webp",
   },
   {
     id: "support",
@@ -55,7 +55,7 @@ const ZONES: ZoneModule[] = [
     subtitle: "two-way write",
     body: "Zero-human order updates committed live to Postgres and Google Sheets, each write carrying its transcript receipt.",
     tags: ["Live Postgres commits", "Sheets 2-way mirror", "Transcript receipts"],
-    imageSrc: "/space-starfield.jpg",
+    imageSrc: "/space-starfield.webp",
   },
 ];
 
