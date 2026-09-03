@@ -1060,10 +1060,16 @@ html {
    One source of truth: --hero-progress (0 → 1), written by
    HeroChoreography.tsx via GSAP ScrollTrigger scrub.
 
-     0.00–0.20  Stage 1  pure centered black hole aperture
-     0.20–0.48  Stage 2  Punchline 1 (Engine) + spatial ripples
-     0.48–0.76  Stage 3  Punchline 2 (Dispatch & ERP) + receding cosmos
-     0.76–1.00  Stage 4  docked headline & live operations console
+     0.00–0.16  KF1  black hole aperture
+     0.16–0.34  KF2  starfield      "Out here, signals go quiet."
+     0.34–0.52  KF3  solar system   "A signal, still moving."
+     0.52–0.70  KF4  telescope      "Someone's listening now."
+     0.70–0.76  KF5  Earth arrives and freezes — no copy
+     0.76–1.00  docked headline & live operations console over Earth
+
+   The empty 0.70–0.76 beat is deliberate: the docked h1 is the
+   payoff the whole journey travels toward, so nothing competes
+   with it on the way in.
    ════════════════════════════════════════════════════════════ */
 
 .hero-stage {
@@ -1100,7 +1106,7 @@ html {
       z-index: 10;
     }
 
-    /* Staged Punchlines 1 & 2 */
+    /* Staged journey copy — bands live in the COSMIC JOURNEY block below. */
     .hero-stage.hero-stage-ready .hero-punchlines {
       display: flex;
     }
@@ -1108,32 +1114,6 @@ html {
     .hero-stage.hero-stage-ready .hero-punchline {
       position: absolute;
       will-change: opacity, transform;
-    }
-
-    /* Punchline 1: in at 0.12, peaks 0.16-0.38, out by 0.44 */
-    .hero-stage.hero-stage-ready .hero-punchline-1 {
-      opacity: calc(
-        clamp(0, (var(--hero-progress) - 0.12) * 9.0, 1) *
-        clamp(0, 1 - (var(--hero-progress) - 0.38) * 8.0, 1)
-      );
-      transform: translate3d(
-        0,
-        calc(24px * (1 - clamp(0, (var(--hero-progress) - 0.12) * 9.0, 1))),
-        0
-      );
-    }
-
-    /* Punchline 2: in at 0.44, peaks 0.46-0.68, out by 0.74 */
-    .hero-stage.hero-stage-ready .hero-punchline-2 {
-      opacity: calc(
-        clamp(0, (var(--hero-progress) - 0.44) * 9.0, 1) *
-        clamp(0, 1 - (var(--hero-progress) - 0.68) * 8.0, 1)
-      );
-      transform: translate3d(
-        0,
-        calc(24px * (1 - clamp(0, (var(--hero-progress) - 0.44) * 9.0, 1))),
-        0
-      );
     }
 
     /* Stage 4 — Final headline block resolves in from the left after punchlines */
@@ -1240,25 +1220,40 @@ html {
 }
 
 /* ════════════════════════════════════════════════════════════
-   BLACK HOLE STAGE — the aperture backdrop.
-   The hole stays for the WHOLE hero: full strength through the
-   aperture stages, then RECEDES (0.25 opacity, 0.85 scale) as the
-   copy and console dock. No wireframe sphere, no blueprint lines —
-   Stage C is pristine copy over deep space.
+   BLACK HOLE STAGE — keyframe 1 of the cosmic journey.
+   Holds full strength through the opening beat, then recedes to
+   nothing across 0.10 → 0.18 as the starfield (KF2) fades in over
+   it. The scale-down reads as pulling away from the aperture, which
+   sets the direction of travel for the rest of the sequence.
+
+   The still at 01-black-hole.webp is painted as this layer's own
+   background, *behind* the WebGL canvas that renders on top of it.
+   If WebGL fails to initialise the visitor sees the black hole
+   plate rather than an empty void.
    ════════════════════════════════════════════════════════════ */
 
 .hero-blackhole-layer {
   position: absolute;
   inset: 0;
   z-index: 0;
-  opacity: calc(1 - clamp(0, (var(--hero-progress) - 0.70) * 3.3, 1) * 0.75);
-  transform: scale(calc(1 - clamp(0, var(--hero-progress) * 0.85, 1) * 0.35));
+  background-image: url("/images/journey/01-black-hole.webp");
+  background-position: center center;
+  background-size: cover;
+  background-repeat: no-repeat;
+  opacity: clamp(0, 1 - (var(--hero-progress) - 0.10) * 12.5, 1);
+  transform: scale(calc(1 - clamp(0, (var(--hero-progress) - 0.02) * 6.25, 1) * 0.08));
   transform-origin: center center;
   will-change: opacity, transform;
 }
 
+/* Reduced motion resolves to the Earth plate, which covers this layer
+   outright — so drop it out rather than compositing it underneath.
+   ponytail: opacity 0 rather than display:none on purpose. The canvas
+   measures its own container, and a zero-size parent risks a WebGL
+   init divide-by-zero. Unmounting it properly is perf work, which the
+   spec scopes to a later pass. */
 @media (prefers-reduced-motion: reduce) {
-  .hero-blackhole-layer { opacity: 0.25; transform: scale(0.75); }
+  .hero-blackhole-layer { opacity: 0; transform: none; }
 }
 
 /* ════════════════════════════════════════════════════════════
@@ -1587,4 +1582,272 @@ html {
   .parallax-quotes { min-height: auto; }
   .parallax-quotes-backdrop { position: absolute; inset: 0; height: auto; }
   .parallax-quotes-copy { margin-top: 0; padding-top: 8rem; padding-bottom: 8rem; }
+}
+
+/* ════════════════════════════════════════════════════════════
+   COSMIC JOURNEY — 5-keyframe scroll sequence
+   black hole → starfield → solar system → telescope → Earth
+
+   Driven entirely by --hero-progress (0 → 1), the same value
+   HeroChoreography publishes for the punchlines and console dock.
+   No JS, no IntersectionObserver, no canvas scrubbing: every
+   crossfade below is a pure function of scroll offset, so scrolling
+   back up retraces identical values.
+
+     0.00–0.16  KF1  black hole (AcousticBlackHoleCanvas)
+     0.16–0.34  KF2  starfield / nebula      "signals go quiet"
+     0.34–0.52  KF3  solar system panorama   "a signal, still moving"
+     0.52–0.70  KF4  telescope + satellite   "someone's listening"  + streaks
+     0.70–0.76  KF5  Earth arrives, then FREEZES
+     0.76–1.00  KF5 holds as the sticky plate behind headline + console
+
+   Each layer lists a gradient beneath its image URL in one
+   background-image stack, so a missing still degrades to a colour
+   field of the right mood rather than a gap in the sequence.
+   ════════════════════════════════════════════════════════════ */
+
+.journey-stack {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+.journey-kf {
+  position: absolute;
+  inset: 0;
+  background-position: center center;
+  background-size: cover;
+  background-repeat: no-repeat;
+  opacity: 0;
+  transform-origin: center center;
+  will-change: opacity, transform;
+}
+
+/* KF2 — starfield / nebula. Deep blue-violet, no objects in frame. */
+.journey-kf-2 {
+  background-image:
+    url("/images/journey/02-starfield.webp"),
+    radial-gradient(circle at 62% 38%, rgba(124, 58, 237, 0.30), transparent 55%),
+    radial-gradient(circle at 24% 70%, rgba(30, 64, 175, 0.34), transparent 60%),
+    linear-gradient(165deg, #05060f 0%, #0a0a1d 48%, #06060e 100%);
+}
+
+/* KF3 — solar system panorama, Sun at one edge. */
+.journey-kf-3 {
+  background-image:
+    url("/images/journey/03-solar-system.webp"),
+    radial-gradient(circle at 8% 52%, rgba(251, 191, 36, 0.34), transparent 34%),
+    radial-gradient(circle at 74% 46%, rgba(192, 132, 252, 0.16), transparent 52%),
+    linear-gradient(100deg, #07060d 0%, #0b0a16 55%, #050509 100%);
+}
+
+/* KF4 — telescope + communications satellite, Earth small behind. */
+.journey-kf-4 {
+  background-image:
+    url("/images/journey/04-telescope-satellite.webp"),
+    radial-gradient(circle at 78% 66%, rgba(0, 255, 204, 0.16), transparent 44%),
+    radial-gradient(circle at 34% 30%, rgba(148, 163, 184, 0.20), transparent 48%),
+    linear-gradient(140deg, #04050b 0%, #0a0d18 52%, #04040a 100%);
+}
+
+/* KF5 — Earth arrival. The final plate; freezes and holds. */
+.journey-kf-5 {
+  background-image:
+    url("/images/journey/05-earth.webp"),
+    radial-gradient(circle at 50% 74%, rgba(56, 130, 246, 0.42), transparent 46%),
+    radial-gradient(circle at 42% 88%, rgba(16, 185, 129, 0.22), transparent 34%),
+    linear-gradient(180deg, #04050c 0%, #060a18 62%, #04060f 100%);
+}
+
+/* Keyframe-4 streak sweep. Two counter-drifting gradient rakes read as
+   travel past starlight — the "speed" beat, at zero asset cost. */
+.journey-streaks {
+  position: absolute;
+  inset: -25% -10%;
+  opacity: 0;
+  background-image:
+    repeating-linear-gradient(
+      100deg,
+      transparent 0 46px,
+      rgba(255, 255, 255, 0.5) 46px 47px,
+      transparent 47px 120px
+    ),
+    repeating-linear-gradient(
+      100deg,
+      transparent 0 88px,
+      rgba(0, 255, 204, 0.35) 88px 89px,
+      transparent 89px 230px
+    );
+  mask-image: radial-gradient(ellipse at 50% 50%, #000 12%, transparent 74%);
+  -webkit-mask-image: radial-gradient(ellipse at 50% 50%, #000 12%, transparent 74%);
+  will-change: opacity, transform;
+}
+
+/* Keeps the docked headline and console readable over the Earth plate.
+   Ramps in with the copy, not before, so the journey itself stays clean. */
+.journey-scrim {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  background:
+    linear-gradient(95deg, rgba(4, 5, 10, 0.9) 0%, rgba(4, 5, 10, 0.62) 46%, rgba(4, 5, 10, 0.24) 100%);
+  will-change: opacity;
+}
+
+/* Pre-JS and mobile: hold the Earth plate as a plain hero backdrop rather
+   than flashing keyframe 2 at full strength on first paint. */
+.hero-stage:not(.hero-stage-ready) .journey-kf-5,
+.hero-stage:not(.hero-stage-ready) .journey-scrim { opacity: 1; }
+
+/* Desktop + motion-allowed only — matches the pinned choreography's own gate.
+   Below 1024px the hero is a single static viewport, so the journey resolves
+   to its final Earth frame instead of sequencing. */
+@media (min-width: 1024px) {
+  @media (prefers-reduced-motion: no-preference) {
+    /* KF2 — in 0.10→0.16, out 0.28→0.34 */
+    .hero-stage.hero-stage-ready .journey-kf-2 {
+      opacity: calc(
+        clamp(0, (var(--hero-progress) - 0.10) * 16.6, 1) *
+        clamp(0, 1 - (var(--hero-progress) - 0.28) * 16.6, 1)
+      );
+      transform: scale(calc(1.10 - clamp(0, (var(--hero-progress) - 0.10) * 4.1, 1) * 0.10));
+    }
+
+    /* KF3 — in 0.28→0.34, out 0.46→0.52 */
+    .hero-stage.hero-stage-ready .journey-kf-3 {
+      opacity: calc(
+        clamp(0, (var(--hero-progress) - 0.28) * 16.6, 1) *
+        clamp(0, 1 - (var(--hero-progress) - 0.46) * 16.6, 1)
+      );
+      transform: scale(calc(1.09 - clamp(0, (var(--hero-progress) - 0.28) * 4.1, 1) * 0.09));
+    }
+
+    /* KF4 — in 0.46→0.52, out 0.64→0.70 */
+    .hero-stage.hero-stage-ready .journey-kf-4 {
+      opacity: calc(
+        clamp(0, (var(--hero-progress) - 0.46) * 16.6, 1) *
+        clamp(0, 1 - (var(--hero-progress) - 0.64) * 16.6, 1)
+      );
+      transform: scale(calc(1.08 - clamp(0, (var(--hero-progress) - 0.46) * 4.1, 1) * 0.08));
+    }
+
+    /* Streaks live only inside the KF4 band, peaking mid-beat. */
+    .hero-stage.hero-stage-ready .journey-streaks {
+      opacity: calc(
+        clamp(0, (var(--hero-progress) - 0.48) * 12, 1) *
+        clamp(0, 1 - (var(--hero-progress) - 0.62) * 12, 1) * 0.5
+      );
+      transform: translate3d(
+        calc(-16vw * clamp(0, (var(--hero-progress) - 0.46) * 4.1, 1)),
+        0,
+        0
+      ) scaleX(calc(1 + clamp(0, (var(--hero-progress) - 0.46) * 4.1, 1) * 0.5));
+    }
+
+    /* KF5 — in 0.64→0.72, then holds at full strength to the end of the pin.
+       No fade-out term: this is the plate the headline docks over. */
+    .hero-stage.hero-stage-ready .journey-kf-5 {
+      opacity: clamp(0, (var(--hero-progress) - 0.64) * 12.5, 1);
+      /* Settles to rest exactly at 0.76, where the headline arrives — the
+         freeze the sequence has been travelling toward. */
+      transform: scale(calc(1.12 - clamp(0, (var(--hero-progress) - 0.64) * 8.3, 1) * 0.12));
+    }
+
+    /* Scrim tracks the copy dock, one beat ahead of it. */
+    .hero-stage.hero-stage-ready .journey-scrim {
+      opacity: clamp(0, (var(--hero-progress) - 0.72) * 5, 1);
+    }
+  }
+}
+
+/* Reduced motion: no sequence at all. Land on the Earth plate as a static
+   hero image, per spec. */
+@media (prefers-reduced-motion: reduce) {
+  .journey-kf-2,
+  .journey-kf-3,
+  .journey-kf-4,
+  .journey-streaks,
+  .hero-punchline-j1,
+  .hero-punchline-j2,
+  .hero-punchline-j3 { display: none; }
+
+  .journey-kf-5 { opacity: 1; transform: none; }
+  .journey-scrim { opacity: 1; }
+}
+
+/* Mobile + tablet: the pinned choreography only runs on desktop (min-width: 1024px).
+   Below that the journey is the same single-frame Earth fallback — no crossfade,
+   no drifting journey lines competing with the headline. */
+@media (max-width: 1023px) {
+  .journey-kf-2,
+  .journey-kf-3,
+  .journey-kf-4,
+  .journey-streaks,
+  .hero-punchline-j1,
+  .hero-punchline-j2,
+  .hero-punchline-j3 { display: none; }
+
+  .hero-blackhole-layer { opacity: 0; transform: none; }
+
+  .journey-kf-5 { opacity: 1; transform: none; }
+  .journey-scrim { opacity: 1; }
+}
+
+/* ════════════════════════════════════════════════════════════
+   JOURNEY COPY — three quiet lines across keyframes 2-4.
+   Fade + slight upward translate, each gone before the next
+   keyframe fully takes over. Keyframe 5 carries no copy: the
+   docked h1 is the payoff, and it should not have to compete.
+   ════════════════════════════════════════════════════════════ */
+
+.journey-line {
+  font-weight: 500;
+  letter-spacing: -0.01em;
+  color: rgba(232, 224, 240, 0.94);
+  text-shadow: 0 10px 40px rgba(0, 0, 0, 0.9);
+}
+
+@media (min-width: 1024px) {
+  @media (prefers-reduced-motion: no-preference) {
+    /* Line 1 — "Out here, signals go quiet."  in 0.15, out 0.30 */
+    .hero-stage.hero-stage-ready .hero-punchline-j1 {
+      opacity: calc(
+        clamp(0, (var(--hero-progress) - 0.15) * 14, 1) *
+        clamp(0, 1 - (var(--hero-progress) - 0.27) * 14, 1)
+      );
+      transform: translate3d(
+        0,
+        calc(18px * (1 - clamp(0, (var(--hero-progress) - 0.15) * 14, 1))),
+        0
+      );
+    }
+
+    /* Line 2 — "A signal, still moving."  in 0.33, out 0.48 */
+    .hero-stage.hero-stage-ready .hero-punchline-j2 {
+      opacity: calc(
+        clamp(0, (var(--hero-progress) - 0.33) * 14, 1) *
+        clamp(0, 1 - (var(--hero-progress) - 0.45) * 14, 1)
+      );
+      transform: translate3d(
+        0,
+        calc(18px * (1 - clamp(0, (var(--hero-progress) - 0.33) * 14, 1))),
+        0
+      );
+    }
+
+    /* Line 3 — "Someone's listening now."  in 0.51, out 0.66 */
+    .hero-stage.hero-stage-ready .hero-punchline-j3 {
+      opacity: calc(
+        clamp(0, (var(--hero-progress) - 0.51) * 14, 1) *
+        clamp(0, 1 - (var(--hero-progress) - 0.63) * 14, 1)
+      );
+      transform: translate3d(
+        0,
+        calc(18px * (1 - clamp(0, (var(--hero-progress) - 0.51) * 14, 1))),
+        0
+      );
+    }
+  }
 }
