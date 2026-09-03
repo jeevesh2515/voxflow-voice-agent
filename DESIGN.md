@@ -122,3 +122,55 @@ the design is going for.
   `apps/web/package.json` before introducing a new one
 - No documented spacing scale beyond Tailwind defaults — if a custom
   scale is needed, add it to `tailwind.config.ts` and this file together
+
+## 8. Hero Cosmic Journey — Visual Spec
+
+The 5-keyframe scroll journey in the hero section introduces its own visual language layered on top of the base design system.
+
+### 8.1 Keyframe Mood Board
+
+| Frame | Palette | Texture | Typography |
+|---|---|---|---|
+| KF1 Black Hole | Void `#030308` + voice-cyan `#5EEAD4` accent ring | Three.js aperture, no image | — |
+| KF2 Starfield | Deep space `#05060f` → nebula violet `#7c3aed` / blue `#1e40af` | Dense stars, soft gradient wash | Journey line 1: `font-headline text-3xl→5xl weight-500` |
+| KF3 Solar System | Void `#07060d` + sun gold `#fbbf24` (left) + planet accents | Photoreal planet chain, compressed spacing | Journey line 2: same token |
+| KF4 Telescope | Void `#04050b` + cyan `#06b6d4` telescope glow + satellite silver `#94a3b8` | Hubble-style + comms sat, Earth small behind | Journey line 3: same token |
+| KF5 Earth | Space `#04050c` + ocean `#3882f6` + cloud `#10b981` + terminator glow | Blue marble, 55% frame, Apple-wallpaper style | *(none — headline takes over)* |
+
+### 8.2 Journey Line Typography
+
+```css
+.journey-line {
+  font-weight: 500;              /* lighter than headline extrabold */
+  letter-spacing: -0.01em;       /* tight display tracking */
+  color: rgba(232, 224, 240, 0.94);  /* on-surface at 94% */
+  text-shadow: 0 10px 40px rgba(0,0,0,0.9);  /* deep drop for legibility over stars */
+}
+```
+
+Responsive: `text-3xl sm:text-4xl lg:text-5xl` — smaller than the `text-6xl→7xl` headline so it never competes.
+
+### 8.3 Motion Tokens (CSS-driven, zero JS)
+
+| Effect | Token | Value | Use |
+|---|---|---|---|
+| Crossfade in/out | `calc(clamp(...) * clamp(...))` | 0→1→0 bands | Every keyframe transition |
+| Depth push | `transform: scale(1.10 → 1.00)` | `calc(1.xx - clamp(...) * 0.xx)` | KF2 10%, KF3 9%, KF4 8%, KF5 12% |
+| Text rise | `translate3d(0, 18px * (1 - reveal), 0)` | 18px upward | All three journey lines |
+| Streak sweep | `translateX(-16vw * progress) scaleX(1 → 1.5)` | counter-drifting gradients | KF4 only, 0.48–0.62 |
+| Scrim ramp | `opacity: clamp(0, (p - 0.72) * 5, 1)` | 0→1 | Earth legibility for headline |
+
+### 8.4 Fallback States
+
+| State | Visual |
+|---|---|
+| Reduced motion | Static KF5 Earth + scrim at full opacity; all other layers + lines hidden |
+| Mobile (≤1023px) | Same as reduced motion — Earth plate only |
+| Images not loaded | Each layer's gradient stack renders immediately (no flash) |
+
+### 8.5 Asset Constraints
+
+- **Format:** WebP, `cwebp -q 80 -m 6`, 2048px max width (retina-adequate for `cover` on 100svh stage)
+- **Budget:** 10 Higgsfield credits → `nano_banana_pro` 2 cr/frame × 4 = 8 cr, 2 spare
+- **Generation:** Single take per frame, prompts from `voxflow-cosmic-journey-prompt.md` verbatim
+- **Total payload:** 556KB for 5 frames

@@ -354,6 +354,71 @@ flowchart TB
 - `apps/api/voxflow_api/integrations/dial_callbacks.py`
 - `apps/api/voxflow_api/routes/dial_callbacks.py`
 - `apps/web/src/app/dashboard/analytics/page.tsx`
+- `apps/web/src/components/CosmicJourney.tsx`
+- `apps/web/src/components/AcousticBlackHoleCanvas.tsx`
+- `apps/web/src/components/HeroChoreography.tsx`
+- `apps/web/public/images/journey/*.webp`
+
+## 10. Landing Page Architecture — Cosmic Journey
+
+The Vercel-deployed Next.js landing page (`apps/web/src/app/page.tsx`) implements a **pinned 5-keyframe cosmic journey** in the hero section. It reuses the existing `HeroChoreography` / `--hero-progress` scroll bus (GSAP ScrollTrigger scrub, 500vh pin) rather than introducing new scroll machinery.
+
+### 10.1 Journey Component Structure
+
+| Component | Role |
+|---|---|
+| `CosmicJourney.tsx` | Zero-JS server component: 5 absolute `inset-0` layers (`journey-kf-2` through `journey-kf-5`), streak overlay (`journey-streaks`), scrim (`journey-scrim`). Each layer uses `background-image: url(...), gradient(...)` so missing images degrade to mood colour. |
+| `AcousticBlackHoleCanvas.tsx` | Existing Three.js WebGL canvas (KF1). Retained as-is; its container `.hero-blackhole-layer` now paints `01-black-hole.webp` as a poster fallback behind the canvas. |
+| `HeroChoreography.tsx` | Unchanged — publishes `--hero-progress` (0→1) on `#hero-stage` via GSAP ScrollTrigger scrub. The journey reads this same variable via `calc(clamp(...))` in CSS. |
+| `page.tsx` | Mounts `CosmicJourney` immediately after `.hero-blackhole-layer` (DOM paint order = z-order, both `z-index:0`). Replaces two `ScrollCharReveal` punchlines with three `hero-punchline-j1/j2/j3` `<p>` elements. |
+
+### 10.2 Scroll Bands (Progress 0→1)
+
+| Band | Keyframe | Opacity Curve | Copy |
+|---|---|---|---|
+| 0.00–0.16 | KF1 Black Hole | `1 → 0` (0.10–0.18) | — |
+| 0.16–0.34 | KF2 Starfield | `0 → 1 → 0` (0.10–0.28 in, 0.28–0.34 out) | "Out here, signals go quiet." |
+| 0.34–0.52 | KF3 Solar System | `0 → 1 → 0` (0.28–0.46 in, 0.46–0.52 out) | "A signal, still moving." |
+| 0.52–0.70 | KF4 Telescope | `0 → 1 → 0` (0.46–0.64 in, 0.64–0.70 out) + streak peak 0.60 | "Someone's listening now." |
+| 0.70–0.76 | KF5 Earth (arrive) | `0 → 1` (0.64–0.72), holds 1.0 | *(empty — payoff breath)* |
+| 0.76–1.00 | Earth (sticky) | `1` (frozen) | "We closed the black hole on the dispatch line." (existing `hero-copy` dock) + console dock |
+
+### 10.3 Motion Details
+
+- **Crossfades:** Pure CSS `opacity: calc(clamp(...) * clamp(...))` — bidirectional, no latch.
+- **Depth push:** Each layer `transform: scale(1.xx → 1.0)` via `calc(clamp(...))` — subtle parallax without layered exports.
+- **KF4 streak sweep:** Two counter-drifting `repeating-linear-gradient` rakes with `mask-image` radial fade — zero asset cost, `opacity 0→0.5→0` at 0.48–0.62.
+- **Scrim:** `linear-gradient` darkening Earth left side, ramps `0→1` from 0.72 to keep headline legible.
+
+### 10.4 Fallbacks
+
+| Condition | Behavior |
+|---|---|
+| `prefers-reduced-motion: reduce` | KF2–KF4 + streaks + journey lines `display: none`; KF5 Earth + scrim `opacity: 1`; black hole `opacity: 0`. Resolves to static Earth plate behind headline. |
+| `max-width: 1023px` (mobile/tablet) | Same as reduced-motion — the pinned choreography only runs on desktop (`@media (min-width: 1024px)`). |
+
+### 10.5 Asset Pipeline
+
+| Frame | Source | Dimensions | Tool | Size |
+|---|---|---|---|---|
+| KF1 | Existing WebGL canvas + `01-black-hole.webp` | 1280×720 | — | 99KB |
+| KF2 | Higgsfield `nano_banana_pro` | 2752×1536 → 2048w | `sips` + `cwebp -q 80` | 107KB |
+| KF3 | Higgsfield `nano_banana_pro` | 2752×1536 → 2048w | `sips` + `cwebp -q 80` | 68KB |
+| KF4 | Higgsfield `nano_banana_pro` | 2752×1536 → 2048w | `sips` + `cwebp -q 80` | 138KB |
+| KF5 | Higgsfield `nano_banana_pro` | 2752×1536 → 2048w | `sips` + `cwebp -q 80` | 135KB |
+
+Total: **556KB**. Budget: 10 Higgsfield credits → 8 spent (4×2), 2 spare for one retry. All 4 generated first-take.
+
+### 10.6 Verification
+
+| Check | Method | Result |
+|---|---|---|
+| Opacity curves | Playwright forced `--hero-progress` probes (0, 0.24, 0.42, 0.60, 0.72, 0.88) | Matched spec within 0.01 |
+| Real scroll | `window.scrollTo(maxScroll * p)` + 800ms wait | GSAP `scrub` reproduced identical `hp` values |
+| Earth bleed | Scroll past hero (heroH 4000, vh 800) | `hero.bottom=0`, `kf5=1`, `sticky=sticky`, trust strip below solid — no bleed |
+| Reduced motion | CDP `Emulation.setEmulatedMedia prefers-reduced-motion:reduce` before nav | `kf2 display:none`, `kf5 1`, `j1 display:none`, `copy 1` |
+| Mobile 390px | Playwright `is_mobile: true` viewport | `heroH auto`, `kf5 1`, `j1 display:none`, `bh 0` |
+| Build | `npm run build --workspace=apps/web` | Clean; all 5 WebPs `200 image/webp`; SSR html contains journey markers |
 
 [1] [Dial Webhooks](https://docs.getdial.ai/documentation/platform/webhooks.md)
 [2] [Dial `call.status_changed`](https://docs.getdial.ai/api-reference/events/call-status-changed.md)

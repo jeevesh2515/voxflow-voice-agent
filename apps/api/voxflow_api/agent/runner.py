@@ -229,7 +229,7 @@ class AgentRunner:
             # Day 54: gated tools cut ~1.5k input tokens before verification.
             gated_tools = tool_definitions_for(session)
             try:
-                resp = await llm.chat(history, tools=gated_tools)
+                resp = await llm.chat(history, tools=gated_tools, temperature=0.1)
             except Exception as exc:
                 # Provider availability must not leave a browser simulator turn
                 # pending indefinitely. Do not disclose internal provider details

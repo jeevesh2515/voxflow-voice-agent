@@ -748,6 +748,33 @@
 
 ---
 
+### 🔹 Phase 11: Landing Page Cosmic Journey & Polish (Day 55)
+
+#### 🗓️ Day 55: 5-Keyframe Cosmic Journey Landing Page Hero
+- **Objective:** Replace the static black hole hero with a cinematic 5-keyframe scroll journey that tells the VoxFlow promise: black hole → starfield → solar system → telescope/satellite → Earth arrival, where Earth freezes as the sticky backdrop for the existing headline and Live Operations Console.
+- **Implementation:**
+  - **New component:** `apps/web/src/components/CosmicJourney.tsx` — zero-JS server component, 5 absolute `inset-0` layers (`journey-kf-2` through `journey-kf-5`), streak overlay (`journey-streaks`), scrim (`journey-scrim`). Each layer stacks `background-image: url(...), gradient(...)` so missing images degrade to mood colour.
+  - **Retained:** `AcousticBlackHoleCanvas.tsx` (Three.js WebGL) as KF1; its container `.hero-blackhole-layer` now paints `01-black-hole.webp` as poster fallback behind the canvas.
+  - **Scroll bus:** Reuses existing `HeroChoreography.tsx` → `--hero-progress` (0→1) via GSAP ScrollTrigger scrub on the 500vh pinned `#hero-stage`. Journey reads the same variable via `calc(clamp(...))` in CSS — no new scroll machinery, no IntersectionObserver, no canvas frame scrubbing.
+  - **Page wiring:** `page.tsx` mounts `CosmicJourney` after `.hero-blackhole-layer` (DOM order = paint order, both `z-index:0`). Replaces two `ScrollCharReveal` punchlines with three `hero-punchline-j1/j2/j3` `<p>` elements (fade + 18px upward translate). Removes unused `ScrollCharReveal` import.
+  - **CSS bands:** Retimed `.hero-blackhole-layer` from whole-hero linger (0→0.70) to KF1 beat (0.10→0.18 out, 1.00→0.92 scale). Appended journey bands (KF2 0.16–0.34, KF3 0.34–0.52, KF4 0.52–0.70, KF5 0.70–0.76 hold), streak sweep (counter-drifting gradients at 0.60 peak), scrim (0.72→1.0), journey line fades (18px rise), and `prefers-reduced-motion` / `max-width:1023px` fallbacks to static Earth.
+  - **Assets:** 5 WebP stills via Higgsfield `nano_banana_pro` (2 cr/frame). `sips -Z 2048` → `cwebp -q 80`. Total 556KB (01: 99KB, 02: 107KB, 03: 68KB, 04: 138KB, 05: 135KB). 8/10 credits spent, 2 spare.
+- **Artifacts:**
+  - `apps/web/src/components/CosmicJourney.tsx` (new)
+  - `apps/web/src/app/globals.css` (+247 lines: journey bands, streak, scrim, reduced-motion, mobile)
+  - `apps/web/src/app/page.tsx` (import + mount + punchline swap)
+  - `apps/web/public/images/journey/{01-black-hole,02-starfield,03-solar-system,04-telescope-satellite,05-earth}.webp`
+  - `.learning/day-55-cosmic-journey-landing-page.md`
+- **Verification:**
+  - **Opacity curves:** Playwright forced `--hero-progress` probes at 0, 0.24, 0.42, 0.60, 0.72, 0.88 → matched spec within 0.01 (bh 1→0 by 0.18, kf2 1 at 0.24, crossfades at 0.30/0.50/0.66, streak 0→0.5→0 at 0.60, scrim 0→0.4→1).
+  - **Real scroll:** `window.scrollTo(maxScroll * p)` + 800ms wait → GSAP `scrub` reproduced identical `hp` values.
+  - **Earth bleed:** Scrolled past hero (heroH 4000, vh 800) → `hero.bottom=0`, `kf5=1`, `sticky=sticky`, trust strip below solid — no bleed into sections below.
+  - **Reduced motion:** CDP `Emulation.setEmulatedMedia prefers-reduced-motion:reduce` before nav → `kf2 display:none`, `kf5 1`, `j1 display:none`, `copy 1`.
+  - **Mobile 390px:** Playwright `is_mobile: true` viewport → `heroH auto`, `kf5 1`, `j1 display:none`, `bh 0`.
+  - **Build:** `npm run build --workspace=apps/web` clean; all 5 WebPs `200 image/webp`; SSR html contains all journey markers.
+
+---
+
 ## 🎯 Verification & Test Summary Matrix
 
 | Metric | Target | Current Value | Status |
@@ -776,6 +803,7 @@
 | **Observability & Alerting** | KPI/Health/Events | 6-endpoint surface, alert thresholds + durable dispatch, PII-scrubbed Sentry/PostHog, dark dashboard | ✅ Verified |
 | **Stripe Billing (Gate #6)** | Checkout/Portal/Webhook | 3 plans (Starter £49 / Growth £149 / Enterprise £399), fail-closed webhooks, idempotent invoices, owner-only checkout/portal | ✅ Verified |
 | **Landing & Pricing** | Public marketing | UK supply-chain hero, simulator teaser, architecture + matrix, GBP/USD + annual toggle, VAT receipts | ✅ Verified |
+| **Cosmic Journey Hero** | 5-keyframe scroll narrative | Black hole → starfield → solar system → telescope → Earth arrival; sticky Earth plate; 556KB, 8/10 credits | ✅ Verified |
 | **Go-Live Preflight** | 7-pillar gate | `golive_dry_run.py --strict` (migrations, isolation, telephony, billing, eval, GDPR, build) | ✅ Verified |
 | **Tool Gating & Parallel Reads** | <400ms P50 | Gated 6→17→19 tools, `asyncio.gather` on pure reads | ✅ Verified |
 | **Streaming TTS** | TTFB ~150ms | `synth_stream` + `turn_start` + `audio_chunk` over `/ws/call` | ✅ Verified |
