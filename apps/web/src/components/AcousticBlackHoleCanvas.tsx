@@ -37,6 +37,8 @@ const FRAG = /* glsl */ `
   uniform float uTime;
   uniform float uScrollProgress; // 0 -> 1 through hero scroll
   uniform float uVoicePulse;     // 0 -> 1 on voice playback
+  uniform vec2  uMouse;          // Normalized mouse coordinates (-1..1 with aspect ratio)
+  uniform float uMouseHover;     // 0 -> 1 proximity to accretion disk / event horizon
   uniform float uFade;
   uniform sampler2D uStars;
   uniform float uHasStars;
@@ -176,14 +178,14 @@ const FRAG = /* glsl */ `
         if (rc > rin && rc < rout) {
           float band = smoothstep(rin, rin * 1.25, rc) * (1.0 - smoothstep(rout * 0.72, rout, rc));
 
-          float phi = atan(dot(xc, e2), xc.x);
-          float turns = phi / (2.0 * PI);
-          float kep = pow(rin / rc, 1.5);
-          float gloc = sqrt(max(1.0 - 1.5 / rc, 0.02));
-          float swirl = rc * DISK_WIND * 0.12 - uTime * kep * DISK_SPEED * gloc * 0.12;
-
-          float streaks = vnoiseWrapY(vec2(rc * 2.8, turns * 19.0 + swirl * 3.0), 19.0) * 0.65 +
-                          vnoiseWrapY(vec2(rc * 1.0, turns * 9.0  + swirl * 1.5 + 7.0), 9.0) * 0.35;
+          // Interactive mouse gravitational tidal flare
+          vec2 diskPos2D = vec2(xc.x, dot(xc, e2));
+          float mDist = length(diskPos2D - uMouse * (W * 0.16));
+          float mFlare = exp(-mDist * 1.5) * uMouseHover;
+          
+          float hoverSwirl = mFlare * 3.2 * sin(uTime * 3.5 + rc * 4.0);
+          float streaks = vnoiseWrapY(vec2(rc * 2.8, turns * 19.0 + (swirl + hoverSwirl) * 3.0), 19.0) * 0.65 +
+                          vnoiseWrapY(vec2(rc * 1.0, turns * 9.0  + (swirl + hoverSwirl) * 1.5 + 7.0), 9.0) * 0.35;
           streaks = 0.35 + DISK_CONTRAST * streaks * streaks;
 
           // Relativistic Doppler boosting
@@ -196,7 +198,12 @@ const FRAG = /* glsl */ `
           float xpr = max(1.0 - sqrt(rin / rc), 0.0);
           float tprof = pow(rin / rc, 0.75) * pow(xpr, 0.25) / 0.488;
           vec3 cbb = blackbody(DISK_TEMP * tprof * g);
-          float boost = pow(g, DISK_BEAM);
+          
+          // Luminous cyber-magenta / ice-cyan relativistic quantum flare on hover
+          vec3 hoverColor = mix(vec3(0.0, 0.95, 1.0), vec3(1.0, 0.18, 0.55), sin(phi * 2.0 + uTime * 2.5) * 0.5 + 0.5);
+          cbb = mix(cbb, cbb + hoverColor * 2.2, clamp(mFlare * 0.85, 0.0, 1.0));
+          
+          float boost = pow(g, DISK_BEAM) * (1.0 + mFlare * 0.6);
 
           // Voice audio reactivity pulse
           float voiceMod = 1.0 + uVoicePulse * 0.8 * sin(rc * 5.0 - uTime * 6.0);
@@ -251,6 +258,15 @@ const FRAG = /* glsl */ `
       }
     }
 
+    // Interactive mouse tidal resonance ripple around the photon sphere rings
+    if (uMouseHover > 0.02) {
+      float mScreenDist = length(p - uMouse);
+      float rippleWave = sin(mScreenDist * 28.0 - uTime * 5.0) * exp(-mScreenDist * 3.2);
+      float ringProximity = smoothstep(0.65, 0.15, abs(plen - 0.36));
+      vec3 rippleColor = mix(vec3(0.0, 1.0, 0.85), vec3(1.0, 0.18, 0.48), sin(uTime * 3.0 + mScreenDist * 10.0) * 0.5 + 0.5);
+      waveGlow += rippleColor * (max(0.0, rippleWave) * uMouseHover * ringProximity * 0.75);
+    }
+
     // HDR exposure tonemap — natural Schwarzschild shadow and Keplerian accretion disk with zero artificial rings
     vec3 col = bg * trans + (vec3(1.0) - exp(-emitc * EXPOSURE)) + waveGlow;
 
@@ -296,6 +312,8 @@ export default function AcousticBlackHoleCanvas() {
       uTime: { value: 0 },
       uScrollProgress: { value: 0 },
       uVoicePulse: { value: 0 },
+      uMouse: { value: new THREE.Vector2(0, 0) },
+      uMouseHover: { value: 0 },
       uFade: { value: 1 },
       uStars: { value: null },
       uHasStars: { value: 0 },
@@ -303,7 +321,7 @@ export default function AcousticBlackHoleCanvas() {
 
     const textureLoader = new THREE.TextureLoader();
     textureLoader.load(
-      "/space-starfield.jpg",
+      "/space-starfield.webp",
       (tex) => {
         tex.wrapS = THREE.RepeatWrapping;
         tex.wrapT = THREE.ClampToEdgeWrapping;
@@ -335,6 +353,33 @@ export default function AcousticBlackHoleCanvas() {
     };
     window.addEventListener("voxflow:voice-active", onVoice);
 
+    let targetMouseX = 0;
+    let targetMouseY = 0;
+    let currentMouseX = 0;
+    let currentMouseY = 0;
+    let targetHover = 0;
+    let currentHover = 0;
+    let lastMoveTime = 0;
+
+    const onPointerMove = (e: PointerEvent) => {
+      const w = window.innerWidth;
+      const h = window.innerHeight;
+      const aspect = w / Math.max(h, 1.0);
+      const nx = ((e.clientX / w) - 0.5) * aspect;
+      const ny = (0.5 - (e.clientY / h));
+      targetMouseX = nx;
+      targetMouseY = ny;
+
+      const dist = Math.sqrt(nx * nx + ny * ny);
+      if (dist < 0.85) {
+        targetHover = Math.max(0.0, 1.0 - Math.abs(dist - 0.36) / 0.42);
+      } else {
+        targetHover = 0.0;
+      }
+      lastMoveTime = performance.now();
+    };
+    window.addEventListener("pointermove", onPointerMove, { passive: true });
+
     const onResize = () => {
       if (!renderer) return;
       const w = window.innerWidth;
@@ -346,11 +391,33 @@ export default function AcousticBlackHoleCanvas() {
 
     const start = performance.now();
     let animId = 0;
+    let inView = true;
+    let pageVisible = typeof document === "undefined" ? true : !document.hidden;
+
+    // Idle-cost gate: the fullscreen geodesic pass renders only while the hero
+    // is on screen and the tab is visible. Scrolling back resumes seamlessly
+    // because every uniform is re-derived per frame — no state to restore.
+    const maybeStart = () => {
+      if (animId === 0 && inView && pageVisible) frame();
+    };
 
     const frame = () => {
+      animId = 0;
       voicePulse *= 0.95;
-      uniforms.uTime.value = (performance.now() - start) / 1000;
+      const now = performance.now();
+      uniforms.uTime.value = (now - start) / 1000;
       uniforms.uVoicePulse.value = voicePulse;
+
+      // Mouse hover interpolation
+      currentMouseX += (targetMouseX - currentMouseX) * 0.08;
+      currentMouseY += (targetMouseY - currentMouseY) * 0.08;
+      if (now - lastMoveTime > 2500) {
+        targetHover = 0.0;
+      }
+      currentHover += (targetHover - currentHover) * 0.06;
+
+      uniforms.uMouse.value.set(currentMouseX, currentMouseY);
+      uniforms.uMouseHover.value = currentHover;
 
       // Track hero scroll progress custom property
       const rawProgress = parseFloat(
@@ -359,12 +426,39 @@ export default function AcousticBlackHoleCanvas() {
       uniforms.uScrollProgress.value = Math.max(0, Math.min(1, isNaN(rawProgress) ? 0 : rawProgress));
 
       if (renderer) renderer.render(scene, camera);
-      animId = requestAnimationFrame(frame);
+      if (inView && pageVisible) animId = requestAnimationFrame(frame);
     };
     frame();
 
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        inView = entry.isIntersecting;
+        if (inView) maybeStart();
+        else if (animId) {
+          cancelAnimationFrame(animId);
+          animId = 0;
+        }
+      },
+      { threshold: 0 }
+    );
+    observer.observe(container);
+
+    const onPageVisibility = () => {
+      pageVisible = !document.hidden;
+      if (pageVisible) maybeStart();
+      else if (animId) {
+        cancelAnimationFrame(animId);
+        animId = 0;
+      }
+    };
+    document.addEventListener("visibilitychange", onPageVisibility);
+
     return () => {
       cancelAnimationFrame(animId);
+      animId = 0;
+      observer.disconnect();
+      document.removeEventListener("visibilitychange", onPageVisibility);
+      window.removeEventListener("pointermove", onPointerMove);
       window.removeEventListener("voxflow:voice-active", onVoice);
       window.removeEventListener("resize", onResize);
       if (renderer && renderer.domElement && renderer.domElement.parentElement) {
