@@ -21,7 +21,7 @@ Do not claim SOC 2 Type II unless a report URL is in this file (none yet — omi
 Do not claim 10x ROI without the calculator. Fake testimonials forbidden.
 
 Section order (once, numbered 01–08):
-01 Hero (hole + letter-stagger + Hear it live / Fix one workflow)
+01 Hero (5-keyframe cosmic journey: black hole → starfield → solar system → telescope → Earth arrival; Earth freezes as sticky plate behind headline + Live Operations Console; KF1 retains WebGL `AcousticBlackHoleCanvas` with still poster fallback; KF2–KF5 are AI stills via Higgsfield `nano_banana_pro`; 3 journey lines replace old punchlines; `prefers-reduced-motion` + mobile resolve to static Earth)
 02 Problem (conversation black hole / IVR = clipboard)
 03 Dual path (one line vs depot network)
 04 Voice X-ray (keep, promote — unique widget)
@@ -30,9 +30,7 @@ Section order (once, numbered 01–08):
 07 Proof (named quote only, or none) + pricing teaser
 08 FAQ + contact + footer
 
-Motion: hole reacts to scroll; one pinned scene (x-ray OR 3 hops, not both);
-prefers-reduced-motion = static hole, no SplitText.
-Mobile = different choreography, not squashed desktop.
+Motion: 500vh pinned hero, GSAP ScrollTrigger scrub drives `--hero-progress` (0→1); cosmic journey reads same bus via CSS `calc(clamp(...))` — no canvas scrubbing, no IntersectionObserver, no new Three.js; journey lines fade + 18px rise; KF4 streak sweep (CSS gradients); `prefers-reduced-motion` = static Earth plate, no sequence; Mobile = static Earth plate (max-width: 1023px disables pin choreography)
 
 Conversion: /sign-up must render a form, not Loading…
 Hero must have CTAs. Homepage pricing shows starting £ + 500 free min.

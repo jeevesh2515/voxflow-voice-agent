@@ -13,10 +13,11 @@
 
 <p align="center">
   <img src="https://img.shields.io/badge/CI%2FCD-100%25%20PASSING-success?style=for-the-badge&logo=githubactions&logoColor=white&labelColor=111827" alt="CI Status" />
-  <img src="https://img.shields.io/badge/TESTS-507%20PASSED-10B981?style=for-the-badge&logo=pytest&logoColor=white&labelColor=111827" alt="507 Pytest Tests Passed" />
+  <img src="https://img.shields.io/badge/TESTS-508%20PASSED-10B981?style=for-the-badge&logo=pytest&logoColor=white&labelColor=111827" alt="508 Pytest Tests Passed" />
   <img src="https://img.shields.io/badge/FRONTEND-29%20ROUTES-6366F1?style=for-the-badge&logo=nextdotjs&logoColor=white&labelColor=111827" alt="29 Next.js Routes" />
   <img src="https://img.shields.io/badge/VOICE-ENGLISH%20%28UK%29%20%2B%20HINDI-F97316?style=for-the-badge&labelColor=111827" alt="English (UK) + Hindi Multilingual" />
   <img src="https://img.shields.io/badge/HERO-5%20KEYFRAME%20JOURNEY-8B5CF6?style=for-the-badge&logo=vercel&logoColor=white&labelColor=111827" alt="5-Keyframe Cosmic Journey" />
+  <img src="https://img.shields.io/badge/GROUNDING-ZERO--HALLUCINATION%20RAG-0F766E?style=for-the-badge&logo=shield&logoColor=white&labelColor=111827" alt="Zero-Hallucination Grounding" />
 </p>
 
 <p align="center">
@@ -285,7 +286,7 @@ flowchart LR
 - **Secure Caller Verification**: Standard and enhanced policies combine knowledge verification with owner-configured 4–8 digit PINs stored as uniquely salted PBKDF2-HMAC-SHA256 verifiers, plus a persistent cross-session lockout that stops brute-force guessing across many separate calls, not just within one.
 - **Owner-Only Telephony Control Plane**: `/dashboard/settings` manages provider, route language, verification mode, activation state, and masked caller-PIN posture without displaying secrets or hashes.
 - **Session-Gated Self-Serve Signup**: Workspace provisioning only completes after a live authenticated session is confirmed, so a new sign-up can never be silently stranded owning an unclaimable placeholder-owned tenant.
-- **Full Operational Dashboard**: 25 compiled Next.js routes covering Calls, Escalations, Appointments, Inventory, Shipments, Data Hub & CSV, Campaigns, Settings, and Web-based Call Simulators.
+- **Full Operational Dashboard**: 29 compiled Next.js routes covering Calls, Escalations, Appointments, Inventory, Shipments, Data Hub & CSV, Campaigns, Settings, Observability, Privacy & GDPR, Readiness Scorecard, and Web-based Call Simulators.
 
 ### 5. 🛡️ Voice Eval Harness & Release Gate #5
 Every code change is validated against a repeatable, CI-integrated evaluation harness before deployment — so you can answer *"How do you know it won't say the wrong thing to my customer?"* with documented evidence.
@@ -305,6 +306,14 @@ Enterprise buyers require categorical proof that cross-tenant access is impossib
   - **Operator (Staff)**: Full operational data CRUD (orders, suppliers, stock, shipments, appointments, communications), bulk CSV imports, and closed-loop escalation triage/resolution. Blocked with 403 from administrative settings, DIDs, and team management.
   - **Viewer**: Read-only visibility across analytics, calls, inventory, and escalations. All mutations (POST, PUT, PATCH, DELETE) are strictly blocked with 403 Forbidden.
 - **Interactive Team Management UI**: `/dashboard/settings` features an active member roster, role badges, invitation modal, role change dropdowns, and an interactive Role Permissions Matrix.
+
+### 7. 🧠 Deterministic Structured Tool RAG & Zero-Hallucination Shield (Day 56)
+Supply-chain voice operations cannot tolerate hallucinated order quantities, arrival dates, or inventory bins. VoxFlow replaces fragile vector similarity chunking with **Deterministic Structured Tool RAG**:
+
+- **Zero Invention Negative Grounding**: When database tools return `found: false`, `records: []`, or `null`, the voice agent is strictly forbidden from guessing and must state plainly: *"I do not have a record for [X] in our system"*, immediately offering human escalation.
+- **Ambiguity Disambiguation**: When callers make broad inquiries (*"Where is our order?"*), the agent presents the exact matching PO references and asks the caller to clarify rather than picking an arbitrary record.
+- **Deterministic Temperature Clamping (`temperature=0.1`)**: Reasoning and function calling turns are clamped to `0.1` to eliminate stochastic generation drift.
+- **Live Company Knowledge & Guidelines Grounding**: Operating hours, loading bay gate rules, holiday schedules, and connected Google Sheets tabs configured in `/dashboard/settings` are dynamically injected into system context turns.
 
 ```bash
 # Run the eval harness locally (mock LLM, zero cost)
@@ -378,23 +387,24 @@ npm run dev
 Run all automated test suites locally:
 
 ```bash
-# 1. Run full backend test suite (402 unit, integration, isolation & RBAC tests)
+# 1. Run full backend test suite (508 unit, integration, isolation & RBAC tests)
 cd apps/api
 .venv/bin/python -m pytest -q
 
 # 2. Run focused 0-leak tenant isolation & RBAC matrix test suites
 .venv/bin/python -m pytest tests/test_tenant_isolation_zero_leak.py tests/test_rbac_matrix.py -v
 
-# 3. Run backend linter
+# 3. Run backend linter & type checks
 .venv/bin/ruff check voxflow_api tests
 
 # 4. Run Voice Eval Harness (30 scenarios, hard gate enforcement)
 python3 scripts/run_evals.py --mock --strict
 
-# 5. Run frontend lint, typecheck, and production build (25 routes)
+# 5. Run frontend lint, ROI / latency tests, and production build (29 routes)
 cd ../web
+npx tsx src/lib/roi.test.ts
+npx tsx src/lib/voiceXray.test.ts
 npm run lint
-npx tsc --noEmit
 npm run build
 ```
 

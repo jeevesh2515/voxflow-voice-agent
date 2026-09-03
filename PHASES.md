@@ -24,7 +24,7 @@
 
 > For the comprehensive, day-by-day implementation log from Day 1 to current, see [`DAY_TRACKER.md`](DAY_TRACKER.md).
 
-## Current SaaS polish sequence: Days 44–48
+## Current SaaS polish & landing sequence: Days 44–55
 
 | Day | Status | Verified outcome |
 |---:|---|---|
@@ -32,7 +32,14 @@
 | 45 | Complete | Tenant-scoped streaming CSV validation/import across five operational entities. |
 | 46 | Complete | Exact Amazon Connect DID routing, owner-only telephony APIs, PBKDF2 caller PINs with persistent cross-session lockout, redaction, session-gated self-serve signup, and settings UI; 351 tests and 25-route build pass. |
 | 47 | Complete | Per-tenant prompt, persona (4 styles), business-hours with timezone awareness, and fallback escalation settings with owner-only mutation; 370 tests and 25-route build pass. |
-| 48 | Next | Closed-loop escalation ownership, SLA, and operator resolution workflow. |
+| 48 | Complete | Closed-loop escalation ownership, SLA, and operator resolution workflow. |
+| 49 | Complete | Voice eval harness (30 scenarios × 7 categories), hard gate 100% enforced, CI/CD eval gate `--strict` mode. |
+| 50 | Complete | Tenant RBAC (Owner/Operator/Viewer), strict server-authoritative role gating, last-owner protection. |
+| 51 | Complete | Observability & alerting (6-endpoint surface, alert thresholds + durable dispatch, PII-scrubbed Sentry/PostHog, dark dashboard). |
+| 52 | Complete | Security & data lifecycle (DSAR export/erasure, automated cron purge, audit log, UK GDPR Gate #4). |
+| 53 | Complete | Stripe Billing (Gate #6): 3 plans (Starter £49 / Growth £149 / Enterprise £399), fail-closed webhooks, idempotent invoices, owner-only checkout/portal. |
+| 54 | Complete | Go-Live Preflight 7-pillar gate (`golive_dry_run.py --strict`: migrations, isolation, telephony, billing, eval, GDPR, build). |
+| 55 | Complete | Cosmic Journey hero: 5-keyframe scroll narrative, sticky Earth plate, 556KB, 8/10 Higgsfield credits, 507 tests, 29 routes. |
 
 ## Historical foundation: Days 1–24
 
