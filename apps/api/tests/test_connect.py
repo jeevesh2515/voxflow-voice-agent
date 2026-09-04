@@ -76,9 +76,26 @@ def test_connect_turn_execution(client):
     assert "agent_reply" in data
     assert isinstance(data["escalate"], bool)
     assert isinstance(data["end_call"], bool)
+    assert data["consent_granted"] is True
     assert "latency_ms" in data
     assert isinstance(data["latency_ms"], float)
     assert data["latency_ms"] >= 0.0
+
+
+def test_connect_turn_consent_refusal(client):
+    payload = {
+        "contact_id": "cnt-refusal-1",
+        "customer_phone": "+919876543210",
+        "system_phone": _CONNECT_DID,
+        "user_text": "No, do not record my voice.",
+        "turn": "1",
+        "language": "en",
+    }
+    response = client.post("/api/connect/turn", json=payload)
+
+    assert response.status_code == 200
+    data = response.json()
+    assert data["consent_granted"] is False
 
 
 def test_connect_turn_with_body_bound_signature(monkeypatch, client):

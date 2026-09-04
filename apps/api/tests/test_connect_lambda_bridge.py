@@ -88,6 +88,17 @@ def test_lex_transcript_is_forwarded_to_the_api(bridge, captured):
     # Connect compares these against the string "true"/"false" in the flow.
     assert result["escalate"] == "false"
     assert result["end_call"] == "false"
+    assert result["consent_granted"] == "true"
+    assert result["voxflow_turn"] == "2"
+
+
+def test_consent_refusal_returns_consent_granted_false(bridge, captured):
+    """Explicit caller refusal on Turn 1 must return consent_granted='false'."""
+    spoken = "No, do not record this call."
+    result = bridge.lambda_handler(_event(spoken, turn="1"), None)
+
+    assert result["consent_granted"] == "false"
+    assert result["voxflow_turn"] == "2"
 
 
 def test_blank_transcript_reprompts_without_calling_the_api(bridge, captured):
@@ -97,6 +108,8 @@ def test_blank_transcript_reprompts_without_calling_the_api(bridge, captured):
     assert captured == [], "a blank transcript must not reach the agent"
     assert result["end_call"] == "false", "a blank turn must not hang up on the caller"
     assert result["escalate"] == "false"
+    assert result["consent_granted"] == "false"
+    assert result["voxflow_turn"] == "2"
     assert "help" in result["agent_reply"].lower()
 
 
@@ -106,6 +119,7 @@ def test_whitespace_only_transcript_is_treated_as_blank(bridge, captured):
 
     assert captured == []
     assert result["end_call"] == "false"
+    assert result["consent_granted"] == "false"
 
 
 # ------------------------------------------------------------ UK-English market

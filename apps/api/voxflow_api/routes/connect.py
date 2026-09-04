@@ -34,6 +34,7 @@ class ConnectTurnRequest(BaseModel):
     customer_phone: str = ""
     system_phone: str = ""
     user_text: str
+    turn: Optional[str] = None
     language: Optional[str] = None
 
 
@@ -43,6 +44,7 @@ class ConnectTurnResponse(BaseModel):
     language: str
     escalate: bool = False
     end_call: bool = False
+    consent_granted: bool = True
     actions: list[dict[str, Any]] = []
     latency_ms: Optional[float] = None
 
@@ -201,6 +203,14 @@ async def connect_turn(
 
         should_end = session.resolution_status != "" or session.outcome not in ("in_progress", "")
 
+    consent_granted = True
+    if not user_text:
+        consent_granted = False
+    elif req.turn in ("1", "0", None) and any(
+        neg in user_text.lower() for neg in ["do not record", "don't record", "no recording", "stop recording", "opt out", "refuse"]
+    ):
+        consent_granted = False
+
     latency_ms = round((time.perf_counter() - start_time) * 1000, 2)
     session.turn_latencies.append(latency_ms)
 
@@ -218,6 +228,7 @@ async def connect_turn(
         language=session.language,
         escalate=session.escalated,
         end_call=should_end,
+        consent_granted=consent_granted,
         actions=actions,
         latency_ms=latency_ms,
     )
