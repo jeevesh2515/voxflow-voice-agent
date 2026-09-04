@@ -62,7 +62,7 @@ def test_gated_preserves_ordering():
 @pytest.mark.asyncio
 async def test_parallel_reads_gather():
     """Two stock reads in one turn are gathered, not serialized."""
-    import asyncio, time
+    import time
     from voxflow_api.agent.runner import AgentRunner
     from voxflow_api.voice.pipeline import VoicePipeline
     from voxflow_api.schemas import CallTurn

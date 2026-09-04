@@ -10,14 +10,12 @@ Verifies:
 
 from __future__ import annotations
 
-import asyncio
-from typing import Any
 import pytest
 import respx
 import httpx
 
 from voxflow_api.config import get_settings
-from voxflow_api.llm.base import ChatTurn, LLMResponse
+from voxflow_api.llm.base import ChatTurn
 from voxflow_api.llm.factory import get_llm, reset_llm_provider
 from voxflow_api.llm.groq import GroqProvider
 

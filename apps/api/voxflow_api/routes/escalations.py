@@ -3,7 +3,7 @@ from __future__ import annotations
 
 from typing import Any
 from pydantic import BaseModel, Field
-from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
+from fastapi import APIRouter, HTTPException, Query, Request, status
 
 from ..auth import (
     ROLE_OPERATOR,
@@ -17,7 +17,6 @@ from ..schemas import CallOut
 from ..services.escalation_service import (
     VALID_PRIORITIES,
     VALID_RESOLUTION_CATEGORIES,
-    VALID_STATUSES,
     assign_escalation,
     get_escalation_kpis,
     list_escalations,

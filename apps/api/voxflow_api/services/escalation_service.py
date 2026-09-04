@@ -3,7 +3,6 @@ from __future__ import annotations
 
 from datetime import datetime, timedelta, timezone
 from typing import Any
-import json
 from sqlalchemy import desc, func, or_, select
 from sqlalchemy.orm import Session
 
@@ -169,7 +168,6 @@ def get_escalation_kpis(db: Session, tenant_id: str) -> dict[str, Any]:
         elif status == "dismissed":
             dismissed_count += 1
 
-    total_closed = resolved_count + dismissed_count
     sla_compliance_rate = 100.0
     if resolved_count > 0:
         sla_compliance_rate = round((sla_met_count / resolved_count) * 100.0, 1)

@@ -288,7 +288,7 @@ def update_member_role(
     """Update a member's role safely while protecting the last active owner."""
 
     _require_tenant(db, tenant_id)
-    actor = require_tenant_role(request, db, tenant_id=tenant_id, allowed_roles={ROLE_OWNER})
+    require_tenant_role(request, db, tenant_id=tenant_id, allowed_roles={ROLE_OWNER})
     member = active_membership(db, tenant_id=tenant_id, user_id=user_id)
     if member is None:
         raise HTTPException(status_code=404, detail="active_membership_not_found")

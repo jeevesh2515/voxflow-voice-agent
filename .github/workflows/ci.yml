@@ -47,7 +47,8 @@ jobs:
           . .venv/bin/activate
           pytest -q
         env:
-          LLM_PROVIDER: ollama
+          LLM_PROVIDER: groq
+          GROQ_API_KEY: ci-test-key-offline
           DATABASE_URL: sqlite:///./test.db
 
   web-lint:

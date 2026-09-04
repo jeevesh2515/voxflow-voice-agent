@@ -9,7 +9,7 @@ from __future__ import annotations
 from datetime import datetime, timezone
 import re
 from typing import Any
-from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
+from fastapi import APIRouter, Depends, HTTPException, Request, status
 from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 

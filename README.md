@@ -339,10 +339,84 @@ git clone https://github.com/jeevesh2515/voxflow-voice-agent.git
 cd voxflow-voice-agent
 ```
 
-### 2. Configure Environment Variables
+### 2. Configure Environment Variables (`.env`)
+
+VoxFlow runs on a **100% Hosted, Zero-Local-Footprint Cloud Stack** with **$0 developer free-tier services**. Copy the example template to `.env` and fill in your free API keys:
+
 ```bash
 cp .env.example .env
-# Edit .env with your LLM keys, database credentials, Stripe meter settings, and Connect settings
+```
+
+#### Free-Tier Cloud Model Selection:
+- **LLM Brain**: [GroqCloud Developer Console](https://console.groq.com) (Free Tier)
+  - `GROQ_MODEL=openai/gpt-oss-20b` (Primary: ~199ms TTFT, hardware-accelerated tool calling)
+  - `GROQ_FALLBACK_MODELS=openai/gpt-oss-120b,qwen/qwen3.8-27b` (Automated multi-model rate-limit fallback cascade)
+- **Speech-to-Text (STT)**: Hosted Groq Whisper (`whisper-large-v3-turbo`)
+- **Text-to-Speech (TTS)**: Microsoft Edge Neural Cloud (`en-GB-SoniaNeural`, `hi-IN-SwaraNeural`)
+- **Database**: [Supabase Cloud PostgreSQL](https://supabase.com) (Free Tier)
+- **Telephony**: [Amazon Connect UK](https://aws.amazon.com/connect/) (AWS Free Tier - 90 min/mo) or In-Browser Phone Simulator
+
+#### Sanitized `.env` Template Example:
+```bash
+# ---------------------------------------------------------------------
+# 1. LLM — Groq Cloud (Free Tier: https://console.groq.com)
+# ---------------------------------------------------------------------
+LLM_PROVIDER=groq
+GROQ_API_KEY=gsk_your_groq_api_key_here
+GROQ_MODEL=openai/gpt-oss-20b
+GROQ_FALLBACK_MODEL=openai/gpt-oss-120b
+GROQ_FALLBACK_MODELS=openai/gpt-oss-120b,qwen/qwen3.8-27b
+
+LLM_TEMPERATURE=0.2
+LLM_MAX_TOKENS=512
+
+# ---------------------------------------------------------------------
+# 2. Speech-to-Text — Groq Hosted Whisper (Free Tier)
+# ---------------------------------------------------------------------
+STT_PROVIDER=groq
+GROQ_STT_MODEL=whisper-large-v3-turbo
+
+# ---------------------------------------------------------------------
+# 3. Text-to-Speech — Microsoft Edge Cloud (Free, No Key Required)
+# ---------------------------------------------------------------------
+TTS_VOICE_HI=hi-IN-SwaraNeural
+TTS_VOICE_EN=en-GB-SoniaNeural
+TTS_DEFAULT_LANG=en
+
+# ---------------------------------------------------------------------
+# 4. Database — Supabase Managed Postgres (Free Tier)
+# ---------------------------------------------------------------------
+# Use the IPv4 Session Pooler (port 5432) from Supabase Dashboard:
+DATABASE_URL=postgresql://postgres.YOUR_PROJECT_REF:YOUR_PASSWORD@aws-0-eu-west-1.pooler.supabase.com:5432/postgres
+SUPABASE_URL=https://YOUR_PROJECT_REF.supabase.co
+SUPABASE_ANON_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
+SUPABASE_PUBLISHABLE_KEY=sb_publishable_...
+SUPABASE_SERVICE_ROLE_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
+SUPABASE_JWKS_URL=https://YOUR_PROJECT_REF.supabase.co/auth/v1/.well-known/jwks.json
+
+# ---------------------------------------------------------------------
+# 5. Telephony — Amazon Connect UK (AWS eu-west-2)
+# ---------------------------------------------------------------------
+TELEPHONY_PROVIDER=connect
+CONNECT_LAMBDA_SECRET=your_shared_hmac_secret
+CONNECT_INSTANCE_ID=voxflow-agent
+CONNECT_PHONE_NUMBER=+4420XXXXXXXX
+CONNECT_REGION=eu-west-2
+DEFAULT_TENANT_ID=varun
+
+# ---------------------------------------------------------------------
+# 6. Google Sheets Call Mirror (Optional Free Integration)
+# ---------------------------------------------------------------------
+SHEETS_ENABLED=true
+GOOGLE_SERVICE_ACCOUNT_JSON='{"type": "service_account", "project_id": "your-project", "private_key": "-----BEGIN PRIVATE KEY-----\nMIIE...\n-----END PRIVATE KEY-----\n", "client_email": "sa@your-project.iam.gserviceaccount.com"}'
+
+# ---------------------------------------------------------------------
+# 7. Stripe Metered Billing (Optional - Sandbox Mode by Default)
+# ---------------------------------------------------------------------
+STRIPE_SECRET_KEY=
+STRIPE_PUBLISHABLE_KEY=
+STRIPE_WEBHOOK_SECRET=
+STRIPE_METER_EVENT_NAME=voxflow_voice_minutes
 ```
 
 ### 3. Start the Backend API
@@ -352,7 +426,7 @@ python3 -m venv .venv
 source .venv/bin/activate
 pip install -r requirements.txt
 
-# Run initial seed migrations
+# Run initial database bootstrap & seed
 python -m voxflow_api.seed --reset
 
 # Run backend server
@@ -374,7 +448,7 @@ npm run dev
 Run all automated test suites locally:
 
 ```bash
-# 1. Run full backend test suite (539 unit, integration, isolation, metering & RBAC tests)
+# 1. Run full backend test suite (550 unit, integration, isolation, metering & RBAC tests)
 cd apps/api
 .venv/bin/python -m pytest -q
 

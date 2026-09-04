@@ -10,16 +10,15 @@ Provides automated offline & CI evaluation for the VoxFlow Voice Agent:
 from __future__ import annotations
 
 import json
-import os
 import time
 from dataclasses import asdict, dataclass, field
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
 import numpy as np
 
 from ..agent.runner import AgentRunner
-from ..db import init_db
 from ..llm.base import LLMProvider
 from ..logging import get_logger
 from ..voice.pipeline import CallSession
@@ -148,8 +147,6 @@ def load_scenarios(
 
     return scenarios
 
-
-from datetime import datetime, timezone
 
 async def evaluate_turn(
     runner: AgentRunner,

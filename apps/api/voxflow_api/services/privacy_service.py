@@ -7,7 +7,7 @@ from typing import Any
 
 from sqlalchemy.orm import Session
 
-from ..db import Call, CommunicationLog, Supplier, Tenant
+from ..db import Call, CommunicationLog, Supplier
 
 # ponytail: stdlib masking, no external lib
 

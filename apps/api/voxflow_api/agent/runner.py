@@ -28,7 +28,7 @@ from ..llm.base import ChatTurn, LLMProvider
 from ..logging import get_logger
 from ..services.pin_security import redact_pin_data, redact_pin_text, redact_tool_calls_for_trace
 from .prompts import build_system_prompt, build_tenant_prompt
-from .tools import TOOL_DEFINITIONS, execute_tool, gated_tool_count, tool_definitions_for
+from .tools import execute_tool, gated_tool_count, tool_definitions_for
 
 try:
     from langsmith import traceable

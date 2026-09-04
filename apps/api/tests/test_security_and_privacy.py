@@ -3,7 +3,6 @@ from __future__ import annotations
 
 from datetime import datetime, timedelta, timezone
 import json
-import pytest
 from fastapi.testclient import TestClient
 
 from voxflow_api.auth import (
@@ -18,7 +17,6 @@ from voxflow_api.config import get_settings
 from voxflow_api.db import (
     Call,
     CommunicationLog,
-    SessionLocal,
     Supplier,
     Tenant,
     TenantMember,

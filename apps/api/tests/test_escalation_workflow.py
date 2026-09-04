@@ -12,10 +12,9 @@ from voxflow_api.main import create_app
 from voxflow_api.services.escalation_service import (
     compute_sla_due_at,
     derive_escalation_priority,
-    get_escalation_kpis,
     init_call_escalation,
 )
-from voxflow_api.auth import AuthUser, normalized_email_hash
+from voxflow_api.auth import normalized_email_hash
 
 
 IDENTITIES = {

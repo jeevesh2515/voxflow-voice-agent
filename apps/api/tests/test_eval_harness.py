@@ -2,9 +2,7 @@
 
 from __future__ import annotations
 
-import json
 from typing import Any
-from unittest.mock import AsyncMock, patch
 
 import pytest
 from fastapi.testclient import TestClient
@@ -13,12 +11,10 @@ from voxflow_api.agent.runner import AgentRunner
 from voxflow_api.llm.base import LLMProvider, LLMResponse
 from voxflow_api.main import create_app
 from voxflow_api.services.eval_service import (
-    ReleaseThresholds,
     load_scenarios,
     run_scenario,
     run_voice_eval,
 )
-from voxflow_api.voice.pipeline import CallSession
 
 
 class MockLLM(LLMProvider):
