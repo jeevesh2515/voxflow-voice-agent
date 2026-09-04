@@ -100,9 +100,9 @@ export default function Footer() {
               <li>
                 <Link
                   className="text-sm sm:text-base text-white/60 hover:text-[#5EEAD4] transition-colors"
-                  href="/about"
+                  href="/contact"
                 >
-                  Careers
+                  Contact &amp; Support
                 </Link>
               </li>
             </ul>
