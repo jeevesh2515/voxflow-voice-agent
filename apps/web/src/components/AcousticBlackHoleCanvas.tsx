@@ -2,6 +2,7 @@
 
 import { useEffect, useRef } from "react";
 import * as THREE from "three";
+import { heroProgress } from "@/lib/hero-progress";
 
 /**
  * Geodesic-traced Schwarzschild black hole with on-scroll spatial waves.
@@ -16,7 +17,8 @@ import * as THREE from "three";
  * - Shakura-Sunyaev Keplerian accretion disk with edge-on inclination (arcs over & under)
  * - Relativistic Doppler boosting & gravitational redshift
  * - Tanner-Helland blackbody temperature radiance (5500K -> 2400K)
- * - On-scroll spatial acoustic shockwaves and camera recession into deep cosmos
+ * - 2.5cm calibrated interactive mouse gravitational lens & energetic disc excitation
+ * - Continuous on-scroll acoustic shockwaves and camera recession
  * - Audio-reactive pulse modulation during voice persona playback
  */
 
@@ -122,17 +124,18 @@ const FRAG = /* glsl */ `
     vec2 p = (vUv - vec2(0.5, 0.5)) * vec2(aspect, 1.0);
     float plen = length(p);
 
-    // Highly localized 1.0 - 1.5 cm diameter mouse gravitational interaction
+    // Calibrated 2.5 cm diameter interactive mouse gravitational influence zone (~95-105px)
     vec2 mDelta = p - uMouse;
     float mDist = length(mDelta);
     float progress = clamp(uScrollProgress, 0.0, 1.0);
     
-    // Tight 1.5cm localized radius (~0.065 normalized aspect units)
-    float mRadius = 0.065;
-    float mouseEffect = smoothstep(mRadius, 0.0, mDist) * uMouseActive * (1.0 - progress * 0.95);
+    // 2.5cm localized radius (~0.11 normalized units in vertical screen space)
+    float mRadius = clamp(52.0 / max(uResolution.y, 1.0), 0.09, 0.13);
+    float mouseFalloff = smoothstep(mRadius, 0.0, mDist);
+    float mouseEffect = mouseFalloff * uMouseActive * (1.0 - progress * 0.95);
     
-    // Subtle, high-detail relativistic micro-lensing (strictly within 1.5cm)
-    vec2 lensWarp = (mDist > 0.001) ? normalize(mDelta) * (mouseEffect * 0.022 * sin(mDist * 60.0 - uTime * 4.0)) : vec2(0.0);
+    // Smooth, realistic Einstein-ring micro-deflection (confined to 2.5cm zone)
+    vec2 lensWarp = (mDist > 0.0005) ? normalize(mDelta) * (mouseEffect * 0.038 * (1.0 - mDist / mRadius)) : vec2(0.0);
     vec2 warpedP = p - lensWarp;
 
     // On-scroll camera recession: black hole smoothly recedes into deep space
@@ -151,8 +154,8 @@ const FRAG = /* glsl */ `
     vec3 v = vec3(0.0, 0.0, -1.0);
     float h2 = dot(pr, pr);
 
-    // Pristine authentic accretion disk geometry with localized micro-tilt under cursor
-    float dynamicIncl = DISK_INCL + (-uMouse.y * 0.04) * mouseEffect;
+    // Pristine authentic accretion disk geometry with localized 3D flex under cursor
+    float dynamicIncl = DISK_INCL + (-uMouse.y * 0.06) * mouseEffect;
     float ci = cos(dynamicIncl), si = sin(dynamicIncl);
     vec3 n = vec3(0.0, si, ci);
     vec3 e2 = vec3(0.0, ci, -si);
@@ -219,11 +222,11 @@ const FRAG = /* glsl */ `
 
           // Interactive energetic photon excitation around accretion ring near cursor
           float diskMouseDist = length(xc.xy - uMouse * 8.5);
-          float mouseSpark = exp(-diskMouseDist * 0.35) * mouseEffect;
+          float mouseSpark = exp(-diskMouseDist * 0.45) * mouseEffect;
 
           float density = band * streaks;
           emitc += trans * cbb * (DISK_GAIN * 2.2 * density * tprof * tprof * boost * voiceMod);
-          emitc += trans * vec3(0.25, 0.92, 1.0) * (mouseSpark * 1.8 * boost);
+          emitc += trans * vec3(0.35, 0.95, 1.0) * (mouseSpark * 2.2 * boost);
           trans *= 1.0 - clamp(DISK_OPACITY * density, 0.0, 1.0);
         }
       }
@@ -272,10 +275,10 @@ const FRAG = /* glsl */ `
       }
     }
 
-    // HDR exposure tonemap — natural Schwarzschild shadow and Keplerian accretion disk with zero artificial rings
+    // HDR exposure tonemap — natural Schwarzschild shadow and Keplerian accretion disk
     vec3 col = bg * trans + (vec3(1.0) - exp(-emitc * EXPOSURE)) + waveGlow;
 
-    // Seamless radial vignette falloff into deep cosmic space (zero rectangular boundaries)
+    // Seamless radial vignette falloff into deep cosmic space
     float edgeBlend = smoothstep(1.45, 0.65, plen);
     col *= edgeBlend;
 
@@ -389,70 +392,92 @@ export default function AcousticBlackHoleCanvas() {
     window.addEventListener("pointermove", onPointerMove, { passive: true });
     window.addEventListener("pointerleave", onPointerLeave);
 
-    const start = performance.now();
+    let lastTime = performance.now();
+    let totalTime = 0;
     let animId = 0;
     let inView = true;
     let pageVisible = typeof document === "undefined" ? true : !document.hidden;
 
-    // Idle-cost gate: the fullscreen geodesic pass renders only while the hero
-    // is on screen and the tab is visible. Scrolling back resumes seamlessly
-    // because every uniform is re-derived per frame — no state to restore.
+    // Resilient frame starter: ensures RAF runs continuously whenever hero is on screen
     const maybeStart = () => {
-      if (animId === 0 && inView && pageVisible) frame();
+      if (animId === 0 && inView && pageVisible) {
+        lastTime = performance.now();
+        frame();
+      }
     };
 
     const frame = () => {
       animId = 0;
+      const now = performance.now();
+      const dt = Math.min((now - lastTime) / 1000, 0.1);
+      lastTime = now;
+      totalTime += dt;
+
       voicePulse *= 0.95;
-      uniforms.uTime.value = (performance.now() - start) / 1000;
+      uniforms.uTime.value = totalTime;
       uniforms.uVoicePulse.value = voicePulse;
 
       // Smooth mouse coordinates interpolation
-      currentMouseX += (targetMouseX - currentMouseX) * 0.08;
-      currentMouseY += (targetMouseY - currentMouseY) * 0.08;
-      currentMouseActive += (targetMouseActive - currentMouseActive) * 0.06;
+      currentMouseX += (targetMouseX - currentMouseX) * 0.12;
+      currentMouseY += (targetMouseY - currentMouseY) * 0.12;
+      currentMouseActive += (targetMouseActive - currentMouseActive) * 0.08;
       uniforms.uMouse.value.set(currentMouseX, currentMouseY);
       uniforms.uMouseActive.value = currentMouseActive;
 
-      // Track hero scroll progress custom property
-      const rawProgress = parseFloat(
-        document.documentElement.style.getPropertyValue("--hero-progress") || "0"
-      );
-      uniforms.uScrollProgress.value = Math.max(0, Math.min(1, isNaN(rawProgress) ? 0 : rawProgress));
+      // Direct, instantaneous sample of heroProgress ref
+      const progress = Math.max(0, Math.min(1, heroProgress.value || 0));
+      uniforms.uScrollProgress.value = progress;
 
       if (renderer) renderer.render(scene, camera);
       if (inView && pageVisible) animId = requestAnimationFrame(frame);
     };
     frame();
 
+    // Observe the main hero section to guarantee accurate viewport visibility
+    const stageEl = document.getElementById("hero-stage") || container;
     const observer = new IntersectionObserver(
       ([entry]) => {
         inView = entry.isIntersecting;
-        if (inView) maybeStart();
-        else if (animId) {
+        if (inView) {
+          maybeStart();
+        } else if (animId) {
           cancelAnimationFrame(animId);
           animId = 0;
         }
       },
-      { threshold: 0 }
+      { threshold: 0, rootMargin: "200px 0px" }
     );
-    observer.observe(container);
+    observer.observe(stageEl);
+
+    // Also listen to scroll to ensure scrolling back to the top restarts instantly
+    const onScroll = () => {
+      if (window.scrollY < window.innerHeight * 2) {
+        inView = true;
+        maybeStart();
+      }
+    };
+    window.addEventListener("scroll", onScroll, { passive: true });
 
     const onPageVisibility = () => {
       pageVisible = !document.hidden;
-      if (pageVisible) maybeStart();
-      else if (animId) {
+      if (pageVisible) {
+        lastTime = performance.now();
+        maybeStart();
+      } else if (animId) {
         cancelAnimationFrame(animId);
         animId = 0;
       }
     };
     document.addEventListener("visibilitychange", onPageVisibility);
+    window.addEventListener("focus", onPageVisibility);
 
     return () => {
       cancelAnimationFrame(animId);
       animId = 0;
       observer.disconnect();
+      window.removeEventListener("scroll", onScroll);
       document.removeEventListener("visibilitychange", onPageVisibility);
+      window.removeEventListener("focus", onPageVisibility);
       window.removeEventListener("pointermove", onPointerMove);
       window.removeEventListener("pointerleave", onPointerLeave);
       window.removeEventListener("voxflow:voice-active", onVoice);
@@ -474,3 +499,4 @@ export default function AcousticBlackHoleCanvas() {
     />
   );
 }
+

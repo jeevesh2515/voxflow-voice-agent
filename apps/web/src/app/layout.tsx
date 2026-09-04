@@ -2,7 +2,6 @@ import type { Metadata } from "next";
 import Nav from "@/components/Nav";
 import Footer from "@/components/Footer";
 import SmoothScroll from "@/components/SmoothScroll";
-import AcousticBlackHoleCanvas from "@/components/AcousticBlackHoleCanvas";
 import { ThemeProvider } from "@/lib/theme-context";
 import { AuthProvider } from "@/lib/auth-context";
 import "./globals.css";
@@ -51,7 +50,6 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <ThemeProvider>
           <AuthProvider>
             <SmoothScroll />
-            <AcousticBlackHoleCanvas />
             <Nav />
             <main className="flex-1 relative z-10">{children}</main>
             <Footer />
