@@ -25,7 +25,7 @@ sys.path.insert(0, str(REPO_ROOT))
 # Deterministic, fully offline test configuration. Each pytest process receives
 # a fresh database so schema state cannot leak between runs or working folders.
 TEST_DATA_DIR = Path(tempfile.mkdtemp(prefix="voxflow-test-data-"))
-os.environ["LLM_PROVIDER"] = "ollama"
+os.environ["LLM_PROVIDER"] = "groq"
 os.environ["DATABASE_URL"] = f"sqlite:///{TEST_DATA_DIR / 'voxflow_test.db'}"
 os.environ["CONNECT_LAMBDA_SECRET"] = ""
 os.environ["DATA_DIR"] = str(TEST_DATA_DIR)

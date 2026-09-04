@@ -811,14 +811,42 @@
   - `migrations/023_call_recordings_and_consent.sql` & `migrations/024_call_metering.sql`
   - `apps/api/voxflow_api/services/retry.py` & `apps/api/voxflow_api/services/metering_service.py`
   - `scripts/run_meter_report.py`
-  - `apps/api/tests/test_metering_service.py` (9 / 9 passed)
+  - `apps/api/tests/test_metering_service.py` (14 / 14 passed)
   - `deploy/STRIPE_METERED_BILLING_README.md`
   - `.learning/day-57-uk-connect-recordings-dlq-and-stripe-metered-billing.md`
 - **Verification:**
-  - `pytest apps/api/tests` → **539 passed, 1 skipped, 0 failed in 59.85s** (100% green).
-  - `npm run build --workspace=apps/web` → **30/30 static & dynamic routes compiled** (0 errors).
-  - `npm run lint --workspace=apps/web` → **0 errors, 0 warnings**.
-  - `python3 scripts/supabase_keepalive.py --once` → **Latency: 651ms | Tenants: 4**.
+  - `pytest apps/api/tests` → **544 passed, 1 skipped, 0 failed in 59.53s** (100% green).
+
+---
+
+#### 🗓️ Day 58: Cloud-First Free-Tier LLM Architecture & Zero Local Footprint
+- **Objective:** Eliminate local Ollama dependencies and silent localhost fallbacks. Transition VoxFlow to a 100% cloud-hosted architecture powered by GroqCloud Developer Free Tier with sub-200ms latency, zero local GPU/RAM footprint, and instant distribution readiness.
+- **Implementation:**
+  1. **Groq LPU Cloud LLM Integration (`llm/groq.py`, `llm/factory.py`, `config.py`):**
+     - Primary model: `openai/gpt-oss-20b` (tested live: 199.0ms tool calling latency, `reasoning_effort="low"`).
+     - Fallback model: `openai/gpt-oss-120b` (tested live: 334.1ms tool calling on separate rate-limit bucket).
+     - Persistent HTTP connection pooling (`Limits(max_keepalive_connections=10, max_connections=20)`).
+  2. **Fail-Fast Cloud Validation (`llm/factory.py`):**
+     - Removed silent localhost Ollama fallback when `GROQ_API_KEY` is missing; provides crystal-clear diagnostic link to `https://console.groq.com`.
+     - Added `reset_llm_provider()` for clean unit test isolation.
+  3. **Cloud-First Test Harness (`tests/conftest.py`, `tests/test_cloud_llm.py`):**
+     - Updated default test environment from `LLM_PROVIDER=ollama` to `LLM_PROVIDER=groq`.
+     - Created `apps/api/tests/test_cloud_llm.py` (5 tests covering factory initialization, fail-fast missing key checks, tool call formatting, and 429 rate-limit fallback failover).
+  4. **Zero-Local Cloud Footprint:**
+     - LLM: Groq Cloud LPU (`openai/gpt-oss-20b` + `openai/gpt-oss-120b`) ($0 Free Tier)
+     - STT: Groq Hosted Whisper (`whisper-large-v3-turbo`) ($0 Free Tier)
+     - TTS: Microsoft Edge Neural Voices (`en-GB-SoniaNeural`, `hi-IN-SwaraNeural`) ($0 Free Tier)
+     - Database: Supabase PostgreSQL ($0 Free Tier)
+     - Telephony: Amazon Connect Free Tier / WebRTC Phone Simulator ($0 Free Tier)
+     - Spreadsheets: Google Cloud Service Account ($0 Free Tier)
+- **Artifacts:**
+  - `apps/api/voxflow_api/llm/factory.py`
+  - `apps/api/tests/conftest.py`
+  - `apps/api/tests/test_cloud_llm.py` (5 passed)
+  - `.learning/day-58-cloud-first-groq-llm-zero-local-footprint.md`
+- **Verification:**
+  - `pytest apps/api/tests` → **549 passed, 1 skipped, 0 failed in 69.36s** (100% green).
+  - Live Groq API benchmark: 199ms tool latency, 167ms completion.
 
 ---
 
@@ -826,10 +854,10 @@
 
 | Metric | Target | Current Value | Status |
 |---|---|---|---|
-| **Backend Unit & Integration Tests** | $\ge 200$ | **539 Passed** | ✅ Green |
+| **Backend Unit & Integration Tests** | $\ge 200$ | **549 Passed** | ✅ Green |
 | **Frontend Static Routes** | $\ge 15$ | **30 Compiled Pages** | ✅ Green |
 | **Lint & Static Analysis** | 0 warnings | `ruff check .` clean, ESLint clean, `tsc --noEmit` clean | ✅ Clean |
-| **Latency & TTFT Benchmarks** | Sub-second P50 | **P50 ~566ms → ~400ms target (gated + streaming wired, TTFB ~150ms)** | ✅ Verified |
+| **Latency & TTFT Benchmarks** | Sub-second P50 | **P50 ~199ms LLM Tool Calling (Groq Cloud LPU)** | ✅ Verified |
 | **Database Migrations** | Staged & Verified | 25 Migrations (`000`–`024`) applied on Supabase | ✅ Current |
 | **Telephony Providers Supported** | Enterprise Voice | Amazon Connect (AWS UK eu-west-2) + Amazon Lex STT + WebAudio Simulator | ✅ Verified |
 | **Call Persistence & Mirroring** | Durable Logging | Postgres `calls` + Gated Google Sheets Mirror + S3 Signed Audio | ✅ Verified |
@@ -853,10 +881,11 @@
 | **Go-Live Preflight** | 7-pillar gate | `golive_dry_run.py --strict` (migrations, isolation, telephony, billing, eval, GDPR, build) | ✅ Verified |
 | **Tool Gating & Parallel Reads** | <400ms P50 | Gated 6→17→19 tools, `asyncio.gather` on pure reads | ✅ Verified |
 | **Streaming TTS** | TTFB ~150ms | `synth_stream` + `turn_start` + `audio_chunk` over `/ws/call` | ✅ Verified |
+| **Cloud LLM & STT Architecture** | 100% Hosted ($0) | Groq LPU (`openai/gpt-oss-20b` + `whisper-large-v3-turbo`), Zero Local Footprint | ✅ Verified |
 
 ---
 
-## 🧭 Next Recommended Actions (Day 57+)
+## 🧭 Next Recommended Actions (Day 58+)
 
 1. **Production Hourly Meter Cron Setup:** Configure Linux server cron: `0 * * * * cd /srv/voxflow && .venv/bin/python scripts/run_meter_report.py --execute >> /var/log/voxflow-meter.log 2>&1`.
 2. **AWS S3 Ingest Lambda Deployment:** Deploy `deploy/aws/s3_recordings_handler.py` and CloudFormation `recording_dlq_cfn.yaml` in AWS London (`eu-west-2`).

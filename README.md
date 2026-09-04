@@ -13,19 +13,19 @@
 
 <p align="center">
   <img src="https://img.shields.io/badge/CI%2FCD-100%25%20PASSING-success?style=for-the-badge&logo=githubactions&logoColor=white&labelColor=111827" alt="CI Status" />
-  <img src="https://img.shields.io/badge/TESTS-539%20PASSED-10B981?style=for-the-badge&logo=pytest&logoColor=white&labelColor=111827" alt="539 Pytest Tests Passed" />
+  <img src="https://img.shields.io/badge/TESTS-549%20PASSED-10B981?style=for-the-badge&logo=pytest&logoColor=white&labelColor=111827" alt="549 Pytest Tests Passed" />
   <img src="https://img.shields.io/badge/FRONTEND-30%20ROUTES-6366F1?style=for-the-badge&logo=nextdotjs&logoColor=white&labelColor=111827" alt="30 Next.js Routes" />
   <img src="https://img.shields.io/badge/VOICE-ENGLISH%20%28UK%29%20%2B%20HINDI-F97316?style=for-the-badge&labelColor=111827" alt="English (UK) + Hindi Multilingual" />
   <img src="https://img.shields.io/badge/GROUNDING-ZERO--HALLUCINATION%20RAG-0F766E?style=for-the-badge&logo=shield&logoColor=white&labelColor=111827" alt="Zero-Hallucination Grounding" />
 </p>
 
 <p align="center">
-  <img src="https://img.shields.io/badge/CLOUD-AWS%20%2B%20ORACLE%20VM-FF9900?style=for-the-badge&logo=amazonaws&logoColor=white&labelColor=111827" alt="AWS & Oracle VM" />
+  <img src="https://img.shields.io/badge/CLOUD%20LLM-GROQ%20FREE%20TIER%20%28199ms%29-F59E0B?style=for-the-badge&logo=fastapi&logoColor=white&labelColor=111827" alt="Groq Free Tier Cloud LLM" />
   <img src="https://img.shields.io/badge/TELEPHONY-AMAZON%20CONNECT%20UK%20%2B%20LEX-0284C7?style=for-the-badge&labelColor=111827" alt="Telephony Providers" />
   <img src="https://img.shields.io/badge/DATABASE-SUPABASE%20POSTGRES-3ECF8E?style=for-the-badge&logo=supabase&logoColor=white&labelColor=111827" alt="Supabase Postgres" />
   <img src="https://img.shields.io/badge/BILLING-STRIPE%20BILLING%20METERS-635BFF?style=for-the-badge&logo=stripe&logoColor=white&labelColor=111827" alt="Stripe Billing Meters" />
+  <img src="https://img.shields.io/badge/ZERO%20LOCAL%20REQUIREMENTS-100%25%20CLOUD-10B981?style=for-the-badge&logo=cloudflare&logoColor=white&labelColor=111827" alt="Zero Local Requirements" />
   <img src="https://img.shields.io/badge/TENANT%20ISOLATION-0--LEAK%20GATE%20%233%20PASSED-0F766E?style=for-the-badge&logo=shield&logoColor=white&labelColor=111827" alt="Tenant Isolation Gate #3" />
-  <img src="https://img.shields.io/badge/EVAL%20HARNESS-30%20SCENARIOS%20%7C%20HARD%20GATE%20100%25-EF4444?style=for-the-badge&logo=shieldsdotio&logoColor=white&labelColor=111827" alt="Voice Eval Harness" />
   <a href="BENCHMARK_REPORT.md"><img src="https://img.shields.io/badge/BENCHMARKS-P50%20%7C%20P90%20VERIFIED-8B5CF6?style=for-the-badge&labelColor=111827" alt="Verified Benchmarks" /></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/LICENSE-MIT-gray?style=for-the-badge&labelColor=111827" alt="MIT License" /></a>
 </p>
