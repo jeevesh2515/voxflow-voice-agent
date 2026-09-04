@@ -122,16 +122,17 @@ const FRAG = /* glsl */ `
     vec2 p = (vUv - vec2(0.5, 0.5)) * vec2(aspect, 1.0);
     float plen = length(p);
 
-    // Interactive mouse gravitational curvature & ring bending
+    // Highly localized 1.0 - 1.5 cm diameter mouse gravitational interaction
     vec2 mDelta = p - uMouse;
     float mDist = length(mDelta);
     float progress = clamp(uScrollProgress, 0.0, 1.0);
     
-    // Smooth influence falloff near the accretion ring structure
-    float mouseEffect = smoothstep(1.35, 0.04, mDist) * uMouseActive * (1.0 - progress * 0.88);
+    // Tight 1.5cm localized radius (~0.065 normalized aspect units)
+    float mRadius = 0.065;
+    float mouseEffect = smoothstep(mRadius, 0.0, mDist) * uMouseActive * (1.0 - progress * 0.95);
     
-    // Spacetime curvature deflection: bends photon ray trajectories toward cursor
-    vec2 lensWarp = (mDist > 0.001) ? normalize(mDelta) * (mouseEffect * 0.16 / (mDist * 2.1 + 0.32)) : vec2(0.0);
+    // Subtle, high-detail relativistic micro-lensing (strictly within 1.5cm)
+    vec2 lensWarp = (mDist > 0.001) ? normalize(mDelta) * (mouseEffect * 0.022 * sin(mDist * 60.0 - uTime * 4.0)) : vec2(0.0);
     vec2 warpedP = p - lensWarp;
 
     // On-scroll camera recession: black hole smoothly recedes into deep space
@@ -139,9 +140,7 @@ const FRAG = /* glsl */ `
     float rh = mix(0.24, 0.11, progress); // Normalized shadow radius on screen
     float W = B_CRIT / max(rh, 1e-4);
     
-    // Dynamic roll & inclination bend under cursor gravitational shift
-    float dynamicRoll = DISK_ROLL + (uMouse.x * 0.14) * mouseEffect;
-    vec2 pr = rot(warpedP, dynamicRoll) * W;
+    vec2 pr = rot(warpedP, DISK_ROLL) * W;
     float b = length(pr);
 
     float rin = max(DISK_INNER, 1.6);
@@ -152,8 +151,8 @@ const FRAG = /* glsl */ `
     vec3 v = vec3(0.0, 0.0, -1.0);
     float h2 = dot(pr, pr);
 
-    // Disk coordinate frame with interactive pitch/tilt bending
-    float dynamicIncl = DISK_INCL + (-uMouse.y * 0.24) * mouseEffect;
+    // Pristine authentic accretion disk geometry with localized micro-tilt under cursor
+    float dynamicIncl = DISK_INCL + (-uMouse.y * 0.04) * mouseEffect;
     float ci = cos(dynamicIncl), si = sin(dynamicIncl);
     vec3 n = vec3(0.0, si, ci);
     vec3 e2 = vec3(0.0, ci, -si);

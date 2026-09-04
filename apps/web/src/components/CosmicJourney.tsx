@@ -8,11 +8,11 @@ import React from "react";
 export default function CosmicJourney() {
   return (
     <div className="journey-stack pointer-events-none" aria-hidden="true">
-      <div className="journey-kf-2" />
-      <div className="journey-kf-3" />
-      <div className="journey-kf-4" />
+      <div className="journey-kf journey-kf-2" />
+      <div className="journey-kf journey-kf-3" />
+      <div className="journey-kf journey-kf-4" />
       <div className="journey-streaks" />
-      <div className="journey-kf-5" />
+      <div className="journey-kf journey-kf-5" />
       <div className="journey-scrim" />
     </div>
   );
