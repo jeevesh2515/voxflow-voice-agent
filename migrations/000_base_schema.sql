@@ -701,6 +701,8 @@ CREATE TABLE IF NOT EXISTS calls (
 	consent_granted INTEGER NOT NULL,
 	consent_recorded_at TIMESTAMP WITH TIME ZONE,
 	consent_evidence_ref TEXT NOT NULL,
+	metering_billed_at TIMESTAMP WITH TIME ZONE,
+	metering_event_id TEXT NOT NULL,
 	verified INTEGER NOT NULL,
 	PRIMARY KEY (id),
 	FOREIGN KEY(tenant_id) REFERENCES tenants (id),
@@ -710,6 +712,8 @@ CREATE TABLE IF NOT EXISTS calls (
 CREATE INDEX IF NOT EXISTS ix_calls_consent_recorded_at ON calls (consent_recorded_at);
 
 CREATE INDEX IF NOT EXISTS ix_calls_escalation_status ON calls (escalation_status);
+
+CREATE INDEX IF NOT EXISTS ix_calls_metering_billed_at ON calls (metering_billed_at);
 
 CREATE INDEX IF NOT EXISTS ix_calls_resolution_status ON calls (resolution_status);
 

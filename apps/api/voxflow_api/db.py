@@ -392,6 +392,9 @@ class Call(Base):
     consent_granted: Mapped[int] = mapped_column(Integer, default=0)
     consent_recorded_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True, index=True)
     consent_evidence_ref: Mapped[str] = mapped_column(Text, default="")
+    # Stripe Billing Meter ledger
+    metering_billed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True, index=True)
+    metering_event_id: Mapped[str] = mapped_column(Text, default="")
     verified: Mapped[int] = mapped_column(Integer, default=0)
 
 

@@ -45,6 +45,9 @@ numpy==2.2.0
 # Google Sheets call log (service-account auth)
 google-auth==2.37.0
 
+# Billing — Stripe Billing Meters, Checkout, Portal
+stripe==11.4.1
+
 # Utilities
 tenacity==9.0.0
 structlog==24.4.0

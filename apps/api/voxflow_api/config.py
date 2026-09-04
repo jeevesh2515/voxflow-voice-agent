@@ -143,6 +143,7 @@ class Settings(BaseSettings):
     stripe_price_starter: str = ""
     stripe_price_growth: str = ""
     stripe_price_enterprise: str = ""
+    stripe_meter_event_name: str = "voxflow_voice_minutes"
     # Fallback checkout redirect origin when a caller supplies no explicit URL.
     billing_portal_return_url: str = "http://localhost:3000/dashboard/settings"
     billing_trial_period_days: int = 14
