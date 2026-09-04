@@ -15,6 +15,8 @@ import NotchedContainer from "@/components/NotchedContainer";
 import ParallaxQuotes from "@/components/ParallaxQuotes";
 import VoiceXray from "@/components/VoiceXray";
 import DispatchSwitchboard from "@/components/DispatchSwitchboard";
+import HeroChoreography from "@/components/HeroChoreography";
+import ScrollCharReveal from "@/components/ScrollCharReveal";
 
 export default function Home() {
   const [playing, setPlaying] = useState<VoiceKey | null>(null);
@@ -268,6 +270,7 @@ export default function Home() {
       {/* Subtle, elegant ambient starfield */}
       <CosmicStarfield />
       <SmoothScroll />
+      <HeroChoreography />
       <VoxPreloader />
 
       <main className="relative z-10 bg-transparent">
@@ -291,6 +294,47 @@ export default function Home() {
             <div className="hero-hud hero-hud-right" aria-hidden="true">
               <span>GLASS-TO-GLASS TURN</span>
               <span>~200ms · UK edge</span>
+            </div>
+
+            {/* Scroll Indicator Prompt for Stage 1 */}
+            <div className="hero-scroll-indicator" aria-hidden="true">
+              <span className="hero-scroll-indicator-badge">
+                <span className="hero-scroll-indicator-dot" />
+                [ SCROLL TO EXPLORE ↓ ]
+              </span>
+            </div>
+
+            {/* Staged Hero Scroll Punchlines (Terminal Industries Pattern) */}
+            <div className="hero-punchlines absolute inset-0 flex items-center justify-center pointer-events-none z-20 px-4 sm:px-6">
+              {/* Punchline 1 */}
+              <div className="hero-punchline hero-punchline-1 max-w-4xl text-center">
+                <div className="mb-4 sm:mb-6 inline-flex items-center gap-2 rounded-full border border-[#00ffcc]/30 bg-black/70 px-4 py-1.5 font-label text-xs uppercase tracking-[0.22em] text-[#00ffcc] backdrop-blur-md shadow-2xl">
+                  <span className="h-2 w-2 rounded-full bg-[#00ffcc] animate-ping" />
+                  01 // AUTONOMOUS VOICE ENGINE
+                </div>
+                <ScrollCharReveal
+                  text="We closed the black hole on the dispatch line."
+                  startProgress={0.16}
+                  endProgress={0.38}
+                  highlightColor="#00ffcc"
+                  className="font-headline text-3xl sm:text-5xl lg:text-6xl xl:text-7xl font-extrabold tracking-tight leading-[1.08] drop-shadow-[0_12px_32px_rgba(0,0,0,0.95)]"
+                />
+              </div>
+
+              {/* Punchline 2 */}
+              <div className="hero-punchline hero-punchline-2 max-w-4xl text-center">
+                <div className="mb-4 sm:mb-6 inline-flex items-center gap-2 rounded-full border border-[#ff2d78]/30 bg-black/70 px-4 py-1.5 font-label text-xs uppercase tracking-[0.22em] text-[#ff2d78] backdrop-blur-md shadow-2xl">
+                  <span className="h-2 w-2 rounded-full bg-[#ff2d78] animate-ping" />
+                  02 // REAL-TIME DISPATCH & ERP
+                </div>
+                <ScrollCharReveal
+                  text="Zero human queues. ~200ms turn latency. 100% two-way ERP sync."
+                  startProgress={0.46}
+                  endProgress={0.68}
+                  highlightColor="#ff2d78"
+                  className="font-headline text-3xl sm:text-5xl lg:text-6xl xl:text-7xl font-extrabold tracking-tight leading-[1.08] drop-shadow-[0_12px_32px_rgba(0,0,0,0.95)]"
+                />
+              </div>
             </div>
 
           {/* Ambient Glowing Nebula Orbs */}

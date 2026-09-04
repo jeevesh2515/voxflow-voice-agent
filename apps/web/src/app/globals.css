@@ -1056,38 +1056,174 @@ html {
 }
 
 /* ════════════════════════════════════════════════════════════
-   STAGED APERTURE CHOREOGRAPHY
-   One source of truth: --hero-progress (0 → 1), written by
+   STAGED HERO STORYTELLING SCROLL CHOREOGRAPHY
+   Single source of truth: --hero-progress (0 → 1), driven by
    HeroChoreography.tsx via GSAP ScrollTrigger scrub.
 
-     0.00–0.16  KF1  black hole aperture
-     0.16–0.34  KF2  starfield      "Out here, signals go quiet."
-     0.34–0.52  KF3  solar system   "A signal, still moving."
-     0.52–0.70  KF4  telescope      "Someone's listening now."
-     0.70–0.76  KF5  Earth arrives and freezes — no copy
-     0.76–1.00  docked headline & live operations console over Earth
-
-   The empty 0.70–0.76 beat is deliberate: the docked h1 is the
-   payoff the whole journey travels toward, so nothing competes
-   with it on the way in.
+     0.00–0.15  Opening Frame: Pure deep space & Schwarzschild Black Hole
+                Interactive mouse hover ring flare + "[ SCROLL TO EXPLORE ↓ ]"
+     0.16–0.38  Stage 2: Punchline 1 illuminates glyph-by-glyph
+                "01 // AUTONOMOUS VOICE ENGINE"
+                "We closed the black hole on the dispatch line." (#00ffcc)
+     0.46–0.68  Stage 3: Punchline 2 illuminates glyph-by-glyph
+                "02 // REAL-TIME DISPATCH & ERP"
+                "Zero human queues. ~200ms turn latency. 100% two-way ERP sync." (#ff2d78)
+     0.76–1.00  Stage 4: Black hole smoothly recedes into cosmic backdrop,
+                Main headline, SLA trust badges, audio preview pills, CTAs, and
+                Live Operations Console dock into view with full interactivity.
    ════════════════════════════════════════════════════════════ */
 
+.hero-blackhole-layer {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  opacity: calc(1 - clamp(0, (var(--hero-progress, 0) - 0.70) * 3.3, 1) * 0.75);
+  transform: scale(calc(1 - clamp(0, var(--hero-progress, 0) * 0.85, 1) * 0.35));
+  transform-origin: center center;
+  will-change: opacity, transform;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .hero-blackhole-layer { opacity: 0.35; transform: scale(0.75); }
+}
+
+.hero-punchlines {
+  display: none;
+}
+
+.hero-scroll-indicator {
+  position: absolute;
+  bottom: 2.5rem;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 20;
+  pointer-events: none;
+  opacity: clamp(0, calc(1 - var(--hero-progress, 0) * 7.5), 1);
+  transition: opacity 200ms ease;
+  will-change: opacity;
+}
+
+.hero-scroll-indicator-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.45rem 1.1rem;
+  border-radius: 9999px;
+  background: rgba(5, 5, 12, 0.75);
+  border: 1px solid rgba(0, 255, 204, 0.3);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  color: #00ffcc;
+  font-family: "Space Grotesk", sans-serif;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  box-shadow: 0 0 25px rgba(0, 255, 204, 0.18), inset 0 1px 1px rgba(255, 255, 255, 0.1);
+  animation: hero-scroll-bounce 2.4s ease-in-out infinite;
+}
+
+.hero-scroll-indicator-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #00ffcc;
+  box-shadow: 0 0 8px #00ffcc;
+  animation: ping 1.8s cubic-bezier(0, 0, 0.2, 1) infinite;
+}
+
+@keyframes hero-scroll-bounce {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(6px); }
+}
+
+/* Default / Mobile fallback */
 .hero-stage {
   position: relative;
   height: auto;
   min-height: 100svh;
 }
 
-.hero-stage .hero-copy,
-.hero-stage .hero-console {
-  opacity: 1 !important;
-  transform: none !important;
-}
-
 .hero-stage-sticky {
   position: relative;
   width: 100%;
   min-height: 100svh;
+}
+
+/* Desktop + Motion enabled: activate pinned 500vh staged choreography */
+@media (min-width: 1024px) {
+  @media (prefers-reduced-motion: no-preference) {
+    .hero-stage.hero-stage-ready {
+      height: 500vh;
+    }
+
+    .hero-stage.hero-stage-ready .hero-stage-sticky {
+      position: sticky !important;
+      top: 0 !important;
+      height: 100svh !important;
+      min-height: 100svh !important;
+      width: 100% !important;
+      z-index: 10;
+    }
+
+    /* Staged Punchlines Container */
+    .hero-stage.hero-stage-ready .hero-punchlines {
+      display: flex;
+    }
+
+    .hero-stage.hero-stage-ready .hero-punchline {
+      position: absolute;
+      will-change: opacity, transform;
+    }
+
+    /* Punchline 1: in at 0.12, peaks 0.16-0.38, out by 0.44 */
+    .hero-stage.hero-stage-ready .hero-punchline-1 {
+      opacity: calc(
+        clamp(0, (var(--hero-progress, 0) - 0.12) * 9.0, 1) *
+        clamp(0, 1 - (var(--hero-progress, 0) - 0.38) * 8.0, 1)
+      );
+      transform: translate3d(
+        0,
+        calc(28px * (1 - clamp(0, (var(--hero-progress, 0) - 0.12) * 9.0, 1))),
+        0
+      );
+    }
+
+    /* Punchline 2: in at 0.44, peaks 0.46-0.68, out by 0.74 */
+    .hero-stage.hero-stage-ready .hero-punchline-2 {
+      opacity: calc(
+        clamp(0, (var(--hero-progress, 0) - 0.44) * 9.0, 1) *
+        clamp(0, 1 - (var(--hero-progress, 0) - 0.68) * 8.0, 1)
+      );
+      transform: translate3d(
+        0,
+        calc(28px * (1 - clamp(0, (var(--hero-progress, 0) - 0.44) * 9.0, 1))),
+        0
+      );
+    }
+
+    /* Stage 4 — Final headline block docks in from the left */
+    .hero-stage.hero-stage-ready .hero-copy {
+      opacity: clamp(0, (var(--hero-progress, 0) - 0.76) * 4.5, 1);
+      transform: translate3d(
+        calc(-36px * clamp(0, 1 - (var(--hero-progress, 0) - 0.76) * 4.5, 1)),
+        0,
+        0
+      );
+      will-change: opacity, transform;
+    }
+
+    /* Live Operations Console follows slightly after */
+    .hero-stage.hero-stage-ready .hero-console {
+      opacity: clamp(0, (var(--hero-progress, 0) - 0.82) * 4.5, 1);
+      transform: translate3d(
+        calc(36px * clamp(0, 1 - (var(--hero-progress, 0) - 0.82) * 4.5, 1)),
+        0,
+        0
+      );
+      will-change: opacity, transform;
+    }
+  }
 }
 
 /* Latest agency-grade hardware and interaction polish */

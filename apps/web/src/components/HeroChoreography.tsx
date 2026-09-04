@@ -64,6 +64,8 @@ export default function HeroChoreography() {
       },
     });
 
+    ScrollTrigger.refresh();
+
     return () => {
       if (frame) window.cancelAnimationFrame(frame);
       trigger.kill();

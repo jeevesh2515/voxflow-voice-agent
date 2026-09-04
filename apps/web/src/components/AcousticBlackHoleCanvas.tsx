@@ -2,6 +2,7 @@
 
 import { useEffect, useRef } from "react";
 import * as THREE from "three";
+import { heroProgress } from "@/lib/hero-progress";
 
 /**
  * Geodesic-traced Schwarzschild black hole with on-scroll spatial waves.
@@ -424,11 +425,8 @@ export default function AcousticBlackHoleCanvas() {
 
       uniforms.uMouse.value.set(currentMouseX, currentMouseY);
       uniforms.uMouseHover.value = currentHover;
-      // Track hero scroll progress naturally
-      const scrollY = typeof window !== "undefined" ? window.scrollY : 0;
-      const heroH = typeof window !== "undefined" ? Math.max(window.innerHeight, 1) : 1;
-      const scrollProg = Math.max(0, Math.min(1, scrollY / (heroH * 1.5)));
-      uniforms.uScrollProgress.value = scrollProg;
+      // Single source of truth for aperture scroll progress
+      uniforms.uScrollProgress.value = heroProgress.value;
 
       if (renderer) renderer.render(scene, camera);
       if (inView && pageVisible) animId = requestAnimationFrame(frame);
