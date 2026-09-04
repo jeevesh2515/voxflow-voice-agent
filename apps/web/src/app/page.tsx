@@ -4,8 +4,10 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 import CosmicStarfield from "@/components/CosmicStarfield";
 import SmoothScroll from "@/components/SmoothScroll";
+import HeroChoreography from "@/components/HeroChoreography";
 import VoxPreloader from "@/components/VoxPreloader";
 import AcousticBlackHoleCanvas from "@/components/AcousticBlackHoleCanvas";
+import CosmicJourney from "@/components/CosmicJourney";
 import HeroCursorFollower from "@/components/HeroCursorFollower";
 import KineticScrollText from "@/components/KineticScrollText";
 import SignalWires from "@/components/SignalWires";
@@ -15,8 +17,6 @@ import NotchedContainer from "@/components/NotchedContainer";
 import ParallaxQuotes from "@/components/ParallaxQuotes";
 import VoiceXray from "@/components/VoiceXray";
 import DispatchSwitchboard from "@/components/DispatchSwitchboard";
-import HeroChoreography from "@/components/HeroChoreography";
-import ScrollCharReveal from "@/components/ScrollCharReveal";
 
 export default function Home() {
   const [playing, setPlaying] = useState<VoiceKey | null>(null);
@@ -277,16 +277,24 @@ export default function Home() {
         {/* ==================== HERO SECTION ==================== */}
         <section id="hero-stage" className="hero-stage relative" aria-label="VoxFlow autonomous voice operations introduction">
           <div className="hero-stage-sticky min-h-[100svh] flex items-center overflow-hidden grid-bg pt-28 pb-16 sm:pt-32 sm:pb-24">
-            {/* Acoustic Black Hole WebGL Stage with Interactive Mouse Hover Ring Flare */}
-            <div className="hero-blackhole-layer absolute inset-0 z-0 pointer-events-none overflow-hidden">
+            {/* Keyframe 1 of the cosmic journey: the acoustic event horizon.
+                Recedes to nothing across 0.10 → 0.18 as the starfield takes
+                over. Carries 01-black-hole.webp as its own background, so a
+                failed WebGL init degrades to the still rather than a void. */}
+            <div className="hero-blackhole-layer">
               <AcousticBlackHoleCanvas />
             </div>
+
+            {/* Keyframes 2-5 — starfield → solar system → telescope → Earth.
+                Must follow the black hole layer in DOM order: both sit at
+                z-index 0, so paint order is what puts the journey on top. */}
+            <CosmicJourney />
 
             <div className="hero-vignette absolute inset-0 pointer-events-none" aria-hidden="true" />
 
             <HeroCursorFollower />
 
-            {/* Diagnostic HUD Markers */}
+            {/* Stage B — diagnostic markers, in at 0.15, out by 0.9. */}
             <div className="hero-hud hero-hud-left" aria-hidden="true">
               <span>SIGNAL LOCK</span>
               <span>16kHz PCM · eu-west-2</span>
@@ -296,45 +304,20 @@ export default function Home() {
               <span>~200ms · UK edge</span>
             </div>
 
-            {/* Scroll Indicator Prompt for Stage 1 */}
-            <div className="hero-scroll-indicator" aria-hidden="true">
-              <span className="hero-scroll-indicator-badge">
-                <span className="hero-scroll-indicator-dot" />
-                [ SCROLL TO EXPLORE ↓ ]
-              </span>
-            </div>
-
-            {/* Staged Hero Scroll Punchlines (Terminal Industries Pattern) */}
-            <div className="hero-punchlines absolute inset-0 flex items-center justify-center pointer-events-none z-20 px-4 sm:px-6">
-              {/* Punchline 1 */}
-              <div className="hero-punchline hero-punchline-1 max-w-4xl text-center">
-                <div className="mb-4 sm:mb-6 inline-flex items-center gap-2 rounded-full border border-[#00ffcc]/30 bg-black/70 px-4 py-1.5 font-label text-xs uppercase tracking-[0.22em] text-[#00ffcc] backdrop-blur-md shadow-2xl">
-                  <span className="h-2 w-2 rounded-full bg-[#00ffcc] animate-ping" />
-                  01 // AUTONOMOUS VOICE ENGINE
-                </div>
-                <ScrollCharReveal
-                  text="We closed the black hole on the dispatch line."
-                  startProgress={0.16}
-                  endProgress={0.38}
-                  highlightColor="#00ffcc"
-                  className="font-headline text-3xl sm:text-5xl lg:text-6xl xl:text-7xl font-extrabold tracking-tight leading-[1.08] drop-shadow-[0_12px_32px_rgba(0,0,0,0.95)]"
-                />
-              </div>
-
-              {/* Punchline 2 */}
-              <div className="hero-punchline hero-punchline-2 max-w-4xl text-center">
-                <div className="mb-4 sm:mb-6 inline-flex items-center gap-2 rounded-full border border-[#ff2d78]/30 bg-black/70 px-4 py-1.5 font-label text-xs uppercase tracking-[0.22em] text-[#ff2d78] backdrop-blur-md shadow-2xl">
-                  <span className="h-2 w-2 rounded-full bg-[#ff2d78] animate-ping" />
-                  02 // REAL-TIME DISPATCH & ERP
-                </div>
-                <ScrollCharReveal
-                  text="Zero human queues. ~200ms turn latency. 100% two-way ERP sync."
-                  startProgress={0.46}
-                  endProgress={0.68}
-                  highlightColor="#ff2d78"
-                  className="font-headline text-3xl sm:text-5xl lg:text-6xl xl:text-7xl font-extrabold tracking-tight leading-[1.08] drop-shadow-[0_12px_32px_rgba(0,0,0,0.95)]"
-                />
-              </div>
+            {/* Journey copy — three quiet lines across keyframes 2-4.
+                Arc: silence → a signal travelling → someone receiving it.
+                Keyframe 5 (Earth) carries none: the docked h1 below is the
+                payoff, and it hard-cuts in without overlap. */}
+            <div className="hero-punchlines absolute inset-0 flex items-center justify-center pointer-events-none z-20 px-6">
+              <p className="hero-punchline hero-punchline-j1 journey-line max-w-3xl text-center font-headline text-3xl sm:text-4xl lg:text-5xl">
+                Out here, signals go quiet.
+              </p>
+              <p className="hero-punchline hero-punchline-j2 journey-line max-w-3xl text-center font-headline text-3xl sm:text-4xl lg:text-5xl">
+                A signal, still moving.
+              </p>
+              <p className="hero-punchline hero-punchline-j3 journey-line max-w-3xl text-center font-headline text-3xl sm:text-4xl lg:text-5xl">
+                Someone&rsquo;s listening now.
+              </p>
             </div>
 
           {/* Ambient Glowing Nebula Orbs */}

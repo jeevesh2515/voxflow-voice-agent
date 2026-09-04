@@ -2,7 +2,6 @@
 
 import { useEffect, useRef } from "react";
 import * as THREE from "three";
-import { heroProgress } from "@/lib/hero-progress";
 
 /**
  * Geodesic-traced Schwarzschild black hole with on-scroll spatial waves.
@@ -38,11 +37,11 @@ const FRAG = /* glsl */ `
   uniform float uTime;
   uniform float uScrollProgress; // 0 -> 1 through hero scroll
   uniform float uVoicePulse;     // 0 -> 1 on voice playback
-  uniform vec2  uMouse;          // Normalized mouse coordinates (-1..1 with aspect ratio)
-  uniform float uMouseHover;     // 0 -> 1 proximity to accretion disk / event horizon
   uniform float uFade;
   uniform sampler2D uStars;
   uniform float uHasStars;
+  uniform vec2  uMouse;          // Normalized aspect-corrected mouse position
+  uniform float uMouseActive;    // 0 -> 1 on hover interaction
 
   #define PI 3.14159265359
   #define N_STEPS 52
@@ -123,12 +122,26 @@ const FRAG = /* glsl */ `
     vec2 p = (vUv - vec2(0.5, 0.5)) * vec2(aspect, 1.0);
     float plen = length(p);
 
-    // On-scroll camera recession: black hole smoothly recedes into deep space
+    // Interactive mouse gravitational curvature & ring bending
+    vec2 mDelta = p - uMouse;
+    float mDist = length(mDelta);
     float progress = clamp(uScrollProgress, 0.0, 1.0);
+    
+    // Smooth influence falloff near the accretion ring structure
+    float mouseEffect = smoothstep(1.35, 0.04, mDist) * uMouseActive * (1.0 - progress * 0.88);
+    
+    // Spacetime curvature deflection: bends photon ray trajectories toward cursor
+    vec2 lensWarp = (mDist > 0.001) ? normalize(mDelta) * (mouseEffect * 0.16 / (mDist * 2.1 + 0.32)) : vec2(0.0);
+    vec2 warpedP = p - lensWarp;
+
+    // On-scroll camera recession: black hole smoothly recedes into deep space
     float camZ = Z0 + progress * 16.0;
     float rh = mix(0.24, 0.11, progress); // Normalized shadow radius on screen
     float W = B_CRIT / max(rh, 1e-4);
-    vec2 pr = rot(p, DISK_ROLL) * W;
+    
+    // Dynamic roll & inclination bend under cursor gravitational shift
+    float dynamicRoll = DISK_ROLL + (uMouse.x * 0.14) * mouseEffect;
+    vec2 pr = rot(warpedP, dynamicRoll) * W;
     float b = length(pr);
 
     float rin = max(DISK_INNER, 1.6);
@@ -139,8 +152,9 @@ const FRAG = /* glsl */ `
     vec3 v = vec3(0.0, 0.0, -1.0);
     float h2 = dot(pr, pr);
 
-    // Disk coordinate frame
-    float ci = cos(DISK_INCL), si = sin(DISK_INCL);
+    // Disk coordinate frame with interactive pitch/tilt bending
+    float dynamicIncl = DISK_INCL + (-uMouse.y * 0.24) * mouseEffect;
+    float ci = cos(dynamicIncl), si = sin(dynamicIncl);
     vec3 n = vec3(0.0, si, ci);
     vec3 e2 = vec3(0.0, ci, -si);
 
@@ -185,14 +199,8 @@ const FRAG = /* glsl */ `
           float gloc = sqrt(max(1.0 - 1.5 / rc, 0.02));
           float swirl = rc * DISK_WIND * 0.12 - uTime * kep * DISK_SPEED * gloc * 0.12;
 
-          // Interactive mouse gravitational tidal flare
-          vec2 diskPos2D = vec2(xc.x, dot(xc, e2));
-          float mDist = length(diskPos2D - uMouse * (W * 0.16));
-          float mFlare = exp(-mDist * 1.5) * uMouseHover;
-          
-          float hoverSwirl = mFlare * 3.2 * sin(uTime * 3.5 + rc * 4.0);
-          float streaks = vnoiseWrapY(vec2(rc * 2.8, turns * 19.0 + (swirl + hoverSwirl) * 3.0), 19.0) * 0.65 +
-                          vnoiseWrapY(vec2(rc * 1.0, turns * 9.0  + (swirl + hoverSwirl) * 1.5 + 7.0), 9.0) * 0.35;
+          float streaks = vnoiseWrapY(vec2(rc * 2.8, turns * 19.0 + swirl * 3.0), 19.0) * 0.65 +
+                          vnoiseWrapY(vec2(rc * 1.0, turns * 9.0  + swirl * 1.5 + 7.0), 9.0) * 0.35;
           streaks = 0.35 + DISK_CONTRAST * streaks * streaks;
 
           // Relativistic Doppler boosting
@@ -205,18 +213,18 @@ const FRAG = /* glsl */ `
           float xpr = max(1.0 - sqrt(rin / rc), 0.0);
           float tprof = pow(rin / rc, 0.75) * pow(xpr, 0.25) / 0.488;
           vec3 cbb = blackbody(DISK_TEMP * tprof * g);
-          
-          // Luminous cyber-magenta / ice-cyan relativistic quantum flare on hover
-          vec3 hoverColor = mix(vec3(0.0, 0.95, 1.0), vec3(1.0, 0.18, 0.55), sin(phi * 2.0 + uTime * 2.5) * 0.5 + 0.5);
-          cbb = mix(cbb, cbb + hoverColor * 2.2, clamp(mFlare * 0.85, 0.0, 1.0));
-          
-          float boost = pow(g, DISK_BEAM) * (1.0 + mFlare * 0.6);
+          float boost = pow(g, DISK_BEAM);
 
           // Voice audio reactivity pulse
           float voiceMod = 1.0 + uVoicePulse * 0.8 * sin(rc * 5.0 - uTime * 6.0);
 
+          // Interactive energetic photon excitation around accretion ring near cursor
+          float diskMouseDist = length(xc.xy - uMouse * 8.5);
+          float mouseSpark = exp(-diskMouseDist * 0.35) * mouseEffect;
+
           float density = band * streaks;
           emitc += trans * cbb * (DISK_GAIN * 2.2 * density * tprof * tprof * boost * voiceMod);
+          emitc += trans * vec3(0.25, 0.92, 1.0) * (mouseSpark * 1.8 * boost);
           trans *= 1.0 - clamp(DISK_OPACITY * density, 0.0, 1.0);
         }
       }
@@ -265,15 +273,6 @@ const FRAG = /* glsl */ `
       }
     }
 
-    // Interactive mouse tidal resonance ripple around the photon sphere rings
-    if (uMouseHover > 0.02) {
-      float mScreenDist = length(p - uMouse);
-      float rippleWave = sin(mScreenDist * 28.0 - uTime * 5.0) * exp(-mScreenDist * 3.2);
-      float ringProximity = smoothstep(0.65, 0.15, abs(plen - 0.36));
-      vec3 rippleColor = mix(vec3(0.0, 1.0, 0.85), vec3(1.0, 0.18, 0.48), sin(uTime * 3.0 + mScreenDist * 10.0) * 0.5 + 0.5);
-      waveGlow += rippleColor * (max(0.0, rippleWave) * uMouseHover * ringProximity * 0.75);
-    }
-
     // HDR exposure tonemap — natural Schwarzschild shadow and Keplerian accretion disk with zero artificial rings
     vec3 col = bg * trans + (vec3(1.0) - exp(-emitc * EXPOSURE)) + waveGlow;
 
@@ -319,11 +318,11 @@ export default function AcousticBlackHoleCanvas() {
       uTime: { value: 0 },
       uScrollProgress: { value: 0 },
       uVoicePulse: { value: 0 },
-      uMouse: { value: new THREE.Vector2(0, 0) },
-      uMouseHover: { value: 0 },
       uFade: { value: 1 },
       uStars: { value: null },
       uHasStars: { value: 0 },
+      uMouse: { value: new THREE.Vector2(0, 0) },
+      uMouseActive: { value: 0 },
     };
 
     const textureLoader = new THREE.TextureLoader();
@@ -360,33 +359,6 @@ export default function AcousticBlackHoleCanvas() {
     };
     window.addEventListener("voxflow:voice-active", onVoice);
 
-    let targetMouseX = 0;
-    let targetMouseY = 0;
-    let currentMouseX = 0;
-    let currentMouseY = 0;
-    let targetHover = 0;
-    let currentHover = 0;
-    let lastMoveTime = 0;
-
-    const onPointerMove = (e: PointerEvent) => {
-      const w = window.innerWidth;
-      const h = window.innerHeight;
-      const aspect = w / Math.max(h, 1.0);
-      const nx = ((e.clientX / w) - 0.5) * aspect;
-      const ny = (0.5 - (e.clientY / h));
-      targetMouseX = nx;
-      targetMouseY = ny;
-
-      const dist = Math.sqrt(nx * nx + ny * ny);
-      if (dist < 0.85) {
-        targetHover = Math.max(0.0, 1.0 - Math.abs(dist - 0.36) / 0.42);
-      } else {
-        targetHover = 0.0;
-      }
-      lastMoveTime = performance.now();
-    };
-    window.addEventListener("pointermove", onPointerMove, { passive: true });
-
     const onResize = () => {
       if (!renderer) return;
       const w = window.innerWidth;
@@ -395,6 +367,28 @@ export default function AcousticBlackHoleCanvas() {
       uniforms.uResolution.value.set(w, h);
     };
     window.addEventListener("resize", onResize);
+
+    // Interactive pointer gravity tracking with smooth easing
+    let targetMouseX = 0;
+    let targetMouseY = 0;
+    let currentMouseX = 0;
+    let currentMouseY = 0;
+    let targetMouseActive = 0;
+    let currentMouseActive = 0;
+
+    const onPointerMove = (e: PointerEvent) => {
+      const aspect = window.innerWidth / Math.max(window.innerHeight, 1);
+      targetMouseX = (e.clientX / window.innerWidth - 0.5) * aspect;
+      targetMouseY = -(e.clientY / window.innerHeight - 0.5); // WebGL Y is inverted
+      targetMouseActive = 1.0;
+    };
+
+    const onPointerLeave = () => {
+      targetMouseActive = 0.0;
+    };
+
+    window.addEventListener("pointermove", onPointerMove, { passive: true });
+    window.addEventListener("pointerleave", onPointerLeave);
 
     const start = performance.now();
     let animId = 0;
@@ -411,22 +405,21 @@ export default function AcousticBlackHoleCanvas() {
     const frame = () => {
       animId = 0;
       voicePulse *= 0.95;
-      const now = performance.now();
-      uniforms.uTime.value = (now - start) / 1000;
+      uniforms.uTime.value = (performance.now() - start) / 1000;
       uniforms.uVoicePulse.value = voicePulse;
 
-      // Mouse hover interpolation
+      // Smooth mouse coordinates interpolation
       currentMouseX += (targetMouseX - currentMouseX) * 0.08;
       currentMouseY += (targetMouseY - currentMouseY) * 0.08;
-      if (now - lastMoveTime > 2500) {
-        targetHover = 0.0;
-      }
-      currentHover += (targetHover - currentHover) * 0.06;
-
+      currentMouseActive += (targetMouseActive - currentMouseActive) * 0.06;
       uniforms.uMouse.value.set(currentMouseX, currentMouseY);
-      uniforms.uMouseHover.value = currentHover;
-      // Single source of truth for aperture scroll progress
-      uniforms.uScrollProgress.value = heroProgress.value;
+      uniforms.uMouseActive.value = currentMouseActive;
+
+      // Track hero scroll progress custom property
+      const rawProgress = parseFloat(
+        document.documentElement.style.getPropertyValue("--hero-progress") || "0"
+      );
+      uniforms.uScrollProgress.value = Math.max(0, Math.min(1, isNaN(rawProgress) ? 0 : rawProgress));
 
       if (renderer) renderer.render(scene, camera);
       if (inView && pageVisible) animId = requestAnimationFrame(frame);
@@ -442,7 +435,7 @@ export default function AcousticBlackHoleCanvas() {
           animId = 0;
         }
       },
-      { threshold: 0, rootMargin: "300px" }
+      { threshold: 0 }
     );
     observer.observe(container);
 
@@ -462,6 +455,7 @@ export default function AcousticBlackHoleCanvas() {
       observer.disconnect();
       document.removeEventListener("visibilitychange", onPageVisibility);
       window.removeEventListener("pointermove", onPointerMove);
+      window.removeEventListener("pointerleave", onPointerLeave);
       window.removeEventListener("voxflow:voice-active", onVoice);
       window.removeEventListener("resize", onResize);
       if (renderer && renderer.domElement && renderer.domElement.parentElement) {
