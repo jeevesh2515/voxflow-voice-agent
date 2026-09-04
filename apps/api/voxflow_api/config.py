@@ -145,6 +145,13 @@ class Settings(BaseSettings):
     stripe_price_starter: str = ""
     stripe_price_growth: str = ""
     stripe_price_enterprise: str = ""
+    # One metered (usage-based) Stripe price ID per tier, for per-call-minute
+    # billing. Blank disables the usage line item for that tier. Only
+    # starter/growth are metered (enterprise included_minutes == 0).
+    stripe_meter_price_starter: str = ""
+    stripe_meter_price_growth: str = ""
+    stripe_meter_price_enterprise: str = ""
+    # Billing Meter event name reported by services/metering_service.py.
     stripe_meter_event_name: str = "voxflow_voice_minutes"
     # Fallback checkout redirect origin when a caller supplies no explicit URL.
     billing_portal_return_url: str = "http://localhost:3000/dashboard/settings"
@@ -163,6 +170,15 @@ class Settings(BaseSettings):
             "starter": self.stripe_price_starter,
             "growth": self.stripe_price_growth,
             "enterprise": self.stripe_price_enterprise,
+        }.get(plan_tier, "").strip()
+
+    def stripe_meter_price_id(self, plan_tier: str) -> str:
+        """Metered (usage-based) price id for a tier; '' when unconfigured."""
+
+        return {
+            "starter": self.stripe_meter_price_starter,
+            "growth": self.stripe_meter_price_growth,
+            "enterprise": self.stripe_meter_price_enterprise,
         }.get(plan_tier, "").strip()
 
     @field_validator("database_url", mode="before")

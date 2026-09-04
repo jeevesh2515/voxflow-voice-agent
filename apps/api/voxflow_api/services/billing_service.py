@@ -142,6 +142,23 @@ def _validate_plan_tier(plan_tier: str) -> str:
     return normalized
 
 
+def _meter_price_id(settings: Any, plan_tier: str) -> str:
+    """Resolve a tier's metered (usage-based) Stripe price id.
+
+    Uses settings.stripe_meter_price_id(plan_tier) when present (the same
+    pattern as stripe_price_id); falls back to the per-tier field names.
+    Returns '' when unconfigured so checkout can still degrade to the
+    licensed-only / inline-data paths.
+    """
+    resolver = getattr(settings, "stripe_meter_price_id", None)
+    if callable(resolver):
+        try:
+            return str(resolver(plan_tier) or "")
+        except (TypeError, ValueError):
+            return ""
+    return str(getattr(settings, f"stripe_meter_price_{plan_tier}", "") or "")
+
+
 # ---------- Checkout ----------
 
 
@@ -164,6 +181,9 @@ def create_checkout_session(
     tier = _validate_plan_tier(plan_tier)
     settings = get_settings()
     price_id = settings.stripe_price_id(tier)
+    meter_price_id = ""
+    if PLAN_CATALOG[tier].get("included_minutes", 0) != 0:
+        meter_price_id = _meter_price_id(settings, tier)
 
     metadata = {"tenant_id": tenant_id, "plan_tier": tier}
 
@@ -178,6 +198,7 @@ def create_checkout_session(
             "checkout_url": f"{success_url}{'&' if '?' in success_url else '?'}sandbox_session={session_id}",
             "plan_tier": tier,
             "price_id": price_id or None,
+            "meter_price_id": meter_price_id or None,
             "amount_pence": PLAN_CATALOG[tier]["amount_pence"],
             "currency": "gbp",
             "client_reference_id": tenant_id,
@@ -188,6 +209,10 @@ def create_checkout_session(
     stripe = _stripe_module()
     if price_id:
         line_items = [{"price": price_id, "quantity": 1}]
+    elif meter_price_id:
+        # Licensed price missing but a metered price is configured: start
+        # the subscription on usage-only billing rather than failing.
+        line_items = []
     else:
         # A live key with no configured price ID still works via inline price
         # data, so a partially configured deployment degrades to a correct
@@ -203,6 +228,8 @@ def create_checkout_session(
                 },
             }
         ]
+    if meter_price_id:
+        line_items.append({"price": meter_price_id})
 
     params: dict[str, Any] = {
         "mode": "subscription",
@@ -230,6 +257,7 @@ def create_checkout_session(
         "checkout_url": checkout_url,
         "plan_tier": tier,
         "price_id": price_id or None,
+        "meter_price_id": meter_price_id or None,
         "amount_pence": PLAN_CATALOG[tier]["amount_pence"],
         "currency": "gbp",
         "client_reference_id": tenant_id,
