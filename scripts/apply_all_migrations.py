@@ -3,6 +3,14 @@ from __future__ import annotations
 
 import os
 from pathlib import Path
+import sys
+
+# Ensure apps/api is on sys.path
+REPO_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
+API_DIR = os.path.join(REPO_ROOT, "apps", "api")
+if API_DIR not in sys.path:
+    sys.path.insert(0, API_DIR)
+
 from sqlalchemy import create_engine, text
 
 from voxflow_api.config import get_settings

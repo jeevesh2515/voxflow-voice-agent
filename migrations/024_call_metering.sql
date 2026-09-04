@@ -11,13 +11,13 @@
 --                      send and mark never double-bills.
 
 ALTER TABLE calls
-    ADD COLUMN metering_billed_at TIMESTAMPTZ NULL;
+    ADD COLUMN IF NOT EXISTS metering_billed_at TIMESTAMPTZ NULL;
 
 ALTER TABLE calls
-    ADD COLUMN metering_event_id TEXT NOT NULL DEFAULT '';
+    ADD COLUMN IF NOT EXISTS metering_event_id TEXT NOT NULL DEFAULT '';
 
 -- Partial index: exactly the rows the hourly job scans.
-CREATE INDEX ix_calls_metering_pending
+CREATE INDEX IF NOT EXISTS ix_calls_metering_pending
     ON calls (metering_billed_at)
     WHERE metering_billed_at IS NULL;
 
