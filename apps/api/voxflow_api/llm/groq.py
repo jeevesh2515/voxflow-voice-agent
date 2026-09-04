@@ -26,6 +26,7 @@ class GroqProvider(LLMProvider):
         temperature: float = 0.2,
         max_tokens: int = 512,
         fallback_model: str | None = None,
+        fallback_models: list[str] | str | None = None,
     ) -> None:
         if not api_key:
             raise ValueError("GROQ_API_KEY is required when LLM_PROVIDER=groq")
@@ -33,7 +34,27 @@ class GroqProvider(LLMProvider):
         self.model = model
         self.temperature = temperature
         self.max_tokens = max_tokens
-        self.fallback_model = fallback_model or get_settings().groq_fallback_model
+        
+        # Build prioritized fallback cascade excluding primary model
+        settings = get_settings()
+        raw_fallbacks: list[str] = []
+        if fallback_models:
+            if isinstance(fallback_models, str):
+                raw_fallbacks.extend([m.strip() for m in fallback_models.split(",") if m.strip()])
+            else:
+                raw_fallbacks.extend(fallback_models)
+        elif fallback_model:
+            raw_fallbacks.append(fallback_model)
+        else:
+            configured_cascade = getattr(settings, "groq_fallback_models", "")
+            if configured_cascade:
+                raw_fallbacks.extend([m.strip() for m in configured_cascade.split(",") if m.strip()])
+            elif settings.groq_fallback_model:
+                raw_fallbacks.append(settings.groq_fallback_model)
+
+        self.fallback_models: list[str] = [m for m in raw_fallbacks if m and m != self.model]
+        # Backwards compatibility property
+        self.fallback_model = self.fallback_models[0] if self.fallback_models else None
         self._base = "https://api.groq.com/openai/v1"
         self._client: httpx.AsyncClient | None = None
 
@@ -75,22 +96,25 @@ class GroqProvider(LLMProvider):
             tools=tools,
         )
 
-        # If primary model failed due to rate limits or capacity, try secondary fallback model
-        if data is None and self.fallback_model and self.fallback_model != self.model:
-            log.warning(
-                "groq.fallback_model_activated",
-                primary_model=self.model,
-                fallback_model=self.fallback_model,
-            )
-            data = await self._execute_chat_with_retry(
-                model=self.fallback_model,
-                messages=msg_dicts,
-                headers=headers,
-                temperature=effective_temp,
-                max_tokens=effective_tokens,
-                tools=tools,
-                max_retries=1,
-            )
+        # If primary model failed due to rate limits or capacity, iterate through fallback cascade
+        if data is None and self.fallback_models:
+            for candidate_fallback in self.fallback_models:
+                log.warning(
+                    "groq.fallback_model_activated",
+                    primary_model=self.model,
+                    fallback_model=candidate_fallback,
+                )
+                data = await self._execute_chat_with_retry(
+                    model=candidate_fallback,
+                    messages=msg_dicts,
+                    headers=headers,
+                    temperature=effective_temp,
+                    max_tokens=effective_tokens,
+                    tools=tools,
+                    max_retries=1,
+                )
+                if data is not None:
+                    break
 
         if data is None:
             raise RuntimeError("groq_completion_failed")

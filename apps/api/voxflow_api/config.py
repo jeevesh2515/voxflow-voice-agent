@@ -49,6 +49,8 @@ class Settings(BaseSettings):
     # recoverable rate-limit into a failed call turn.
     groq_model: str = "openai/gpt-oss-20b"
     groq_fallback_model: str = "openai/gpt-oss-120b"
+    # Multi-model fallback cascade: if primary is rate-limited, try these free-tier models in order
+    groq_fallback_models: str = "openai/gpt-oss-120b,qwen/qwen3.8-27b"
     # Bound provider-advised retry delays in the interactive free-tier demo.
     # After the short retry budget is exhausted, the agent returns a safe
     # no-action fallback rather than leaving a browser session stalled.

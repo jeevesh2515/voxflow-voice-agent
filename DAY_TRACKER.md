@@ -820,20 +820,20 @@
 ---
 
 #### 🗓️ Day 58: Cloud-First Free-Tier LLM Architecture & Zero Local Footprint
-- **Objective:** Eliminate local Ollama dependencies and silent localhost fallbacks. Transition VoxFlow to a 100% cloud-hosted architecture powered by GroqCloud Developer Free Tier with sub-200ms latency, zero local GPU/RAM footprint, and instant distribution readiness.
+- **Objective:** Eliminate local Ollama dependencies and silent localhost fallbacks. Transition VoxFlow to a 100% cloud-hosted architecture powered by GroqCloud Developer Free Tier with sub-200ms latency, multi-model free tier fallback cascade, zero local GPU/RAM footprint, and instant distribution readiness.
 - **Implementation:**
   1. **Groq LPU Cloud LLM Integration (`llm/groq.py`, `llm/factory.py`, `config.py`):**
      - Primary model: `openai/gpt-oss-20b` (tested live: 199.0ms tool calling latency, `reasoning_effort="low"`).
-     - Fallback model: `openai/gpt-oss-120b` (tested live: 334.1ms tool calling on separate rate-limit bucket).
+     - Multi-model fallback cascade: `openai/gpt-oss-120b` (334ms) $\rightarrow$ `qwen/qwen3.8-27b` (167ms), each on independent Groq rate-limit buckets.
      - Persistent HTTP connection pooling (`Limits(max_keepalive_connections=10, max_connections=20)`).
   2. **Fail-Fast Cloud Validation (`llm/factory.py`):**
      - Removed silent localhost Ollama fallback when `GROQ_API_KEY` is missing; provides crystal-clear diagnostic link to `https://console.groq.com`.
      - Added `reset_llm_provider()` for clean unit test isolation.
   3. **Cloud-First Test Harness (`tests/conftest.py`, `tests/test_cloud_llm.py`):**
      - Updated default test environment from `LLM_PROVIDER=ollama` to `LLM_PROVIDER=groq`.
-     - Created `apps/api/tests/test_cloud_llm.py` (5 tests covering factory initialization, fail-fast missing key checks, tool call formatting, and 429 rate-limit fallback failover).
+     - Created `apps/api/tests/test_cloud_llm.py` (6 tests covering factory initialization, fail-fast missing key checks, tool call formatting, 429 rate-limit fallback failover, and multi-model cascade).
   4. **Zero-Local Cloud Footprint:**
-     - LLM: Groq Cloud LPU (`openai/gpt-oss-20b` + `openai/gpt-oss-120b`) ($0 Free Tier)
+     - LLM: Groq Cloud LPU (`openai/gpt-oss-20b` + `openai/gpt-oss-120b` + `qwen/qwen3.8-27b`) ($0 Free Tier)
      - STT: Groq Hosted Whisper (`whisper-large-v3-turbo`) ($0 Free Tier)
      - TTS: Microsoft Edge Neural Voices (`en-GB-SoniaNeural`, `hi-IN-SwaraNeural`) ($0 Free Tier)
      - Database: Supabase PostgreSQL ($0 Free Tier)
@@ -842,10 +842,10 @@
 - **Artifacts:**
   - `apps/api/voxflow_api/llm/factory.py`
   - `apps/api/tests/conftest.py`
-  - `apps/api/tests/test_cloud_llm.py` (5 passed)
+  - `apps/api/tests/test_cloud_llm.py` (6 passed)
   - `.learning/day-58-cloud-first-groq-llm-zero-local-footprint.md`
 - **Verification:**
-  - `pytest apps/api/tests` → **549 passed, 1 skipped, 0 failed in 69.36s** (100% green).
+  - `pytest apps/api/tests` → **550 passed, 1 skipped, 0 failed in 68.10s** (100% green).
   - Live Groq API benchmark: 199ms tool latency, 167ms completion.
 
 ---
@@ -854,7 +854,7 @@
 
 | Metric | Target | Current Value | Status |
 |---|---|---|---|
-| **Backend Unit & Integration Tests** | $\ge 200$ | **549 Passed** | ✅ Green |
+| **Backend Unit & Integration Tests** | $\ge 200$ | **550 Passed** | ✅ Green |
 | **Frontend Static Routes** | $\ge 15$ | **30 Compiled Pages** | ✅ Green |
 | **Lint & Static Analysis** | 0 warnings | `ruff check .` clean, ESLint clean, `tsc --noEmit` clean | ✅ Clean |
 | **Latency & TTFT Benchmarks** | Sub-second P50 | **P50 ~199ms LLM Tool Calling (Groq Cloud LPU)** | ✅ Verified |

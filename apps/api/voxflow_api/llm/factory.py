@@ -39,7 +39,7 @@ def get_llm() -> LLMProvider:
             model=s.groq_model,
             temperature=s.llm_temperature,
             max_tokens=s.llm_max_tokens,
-            fallback_model=s.groq_fallback_model,
+            fallback_models=getattr(s, "groq_fallback_models", s.groq_fallback_model),
         )
     elif s.llm_provider == "ollama":
         _provider_singleton = OllamaProvider(

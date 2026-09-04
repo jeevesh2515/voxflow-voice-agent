@@ -207,3 +207,57 @@ async def test_groq_provider_fails_over_to_fallback_model_on_rate_limit():
     assert response.content == "Fallback model recovered the turn successfully."
     assert response.model == "openai/gpt-oss-120b"
     await provider.close()
+
+
+@pytest.mark.asyncio
+@respx.mock
+async def test_groq_provider_multi_model_fallback_cascade():
+    """Verify fallback cascades from primary (20b) -> fallback 1 (120b) -> fallback 2 (qwen 27b)."""
+    attempted_models = []
+
+    def handle_request(request):
+        import json
+        body = json.loads(request.content.decode("utf-8"))
+        model = body["model"]
+        attempted_models.append(model)
+
+        if model == "openai/gpt-oss-20b":
+            # Primary exhausted 429
+            return httpx.Response(429, headers={"retry-after": "0.1"})
+        elif model == "openai/gpt-oss-120b":
+            # Fallback 1 temporarily 503
+            return httpx.Response(503)
+        elif model == "qwen/qwen3.8-27b":
+            # Fallback 2 succeeds
+            return httpx.Response(
+                200,
+                json={
+                    "id": "chatcmpl-qwen",
+                    "model": "qwen/qwen3.8-27b",
+                    "choices": [
+                        {
+                            "index": 0,
+                            "message": {
+                                "role": "assistant",
+                                "content": "Qwen 27B free tier rescued the conversation.",
+                            },
+                            "finish_reason": "stop",
+                        }
+                    ],
+                },
+            )
+        return httpx.Response(400)
+
+    respx.post("https://api.groq.com/openai/v1/chat/completions").mock(side_effect=handle_request)
+
+    provider = GroqProvider(
+        api_key="gsk_test_key",
+        model="openai/gpt-oss-20b",
+        fallback_models=["openai/gpt-oss-120b", "qwen/qwen3.8-27b"],
+    )
+
+    response = await provider.chat([ChatTurn(role="user", content="Urgent stock check")])
+    assert response.content == "Qwen 27B free tier rescued the conversation."
+    assert response.model == "qwen/qwen3.8-27b"
+    assert attempted_models == ["openai/gpt-oss-20b", "openai/gpt-oss-20b", "openai/gpt-oss-20b", "openai/gpt-oss-120b", "qwen/qwen3.8-27b"]
+    await provider.close()
