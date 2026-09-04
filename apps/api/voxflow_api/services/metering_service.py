@@ -213,7 +213,9 @@ def meter_all_tenants(
 ) -> dict[str, Any]:
     """Batch entrypoint for the periodic metering job."""
     settings = get_settings()
-    if not settings.stripe_live_mode and not dry_run:
+    live_mode = getattr(settings, "stripe_live_mode",
+                         bool(getattr(settings, "stripe_secret_key", "")))
+    if not live_mode and not dry_run:
         log.warning("meter.sandbox_skip", reason="stripe_live_mode=False")
         return {"tenants": 0, "sent": 0, "skipped": 0, "note": "sandbox_mode"}
 
