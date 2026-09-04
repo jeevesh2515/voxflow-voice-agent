@@ -22,7 +22,7 @@ def generate_mock_sine_pcm(duration_sec: float = 1.5, sample_rate: int = 16000, 
         buffer.extend(struct.pack("<h", max(-32768, min(32767, sample))))
     return bytes(buffer)
 
-async def test_mock_feeder(host: str = "localhost", port: int = 8000, tenant_id: str = "default"):
+async def run_mock_feeder(host: str = "localhost", port: int = 8000, tenant_id: str = "default"):
     print(f"\n🎙️  VoxFlow Mock Audio Stream Feeder")
     print(f"━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
     print(f"Target Host       : http://{host}:{port}")
@@ -52,7 +52,7 @@ def main():
     parser.add_argument("--tenant", default="default", help="Tenant ID")
     args = parser.parse_args()
 
-    asyncio.run(test_mock_feeder(args.host, args.port, args.tenant))
+    asyncio.run(run_mock_feeder(args.host, args.port, args.tenant))
 
 if __name__ == "__main__":
     main()
