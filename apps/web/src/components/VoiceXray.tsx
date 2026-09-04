@@ -303,7 +303,7 @@ export default function VoiceXray() {
                   setMsProgress(84);
                 }}
                 className={`px-2 py-0.5 sm:px-2.5 sm:py-1 rounded-md text-[11px] border transition-all cursor-pointer ${
-                  msProgress >= 84 && msProgress < 112
+                  activeLayerIndex === 1
                     ? "border-[#5EEAD4] bg-[#5EEAD4]/15 text-[#5EEAD4] font-bold shadow-[0_0_10px_rgba(94,234,212,0.3)]"
                     : "border-white/[0.08] bg-white/[0.02] text-white/60 hover:text-white"
                 }`}
@@ -318,7 +318,7 @@ export default function VoiceXray() {
                   setMsProgress(112);
                 }}
                 className={`px-2 py-0.5 sm:px-2.5 sm:py-1 rounded-md text-[11px] border transition-all cursor-pointer ${
-                  msProgress >= 112 && msProgress < 196
+                  activeLayerIndex === 2
                     ? "border-[#5EEAD4] bg-[#5EEAD4]/15 text-[#5EEAD4] font-bold shadow-[0_0_10px_rgba(94,234,212,0.3)]"
                     : "border-white/[0.08] bg-white/[0.02] text-white/60 hover:text-white"
                 }`}
@@ -333,7 +333,7 @@ export default function VoiceXray() {
                   setMsProgress(196);
                 }}
                 className={`px-2 py-0.5 sm:px-2.5 sm:py-1 rounded-md text-[11px] border transition-all cursor-pointer ${
-                  msProgress === 196
+                  activeLayerIndex === 3
                     ? "border-[#5EEAD4] bg-[#5EEAD4]/15 text-[#5EEAD4] font-bold shadow-[0_0_10px_rgba(94,234,212,0.3)]"
                     : "border-white/[0.08] bg-white/[0.02] text-white/60 hover:text-white"
                 }`}
@@ -368,7 +368,7 @@ export default function VoiceXray() {
                           <span className={`font-mono text-[9px] px-1.5 py-0.5 rounded font-bold ${isCurrent ? "bg-[#5EEAD4] text-[#030308]" : "bg-white/[0.06] text-white/70"}`}>LAYER {layer.id}</span>
                           <span className="font-headline font-bold text-xs sm:text-sm text-white tracking-wide">{layer.label}</span>
                         </div>
-                        <span className={`font-mono text-[11px] font-semibold ${isActive ? "text-[#5EEAD4]" : "text-white/40"}`}>{idx === 0 ? "0–84ms" : idx === 1 ? "84ms" : idx === 2 ? "112ms" : "196ms"}</span>
+                        <span className={`font-mono text-[11px] font-semibold ${isActive ? "text-[#5EEAD4]" : "text-white/40"}`}>{idx === 0 ? "0–56ms" : idx === 1 ? "84ms" : idx === 2 ? "112ms" : "196ms"}</span>
                       </div>
                       <div className="relative h-5 sm:h-6 w-full rounded-md bg-[#030308] border border-white/[0.06] overflow-hidden flex items-center">
                         <WaveformVisualizer progress={Math.max(0, msProgress - (idx === 0 ? 0 : XRAY_LAYERS[idx - 1].hopMs))} active={isActive} />
@@ -408,11 +408,11 @@ export default function VoiceXray() {
                     style={{ touchAction: "none" }}
                   />
                 </div>
-                <div className="flex justify-between font-mono text-[10px] text-white/50 mt-1 px-1">
-                  <span className={msProgress < 84 ? "text-[#5EEAD4] font-semibold" : "text-white/40"}>0ms (Ingress)</span>
-                  <span className={msProgress >= 84 && msProgress < 112 ? "text-[#5EEAD4] font-semibold" : "text-white/40"}>84ms (STT)</span>
-                  <span className={msProgress >= 112 && msProgress < 196 ? "text-[#5EEAD4] font-semibold" : "text-white/40"}>112ms (Intent)</span>
-                  <span className={msProgress === 196 ? "text-[#5EEAD4] font-bold" : "text-white/40"}>196ms (Tool Write)</span>
+                <div className="flex justify-between font-mono text-[10px] sm:text-[11px] text-white/50 mt-1.5 px-1">
+                  <span className={activeLayerIndex === 0 ? "text-[#5EEAD4] font-bold" : "text-white/40"}>0ms (Ingress)</span>
+                  <span className={activeLayerIndex === 1 ? "text-[#5EEAD4] font-bold" : "text-white/40"}>84ms (STT)</span>
+                  <span className={activeLayerIndex === 2 ? "text-[#5EEAD4] font-bold" : "text-white/40"}>112ms (Intent)</span>
+                  <span className={activeLayerIndex === 3 ? "text-[#5EEAD4] font-bold" : "text-white/40"}>196ms (Tool Write)</span>
                 </div>
               </div>
             </div>
