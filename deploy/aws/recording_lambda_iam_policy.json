@@ -1,0 +1,36 @@
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Sid": "ReadAndTagConnectRecordings",
+      "Effect": "Allow",
+      "Action": [
+        "s3:GetObject",
+        "s3:GetObjectTagging",
+        "s3:PutObjectTagging"
+      ],
+      "Resource": [
+        "arn:aws:s3:::amazon-connect-<ACCOUNT_ID>-eu-west-2",
+        "arn:aws:s3:::amazon-connect-<ACCOUNT_ID>-eu-west-2/*"
+      ]
+    },
+    {
+      "Sid": "ReadConnectContactAttributes",
+      "Effect": "Allow",
+      "Action": [
+        "connect:GetContactAttributes"
+      ],
+      "Resource": "arn:aws:connect:eu-west-2:<ACCOUNT_ID>:instance/<CONNECT_INSTANCE_ID>"
+    },
+    {
+      "Sid": "WriteCloudWatchLogs",
+      "Effect": "Allow",
+      "Action": [
+        "logs:CreateLogGroup",
+        "logs:CreateLogStream",
+        "logs:PutLogEvents"
+      ],
+      "Resource": "arn:aws:logs:eu-west-2:<ACCOUNT_ID>:log-group:/aws/lambda/VoxFlow-Recordings-Handler:*"
+    }
+  ]
+}

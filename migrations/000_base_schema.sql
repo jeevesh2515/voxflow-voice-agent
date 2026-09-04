@@ -697,11 +697,17 @@ CREATE TABLE IF NOT EXISTS calls (
 	sheet_synced INTEGER NOT NULL,
 	avg_turn_latency_ms INTEGER NOT NULL,
 	recording_url VARCHAR(512),
+	recording_s3_key TEXT NOT NULL,
+	consent_granted INTEGER NOT NULL,
+	consent_recorded_at TIMESTAMP WITH TIME ZONE,
+	consent_evidence_ref TEXT NOT NULL,
 	verified INTEGER NOT NULL,
 	PRIMARY KEY (id),
 	FOREIGN KEY(tenant_id) REFERENCES tenants (id),
 	FOREIGN KEY(supplier_id) REFERENCES suppliers (id)
 );
+
+CREATE INDEX IF NOT EXISTS ix_calls_consent_recorded_at ON calls (consent_recorded_at);
 
 CREATE INDEX IF NOT EXISTS ix_calls_escalation_status ON calls (escalation_status);
 

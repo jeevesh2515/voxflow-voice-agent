@@ -385,8 +385,13 @@ class Call(Base):
     sheet_synced: Mapped[int] = mapped_column(Integer, default=0)
     # Day 42: mean server-side processing time per agent turn (ms), 0 if unknown.
     avg_turn_latency_ms: Mapped[int] = mapped_column(Integer, default=0)
-    # Twilio call recording audio URL (if recorded)
+    # Call recording audio URL (Twilio URL or S3 URI)
     recording_url: Mapped[str | None] = mapped_column(String(512), nullable=True)
+    recording_s3_key: Mapped[str] = mapped_column(Text, default="")
+    # UK GDPR / ICO: IVR recording consent status & evidence reference
+    consent_granted: Mapped[int] = mapped_column(Integer, default=0)
+    consent_recorded_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True, index=True)
+    consent_evidence_ref: Mapped[str] = mapped_column(Text, default="")
     verified: Mapped[int] = mapped_column(Integer, default=0)
 
 

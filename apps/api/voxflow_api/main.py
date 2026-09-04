@@ -40,6 +40,7 @@ from .routes import privacy as privacy_routes
 from .routes import public_auth as public_auth_routes
 from .routes import reliability as reliability_routes
 from .routes import connect as connect_routes
+from .routes import recording as recording_routes
 from .routes import ws as ws_routes
 from .routes.ws import get_pipeline
 from .schemas import ChatRequest, ChatResponse
@@ -158,6 +159,7 @@ def create_app() -> FastAPI:
     app.include_router(observability_routes.router)
     app.include_router(ws_routes.router, tags=["ws"])
     app.include_router(connect_routes.router)
+    app.include_router(recording_routes.router)
 
     # ----- LLM test endpoint (POST /chat) -----
     @app.post("/chat", response_model=ChatResponse)
