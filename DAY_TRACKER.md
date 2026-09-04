@@ -796,20 +796,46 @@
 
 ---
 
+### 🔹 Phase 13: UK Telephony, GDPR Recordings, SQS DLQ & Stripe Billing Meters (Day 57)
+
+#### 🗓️ Day 57: UK Connect Multi-Turn Loop, GDPR Audio Consent, SQS DLQ Retries & Stripe Metered Billing
+- **Objective:** Deploy carrier-grade UK Amazon Connect multi-turn contact flows, GDPR/ICO compliant IVR audio consent & S3 recording persistence, CloudFormation SQS Dead-Letter Queue (DLQ) quarantine with 3-tier retries, and modern Stripe Billing Meters API (`stripe.billing.MeterEvent.create`) per-call-minute usage metering.
+- **Implementation:**
+  - **Connect UK Multi-Turn Contact Flow:** Delivered `connect-contact-flow-uk.json` with an explicit consent gate, dual-channel recording ("Agent + Customer"), barge-in interruption (`x-amz-lex:barge-in-enabled=true`), and an interactive multi-turn loop (up to 10 turns).
+  - **GDPR Consent & S3 Recording Persistence:** Database migration `migrations/023_call_recordings_and_consent.sql` adds immutable consent audit strings (`consent_evidence_ref`), timestamps, and `recording_s3_key`. Presigned S3 URLs (15-min expiry) are generated via `GET /api/calls/{id}/recording`.
+  - **SQS DLQ & 3-Tier Retries:** S3 recording ingest Lambda with exponential backoff retry classification (`retry.py`), CloudFormation SQS DLQ + Poison Queue stack (`recording_dlq_cfn.yaml`), CloudWatch alarms, and on-demand re-drive handler (`dlq_redrive_handler.py`).
+  - **Stripe Billing Meters API:** Integrated modern Billing Meters endpoint (`stripe.billing.MeterEvent.create`) replacing deprecated legacy usage records. Ceil rounding (`ceil(duration_sec / 60)`), stable deduplication identifier (`voxflow-call-meter-<call.id>`), database ledger (`migrations/024_call_metering.sql` with partial index `ix_calls_metering_pending`), and CLI reporter `scripts/run_meter_report.py`.
+  - **Cloud Sync & Supabase:** Applied all 24 migrations against live Supabase PostgreSQL (`aws-0-eu-west-1.pooler.supabase.com:5432`).
+- **Artifacts:**
+  - `connect-contact-flow-uk.json` (UK English contact flow)
+  - `migrations/023_call_recordings_and_consent.sql` & `migrations/024_call_metering.sql`
+  - `apps/api/voxflow_api/services/retry.py` & `apps/api/voxflow_api/services/metering_service.py`
+  - `scripts/run_meter_report.py`
+  - `apps/api/tests/test_metering_service.py` (9 / 9 passed)
+  - `deploy/STRIPE_METERED_BILLING_README.md`
+  - `.learning/day-57-uk-connect-recordings-dlq-and-stripe-metered-billing.md`
+- **Verification:**
+  - `pytest apps/api/tests` → **539 passed, 1 skipped, 0 failed in 59.85s** (100% green).
+  - `npm run build --workspace=apps/web` → **30/30 static & dynamic routes compiled** (0 errors).
+  - `npm run lint --workspace=apps/web` → **0 errors, 0 warnings**.
+  - `python3 scripts/supabase_keepalive.py --once` → **Latency: 651ms | Tenants: 4**.
+
+---
+
 ## 🎯 Verification & Test Summary Matrix
 
 | Metric | Target | Current Value | Status |
 |---|---|---|---|
-| **Backend Unit & Integration Tests** | $\ge 200$ | **508 Passed** | ✅ Green |
-| **Frontend Static Routes** | $\ge 15$ | **26 Compiled Pages** | ✅ Green |
+| **Backend Unit & Integration Tests** | $\ge 200$ | **539 Passed** | ✅ Green |
+| **Frontend Static Routes** | $\ge 15$ | **30 Compiled Pages** | ✅ Green |
 | **Lint & Static Analysis** | 0 warnings | `ruff check .` clean, ESLint clean, `tsc --noEmit` clean | ✅ Clean |
 | **Latency & TTFT Benchmarks** | Sub-second P50 | **P50 ~566ms → ~400ms target (gated + streaming wired, TTFB ~150ms)** | ✅ Verified |
-| **Database Migrations** | Staged & Verified | 23 Migrations (`000`–`022`) | ✅ Current |
-| **Telephony Providers Supported** | Enterprise Voice | Amazon Connect (AWS) + Amazon Lex STT + WebAudio Simulator | ✅ Verified |
-| **Call Persistence & Mirroring** | Durable Logging | Postgres `calls` + Gated Google Sheets Mirror | ✅ Verified |
+| **Database Migrations** | Staged & Verified | 25 Migrations (`000`–`024`) applied on Supabase | ✅ Current |
+| **Telephony Providers Supported** | Enterprise Voice | Amazon Connect (AWS UK eu-west-2) + Amazon Lex STT + WebAudio Simulator | ✅ Verified |
+| **Call Persistence & Mirroring** | Durable Logging | Postgres `calls` + Gated Google Sheets Mirror + S3 Signed Audio | ✅ Verified |
 | **Multi-Tenant Isolation (Gate #3)** | Zero Data Leaks | **0% Foreign Rows, 404 on Foreign IDs, 403 on Cross-Tenant** | ✅ Verified |
 | **RBAC Enforcement (3 Tiers)** | Owner / Operator / Viewer | Strict server-authoritative role gating & last-owner protection | ✅ Verified |
-| **UK GDPR & Data Privacy (Gate #4)** | Access / Erasure / Purge | DSAR Export + Right to Erasure + Automated Cron Purge + Audit Log | ✅ Verified |
+| **UK GDPR & Data Privacy (Gate #4)** | Access / Erasure / Purge | DSAR Export + Right to Erasure + Automated Cron Purge + Consent Evidence | ✅ Verified |
 | **Team Management Surface** | Member Settings UI | Interactive Member Roster + Invites + Role Selector + Matrix | ✅ Verified |
 | **Per-Tenant Google Sheets** | Self-Serve Mirror | 1-Click Connect + Preflight Diagnostic + Voice Agent Live Edit | ✅ Verified |
 | **Voice Agent Live Sheet Editing** | Tool Calling | `edit_sheet_row` + `update_worksheet` + Prompt Context | ✅ Verified |
@@ -822,19 +848,19 @@
 | **Voice Eval Harness (Gate #5)** | Release Gate #5 | 30 Scenarios × 7 Categories, Hard Gate 100% enforced | ✅ Verified |
 | **CI/CD Eval Gate** | Exit 1 on leak | `--strict` mode trips on any pre-verification data leak | ✅ Verified |
 | **Observability & Alerting** | KPI/Health/Events | 6-endpoint surface, alert thresholds + durable dispatch, PII-scrubbed Sentry/PostHog, dark dashboard | ✅ Verified |
-| **Stripe Billing (Gate #6)** | Checkout/Portal/Webhook | 3 plans (Starter £49 / Growth £149 / Enterprise £399), fail-closed webhooks, idempotent invoices, owner-only checkout/portal | ✅ Verified |
-| **Landing & Pricing** | Public marketing | UK supply-chain hero, simulator teaser, architecture + matrix, GBP/USD + annual toggle, VAT receipts | ✅ Verified |
-| **Cosmic Journey Hero** | 5-keyframe scroll narrative | Black hole → starfield → solar system → telescope → Earth arrival; sticky Earth plate; 556KB, 8/10 credits | ✅ Verified |
+| **Stripe Billing & Metering (Gate #6)** | Checkout/Portal/Meters | Starter (£49) / Growth (£149) / Enterprise (£399) + Modern Billing Meters API per-call-minute usage | ✅ Verified |
+| **Landing, Pricing & Contact** | Public marketing | UK supply-chain hero, cosmic journey 5-kf scroll, pricing calculator, contact form with mailto/copy | ✅ Verified |
 | **Go-Live Preflight** | 7-pillar gate | `golive_dry_run.py --strict` (migrations, isolation, telephony, billing, eval, GDPR, build) | ✅ Verified |
 | **Tool Gating & Parallel Reads** | <400ms P50 | Gated 6→17→19 tools, `asyncio.gather` on pure reads | ✅ Verified |
 | **Streaming TTS** | TTFB ~150ms | `synth_stream` + `turn_start` + `audio_chunk` over `/ws/call` | ✅ Verified |
 
 ---
 
-## 🧭 Next Recommended Actions (Day 55+)
+## 🧭 Next Recommended Actions (Day 57+)
 
-1. **Single DB session per turn:** Pass one `async_session_scope` into `execute_tool(..., db=...)` so a parallel batch shares a connection — saves pool wait on Supabase.
-2. **LLM streaming + incremental TTS:** Stream Groq tokens sentence-by-sentence into `synth_stream` so voice starts before LLM finishes (target <300ms perceived).
-3. **Load lab:** 50 concurrent simulator sessions, measure P95 under contention, tune `max_connections` and keepalive.
+1. **Production Hourly Meter Cron Setup:** Configure Linux server cron: `0 * * * * cd /srv/voxflow && .venv/bin/python scripts/run_meter_report.py --execute >> /var/log/voxflow-meter.log 2>&1`.
+2. **AWS S3 Ingest Lambda Deployment:** Deploy `deploy/aws/s3_recordings_handler.py` and CloudFormation `recording_dlq_cfn.yaml` in AWS London (`eu-west-2`).
+3. **Single DB session per turn:** Pass one `async_session_scope` into `execute_tool(..., db=...)` to optimize connection pooling.
 
 ---
+

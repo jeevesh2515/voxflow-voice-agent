@@ -13,16 +13,17 @@
 
 <p align="center">
   <img src="https://img.shields.io/badge/CI%2FCD-100%25%20PASSING-success?style=for-the-badge&logo=githubactions&logoColor=white&labelColor=111827" alt="CI Status" />
-  <img src="https://img.shields.io/badge/TESTS-508%20PASSED-10B981?style=for-the-badge&logo=pytest&logoColor=white&labelColor=111827" alt="508 Pytest Tests Passed" />
-  <img src="https://img.shields.io/badge/FRONTEND-29%20ROUTES-6366F1?style=for-the-badge&logo=nextdotjs&logoColor=white&labelColor=111827" alt="29 Next.js Routes" />
+  <img src="https://img.shields.io/badge/TESTS-539%20PASSED-10B981?style=for-the-badge&logo=pytest&logoColor=white&labelColor=111827" alt="539 Pytest Tests Passed" />
+  <img src="https://img.shields.io/badge/FRONTEND-30%20ROUTES-6366F1?style=for-the-badge&logo=nextdotjs&logoColor=white&labelColor=111827" alt="30 Next.js Routes" />
   <img src="https://img.shields.io/badge/VOICE-ENGLISH%20%28UK%29%20%2B%20HINDI-F97316?style=for-the-badge&labelColor=111827" alt="English (UK) + Hindi Multilingual" />
   <img src="https://img.shields.io/badge/GROUNDING-ZERO--HALLUCINATION%20RAG-0F766E?style=for-the-badge&logo=shield&logoColor=white&labelColor=111827" alt="Zero-Hallucination Grounding" />
 </p>
 
 <p align="center">
   <img src="https://img.shields.io/badge/CLOUD-AWS%20%2B%20ORACLE%20VM-FF9900?style=for-the-badge&logo=amazonaws&logoColor=white&labelColor=111827" alt="AWS & Oracle VM" />
-  <img src="https://img.shields.io/badge/TELEPHONY-AMAZON%20CONNECT%20%2B%20LEX-0284C7?style=for-the-badge&labelColor=111827" alt="Telephony Providers" />
+  <img src="https://img.shields.io/badge/TELEPHONY-AMAZON%20CONNECT%20UK%20%2B%20LEX-0284C7?style=for-the-badge&labelColor=111827" alt="Telephony Providers" />
   <img src="https://img.shields.io/badge/DATABASE-SUPABASE%20POSTGRES-3ECF8E?style=for-the-badge&logo=supabase&logoColor=white&labelColor=111827" alt="Supabase Postgres" />
+  <img src="https://img.shields.io/badge/BILLING-STRIPE%20BILLING%20METERS-635BFF?style=for-the-badge&logo=stripe&logoColor=white&labelColor=111827" alt="Stripe Billing Meters" />
   <img src="https://img.shields.io/badge/TENANT%20ISOLATION-0--LEAK%20GATE%20%233%20PASSED-0F766E?style=for-the-badge&logo=shield&logoColor=white&labelColor=111827" alt="Tenant Isolation Gate #3" />
   <img src="https://img.shields.io/badge/EVAL%20HARNESS-30%20SCENARIOS%20%7C%20HARD%20GATE%20100%25-EF4444?style=for-the-badge&logo=shieldsdotio&logoColor=white&labelColor=111827" alt="Voice Eval Harness" />
   <a href="BENCHMARK_REPORT.md"><img src="https://img.shields.io/badge/BENCHMARKS-P50%20%7C%20P90%20VERIFIED-8B5CF6?style=for-the-badge&labelColor=111827" alt="Verified Benchmarks" /></a>
@@ -264,7 +265,7 @@ flowchart LR
 - **Secure Caller Verification**: Standard and enhanced policies combine knowledge verification with owner-configured 4–8 digit PINs stored as uniquely salted PBKDF2-HMAC-SHA256 verifiers, plus a persistent cross-session lockout that stops brute-force guessing across many separate calls, not just within one.
 - **Owner-Only Telephony Control Plane**: `/dashboard/settings` manages provider, route language, verification mode, activation state, and masked caller-PIN posture without displaying secrets or hashes.
 - **Session-Gated Self-Serve Signup**: Workspace provisioning only completes after a live authenticated session is confirmed, so a new sign-up can never be silently stranded owning an unclaimable placeholder-owned tenant.
-- **Full Operational Dashboard**: 29 compiled Next.js routes covering Calls, Escalations, Appointments, Inventory, Shipments, Data Hub & CSV, Campaigns, Settings, Observability, Privacy & GDPR, Readiness Scorecard, and Web-based Call Simulators.
+- **Full Operational Dashboard**: 30 compiled Next.js routes covering Calls, Escalations, Appointments, Inventory, Shipments, Data Hub & CSV, Campaigns, Settings, Observability, Privacy & GDPR, Readiness Scorecard, Pricing, Contact, and Web-based Call Simulators.
 
 ### 5. 🛡️ Voice Eval Harness & Release Gate #5
 Every code change is validated against a repeatable, CI-integrated evaluation harness before deployment — so you can answer *"How do you know it won't say the wrong thing to my customer?"* with documented evidence.
@@ -293,6 +294,14 @@ Supply-chain voice operations cannot tolerate hallucinated order quantities, arr
 - **Deterministic Temperature Clamping (`temperature=0.1`)**: Reasoning and function calling turns are clamped to `0.1` to eliminate stochastic generation drift.
 - **Live Company Knowledge & Guidelines Grounding**: Operating hours, loading bay gate rules, holiday schedules, and connected Google Sheets tabs configured in `/dashboard/settings` are dynamically injected into system context turns.
 
+### 8. 💳 Usage-Based Stripe Billing Meters & Ledger (Day 57)
+Replaced legacy deprecated usage records with the modern **Stripe Billing Meters API** (`stripe.billing.MeterEvent.create`):
+
+- **Per-Call-Minute Billing**: Accurate whole-minute ceiling rounding `ceil(duration_sec / 60)` with a 1-minute minimum for any completed call with positive duration.
+- **Crash-Safe Idempotency**: Stable identifiers `voxflow-call-meter-<call.id>` enforced within Stripe's rolling $\ge 24$h deduplication window.
+- **Database Ledger & Partial Indexing**: `metering_billed_at` and `metering_event_id` recorded on `calls` with partial index `ix_calls_metering_pending` for fast cron batch scans.
+- **Periodic CLI Reporter**: `python3 scripts/run_meter_report.py` (dry-run default, `--execute` live) with exponential backoff retry classification (`retry.py`).
+
 ```bash
 # Run the eval harness locally (mock LLM, zero cost)
 python3 scripts/run_evals.py --mock --strict
@@ -312,7 +321,7 @@ VoxFlow provides flexible voice interfaces for enterprise operations and rapid t
 
 | Provider / Channel | Inbound Routing | Capabilities | Integration Mechanism |
 |---|---|---|---|
-| **Amazon Connect (AWS)** | Active exact DID/provider mapping; unknown and inactive destinations return `unknown_connect_did` | Global contact center, route-specific language and verification policy, AWS Polly Neural Voices | HMAC-authenticated AWS Lambda bridge + Amazon Lex V2 STT + REST turns |
+| **Amazon Connect (AWS UK eu-west-2)** | Active exact DID/provider mapping; unknown and inactive destinations return `unknown_connect_did` | Multi-turn conversational loop (10 turns), Lex V2 en-GB STT, GDPR IVR consent gate, S3 dual-channel recording, SQS DLQ quarantine | HMAC-authenticated AWS Lambda bridge + Amazon Lex V2 STT + S3 Ingest Lambda |
 | **In-Browser Simulator** | Interactive Web Microphone | 100% Free, Zero Telecom Setup, Direct Streaming | WebAudio WebSocket at `/dashboard/simulator` |
 
 ---
@@ -333,7 +342,7 @@ cd voxflow-voice-agent
 ### 2. Configure Environment Variables
 ```bash
 cp .env.example .env
-# Edit .env with your LLM keys, database credentials, and Connect settings
+# Edit .env with your LLM keys, database credentials, Stripe meter settings, and Connect settings
 ```
 
 ### 3. Start the Backend API
@@ -365,12 +374,12 @@ npm run dev
 Run all automated test suites locally:
 
 ```bash
-# 1. Run full backend test suite (508 unit, integration, isolation & RBAC tests)
+# 1. Run full backend test suite (539 unit, integration, isolation, metering & RBAC tests)
 cd apps/api
 .venv/bin/python -m pytest -q
 
-# 2. Run focused 0-leak tenant isolation & RBAC matrix test suites
-.venv/bin/python -m pytest tests/test_tenant_isolation_zero_leak.py tests/test_rbac_matrix.py -v
+# 2. Run focused Stripe metering, 0-leak tenant isolation & RBAC matrix test suites
+.venv/bin/python -m pytest tests/test_metering_service.py tests/test_tenant_isolation_zero_leak.py tests/test_rbac_matrix.py -v
 
 # 3. Run backend linter & type checks
 .venv/bin/ruff check voxflow_api tests
@@ -378,7 +387,7 @@ cd apps/api
 # 4. Run Voice Eval Harness (30 scenarios, hard gate enforcement)
 python3 scripts/run_evals.py --mock --strict
 
-# 5. Run frontend lint, ROI / latency tests, and production build (29 routes)
+# 5. Run frontend lint, ROI / latency tests, and production build (30 routes)
 cd ../web
 npx tsx src/lib/roi.test.ts
 npx tsx src/lib/voiceXray.test.ts
