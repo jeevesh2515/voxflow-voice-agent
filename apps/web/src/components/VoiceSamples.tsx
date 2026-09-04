@@ -280,7 +280,7 @@ export default function VoiceSamples() {
               </p>
             </div>
             <div className="mt-4 pt-3 border-t border-white/[0.04] flex items-center justify-between font-mono text-[10px] text-white/60">
-              <span>Llama Intent + Edge TTS</span>
+              <span>GPT-OSS Intent + Edge TTS</span>
               <span className="text-[#5EEAD4] font-bold">{activeSample.turnLatency} Turn</span>
             </div>
           </div>

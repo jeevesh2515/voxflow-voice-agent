@@ -531,7 +531,7 @@ export default function Home() {
                   {/* Telemetry Indicator */}
                   <div className="grid grid-cols-3 gap-2 text-center text-[10px] font-label text-[#a098b0] pt-1">
                     <span>Groq Whisper STT: <strong className="text-[#f8fafc]">84ms</strong></span>
-                    <span>Llama 3 Reasoning: <strong className="text-[#f8fafc]">112ms</strong></span>
+                    <span>GPT-OSS Reasoning: <strong className="text-[#f8fafc]">112ms</strong></span>
                     <span>Turn: <strong className="text-[#ff2d78]">196ms</strong></span>
                   </div>
                 </div>
@@ -616,7 +616,7 @@ export default function Home() {
                 {
                   step: "01",
                   title: "Dual-Engine Multilingual Voice",
-                  desc: "Whisper STT combined with Llama 3 70B reasoning and low-latency Edge TTS. Flawless code-switching between British English and conversational Hindi.",
+                  desc: "Whisper STT combined with Groq LPU reasoning and low-latency Edge TTS. Flawless code-switching between British English and conversational Hindi.",
                   icon: (
                     <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-[#c084fc]">
                       <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z" />
@@ -728,7 +728,7 @@ export default function Home() {
                 <div className="space-y-2.5 text-[#a098b0]">
                   <p data-tele-step="0" className="telemetry-line text-[#a098b0]"><span className="text-white/30">00:00.041</span> connect.stream → PCM 16kHz attached</p>
                   <p><span className="text-white/30">00:00.125</span> Groq Whisper STT ............ <span className="text-[#f8fafc]">84ms</span></p>
-                  <p data-tele-step="1" className="telemetry-line text-[#a098b0]"><span className="text-white/30">00:00.237</span> Llama-3-70b tool call ....... <span className="text-[#f8fafc]">112ms</span></p>
+                  <p data-tele-step="1" className="telemetry-line text-[#a098b0]"><span className="text-white/30">00:00.237</span> GPT-OSS-20b tool call ....... <span className="text-[#f8fafc]">112ms</span></p>
                   <p data-tele-step="2" className="telemetry-line text-[#a098b0]"><span className="text-white/30">00:00.288</span> lang detect: hi → en bridge .. <span className="text-[#f8fafc]">51ms</span></p>
                   <p data-tele-step="3" className="telemetry-line text-[#a098b0]"><span className="text-white/30">00:00.391</span> sheets.mirror(commit) ....... <span className="text-[#f8fafc]">63ms</span></p>
                   <p data-tele-step="3" className="telemetry-line text-[#a098b0]"><span className="text-white/30">00:00.196</span> Total glass-to-glass turn ... <span className="text-[#ff2d78] font-bold">196ms</span></p>
@@ -777,7 +777,7 @@ export default function Home() {
               <div className="space-y-4">
                 {[
                   { step: "01", title: "Amazon Connect", desc: "UK SIP streams terminate, PCM 16kHz audio attached over TLS.", lat: "38ms" },
-                  { step: "02", title: "Whisper STT + Llama 3 70B", desc: "Groq transcription → 70B reasoning → function calling.", lat: "84ms" },
+                  { step: "02", title: "Whisper STT + GPT-OSS 20B", desc: "Groq transcription → LPU reasoning → function calling.", lat: "84ms" },
                   { step: "03", title: "Tenant PostgreSQL + Sheets", desc: "Scoped tenant reads/writes, live Google Sheets mirror.", lat: "112ms" },
                   { step: "04", title: "Edge TTS + Audit Logging", desc: "Voice synthesized back; transcript, invoice & audit logged.", lat: "196ms" },
                 ].map((s, i) => (
@@ -1185,7 +1185,7 @@ export default function Home() {
                 </div>
                 <div className="border-l border-[#ff2d78]/30 pl-4">
                   <div className="font-mono text-[10px] uppercase tracking-widest text-[#ff2d78] mb-1">REASONING &amp; ROUTING</div>
-                  <div className="font-headline font-bold text-base text-white">Llama 3.3 70B &amp; Qwen</div>
+                  <div className="font-headline font-bold text-base text-white">GPT-OSS 20B &amp; Qwen</div>
                   <p className="font-sans text-xs text-white/60 mt-1 leading-relaxed">Deterministic tool calls for stock queries, POs, and logistics updates.</p>
                 </div>
                 <div className="border-l border-[#00ffcc]/30 pl-4">

@@ -71,7 +71,7 @@ export default function ParallaxQuotes() {
             </div>
 
             <div className="mt-8 border-t border-white/[0.08] pt-4 flex items-center justify-between font-label text-xs uppercase tracking-[0.2em] text-[#00ffcc]/90">
-              <span>GROQ WHISPER V3 TURBO • LLAMA 3.3</span>
+              <span>GROQ WHISPER V3 TURBO • GPT-OSS / QWEN</span>
               <span className="font-mono text-[10px] text-white/40">~200ms turn, UK edge</span>
             </div>
           </div>
