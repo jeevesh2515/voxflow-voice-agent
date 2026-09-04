@@ -1,0 +1,82 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: "VoxFlow - DLQ + async invocation config for the Connect recording handler (eu-west-2)"
+Parameters:
+  RecordingHandlerName:
+    Type: String
+    Default: VoxFlow-Recordings-Handler
+    Description: Name of the existing S3-event Lambda to attach the async on-failure destination to.
+  AlarmEmail:
+    Type: String
+    Description: Email address that receives the DLQ-depth CloudWatch alarm.
+Resources:
+  # Primary DLQ: receives (a) Lambda async on-failure destinations and
+  # (b) in-handler permanent-error sends. Consumed by the redrive processor.
+  VoxFlowRecordingsDlq:
+    Type: AWS::SQS::Queue
+    Properties:
+      QueueName: voxflow-recordings-dlq
+      VisibilityTimeout: 360
+      MessageRetentionPeriod: 1209600
+      RedrivePolicy:
+        deadLetterTargetArn: !GetAtt VoxFlowRecordingsDlqPoison.Arn
+        maxReceiveCount: 5
+  # Poison queue: final quarantine once the redrive processor also fails.
+  VoxFlowRecordingsDlqPoison:
+    Type: AWS::SQS::Queue
+    Properties:
+      QueueName: voxflow-recordings-dlq-poison
+      VisibilityTimeout: 360
+      MessageRetentionPeriod: 1209600
+      RedriveAllowPolicy:
+        redrivePermission: byQueue
+        sourceQueueArns:
+          - !GetAtt VoxFlowRecordingsDlq.Arn
+  # Lambda async invocation: retries max twice, events retained up to 6h,
+  # then the whole event goes to the DLQ on-failure destination.
+  RecordingHandlerEventInvokeConfig:
+    Type: AWS::Lambda::EventInvokeConfig
+    Properties:
+      FunctionName: !Ref RecordingHandlerName
+      Qualifier: "$LATEST"
+      MaximumEventAgeInSeconds: 21600
+      MaximumRetryAttempts: 2
+      DestinationConfig:
+        OnFailure:
+          Destination: !GetAtt VoxFlowRecordingsDlq.Arn
+  RecordingDlqTopic:
+    Type: AWS::SNS::Topic
+    Properties:
+      TopicName: voxflow-recordings-dlq-alerts
+  RecordingDlqSubscription:
+    Type: AWS::SNS::Subscription
+    Properties:
+      Protocol: email
+      Endpoint: !Ref AlarmEmail
+      TopicArn: !Ref RecordingDlqTopic
+  # Alarm on DLQ depth: fires as soon as anything lands in the DLQ.
+  RecordingDlqDepthAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: voxflow-recordings-dlq-depth
+      Namespace: AWS/SQS
+      MetricName: ApproximateNumberOfMessagesVisible
+      Dimensions:
+        - Name: QueueName
+          Value: !GetAtt VoxFlowRecordingsDlq.QueueName
+      Statistic: Maximum
+      Period: 300
+      EvaluationPeriods: 1
+      Threshold: 1
+      ComparisonOperator: GreaterThanOrEqualToThreshold
+      TreatMissingData: notBreaching
+      AlarmActions:
+        - !Ref RecordingDlqTopic
+Outputs:
+  DlqArn:
+    Value: !GetAtt VoxFlowRecordingsDlq.Arn
+  DlqUrl:
+    Value: !Ref VoxFlowRecordingsDlq
+  PoisonQueueArn:
+    Value: !GetAtt VoxFlowRecordingsDlqPoison.Arn
+  PoisonQueueUrl:
+    Value: !Ref VoxFlowRecordingsDlqPoison

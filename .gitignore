@@ -80,4 +80,6 @@ Makefile
 # Temporary download / scratch directories
 S3/
 s3/
+error-handling/
+error\ handling/
 

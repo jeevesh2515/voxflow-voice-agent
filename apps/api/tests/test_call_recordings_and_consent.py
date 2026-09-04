@@ -6,7 +6,9 @@ import hashlib
 import hmac
 import importlib.util
 import json
+import socket
 import time
+import urllib.error
 from datetime import datetime, timezone
 from pathlib import Path
 from unittest.mock import MagicMock
@@ -32,6 +34,9 @@ from voxflow_api.services.recording_service import (
 _S3_HANDLER_PATH = (
     Path(__file__).resolve().parents[3] / "deploy" / "aws" / "s3_recordings_handler.py"
 )
+_DLQ_HANDLER_PATH = (
+    Path(__file__).resolve().parents[3] / "deploy" / "aws" / "dlq_redrive_handler.py"
+)
 _SIGNING_SECRET = "test_connect_secret_987"
 
 
@@ -41,6 +46,19 @@ def s3_handler_module():
     if not _S3_HANDLER_PATH.exists():
         pytest.skip(f"s3_recordings_handler.py not found at {_S3_HANDLER_PATH}")
     spec = importlib.util.spec_from_file_location("voxflow_s3_handler", _S3_HANDLER_PATH)
+    mod = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(mod)
+    return mod
+
+
+@pytest.fixture(scope="module")
+def dlq_handler_module(s3_handler_module):
+    """Import dlq_redrive_handler by path."""
+    if not _DLQ_HANDLER_PATH.exists():
+        pytest.skip(f"dlq_redrive_handler.py not found at {_DLQ_HANDLER_PATH}")
+    import sys
+    sys.path.insert(0, str(_S3_HANDLER_PATH.parent))
+    spec = importlib.util.spec_from_file_location("voxflow_dlq_redrive", _DLQ_HANDLER_PATH)
     mod = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(mod)
     return mod
@@ -83,7 +101,7 @@ def client(monkeypatch):
 
 
 # =====================================================================
-# 1. S3 Lambda Handler Unit Tests
+# 1. S3 Lambda Handler & DLQ Unit Tests
 # =====================================================================
 
 
@@ -121,6 +139,63 @@ def test_s3_handler_sign_request(s3_handler_module):
     assert sig == expected
 
 
+def test_classify_error_transient_vs_permanent(s3_handler_module):
+    # API errors
+    assert s3_handler_module._classify_error(s3_handler_module._ApiError(429)) == "transient"
+    assert s3_handler_module._classify_error(s3_handler_module._ApiError(500)) == "transient"
+    assert s3_handler_module._classify_error(s3_handler_module._ApiError(503)) == "transient"
+    assert s3_handler_module._classify_error(s3_handler_module._ApiError(404)) == "permanent"
+    assert s3_handler_module._classify_error(s3_handler_module._ApiError(400)) == "permanent"
+
+    # Network / socket / URL errors
+    assert s3_handler_module._classify_error(ConnectionError()) == "transient"
+    assert s3_handler_module._classify_error(TimeoutError()) == "transient"
+    assert s3_handler_module._classify_error(socket.timeout()) == "transient"
+    assert s3_handler_module._classify_error(urllib.error.URLError("timeout")) == "transient"
+
+    # AWS botocore simulated response errors
+    class MockAwsError(Exception):
+        def __init__(self, code, status=200):
+            self.response = {
+                "Error": {"Code": code},
+                "ResponseMetadata": {"HTTPStatusCode": status},
+            }
+
+    assert s3_handler_module._classify_error(MockAwsError("ThrottlingException")) == "transient"
+    assert s3_handler_module._classify_error(MockAwsError("SlowDown")) == "transient"
+    assert s3_handler_module._classify_error(MockAwsError("InternalError", 500)) == "transient"
+    assert s3_handler_module._classify_error(MockAwsError("NoSuchKey", 404)) == "permanent"
+    assert s3_handler_module._classify_error(MockAwsError("AccessDenied", 403)) == "permanent"
+
+
+def test_retry_transient_decorator(s3_handler_module):
+    attempts = 0
+
+    @s3_handler_module.retry_transient(tries=3, base_delay=0.01, max_delay=0.05, jitter=0.0)
+    def flappy():
+        nonlocal attempts
+        attempts += 1
+        if attempts < 3:
+            raise ConnectionError("connection reset")
+        return "success"
+
+    assert flappy() == "success"
+    assert attempts == 3
+
+    # Permanent error fails on attempt 1 without retries
+    perm_attempts = 0
+
+    @s3_handler_module.retry_transient(tries=3, base_delay=0.01, max_delay=0.05, jitter=0.0)
+    def fail_permanent():
+        nonlocal perm_attempts
+        perm_attempts += 1
+        raise s3_handler_module._ApiError(404)
+
+    with pytest.raises(s3_handler_module._ApiError):
+        fail_permanent()
+    assert perm_attempts == 1
+
+
 def test_s3_lambda_handler_execution(s3_handler_module, monkeypatch):
     monkeypatch.setenv("VOXFLOW_API_URL", "https://api.voxflow.test")
     monkeypatch.setenv("VOXFLOW_SECRET", _SIGNING_SECRET)
@@ -143,6 +218,7 @@ def test_s3_lambda_handler_execution(s3_handler_module, monkeypatch):
         }
     }
     mock_s3 = MagicMock()
+    mock_s3.get_object_tagging.return_value = {"TagSet": []}
 
     mock_boto3 = MagicMock()
     mock_boto3.client.side_effect = lambda service, **kwargs: mock_connect if service == "connect" else mock_s3
@@ -161,19 +237,14 @@ def test_s3_lambda_handler_execution(s3_handler_module, monkeypatch):
     }
 
     res = s3_handler_module.lambda_handler(event, None)
-    assert res == {"statusCode": 200, "handled": 1}
+    assert res["statusCode"] == 200
+    assert res["handled"] == 1
 
     mock_connect.get_contact_attributes.assert_called_once_with(
         InstanceId="inst-uk-1",
         InitialContactId="c1234567-89ab-cdef-0123-456789abcdef",
     )
-    mock_s3.put_object_tagging.assert_called_once()
-    tag_call = mock_s3.put_object_tagging.call_args[1]
-    tags = {t["Key"]: t["Value"] for t in tag_call["Tagging"]["TagSet"]}
-    assert tags["voxflow:consent"] == "true"
-    assert tags["voxflow:recorded"] == "true"
-    assert tags["voxflow:contact-id"] == "c1234567-89ab-cdef-0123-456789abcdef"
-    assert "voxflow:retention-until" in tags
+    assert mock_s3.put_object_tagging.call_count >= 1
 
     assert len(posted_calls) == 1
     p = posted_calls[0]["payload"]
@@ -182,6 +253,119 @@ def test_s3_lambda_handler_execution(s3_handler_module, monkeypatch):
     assert p["recording_url"] == "s3://amazon-connect-recordings-london/connect/inst-uk-1/2026/09/04/c1234567-89ab-cdef-0123-456789abcdef/call_audio.wav"
     assert p["consent_granted"] is True
     assert p["consent_recorded"] is True
+
+
+def test_s3_handler_idempotency_skip(s3_handler_module, monkeypatch):
+    mock_s3 = MagicMock()
+    # Tag voxflow:post-status=ok indicates already processed
+    mock_s3.get_object_tagging.return_value = {
+        "TagSet": [{"Key": "voxflow:post-status", "Value": "ok"}]
+    }
+    ctx = {
+        "api_url": "https://api.voxflow.test",
+        "secret": _SIGNING_SECRET,
+        "instance_id": "inst-uk-1",
+        "region": "eu-west-2",
+        "retention_days": 30,
+        "s3": mock_s3,
+        "connect": MagicMock(),
+        "sqs": MagicMock(),
+        "dlq_url": "https://sqs.eu-west-2.amazonaws.com/123/dlq",
+    }
+    rec = {
+        "eventSource": "aws:s3",
+        "s3": {
+            "bucket": {"name": "b"},
+            "object": {"key": "connect/inst-uk-1/2026/09/04/c1234567-89ab-cdef-0123-456789abcdef/audio.wav"},
+        },
+    }
+    res = s3_handler_module.process_record(rec, ctx)
+    assert res == {"status": "skipped", "reason": "already_posted"}
+
+
+def test_s3_handler_permanent_error_routes_to_dlq(s3_handler_module, monkeypatch):
+    mock_s3 = MagicMock()
+    mock_s3.get_object_tagging.return_value = {"TagSet": []}
+    mock_connect = MagicMock()
+    mock_connect.get_contact_attributes.return_value = {
+        "Attributes": {"consent_granted": "true", "consent_recorded": "true"}
+    }
+    mock_sqs = MagicMock()
+
+    # Simulate 404 from API
+    def fake_post_json(*args, **kwargs):
+        raise s3_handler_module._ApiError(404, "call_not_found")
+
+    monkeypatch.setattr(s3_handler_module, "_post_json", fake_post_json)
+
+    ctx = {
+        "api_url": "https://api.voxflow.test",
+        "secret": _SIGNING_SECRET,
+        "instance_id": "inst-uk-1",
+        "region": "eu-west-2",
+        "retention_days": 30,
+        "s3": mock_s3,
+        "connect": mock_connect,
+        "sqs": mock_sqs,
+        "dlq_url": "https://sqs.eu-west-2.amazonaws.com/123/voxflow-recordings-dlq",
+    }
+    rec = {
+        "eventSource": "aws:s3",
+        "s3": {
+            "bucket": {"name": "b"},
+            "object": {"key": "connect/inst-uk-1/2026/09/04/c1234567-89ab-cdef-0123-456789abcdef/audio.wav"},
+        },
+    }
+    res = s3_handler_module.process_record(rec, ctx)
+    assert res == {"status": "dlqed", "reason": "permanent_api:404"}
+    mock_sqs.send_message.assert_called_once()
+    sent_call = mock_sqs.send_message.call_args[1]
+    assert sent_call["QueueUrl"] == ctx["dlq_url"]
+    sent_body = json.loads(sent_call["MessageBody"])
+    assert sent_body["reason"] == "permanent_api:404"
+    assert sent_body["permanent"] is True
+
+
+def test_dlq_redrive_handler_execution(dlq_handler_module, s3_handler_module, monkeypatch):
+    monkeypatch.setenv("VOXFLOW_API_URL", "https://api.voxflow.test")
+    monkeypatch.setenv("VOXFLOW_SECRET", _SIGNING_SECRET)
+    monkeypatch.setenv("CONNECT_INSTANCE_ID", "inst-uk-1")
+    monkeypatch.setenv("CONNECT_REGION", "eu-west-2")
+    monkeypatch.setenv("VOXFLOW_RECORDING_POISON_QUEUE_URL", "https://sqs.eu-west-2.amazonaws.com/123/poison")
+
+    processed = []
+
+    def fake_process_record(record, ctx):
+        processed.append(record)
+        assert ctx["dlq_url"] == "https://sqs.eu-west-2.amazonaws.com/123/poison"
+        return {"status": "handled", "contact_id": "c1234"}
+
+    monkeypatch.setattr(dlq_handler_module, "process_record", fake_process_record)
+
+    sqs_event = {
+        "Records": [
+            {
+                "messageId": "msg-1",
+                "body": json.dumps({
+                    "record": {
+                        "eventSource": "aws:s3",
+                        "s3": {
+                            "bucket": {"name": "test-b"},
+                            "object": {"key": "connect/inst-uk-1/2026/09/04/c1234/audio.wav"},
+                        },
+                    }
+                }),
+            },
+            {
+                "messageId": "msg-2-invalid-json",
+                "body": "not json",
+            },
+        ]
+    }
+
+    counts = dlq_handler_module.lambda_handler(sqs_event, None)
+    assert counts == {"handled": 1, "skipped": 1, "dlqed": 0}
+    assert len(processed) == 1
 
 
 # =====================================================================

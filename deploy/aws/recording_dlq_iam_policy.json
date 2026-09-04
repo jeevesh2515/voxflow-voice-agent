@@ -1,0 +1,23 @@
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Sid": "SendToRecordingDlq",
+      "Effect": "Allow",
+      "Action": ["sqs:SendMessage"],
+      "Resource": [
+        "arn:aws:sqs:eu-west-2:<ACCOUNT_ID>:voxflow-recordings-dlq",
+        "arn:aws:sqs:eu-west-2:<ACCOUNT_ID>:voxflow-recordings-dlq-poison"
+      ]
+    },
+    {
+      "Sid": "ConsumeRecordingDlq",
+      "Effect": "Allow",
+      "Action": ["sqs:ReceiveMessage", "sqs:DeleteMessage", "sqs:GetQueueAttributes"],
+      "Resource": [
+        "arn:aws:sqs:eu-west-2:<ACCOUNT_ID>:voxflow-recordings-dlq",
+        "arn:aws:sqs:eu-west-2:<ACCOUNT_ID>:voxflow-recordings-dlq-poison"
+      ]
+    }
+  ]
+}
