@@ -178,6 +178,12 @@ const FRAG = /* glsl */ `
         if (rc > rin && rc < rout) {
           float band = smoothstep(rin, rin * 1.25, rc) * (1.0 - smoothstep(rout * 0.72, rout, rc));
 
+          float phi = atan(dot(xc, e2), xc.x);
+          float turns = phi / (2.0 * PI);
+          float kep = pow(rin / rc, 1.5);
+          float gloc = sqrt(max(1.0 - 1.5 / rc, 0.02));
+          float swirl = rc * DISK_WIND * 0.12 - uTime * kep * DISK_SPEED * gloc * 0.12;
+
           // Interactive mouse gravitational tidal flare
           vec2 diskPos2D = vec2(xc.x, dot(xc, e2));
           float mDist = length(diskPos2D - uMouse * (W * 0.16));
@@ -418,12 +424,11 @@ export default function AcousticBlackHoleCanvas() {
 
       uniforms.uMouse.value.set(currentMouseX, currentMouseY);
       uniforms.uMouseHover.value = currentHover;
-
-      // Track hero scroll progress custom property
-      const rawProgress = parseFloat(
-        document.documentElement.style.getPropertyValue("--hero-progress") || "0"
-      );
-      uniforms.uScrollProgress.value = Math.max(0, Math.min(1, isNaN(rawProgress) ? 0 : rawProgress));
+      // Track hero scroll progress naturally
+      const scrollY = typeof window !== "undefined" ? window.scrollY : 0;
+      const heroH = typeof window !== "undefined" ? Math.max(window.innerHeight, 1) : 1;
+      const scrollProg = Math.max(0, Math.min(1, scrollY / (heroH * 1.5)));
+      uniforms.uScrollProgress.value = scrollProg;
 
       if (renderer) renderer.render(scene, camera);
       if (inView && pageVisible) animId = requestAnimationFrame(frame);
@@ -439,7 +444,7 @@ export default function AcousticBlackHoleCanvas() {
           animId = 0;
         }
       },
-      { threshold: 0 }
+      { threshold: 0, rootMargin: "300px" }
     );
     observer.observe(container);
 
