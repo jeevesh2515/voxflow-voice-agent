@@ -989,8 +989,8 @@ export default function Home() {
                   ),
                 },
                 {
-                  name: "PostgreSQL DB",
-                  desc: "Isolated Tenant Schema",
+                  name: "AWS RDS PostgreSQL",
+                  desc: "KMS CMK Encrypted · eu-west-2",
                   icon: (
                     <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-[#ff2d78]">
                       <ellipse cx="12" cy="5" rx="9" ry="3" />

@@ -7,8 +7,8 @@ const repoRoot = path.resolve(appDir, "../..");
 const turbopackRoot = fs.existsSync(path.join(appDir, "node_modules", "next")) ? appDir : repoRoot;
 
 const isVercelBuild = Boolean(process.env.VERCEL);
-const defaultApiUrl = isVercelBuild ? "https://voxflow-voice-agent.onrender.com" : "http://localhost:8000";
-const defaultWsUrl = isVercelBuild ? "wss://voxflow-voice-agent.onrender.com" : "ws://localhost:8000";
+const defaultApiUrl = process.env.BACKEND_API_URL || "http://localhost:8000";
+const defaultWsUrl = process.env.BACKEND_WS_URL || "ws://localhost:8000";
 const apiUrl = process.env.NEXT_PUBLIC_API_URL || defaultApiUrl;
 const wsUrl = process.env.NEXT_PUBLIC_WS_URL || defaultWsUrl;
 

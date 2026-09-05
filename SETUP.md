@@ -22,10 +22,10 @@ flowchart LR
 | Component | Production URL | Role |
 |---|---|---|
 | Web dashboard | <https://voxflow-voice-agent.vercel.app> | Next.js operator UI. |
-| API | <https://voxflow-voice-agent.onrender.com> | Request-driven FastAPI control plane, browser simulator, inbound voice, and jobs read models. |
-| API health | <https://voxflow-voice-agent.onrender.com/api/health> | General API availability and free-service warm-up target. |
-| Job health | <https://voxflow-voice-agent.onrender.com/api/jobs/health?tenant_id=varun> | Staged rollout/job visibility verification. |
-| WebSocket | <wss://voxflow-voice-agent.onrender.com/ws/call> | Browser-only simulator transport; no outbound call is initiated by this endpoint. |
+| API | Configured AWS EC2 Endpoint | FastAPI control plane, browser simulator, inbound voice, and jobs read models. |
+| API health | `/api/health` | General API availability and service status. |
+| Job health | `/api/jobs/health?tenant_id=varun` | Staged rollout/job visibility verification. |
+| WebSocket | `/ws/call` | Browser-only simulator transport; no outbound call is initiated by this endpoint. |
 
 ## 2. Local development
 
@@ -111,10 +111,10 @@ Render is the active backend runtime because the API hosts HTTP routes, WebSocke
 | `PILOT_READINESS_ENFORCED` | Day 35 approval gate | **Keep `true`** with an empty approved-tenant list until human authorization is released. |
 | `PILOT_OPERATIONS_EVIDENCE_ENFORCED` | Day 36 fresh same-cohort hold-point gate | **Keep `true`.** Missing, stale, paused, blocked, rollback-requested, or version-mismatched evidence must remain fail closed. |
 
-After deployment, verify only safe endpoints. Set `API_ORIGIN` to the active Render runtime.
+After deployment, verify only safe endpoints. Set `API_ORIGIN` to your active AWS production runtime.
 
 ```bash
-API_ORIGIN=https://voxflow-voice-agent.onrender.com
+API_ORIGIN="https://api.yourdomain.com" # or http://localhost:8000 in development
 curl -fsS "$API_ORIGIN/api/health"
 curl -fsS "$API_ORIGIN/api/jobs/health?tenant_id=varun"
 curl -fsS "$API_ORIGIN/api/campaign-policies/varun"
@@ -130,7 +130,7 @@ curl -fsS "$API_ORIGIN/api/pilot-operations/varun/hold-point"
 # both callback requests return 503.
 ```
 
-The health response also reports `db_schema_bootstrap_mode: "auto"` on the active Render deployment. Its startup log should report `db.schema_verified dialect=postgresql`; this is a read-only migration check, not table creation or compatibility DDL.
+The health response also reports `db_schema_bootstrap_mode: "auto"` on the active deployment. Its startup log should report `db.schema_verified dialect=postgresql`; this is a read-only migration check, not table creation or compatibility DDL.
 
 Expected Day 36 posture is `activation_mode: "staged"`, `canary_allowed: false`, campaign dry-run true, an unconfigured tenant policy, generic normalized callback ingress returning `503`, and Dial ingress returning `503 dial_callback_adapter_disabled` before body parsing. The analytics response must include `dial_sandbox_adapter` and `durable_side_effects`; the latter must show `activation_mode="staged"`, `dry_run=true`, `tenant_allowed=false`, and zero unplanned intent/error counts in an untouched deployment. Day 36 preflight and hold-point responses must be **blocked** for a tenant without configuration, show `no_auto_expansion=true`, `expansion_permitted=false`, and perform no mutation. These checks are intentionally malformed/read-only; they must never be replaced with a live Dial callback, configured secret, provider ping, Sheets write, Gmail fetch, CRM post, notification, recording retrieval, or side-effect-worker enablement during deployment verification.
 
@@ -142,12 +142,12 @@ Caller PINs are set/reset per contact in the same owner-only settings page. Use 
 
 ## 5. Vercel frontend deployment
 
-Deploy `apps/web` as the Next.js project root. The current Production frontend uses the reviewed Render Free endpoints; Development and Preview remain independently configured.
+Deploy `apps/web` as the Next.js project root. The production frontend connects to the configured AWS backend endpoint or proxies relative `/api` paths.
 
 | Variable | Current Production value |
 |---|---|
-| `NEXT_PUBLIC_API_URL` | `https://voxflow-voice-agent.onrender.com` |
-| `NEXT_PUBLIC_WS_URL` | `wss://voxflow-voice-agent.onrender.com` |
+| `NEXT_PUBLIC_API_URL` | Production FastAPI endpoint (or omitted for relative same-origin proxy) |
+| `NEXT_PUBLIC_WS_URL` | Production WebSocket endpoint (or omitted for dynamic window.location resolution) |
 | Supabase public settings | Use approved public client values only; never a service-role key |
 
 After Vercel reports success, verify the public and protected routes without invoking campaign actions:
@@ -162,9 +162,9 @@ curl -I https://voxflow-voice-agent.vercel.app/dashboard/analytics
 
 Public routes should return `200`. A session-free dashboard request should redirect to `/sign-in`. In an authenticated browser, verify the campaign page renders **Safe Staging** and **No Inline Dialling**, then verify the analytics page renders the read-only **Provider Lifecycle**, **Dial Sandbox Adapter**, **Durable Side Effects**, **Controlled Pilot Readiness**, and **Pilot Operations Evidence** panels. In the safe default deployment the adapter panel must display **STAGED**, **BLOCKED**, and zero audit/failure totals; the Day 34 panel must show **STAGED**, zero intents/errors, tenant **BLOCKED**, and dry-run protection; Day 35 must show **BLOCKED**, cohort `0/0`, zero rollback actions, and `Pilot Configuration Missing`; Day 36 must show **BLOCKED**, zero running/callback flags, and **NO AUTO-EXPANSION · HUMAN HOLD POINT REQUIRED**. No panel can expose a provider/integration configuration or trigger an action.
 
-## 6. Free-tier demonstration workflow and Fly standby
+## 6. Demonstration workflow
 
-Before a demonstration, warm Render with `curl -fsS https://voxflow-voice-agent.onrender.com/api/health`, then promptly open the Vercel Phone Simulator and use a text-only quick prompt. Both Vercel production origins must remain on Render; update `NEXT_PUBLIC_API_URL` and `NEXT_PUBLIC_WS_URL` together and redeploy Vercel after any backend-origin change. Keep Fly stopped unless an owner explicitly approves a separate rollback; never transfer a provider secret, worker allow-list, or activation setting as part of a provider change.
+Before a demonstration, verify API health with `curl -fsS "$API_ORIGIN/api/health"`, then open the Vercel Phone Simulator and use a text-only quick prompt. Update `NEXT_PUBLIC_API_URL` and `NEXT_PUBLIC_WS_URL` together and redeploy Vercel after any backend-origin change.
 
 ## 7. Quality gate before a delivery
 

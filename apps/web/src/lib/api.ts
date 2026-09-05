@@ -49,7 +49,6 @@ import type {
 } from "./types";
 
 const LOCAL_API_URL = "http://localhost:8000";
-const PRODUCTION_API_URL = "https://voxflow-voice-agent.onrender.com";
 
 function normalizeApiUrl(value: string): string {
   return value.replace(/\/+$/, "");
@@ -66,9 +65,9 @@ function getApiUrl(): string {
     return LOCAL_API_URL;
   }
 
-  // Explicit deployment configuration always takes precedence over this safe,
-  // request-driven Render Free fallback.
-  return PRODUCTION_API_URL;
+  // In production browser environments without an explicit NEXT_PUBLIC_API_URL override,
+  // return empty string for relative same-origin requests seamlessly proxied by Next.js rewrites.
+  return "";
 }
 
 function getAuthHeader(): Record<string, string> {

@@ -82,7 +82,7 @@ export default function PrivacyPolicyPage() {
           <section className="space-y-3">
             <h2 className="text-xl font-headline font-bold text-white tracking-tight">5. Sub-Processors &amp; Data Sovereignty</h2>
             <p>
-              Our infrastructure utilizes trusted, ISO27001-certified and UK GDPR-compliant cloud sub-processors including Amazon Web Services (AWS eu-west-2), Supabase (London PostgreSQL), and Stripe Payments UK Ltd.
+              Our production infrastructure operates exclusively within ISO27001, SOC 2 Type II, and UK GDPR-compliant cloud environments. All customer records, relational call metadata, and operational ledgers reside in Amazon Web Services (AWS eu-west-2 London) utilizing AWS RDS PostgreSQL 15.19 with AWS Key Management Service (KMS) Customer-Managed Key (CMK) 256-bit encryption. System credentials and operational secrets are securely brokered via AWS Secrets Manager. Auxiliary processors include Supabase (strictly for authentication identity session tokens), Groq Cloud (transient zero-retention LPU neural inference), Amazon Connect (telecom ingress), and Stripe Payments UK Ltd (subscription billing).
             </p>
           </section>
 

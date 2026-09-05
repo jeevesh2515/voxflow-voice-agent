@@ -9,10 +9,7 @@ type Turn = { role: "caller" | "agent"; text: string; at: number };
 type PreparationState = "idle" | "preparing" | "ready" | "failed";
 
 const LOCAL_WS_URL = "ws://localhost:8000";
-const PRODUCTION_WS_URL = "wss://voxflow-voice-agent.onrender.com";
-// A sleeping free-tier API can need tens of seconds to wake and accept a WebSocket.
-// This wait only governs browser-session establishment; it does not activate workers or providers.
-const WS_OPEN_TIMEOUT_MS = 90_000;
+const WS_OPEN_TIMEOUT_MS = 30_000;
 
 function normalizeWsUrl(value: string): string {
   return value.replace(/\/+$/, "");
@@ -29,8 +26,13 @@ function getWsUrl(): string {
     return LOCAL_WS_URL;
   }
 
-  // Keep the simulator on the same request-driven Render backend as the REST client.
-  return PRODUCTION_WS_URL;
+  // Derive WebSocket URL from window location in production browser sessions.
+  if (typeof window !== "undefined") {
+    const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
+    return `${protocol}//${window.location.host}`;
+  }
+
+  return LOCAL_WS_URL;
 }
 
 function speakWithBrowserFallback(text: string, language?: string): void {

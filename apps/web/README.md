@@ -19,7 +19,7 @@ npm run lint
 npm run build
 ```
 
-The current production build generates **25 routes** without TypeScript/build errors.
+The current production build generates **31 routes** without TypeScript/build errors.
 
 ## Main pages
 
@@ -65,8 +65,8 @@ The campaign worker and independent Day 34 side-effect worker are globally disab
 
 | Variable | Value |
 |---|---|
-| `NEXT_PUBLIC_API_URL` | `https://voxflow-voice-agent.onrender.com` on Production |
-| `NEXT_PUBLIC_WS_URL` | `wss://voxflow-voice-agent.onrender.com` on Production |
+| `NEXT_PUBLIC_API_URL` | Production FastAPI endpoint (or omitted for relative same-origin proxy) |
+| `NEXT_PUBLIC_WS_URL` | Production WebSocket endpoint (or omitted for dynamic window.location resolution) |
 | Supabase public values | Public browser configuration only; never a service role secret |
 
 After a Vercel deployment, verify public routes return `200`, a session-free dashboard route redirects to sign-in, and authenticated dashboard renders display staged durable health, the read-only Provider Lifecycle aggregate, the Dial Sandbox Adapter, Durable Side Effects, Controlled Pilot Readiness, and Pilot Operations Evidence panels. In the safe default deployment the adapter panel must show **STAGED**, tenant gate **BLOCKED**, and zero audit/verification-failure counts; the Day 34 panel must show **STAGED**, zero intents/errors, tenant gate **BLOCKED**, and dry-run protection; Day 35 must show **BLOCKED**, cohort `0/0`, zero rollback actions, and `Pilot Configuration Missing`; Day 36 must show **BLOCKED**, `0` running jobs, `0` callback flags, and `NO AUTO-EXPANSION · HUMAN HOLD POINT REQUIRED`. See the root [README](../../README.md) and [SETUP.md](../../SETUP.md) for the complete free-tier deployment and safe warm-up procedure.

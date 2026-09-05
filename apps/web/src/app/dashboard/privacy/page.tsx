@@ -166,17 +166,87 @@ export default function PrivacyControlsPage() {
 
       {/* Sub-Processor & Data Residency Registry */}
       <section className="rounded-2xl border border-white/10 bg-[#141422]/80 backdrop-blur-xl p-6 shadow-xl">
-        <div className="flex items-center gap-2"><Building2 size={18} className="text-[#00ffcc]" /><h2 className="font-bold text-white">Sub-Processor & Data Residency Registry</h2></div>
-        <div className="mt-4 grid gap-3 sm:grid-cols-2">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div className="flex items-center gap-2">
+            <Building2 size={18} className="text-[#00ffcc]" />
+            <h2 className="font-bold text-white">Sub-Processor &amp; Data Residency Registry</h2>
+          </div>
+          <span className="rounded-full border border-emerald-400/30 bg-emerald-400/10 px-3 py-0.5 text-[10px] font-mono font-bold uppercase tracking-wider text-emerald-300">
+            UK GDPR eu-west-2 Sovereign
+          </span>
+        </div>
+        <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
           {[
-            { name: "AWS", detail: "Connect, Lex, Polly — EU / London (eu-west-2)", icon: Server },
-            { name: "Groq", detail: "LLM Inference — Zero Data Retention", icon: Brain },
-            { name: "Supabase", detail: "PostgreSQL — London eu-west-2", icon: Database },
-            { name: "Google Workspace", detail: "Sheets Mirror — Per-tenant isolated", icon: SheetIcon },
+            {
+              name: "AWS RDS PostgreSQL",
+              category: "Primary Relational Database",
+              detail: "PostgreSQL 15.19 · Dedicated AWS VPC · London (eu-west-2)",
+              encryption: "AWS KMS Customer-Managed Key (256-bit AES-GCM)",
+              icon: Database,
+              badge: "Core DB",
+            },
+            {
+              name: "AWS Secrets Manager & KMS",
+              category: "Hardware Key Management",
+              detail: "Envelope Encryption · Dynamic In-Memory Secret Caching & Rotation",
+              encryption: "FIPS 140-2 Level 3 CMK",
+              icon: ShieldCheck,
+              badge: "Security",
+            },
+            {
+              name: "Amazon Connect",
+              category: "Telephony & Audio Ingress",
+              detail: "UK Telephony SIP Streams · Exact-DID Routing · Dedicated Instance (eu-west-2)",
+              encryption: "TLS 1.3 + SRTP",
+              icon: Server,
+              badge: "Telecom",
+            },
+            {
+              name: "Groq Cloud",
+              category: "LPU Neural Inference",
+              detail: "Whisper STT & LLM Reasoning · Sub-200ms Glass-to-Glass Turn",
+              encryption: "Zero Data Retention (ZDR)",
+              icon: Brain,
+              badge: "Inference",
+            },
+            {
+              name: "Supabase",
+              category: "Authentication & Identity",
+              detail: "JWT Session Tokens, OIDC Identity Verification, Scoped RBAC",
+              encryption: "Encrypted at Rest",
+              icon: Globe,
+              badge: "Identity",
+            },
+            {
+              name: "Google Workspace",
+              category: "Sheets 2-Way Mirror",
+              detail: "Per-Tenant Isolated OAuth2 Service Account Mirror for Inventory & Dispatch",
+              encryption: "Encrypted in Transit",
+              icon: SheetIcon,
+              badge: "Integration",
+            },
           ].map((p) => (
-            <div key={p.name} className="rounded-xl border border-white/5 bg-white/5 p-4 flex gap-3">
-              <p.icon size={18} className="text-[#94a3b8] mt-0.5" />
-              <div><p className="text-sm font-bold text-white">{p.name}</p><p className="text-xs text-[#94a3b8]">{p.detail}</p></div>
+            <div key={p.name} className="rounded-xl border border-white/5 bg-white/5 p-4 flex flex-col justify-between gap-3 hover:border-white/10 transition-colors">
+              <div className="flex items-start justify-between gap-2">
+                <div className="flex items-center gap-2.5">
+                  <div className="rounded-lg bg-[#00ffcc]/10 p-2 text-[#00ffcc]">
+                    <p.icon size={16} />
+                  </div>
+                  <div>
+                    <p className="text-sm font-bold text-white">{p.name}</p>
+                    <p className="text-[11px] text-[#94a3b8]">{p.category}</p>
+                  </div>
+                </div>
+                <span className="rounded bg-white/10 px-1.5 py-0.5 text-[9px] font-mono uppercase text-[#94a3b8]">
+                  {p.badge}
+                </span>
+              </div>
+              <div className="border-t border-white/5 pt-2 text-xs">
+                <p className="text-[#cbd5e1] text-[11px] leading-relaxed">{p.detail}</p>
+                <p className="mt-1.5 font-mono text-[10px] text-[#00ffcc]/90 flex items-center gap-1">
+                  <ShieldCheck size={11} /> {p.encryption}
+                </p>
+              </div>
             </div>
           ))}
         </div>
