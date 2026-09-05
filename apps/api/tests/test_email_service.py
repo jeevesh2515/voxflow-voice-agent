@@ -35,7 +35,7 @@ async def test_send_email_no_recipients():
 @pytest.mark.asyncio
 @respx.mock
 async def test_send_email_success_with_api_key(monkeypatch):
-    monkeypatch.setattr(get_settings(), "resend_api_key", "re_test_key_123")
+    monkeypatch.setattr(get_settings(), "resend_api_key", "mock_resend_api_token")
     monkeypatch.setattr(get_settings(), "resend_from_email", "VoxFlow <hello@voxflow.ai>")
 
     route = respx.post(RESEND_API_URL).respond(
@@ -55,13 +55,13 @@ async def test_send_email_success_with_api_key(monkeypatch):
     assert result["id"] == "email_resend_999"
 
     request = route.calls.last.request
-    assert request.headers["Authorization"] == "Bearer re_test_key_123"
+    assert request.headers["Authorization"] == "Bearer mock_resend_api_token"
 
 
 @pytest.mark.asyncio
 @respx.mock
 async def test_send_email_api_error(monkeypatch):
-    monkeypatch.setattr(get_settings(), "resend_api_key", "re_test_key_123")
+    monkeypatch.setattr(get_settings(), "resend_api_key", "mock_resend_api_token")
 
     respx.post(RESEND_API_URL).respond(
         status_code=422,

@@ -40,7 +40,7 @@ class FakeStripe:
 
 @pytest.fixture(autouse=True)
 def fresh_db(monkeypatch):
-    monkeypatch.setenv("STRIPE_SECRET_KEY", "sk_test_live_key")
+    monkeypatch.setenv("STRIPE_SECRET_KEY", "sk_test_mock_dummy_key")
     monkeypatch.setenv("STRIPE_METER_EVENT_NAME", "voxflow_voice_minutes")
     monkeypatch.setenv("STRIPE_PRICE_STARTER", LIC_STARTER)
     monkeypatch.setenv("STRIPE_METER_PRICE_STARTER", MET_STARTER)

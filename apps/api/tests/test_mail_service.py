@@ -97,7 +97,7 @@ async def test_mail_dispatch_in_sandbox_mode(monkeypatch):
 @pytest.mark.asyncio
 @respx.mock
 async def test_mail_dispatch_with_real_api_key(monkeypatch):
-    monkeypatch.setattr(get_settings(), "resend_api_key", "re_live_key_valid_123")
+    monkeypatch.setattr(get_settings(), "resend_api_key", "mock_resend_api_token")
     monkeypatch.setattr(get_settings(), "resend_from_email", "VoxFlow <hello@voxflow.ai>")
 
     route = respx.post(RESEND_API_URL).respond(
