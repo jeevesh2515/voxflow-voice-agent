@@ -42,20 +42,23 @@ export default function TermsOfServicePage() {
           <p>
             <strong className="font-bold text-white">Template notice:</strong> This document is template-based, does not constitute legal advice, is pending solicitor review, and must not be relied on for real contracts or payments.
           </p>
+          <p className="mt-1">
+            Drafted with AI assistance; requires solicitor sign-off before use with paying customers.
+          </p>
         </div>
 
         <div className="space-y-10 text-white/70 leading-relaxed text-sm sm:text-base font-sans">
           <section className="space-y-3">
             <h2 className="text-xl font-headline font-bold text-white tracking-tight">1. Agreement to Terms</h2>
             <p>
-              These Terms of Service (&quot;Terms&quot;) constitute a legally binding agreement between Voxflow Technologies Ltd (&quot;Voxflow&quot;, &quot;we&quot;, &quot;us&quot;, or &quot;our&quot;) and the organization or individual accessing or using the Voxflow enterprise voice AI platform (&quot;Customer&quot;, &quot;you&quot;).
+              These Terms of Service (&quot;Terms&quot;) constitute a legally binding agreement between Voxflow Technologies Ltd (&quot;Voxflow&quot;, &quot;we&quot;, &quot;us&quot;, or &quot;our&quot;) and the organization or individual accessing or using the Voxflow enterprise voice AI platform (&quot;Customer&quot;, &quot;you&quot;). By creating an account or using the service you accept these Terms. These Terms are governed by the laws of England &amp; Wales.
             </p>
           </section>
 
           <section className="space-y-3">
             <h2 className="text-xl font-headline font-bold text-white tracking-tight">2. Description of Service</h2>
             <p>
-              Voxflow provides automated, conversational voice AI telephony systems for enterprise call handling, order inquiries, supplier verification, appointment scheduling, and automated data synchronization (including Google Sheets and webhook integrations).
+              Voxflow provides automated, conversational voice AI telephony for enterprise call handling, order inquiries, supplier verification, appointment scheduling, and data synchronization (Google Sheets mirror and webhooks where enabled). Telephony ingress is provided by Amazon Connect with Amazon Lex speech capture; conversational inference runs on the Groq hosted API (LLM and Whisper STT); project data and authentication identities are stored in Supabase Postgres (free tier); the application itself (FastAPI + Next.js) is hosted on an Oracle Cloud Always-Free virtual machine via Docker Compose behind Caddy with Let&apos;s Encrypt TLS.
             </p>
           </section>
 
@@ -72,30 +75,44 @@ export default function TermsOfServicePage() {
           </section>
 
           <section className="space-y-3">
-            <h2 className="text-xl font-headline font-bold text-white tracking-tight">4. Tenant Data Isolation &amp; Security</h2>
+            <h2 className="text-xl font-headline font-bold text-white tracking-tight">4. Data Protection: Controller &amp; Processor Roles</h2>
             <p>
-              Each tenant workspace operates in cryptographic isolation. Voxflow enforces zero cross-tenant data leakage, 3-tier Role-Based Access Control (Owner, Operator, Viewer), and data residency compliance in our UK/EU data centers.
+              Under UK GDPR, the Customer acts as <strong>Data Controller</strong> for personal data processed through its telephony deployment (caller numbers, transcripts, recordings), and Voxflow acts as <strong>Data Processor</strong>, processing that data only on the Customer&apos;s documented instructions. The parties agree to enter a data processing agreement reflecting Article 28 UK GDPR terms on request. Voxflow&apos;s sub-processors are Supabase (database and authentication), Groq (transient LLM and transcription inference), Amazon Web Services (Connect telephony ingress and Lex speech capture; call recordings land in the Connect instance S3 bucket), Stripe (billing), and Google Sheets (optional per-tenant call-log mirror only). Voxflow holds no ISO 27001 or SOC 2 certification; no such certification is claimed.
             </p>
           </section>
 
           <section className="space-y-3">
-            <h2 className="text-xl font-headline font-bold text-white tracking-tight">5. Telephony Compliance &amp; Acceptable Use</h2>
+            <h2 className="text-xl font-headline font-bold text-white tracking-tight">5. Call Recording Disclosure &amp; Acceptable Use</h2>
             <p>
-              Customers must not use the Voxflow voice platform for unlawful robocalling, deceptive impersonation, harassment, or in violation of Ofcom / FCC telephony regulations.
+              Every call handled by Voxflow carries a recording disclosure: callers are informed that the call may be recorded before recording begins, and consent is captured via the IVR and stored as consent evidence against the call record. Customers must not use the platform for unlawful robocalling, deceptive impersonation, harassment, or in violation of Ofcom / FCC telephony regulations. Customers are responsible for any additional recording notifications their own regulatory position requires.
             </p>
           </section>
 
           <section className="space-y-3">
-            <h2 className="text-xl font-headline font-bold text-white tracking-tight">6. Limitation of Liability</h2>
+            <h2 className="text-xl font-headline font-bold text-white tracking-tight">6. Tenant Data Isolation &amp; Security</h2>
+            <p>
+              Each tenant workspace is isolated by application-level tenant scoping on shared Supabase Postgres tables, with three access tiers (Owner, Operator, Viewer). Transport is encrypted via TLS; backups are retained for 7 days. Voxflow does not operate dedicated UK/EU data centers, AWS RDS instances, customer-managed KMS keys, or a secrets-management service — credentials are held as environment configuration on the application host, and customers evaluating Voxflow should weigh this accordingly.
+            </p>
+          </section>
+
+          <section className="space-y-3">
+            <h2 className="text-xl font-headline font-bold text-white tracking-tight">7. Retention</h2>
+            <p>
+              Default retention windows are: call transcripts 30 days, call records 90 days, and call recordings per tenant setting (recordings are off by default and retained only where the tenant enables them). Expired data is purged automatically. See the Privacy Policy for detail and for how data subjects may request access or erasure via the privacy-requests process.
+            </p>
+          </section>
+
+          <section className="space-y-3">
+            <h2 className="text-xl font-headline font-bold text-white tracking-tight">8. Limitation of Liability</h2>
             <p>
               To the maximum extent permitted by UK law, Voxflow shall not be liable for indirect, incidental, special, or consequential damages resulting from downtime, network outages, or third-party telephony provider carrier failures.
             </p>
           </section>
 
           <section className="space-y-3">
-            <h2 className="text-xl font-headline font-bold text-white tracking-tight">7. Contact Information</h2>
+            <h2 className="text-xl font-headline font-bold text-white tracking-tight">9. Contact Information</h2>
             <p>
-              For legal inquiries or corporate contracts, contact our team at <a href="mailto:legal@voxflow.ai" className="text-[#5EEAD4] hover:underline">legal@voxflow.ai</a>.
+              For legal inquiries or corporate contracts, contact us at <a href="mailto:hello@voxflow.cc" className="text-[#5EEAD4] hover:underline">hello@voxflow.cc</a>.
             </p>
           </section>
         </div>
