@@ -28,17 +28,17 @@ from ..schemas import CallTurn
 log = get_logger(__name__)
 
 def _find_scenarios_path() -> Path:
-    candidates = [
-        Path(__file__).resolve().parents[4] / "evals" / "scenarios.json",
-        Path(__file__).resolve().parents[3] / "evals" / "scenarios.json",
+    resolved = Path(__file__).resolve()
+    candidates: list[Path] = [p / "evals" / "scenarios.json" for p in resolved.parents]
+    candidates.extend([
         Path.cwd() / "evals" / "scenarios.json",
         Path.cwd().parent / "evals" / "scenarios.json",
         Path.cwd().parent.parent / "evals" / "scenarios.json",
-    ]
+    ])
     for c in candidates:
         if c.exists():
             return c
-    return candidates[0]
+    return candidates[0] if candidates else resolved.parent / "scenarios.json"
 
 SCENARIOS_DEFAULT_PATH = _find_scenarios_path()
 
