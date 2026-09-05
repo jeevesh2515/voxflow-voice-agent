@@ -232,21 +232,36 @@ Trial numbers work for inbound (with a trial banner); details in the roadmap.
 
 ---
 
-## 9. Keep-alive + nightly backup (Day 4 — scaffold now)
+## 9. Keep-alive + nightly backup (Phase 0 — verified working)
 
 Supabase Free pauses a project after ~1 week idle, and there are no automatic
-backups. Add both as VM cron jobs (`crontab -e`):
+backups. Both run as VM cron jobs. The live crontab (`crontab -l` on the VM):
 
 ```bash
-# Nightly Postgres backup to the api container's persistent volume (/app/data/backups)
-15 2 * * *  docker exec voxflow-api /app/scripts/db_backup.sh >> ~/voxflow-backup.log 2>&1
+PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+SHELL=/bin/bash
 
-# Weekly Supabase keep-alive ping (prevents the free project from pausing)
-30 3 * * 0  curl -sS https://YOURSUB.duckdns.org/api/health > /dev/null
+# Supabase keep-alive — daily 04:17 UTC. deploy/keepalive.sh runs a real
+# COUNT query via a throwaway postgres container and appends evidence to
+# ~/voxflow-ops/keepalive.jsonl. Daily = 7x margin under the ~7-day pause.
+17 4 * * * /home/ubuntu/voxflow-voice-agent/deploy/keepalive.sh >> /home/ubuntu/voxflow-ops/keepalive.cron.log 2>&1
+
+# Encrypted off-VM backup — daily 04:40 UTC. deploy/backup_to_github.sh dumps
+# via pg_dump, encrypts with BACKUP_ENCRYPTION_KEY (VM .env only), and pushes
+# to the private jeevesh2515/voxflow-backups repo. Evidence in
+# ~/voxflow-ops/backup.jsonl. Restore drill 2026-09-05: 38 tables restored.
+40 4 * * * /home/ubuntu/voxflow-voice-agent/deploy/backup_to_github.sh >> /home/ubuntu/voxflow-ops/backup.cron.log 2>&1
 ```
 
-Backups land in the `voxflow_data` volume; copy them off-box periodically
-(Supabase Free has no recovery guarantee).
+Two things this deliberately does NOT do (both were documented before and
+both are broken — do not revert to them):
+
+- `docker exec voxflow-api /app/scripts/db_backup.sh` — the script was never
+  shipped inside the image, so that cron failed every night. Backups run from
+  the host via the postgres:17-alpine image instead.
+- `curl ... /api/health` as a keep-alive — that route only reads settings and
+  never opens a database connection. The keep-alive targets the database
+  directly; see `deploy/keepalive.sh` for why.
 
 ---
 

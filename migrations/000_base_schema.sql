@@ -577,6 +577,7 @@ CREATE TABLE IF NOT EXISTS tenant_members (
 	role VARCHAR(16) NOT NULL,
 	status VARCHAR(16) NOT NULL,
 	invited_by VARCHAR(128) NOT NULL,
+	is_superadmin BOOLEAN NOT NULL,
 	activated_at TIMESTAMP WITH TIME ZONE,
 	revoked_at TIMESTAMP WITH TIME ZONE,
 	revoked_by VARCHAR(128),
@@ -591,6 +592,8 @@ CREATE TABLE IF NOT EXISTS tenant_members (
 CREATE INDEX IF NOT EXISTS ix_tenant_member_tenant_status ON tenant_members (tenant_id, status);
 
 CREATE INDEX IF NOT EXISTS ix_tenant_member_user_status ON tenant_members (user_id, status);
+
+CREATE INDEX IF NOT EXISTS ix_tenant_members_is_superadmin ON tenant_members (is_superadmin);
 
 CREATE INDEX IF NOT EXISTS ix_tenant_members_role ON tenant_members (role);
 

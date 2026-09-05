@@ -58,6 +58,26 @@ def test_health(client):
     assert r.json()["db_schema_bootstrap_mode"] == "auto"
 
 
+def test_health_db_touches_the_database(client):
+    """The keep-alive route must prove real database traffic, not just liveness.
+
+    ``/api/health`` reads settings only, so it cannot hold a Supabase free-tier
+    project open. This asserts ``/api/health/db`` actually reads the schema —
+    a non-negative tenant count is only obtainable by querying ``tenants`` —
+    so the keep-alive schedule pinging it generates genuine activity.
+    """
+
+    r = client.get("/api/health/db")
+    assert r.status_code == 200
+    body = r.json()
+    assert body["ok"] is True
+    assert body["dialect"] in {"sqlite", "postgres"}
+    assert isinstance(body["tenant_count"], int) and body["tenant_count"] >= 0
+    assert body["latency_ms"] >= 0
+    assert body["checked_at"]
+    assert client.head("/api/health/db").status_code == 200
+
+
 def test_summary(client):
     r = client.get("/api/summary")
     assert r.status_code == 200

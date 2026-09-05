@@ -39,6 +39,7 @@ from .routes import pilot_readiness as pilot_readiness_routes
 from .routes import privacy as privacy_routes
 from .routes import public_auth as public_auth_routes
 from .routes import reliability as reliability_routes
+from .routes import superadmin as superadmin_routes
 from .routes import connect as connect_routes
 from .routes import recording as recording_routes
 from .routes import ws as ws_routes
@@ -160,6 +161,7 @@ def create_app() -> FastAPI:
     app.include_router(ws_routes.router, tags=["ws"])
     app.include_router(connect_routes.router)
     app.include_router(recording_routes.router)
+    app.include_router(superadmin_routes.router)
 
     # ----- LLM test endpoint (POST /chat) -----
     @app.post("/chat", response_model=ChatResponse)

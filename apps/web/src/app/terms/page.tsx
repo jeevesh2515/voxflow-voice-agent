@@ -38,6 +38,12 @@ export default function TermsOfServicePage() {
           <p className="text-white/50 text-xs font-mono mt-2">Last Updated: August 30, 2026 • Governing Law: England &amp; Wales</p>
         </div>
 
+        <div className="mb-8 rounded-lg border border-[#5EEAD4]/30 bg-[#5EEAD4]/10 px-4 py-3 text-sm text-white/80">
+          <p>
+            <strong className="font-bold text-white">Template notice:</strong> This document is template-based, does not constitute legal advice, is pending solicitor review, and must not be relied on for real contracts or payments.
+          </p>
+        </div>
+
         <div className="space-y-10 text-white/70 leading-relaxed text-sm sm:text-base font-sans">
           <section className="space-y-3">
             <h2 className="text-xl font-headline font-bold text-white tracking-tight">1. Agreement to Terms</h2>

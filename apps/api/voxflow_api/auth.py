@@ -276,6 +276,39 @@ def require_platform_admin(request: Request) -> AuthUser:
     return auth
 
 
+def require_superadmin(request: Request, db: Session) -> AuthUser:
+    """Require a platform superadmin: env allow-list OR an active is_superadmin row.
+
+    Phase 0 step 5. The env allow-list (``PLATFORM_ADMIN_USER_IDS``) is the
+    bootstrap path and stays honored. The durable path is an ``is_superadmin``
+    membership row — honored only while its ``status`` is ``active``, so a
+    revoked or merely invited row confers nothing.
+
+    When tenant authorization is not enforced (local dev / tests without auth),
+    this returns a legacy local admin the same way ``require_platform_admin``
+    does; callers keep one dependency either way.
+    """
+
+    settings = get_settings()
+    if not settings.tenant_authorization_enforced:
+        return AuthUser(user_id="legacy-local-platform-admin", role=ROLE_OWNER)
+    auth = require_authenticated_user(request)
+    if auth.user_id in settings.platform_admin_user_id_set:
+        return auth
+    row = (
+        db.query(TenantMember)
+        .filter(
+            TenantMember.user_id == auth.user_id,
+            TenantMember.status == "active",
+            TenantMember.is_superadmin.is_(True),
+        )
+        .first()
+    )
+    if row is None:
+        raise HTTPException(status_code=403, detail="superadmin_required")
+    return auth
+
+
 def membership_summary(member: TenantMember) -> dict[str, object]:
     """Serialize membership without exposing raw email identity or invitation data."""
 

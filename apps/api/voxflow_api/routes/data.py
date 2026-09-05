@@ -31,6 +31,7 @@ from ..db import (
     Tenant,
     TenantMember,
     TenantPhoneNumber,
+    _db_url,
     session_scope,
 )
 from ..llm import get_llm
@@ -943,6 +944,54 @@ async def llm_health() -> dict[str, Any]:
     except Exception as e:
         return {"ok": False, "error": str(e)}
     return {"ok": ok}
+
+
+@router.api_route("/health/db", methods=["GET", "HEAD"])
+def db_health() -> dict[str, Any]:
+    """Issue a real query so the caller proves database reachability.
+
+    This exists because ``/api/health`` only reads settings — curling it never
+    opens a database connection, so it cannot hold a Supabase free-tier project
+    open. Supabase pauses a project after ~7 days without activity, and the
+    keep-alive schedule (see ``deploy/keepalive.cron``) polls THIS route
+    precisely because it emits genuine SQL traffic.
+
+    Two queries run: a bare ``SELECT 1`` to prove the connection, and a bounded
+    ``COUNT`` over ``tenants`` to prove the schema is readable rather than just
+    the socket being open. Never raises — a monitor needs a status body, not a
+    stack trace, so a failure is reported as ``ok: false`` with HTTP 503.
+    """
+
+    from sqlalchemy import func, text
+
+    import time as _time
+
+    started = _time.perf_counter()
+    try:
+        with session_scope() as db:
+            db.execute(text("SELECT 1")).scalar()
+            tenant_count = db.execute(select(func.count()).select_from(Tenant)).scalar() or 0
+    except Exception as exc:
+        return Response(  # type: ignore[return-value]
+            content=json.dumps(
+                {
+                    "ok": False,
+                    "checked_at": datetime.now(timezone.utc).isoformat(),
+                    "error": type(exc).__name__,
+                }
+            ),
+            status_code=503,
+            media_type="application/json",
+        )
+
+    latency_ms = round((_time.perf_counter() - started) * 1000, 2)
+    return {
+        "ok": True,
+        "checked_at": datetime.now(timezone.utc).isoformat(),
+        "dialect": "sqlite" if _db_url.startswith("sqlite") else "postgres",
+        "latency_ms": latency_ms,
+        "tenant_count": tenant_count,
+    }
 
 
 # ---------- Helpers ----------

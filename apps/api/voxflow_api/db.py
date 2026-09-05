@@ -240,6 +240,9 @@ class TenantMember(Base):
     role: Mapped[str] = mapped_column(String(16), default="viewer", index=True)  # owner | operator | viewer
     status: Mapped[str] = mapped_column(String(16), default="invited", index=True)  # invited | active | revoked
     invited_by: Mapped[str] = mapped_column(String(128), default="")
+    # Phase 0 step 5: platform-wide admin flag. Honored only while
+    # status == 'active'; the env allow-list in config remains the bootstrap.
+    is_superadmin: Mapped[bool] = mapped_column(default=False, index=True)
     activated_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     revoked_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     revoked_by: Mapped[str | None] = mapped_column(String(128), nullable=True)
