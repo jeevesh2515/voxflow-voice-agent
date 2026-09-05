@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Nav from "@/components/Nav";
 import Footer from "@/components/Footer";
 import SmoothScroll from "@/components/SmoothScroll";
+import CrispChat from "@/components/CrispChat";
 import { ThemeProvider } from "@/lib/theme-context";
 import { AuthProvider } from "@/lib/auth-context";
 import "./globals.css";
@@ -49,6 +50,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       <body className="min-h-screen bg-[#030308] text-white font-sans antialiased flex flex-col selection:bg-[#5EEAD4] selection:text-[#030308] transition-colors duration-300">
         <ThemeProvider>
           <AuthProvider>
+            <CrispChat />
             <SmoothScroll />
             <Nav />
             <main className="flex-1 relative z-10">{children}</main>

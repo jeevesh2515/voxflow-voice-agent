@@ -115,6 +115,10 @@ class Settings(BaseSettings):
     sentry_environment: str = "development"
     sentry_traces_sample_rate: float = 0.0
 
+    # ----- Resend Transactional Email (Phase 0 & Phase 3) -----
+    resend_api_key: str = ""
+    resend_from_email: str = "VoxFlow <onboarding@resend.dev>"
+
     # ----- Day 51 product analytics and alerting -----
     # PostHog stays fully inert unless a project key is configured. Every
     # property still passes through the shared scrubber, so a misconfigured
