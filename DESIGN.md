@@ -172,5 +172,5 @@ Responsive: `text-3xl sm:text-4xl lg:text-5xl` — smaller than the `text-6xl→
 
 - **Format:** WebP, `cwebp -q 80 -m 6`, 2048px max width (retina-adequate for `cover` on 100svh stage)
 - **Budget:** 10 Higgsfield credits → `nano_banana_pro` 2 cr/frame × 4 = 8 cr, 2 spare
-- **Generation:** Single take per frame, prompts from `voxflow-cosmic-journey-prompt.md` verbatim
+- **Generation:** Single take per frame, optimized cosmic visual journey prompts
 - **Total payload:** 556KB for 5 frames

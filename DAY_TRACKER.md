@@ -174,7 +174,7 @@
   - Added `GET /api/active-calls` endpoint exposing active in-memory `CallSession` objects.
   - Created `ActiveCallCard` with pulsing visual indicator and live `useElapsed()` timer hook.
   - Implemented 5s SWR polling on `/dashboard/calls` with zero UI flicker.
-- **Artifacts:** `apps/web/src/app/dashboard/calls/page.tsx`, `DAY16-20_WEEK4.md`.
+- **Artifacts:** `apps/web/src/app/dashboard/calls/page.tsx`, `apps/api/voxflow_api/routes/data.py`.
 
 #### 🗓️ Day 17: Escalation Queue & Staff Resolution Workflow
 - **Objective:** Manage and resolve escalated calls requiring human operator attention.
@@ -182,7 +182,7 @@
   - Built `/dashboard/escalations` view filtering calls flagged as `escalated` or `follow_up_required`.
   - Added `PATCH /api/calls/{id}/resolution` endpoint to store staff notes and resolution timestamp.
   - Added escalation metrics and resolution status badges to dashboard.
-- **Artifacts:** `apps/web/src/app/dashboard/escalations/page.tsx`, `DAY16-20_WEEK4.md`.
+- **Artifacts:** `apps/web/src/app/dashboard/escalations/page.tsx`, `apps/api/voxflow_api/routes/calls.py`.
 
 #### 🗓️ Day 18: Security Pass & Production Hardening
 - **Objective:** Conduct security audit, implement rate limiting, and secure credential handling.
@@ -190,7 +190,7 @@
   - Added IP-based WebSocket rate limiting on `/twilio/media` (10 conns/60s per IP, closes with code 1008).
   - Added HTTP security headers (`X-Content-Type-Options: nosniff`, `X-Frame-Options: DENY`, `Cache-Control`).
   - Added dual Twilio credential support (Account SID + Auth Token vs API Key + Secret).
-- **Artifacts:** `security_audit.md`, `DAY16-20_WEEK4.md`.
+- **Artifacts:** `security_audit.md`, `apps/api/voxflow_api/middleware/security.py`.
 
 #### 🗓️ Day 19: Pilot Conversation & Real-World Validation
 - **Objective:** Validate conversational accuracy and tool execution against realistic supplier scenarios.

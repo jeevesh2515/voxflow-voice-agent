@@ -85,6 +85,26 @@ error\ handling/
 stripe-integration/
 stripe\ integration/
 
+# Agent Configuration & Skills (private, keep global in ~/.gemini and ~/.agents)
+.agents/
+skills-lock.json
+
+# AI Generation Prompts & Design Scratchpads
+voxflow-*-prompt.md
+VOXFLOW_BRIEF.md
+
+# Internal QA Findings & Tunnel Logs
+*QA findings*.md
+voxflow-*-qa*.md
+
+# Stale / Scratch Logs & Obsolete Mockups
+DAY16-20_WEEK4.md
+DAY_56_IMPLEMENTATION.md
+index.html
+
+# Internal Pitch Deck & Bootstrapping Notes
+new-phases/09-pitch-deck-crosscheck-findings.md
+new-phases/00a-phase-0-free-tier-demo-readiness.md
 
 # Terraform
 deploy/terraform/terraform.tfvars

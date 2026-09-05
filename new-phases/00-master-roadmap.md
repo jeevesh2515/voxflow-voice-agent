@@ -20,37 +20,15 @@ phases can run in parallel, noted below.
 
 ## Phase order and real dependencies
 
-| Phase | Objective | Actually depends on | Status |
+| Phase | Objective | Scope & Architecture | Status |
 |---|---|---|---|
-| 0 | Free-Tier Demo Readiness (Oracle VM + Supabase, $50 cap) | Nothing — start now | ✅ Complete |
-| 1 | Funded Infrastructure Migration (Supabase/Oracle → AWS-native) | Funding or revenue justifying the spend; Phase 0 done | ✅ Complete (AWS RDS 15.19, EC2 t3.small, Secrets Manager + KMS, Caddy TLS) |
-| 2 | Revenue Infrastructure (Stripe) | **Phase 0 only** — Supabase is real Postgres, don't wait for Phase 1 | Up Next |
-| 3 | Operational Trust (full build-out) | Phase 2 (billing events trigger emails); doesn't need Phase 1 | Planned |
-| 4 | Legal & Compliance (solicitor review, DPA) | Phase 3; needed before real money changes hands regardless of funding | Planned |
-| 5 | Go-to-Market Surface | Phases 0 and 3; claims must match current reality (free-tier or funded) | Planned |
-| 6 | Enterprise Readiness (SSO, SOC 2, DR, load test) | Phase 1 (funded infra); SOC 2 evidence-collection specifically can start once Phase 1 lands | Planned |
-| 7 | Scale & Retention | Phases 1-6, product already selling | Planned |
+| **Phase 1** | Funded Infrastructure Migration | AWS RDS PostgreSQL 15.19, EC2 t3.small, Secrets Manager + KMS, Caddy Auto-TLS in eu-west-2 | ✅ Complete |
+| **Phase 2** | Revenue Infrastructure (Stripe) | Stripe metered billing, automated invoicing, customer portal, webhook lifecycle | 🚀 Up Next |
+| **Phase 3** | Operational Trust & Observability | Sentry telemetry, automated alerting, SQS DLQ redrive, high-durability logging | Planned |
+| **Phase 4** | Legal & Compliance Baseline | GDPR/HIPAA compliance, DPA templates, automated data retention purges, audit trails | Planned |
+| **Phase 5** | Go-to-Market Surface | Developer docs, interactive onboarding, self-serve tenant provisioning | Planned |
+| **Phase 6** | Enterprise Readiness | Enterprise SSO (SAML/Okta), SOC 2 Type I readiness, Multi-AZ high availability | Planned |
+| **Phase 7** | Scale & Retention | Enterprise integration marketplace (SAP/NetSuite/Salesforce), SLA guarantees | Planned |
 
-Phase 0 and Phase 1 are both complete. Phase 1 migrated the database to AWS RDS in eu-west-2, co-located compute on EC2 with Docker Compose and Caddy Auto-TLS, moved all secrets to AWS Secrets Manager + KMS, and configured automated backups + PITR. Everything from Phase 2 onward proceeds on top of this verified foundation.
+Phase 1 is complete and running live in AWS eu-west-2 (London): VPC `vpc-0c3c0ba0ccf111e00`, AWS RDS PostgreSQL 15.19 (`db.t4g.micro`, KMS encrypted), EC2 `t3.small` (`13.43.7.12`), Caddy Auto-TLS (`https://voxflow-jeevesh.duckdns.org`), AWS Secrets Manager (32 app keys + DB credentials), and 7-day PITR automated backups. Phase 2 (Stripe Revenue Infrastructure) is the active next phase.
 
-## Corrections made, in order
-
-1. **Postgres migration ahead of Stripe billing** (original issue): building
-   financial records on SQLite then migrating was backwards. Resolved by
-   Phase 0 using real Postgres (Supabase) from day one — see point 3.
-2. **SOC 2 timeline decoupled from a fixed week number**: 8-12 weeks of work
-   can't start at a fixed calendar point and still fit a 90-day claim. SOC 2
-   evidence-collection now starts whenever its prerequisite controls are
-   actually in place.
-3. **Free-tier bootstrap phase added (Phase 0)**: no paying customers yet, no
-   spend appetite before traction. Phase 0 delivers a demo-credible product
-   on Supabase + Oracle Cloud free tier for under $50, with Phase 1 as a
-   later migration once funded — not a rebuild.
-4. **Revenue Infrastructure decoupled from the funded migration**: since
-   Phase 0 uses real Postgres (Supabase, not SQLite), Stripe billing can be
-   built immediately on top of it. Q1 pilots don't have to wait for AWS.
-
-See `00a-phase-0-free-tier-demo-readiness.md` for the current phase to
-execute, and `09-pitch-deck-crosscheck-findings.md` for the deck-specific
-corrections (stale dates, Q1 billing story, ERP bridges, the now-resolved
-Oracle Cloud question).
