@@ -112,7 +112,7 @@ export default function TermsOfServicePage() {
           <section className="space-y-3">
             <h2 className="text-xl font-headline font-bold text-white tracking-tight">9. Contact Information</h2>
             <p>
-              For legal inquiries or corporate contracts, contact us at <a href="mailto:hello@voxflow.cc" className="text-[#5EEAD4] hover:underline">hello@voxflow.cc</a>.
+              For legal inquiries or corporate contracts, contact us at <a href="mailto:legal@voxflow.cc" className="text-[#5EEAD4] hover:underline">legal@voxflow.cc</a>.
             </p>
           </section>
         </div>

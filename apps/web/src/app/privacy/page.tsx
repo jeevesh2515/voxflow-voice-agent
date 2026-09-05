@@ -90,7 +90,7 @@ export default function PrivacyPolicyPage() {
               <li><strong>Rectification, Restriction &amp; Objection:</strong> Correction of inaccurate data, restriction of processing, and objection to processing based on legitimate interests.</li>
             </ul>
             <p>
-              To exercise any of these rights, email <a href="mailto:hello@voxflow.cc" className="text-[#5EEAD4] hover:underline">hello@voxflow.cc</a>. Requests are tracked in our privacy-requests ledger and answered within one month as UK GDPR requires. Where the request concerns caller data held on a Customer&apos;s behalf, we will redirect or coordinate with the relevant Controller.
+              To exercise any of these rights, email <a href="mailto:privacy@voxflow.cc" className="text-[#5EEAD4] hover:underline">privacy@voxflow.cc</a>. Requests are tracked in our privacy-requests ledger and answered within one month as UK GDPR requires. Where the request concerns caller data held on a Customer&apos;s behalf, we will redirect or coordinate with the relevant Controller.
             </p>
           </section>
 
@@ -111,7 +111,7 @@ export default function PrivacyPolicyPage() {
           <section className="space-y-3">
             <h2 className="text-xl font-headline font-bold text-white tracking-tight">8. Data Protection Officer (DPO)</h2>
             <p>
-              To exercise data subject rights or submit privacy queries, email our Data Protection Officer at <a href="mailto:hello@voxflow.cc" className="text-[#5EEAD4] hover:underline">hello@voxflow.cc</a>.
+              To exercise data subject rights or submit privacy queries, email our Data Protection Officer at <a href="mailto:privacy@voxflow.cc" className="text-[#5EEAD4] hover:underline">privacy@voxflow.cc</a>.
             </p>
           </section>
 

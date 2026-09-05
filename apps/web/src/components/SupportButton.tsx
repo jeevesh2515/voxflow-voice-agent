@@ -81,14 +81,14 @@ export default function SupportButton({ userEmail, userName, variant = "button" 
               </button>
 
               <a
-                href="mailto:support@voxflow.com?subject=Operations%20Support%20Request"
+                href="mailto:contact@voxflow.cc?subject=Operations%20Support%20Request"
                 className="w-full flex items-center justify-between p-3.5 rounded-xl bg-[#141424] hover:bg-[#1a1a2e] border border-[#242438] hover:border-[#ff2d78]/40 transition-all text-left group"
               >
                 <div className="flex items-center gap-3">
                   <Mail size={16} className="text-[#ff2d78]" />
                   <div>
                     <div className="text-xs font-bold text-white group-hover:text-[#ff2d78] transition-colors">
-                      Email support@voxflow.com
+                      Email contact@voxflow.cc
                     </div>
                     <div className="text-[11px] text-[#94a3b8]">24/7 SLA escalation desk with ticket tracking</div>
                   </div>

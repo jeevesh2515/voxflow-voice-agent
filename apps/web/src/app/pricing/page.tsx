@@ -649,10 +649,10 @@ export default function PricingPage() {
                 Speak with Solutions Engineering →
               </Link>
               <a
-                href="mailto:jeevesh2515@gmail.com?subject=VoxFlow%20Enterprise%20Volume%20Inquiry"
+                href="mailto:contact@voxflow.cc?subject=VoxFlow%20Enterprise%20Volume%20Inquiry"
                 className="inline-flex items-center justify-center rounded-xl border border-white/[0.12] bg-white/[0.04] px-6 py-3.5 font-headline font-bold text-xs text-white hover:bg-white/[0.08] transition text-center"
               >
-                Email Lead Engineer Directly
+                Email Solutions Team Directly
               </a>
             </div>
           </div>

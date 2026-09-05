@@ -68,7 +68,7 @@ export default function RefundPolicyPage() {
           <section className="space-y-3">
             <h2 className="text-xl font-headline font-bold text-white tracking-tight">4. Billing Disputes &amp; Support</h2>
             <p>
-              If you have questions regarding an invoice or need billing assistance, reach out directly to our finance team at <a href="mailto:billing@voxflow.ai" className="text-[#5EEAD4] hover:underline">billing@voxflow.ai</a>.
+              If you have questions regarding an invoice or need billing assistance, reach out directly to our finance team at <a href="mailto:contact@voxflow.cc" className="text-[#5EEAD4] hover:underline">contact@voxflow.cc</a>.
             </p>
           </section>
         </div>

@@ -68,8 +68,8 @@ export default function FaqAndContact() {
               </div>
               <div>
                 <span className="block text-[10px] text-white/40 uppercase">Operations Email</span>
-                <a href="mailto:operations@voxflow.ai" className="text-[#5EEAD4] hover:underline">
-                  operations@voxflow.ai
+                <a href="mailto:contact@voxflow.cc" className="text-[#5EEAD4] hover:underline">
+                  contact@voxflow.cc
                 </a>
               </div>
               <div>
@@ -87,7 +87,7 @@ export default function FaqAndContact() {
               Start Free Trial (500 Mins) →
             </Link>
             <a
-              href="mailto:operations@voxflow.ai?subject=Operations%20Review%20Request"
+              href="mailto:contact@voxflow.cc?subject=Operations%20Review%20Request"
               className="inline-flex items-center justify-center rounded-xl border border-white/[0.12] bg-white/[0.04] px-6 py-3.5 font-headline font-bold text-sm text-white hover:bg-white/[0.08] hover:border-white/[0.2] transition text-center"
             >
               Book an Operations Review

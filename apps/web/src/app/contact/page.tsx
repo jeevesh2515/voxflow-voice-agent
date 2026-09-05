@@ -43,8 +43,8 @@ export default function ContactPage() {
     message: "",
   });
 
-  const founderEmail = "jeevesh2515@gmail.com";
-  const opsEmail = "operations@voxflow.ai";
+  const founderEmail = "contact@voxflow.cc";
+  const opsEmail = "contact@voxflow.cc";
 
   const handleCopyEmail = async () => {
     try {
