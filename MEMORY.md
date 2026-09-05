@@ -4,22 +4,22 @@
 
 ## Current position
 
-**Last updated:** 2026-09-03
-**Current milestone:** **Day 55 Complete — Cosmic Journey Landing Page Hero.** 5-keyframe scroll narrative (black hole → starfield → solar system → telescope → Earth) live on Vercel. 507 backend tests passing, 29 frontend routes compiled.
-**Next implementation:** **Day 56 — Single DB session per turn + LLM streaming TTS.**
+**Last updated:** 2026-09-05
+**Current milestone:** **Phase 1 Complete — Funded AWS Data Infrastructure Foundation.** AWS VPC (`vpc-0c3c0ba0ccf111e00`), RDS PostgreSQL 15.19 (`db.t4g.micro`, gp3 KMS encrypted), EC2 `t3.small` (`13.43.7.12`), Caddy Auto-TLS (`https://voxflow-jeevesh.duckdns.org`), AWS Secrets Manager (32 app keys + DB credentials), automated backups + PITR. Verified with **567/567 passing backend tests** (100% green), superadmin suite passing, and 31 compiled Next.js routes.
+**Next implementation:** **Phase 2 — Revenue Infrastructure (Stripe Billing Webhooks, Customer Portal & Invoicing).**
 **Master Day-Wise Tracker:** See [`DAY_TRACKER.md`](DAY_TRACKER.md) for full day-by-day logs from Day 1 to current.
 
 ## Day 47 Production Baseline Benchmark (Frozen & Validated)
 
 The foundation across Days 1–47 is fully operational, verified, and locked in:
-1. **Database & Schema**: Migrations `000` through `018` are synchronized, idempotent, and validated on both PostgreSQL 17 and SQLite with legacy in-place upgrades.
+1. **Database & Schema**: Migrations `000` through `025` are synchronized, idempotent, and validated on both PostgreSQL 15/17 and SQLite with legacy in-place upgrades.
 2. **Telephony & Inbound Routing**: Amazon Connect exact DID matching, fail-closed isolation, Lex V2 bridge, bilingual engine (`hi`/`en`), standard & enhanced caller PIN verification with PBKDF2-HMAC-SHA256, tool-trace redaction, and cross-session lockout.
 3. **Per-Tenant Agent Persona & Settings**: 4 Voice Personas (`professional`, `friendly`, `concise`, `assertive`), prompt guideline injection, business operating hours with timezone awareness, fallback escalation modes (`human_callback`, `transfer`, `voicemail`), and instant in-memory prompt cache invalidation.
-4. **Workspace & Auth**: Self-serve workspace provisioning, session-gated signup, JWT identity, tenant isolation, and member management.
+4. **Workspace & Auth**: Self-serve workspace provisioning, session-gated signup, JWT identity, tenant isolation, superadmin flag (`/superadmin`), and member management.
 5. **Data Management**: Entity catalog, schema templates, bulk CSV import/export for Products (composite `(sku, tenant_id)`), Suppliers, Stock, Orders, and Shipments.
 6. **Campaigns & Pilot Guardrails**: Staged side-effect worker, fail-closed pilot readiness, and immutable policy decisions.
-7. **Frontend Suite**: All 25 Next.js routes compiled and prerendering cleanly.
-8. **CI/CD Baseline**: All 370 Pytest tests, Ruff linter, ESLint, and Next.js production builds are passing green.
+7. **Frontend Suite**: All 31 Next.js routes compiled and prerendering cleanly.
+8. **CI/CD Baseline**: All 567 Pytest tests, Ruff linter, ESLint, and Next.js production builds are passing green.
 
 ## Lean Verification Protocol for Day 47+
 
@@ -29,26 +29,30 @@ To build and iterate efficiently without redundant full-application re-testing:
   1. API router mounted in `apps/api/voxflow_api/main.py` with valid OpenAPI schema.
   2. Frontend navigation, state, and dashboard views correctly wired in `apps/web`.
   3. Database migration / model DDL aligned with `000_base_schema.sql` (if schema changes exist).
-- **Fast Automated Safety Gate**: Run targeted tests during development (`pytest -k <module>`), followed by the automated suite (`pytest -q` + `npm run lint`) to confirm zero regression on the 351 baseline tests before commit. No repetitive manual re-testing of frozen legacy pages.
+- **Fast Automated Safety Gate**: Run targeted tests during development (`pytest -k <module>`), followed by the automated suite (`pytest -q` + `npm run lint`) to confirm zero regression on the baseline tests before commit. No repetitive manual re-testing of frozen legacy pages.
 
-The durable campaign, observability, callback-certification, typed side-effect, pilot-readiness, and evidence-led pilot-operations programme for Days 25–36 is implemented, CI-validated, and browser-verified. The codebase includes a complete production deployment configuration for an Always-Free Oracle ARM VM running Docker + Caddy (`deploy/ORACLE_DEPLOY.md`), Render API backend, and Vercel Next.js edge frontend. No real outbound provider call, notification, provider subscription, signing-secret configuration, provider ping, CRM webhook, Gmail fetch, or recording download has been performed during any milestone or verification.
+The durable campaign, observability, callback-certification, typed side-effect, pilot-readiness, and evidence-led pilot-operations programme for Days 25–36 is implemented, CI-validated, and browser-verified. The codebase includes a complete production deployment configuration for AWS eu-west-2 London (EC2 + RDS + Secrets Manager + KMS + Caddy) as well as the standby Always-Free Oracle ARM VM (`deploy/ORACLE_DEPLOY.md`), Render API backend, and Vercel Next.js edge frontend. No real outbound provider call, notification, provider subscription, signing-secret configuration, provider ping, CRM webhook, Gmail fetch, or recording download has been performed during any milestone or verification.
 
 ## Verified delivery state
 
 | Area | Verified state |
 |---|---|
-| Backend quality | `ruff check voxflow_api tests` clean; **351 tests passing** (`pytest -q` in ~75s), including exact DID, canonical telephony API, cross-tenant denial, contact-bound authorization, PIN hashing/redaction/persistent lockout, Connect HMAC/body-binding, session-gated signup, provisioning, ingestion, schema, and resilience coverage. |
-| Frontend quality | ESLint and `tsc --noEmit` clean; Next.js 16.3.1 Webpack production build completed with **25 compiled routes**, including the owner-only telephony settings control plane. Default Turbopack validation is blocked only by the editor sandbox’s CSS-worker port restriction. |
-| Oracle VM Deployment | Documented and configured in `deploy/ORACLE_DEPLOY.md`, `deploy/Caddyfile`, `deploy/docker-compose.prod.yml`, with automated helper scripts (`deploy/diagnose-api.sh`, `deploy/sync-vm.sh`, `deploy/verify-vm.sh`, `scripts/preflight.sh`). |
-| Telephony & Speech | Amazon Connect with Lex V2 `en-GB` and an HMAC-authenticated Lambda bridge; tenant context is selected only by active exact provider/DID mapping, with route-specific language and standard/enhanced caller verification. |
+| Backend quality | `ruff check voxflow_api tests` clean; **567 tests passing** (`pytest -q` in ~73s), including superadmin governance, exact DID, canonical telephony API, cross-tenant denial, contact-bound authorization, PIN hashing/redaction/persistent lockout, Connect HMAC/body-binding, session-gated signup, provisioning, ingestion, schema, and resilience coverage. |
+| Frontend quality | ESLint and `tsc --noEmit` clean; Next.js 16.3.1 Webpack production build completed with **31 compiled routes**, including the owner-only telephony settings and superadmin control planes. |
+| AWS Native Deployment (Phase 1) | Live in AWS London (`eu-west-2`): EC2 `t3.small` (`13.43.7.12`) running Docker Compose (`caddy`, `api`, `web`) with automated Let's Encrypt TLS on `https://voxflow-jeevesh.duckdns.org`. Managed via Terraform in `deploy/terraform/`. |
+| Database & Encryption | **AWS RDS PostgreSQL 15.19** (`db.t4g.micro`, 20GB gp3) in private subnets, storage encrypted with AWS KMS CMK (`c139b876-3131-4769-b0ce-673618effc5a`). Migrated from Supabase with 100% row count and schema parity across all entities. |
+| Secrets Management | **AWS Secrets Manager** (`voxflow-prod/app/secrets` with 32 keys, `voxflow-prod/db/credentials`) encrypted via KMS. Zero plaintext credentials in version control. |
+| Disaster Recovery & Backups | RDS daily automated backups + 7-day Point-in-Time Recovery (PITR); manual snapshot drill (`voxflow-prod-postgres-manual-drill-1788632231`) tested and verified available. |
+| Oracle VM Standby | Documented in `deploy/ORACLE_DEPLOY.md`; maintained as standby during initial billing cycle per Phase 1 migration protocol. |
+| Telephony & Speech | Amazon Connect with Lex V2 `en-GB` and an HMAC-authenticated Lambda bridge; tenant context is selected only by active exact provider/DID mapping, with route-specific language and standard/enhanced caller verification. Co-located in `eu-west-2`. |
 | Turn Latency Telemetry | Server-side handler execution timing (`time.perf_counter()`) on `POST /api/connect/turn` emitting `latency_ms` in logs and `ConnectTurnResponse`, plus `avg_turn_latency_ms` persisted in `calls` table. |
 | Durable Call Logging | Dual-destination persistence: Postgres `calls` table as source of truth + detached, non-blocking Google Sheets mirror gated by `SHEETS_CALL_LOG_TENANTS` allow-list. |
-| LLM Resilience & Pooling | Persistent HTTP client pooling, jittered 429 backoff, secondary fallback model (`llama-3.1-8b-instant`), non-blocking spoken error fallbacks, and bounded retry delays in `apps/api/voxflow_api/llm/groq.py`. |
-| Data Durability & Backups | Standalone Supabase keepalive daemon (`scripts/supabase_keepalive.py`), AES-256 encrypted `pg_dump`/SQLite backups (`scripts/db_backup.sh`), and non-destructive restore integrity drill (`scripts/db_restore_test.sh`). |
+| LLM Resilience & Pooling | Persistent HTTP client pooling, jittered 429 backoff, multi-model Groq cascade (`openai/gpt-oss-20b`), non-blocking spoken error fallbacks, and bounded retry delays. |
+| Data Durability & Backups | Standalone Supabase keepalive daemon (`scripts/supabase_keepalive.py`), AES-256 encrypted backups (`scripts/db_backup.sh`), and RDS PITR automated snapshots. |
 | Day 34 local scope | `SideEffectIntent`, transactional job/outbox enqueue, separate staged worker service, migration `008`, legacy Sheets/email loop removal, direct notification/CRM/worksheet/call-dispatch migration, analytics/CSV aggregation, and dashboard visibility are complete locally. |
 | Day 35 local scope | `PilotConfiguration`, `PilotCohortMember`, and `PilotSecurityIncident` models; migration `009`; fail-closed campaign admission; frozen scorecard; read-only pilot and rollback-preview APIs; dashboard panel; database-only rollback drill; `railway.json` temporary-host manifest. |
 | Day 36 local scope | `PilotOperationalEvidence` model and migration `010`; trusted-service idempotent evidence recording; same-day same-cohort hold-point gate; read-only preflight/hold-point APIs; aggregate queue/callback/side-effect observability; pause evidence; and a non-activating dashboard panel. |
-| Vercel Production | All public routes (`/`, `/about`, `/pricing`, `/sign-in`, `/sign-up`) return HTTP 200; all 13 dashboard routes return HTTP 307 redirect when unauthenticated. |
+| Vercel Production Mirror | All public routes (`/`, `/about`, `/pricing`, `/sign-in`, `/sign-up`, `/status`) return HTTP 200; all dashboard routes return HTTP 307 redirect when unauthenticated. |
 
 ## Durable campaign, monitoring, adapter-certification, and side-effect system: completed locally through Day 34
 

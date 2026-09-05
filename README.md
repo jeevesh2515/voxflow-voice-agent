@@ -8,31 +8,32 @@
 <br/>
 
 <p align="center">
-  <a href="https://voxflow-voice-agent.vercel.app"><img src="https://img.shields.io/badge/⚡%20LIVE%20SAAS%20DEMO-voxflow--voice--agent.vercel.app-0F766E?style=for-the-badge&labelColor=111827" alt="Live Demo" /></a>
+  <a href="https://voxflow-jeevesh.duckdns.org"><img src="https://img.shields.io/badge/⚡%20LIVE%20AWS%20SAAS-voxflow--jeevesh.duckdns.org-0F766E?style=for-the-badge&labelColor=111827" alt="Live AWS SaaS" /></a>
+  <a href="https://voxflow-voice-agent.vercel.app"><img src="https://img.shields.io/badge/🌐%20VERCEL%20MIRROR-voxflow--voice--agent.vercel.app-4F46E5?style=for-the-badge&labelColor=111827" alt="Vercel Mirror" /></a>
 </p>
 
 <p align="center">
   <img src="https://img.shields.io/badge/CI%2FCD-100%25%20PASSING-success?style=for-the-badge&logo=githubactions&logoColor=white&labelColor=111827" alt="CI Status" />
-  <img src="https://img.shields.io/badge/TESTS-549%20PASSED-10B981?style=for-the-badge&logo=pytest&logoColor=white&labelColor=111827" alt="549 Pytest Tests Passed" />
-  <img src="https://img.shields.io/badge/FRONTEND-30%20ROUTES-6366F1?style=for-the-badge&logo=nextdotjs&logoColor=white&labelColor=111827" alt="30 Next.js Routes" />
+  <img src="https://img.shields.io/badge/TESTS-567%20PASSED-10B981?style=for-the-badge&logo=pytest&logoColor=white&labelColor=111827" alt="567 Pytest Tests Passed" />
+  <img src="https://img.shields.io/badge/FRONTEND-31%20ROUTES-6366F1?style=for-the-badge&logo=nextdotjs&logoColor=white&labelColor=111827" alt="31 Next.js Routes" />
   <img src="https://img.shields.io/badge/VOICE-ENGLISH%20%28UK%29%20%2B%20HINDI-F97316?style=for-the-badge&labelColor=111827" alt="English (UK) + Hindi Multilingual" />
   <img src="https://img.shields.io/badge/GROUNDING-ZERO--HALLUCINATION%20RAG-0F766E?style=for-the-badge&logo=shield&logoColor=white&labelColor=111827" alt="Zero-Hallucination Grounding" />
 </p>
 
 <p align="center">
+  <img src="https://img.shields.io/badge/INFRASTRUCTURE-AWS%20NATIVE%20%28eu--west--2%29-FF9900?style=for-the-badge&logo=amazonwebservices&logoColor=white&labelColor=111827" alt="AWS eu-west-2 Native" />
+  <img src="https://img.shields.io/badge/DATABASE-AWS%20RDS%20POSTGRES%2015.19-336791?style=for-the-badge&logo=postgresql&logoColor=white&labelColor=111827" alt="AWS RDS Postgres" />
+  <img src="https://img.shields.io/badge/SECRETS-AWS%20SECRETS%20MANAGER%20%2B%20KMS-DD344C?style=for-the-badge&logo=amazonwebservices&logoColor=white&labelColor=111827" alt="Secrets Manager + KMS" />
   <img src="https://img.shields.io/badge/CLOUD%20LLM-GROQ%20FREE%20TIER%20%28199ms%29-F59E0B?style=for-the-badge&logo=fastapi&logoColor=white&labelColor=111827" alt="Groq Free Tier Cloud LLM" />
-  <img src="https://img.shields.io/badge/TELEPHONY-AMAZON%20CONNECT%20UK%20%2B%20LEX-0284C7?style=for-the-badge&labelColor=111827" alt="Telephony Providers" />
-  <img src="https://img.shields.io/badge/DATABASE-SUPABASE%20POSTGRES-3ECF8E?style=for-the-badge&logo=supabase&logoColor=white&labelColor=111827" alt="Supabase Postgres" />
   <img src="https://img.shields.io/badge/BILLING-STRIPE%20BILLING%20METERS-635BFF?style=for-the-badge&logo=stripe&logoColor=white&labelColor=111827" alt="Stripe Billing Meters" />
-  <img src="https://img.shields.io/badge/ZERO%20LOCAL%20REQUIREMENTS-100%25%20CLOUD-10B981?style=for-the-badge&logo=cloudflare&logoColor=white&labelColor=111827" alt="Zero Local Requirements" />
-  <img src="https://img.shields.io/badge/TENANT%20ISOLATION-0--LEAK%20GATE%20%233%20PASSED-0F766E?style=for-the-badge&logo=shield&logoColor=white&labelColor=111827" alt="Tenant Isolation Gate #3" />
+  <img src="https://img.shields.io/badge/BACKUPS-PITR%20%2B%207--DAY%20RETENTION-10B981?style=for-the-badge&logo=amazonrds&logoColor=white&labelColor=111827" alt="PITR Backups" />
   <a href="BENCHMARK_REPORT.md"><img src="https://img.shields.io/badge/BENCHMARKS-P50%20%7C%20P90%20VERIFIED-8B5CF6?style=for-the-badge&labelColor=111827" alt="Verified Benchmarks" /></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/LICENSE-MIT-gray?style=for-the-badge&labelColor=111827" alt="MIT License" /></a>
 </p>
 
 <br/>
 
-[**Explore Live SaaS App**](https://voxflow-voice-agent.vercel.app) &nbsp;·&nbsp; [**Latency Benchmark Report**](BENCHMARK_REPORT.md) &nbsp;·&nbsp; [**System Architecture**](ARCHITECTURE.md) &nbsp;·&nbsp; [**Implementation Tracker**](DAY_TRACKER.md) &nbsp;·&nbsp; [**Cloud Setup Guide**](deploy/ORACLE_DEPLOY.md)
+[**Live AWS Production Site**](https://voxflow-jeevesh.duckdns.org) &nbsp;·&nbsp; [**Latency Benchmark Report**](BENCHMARK_REPORT.md) &nbsp;·&nbsp; [**System Architecture**](ARCHITECTURE.md) &nbsp;·&nbsp; [**Implementation Tracker**](DAY_TRACKER.md) &nbsp;·&nbsp; [**Terraform IaC Guide**](deploy/terraform/)
 
 </div>
 
@@ -387,12 +388,12 @@ npm run dev
 Run all automated test suites locally:
 
 ```bash
-# 1. Run full backend test suite (550 unit, integration, isolation, metering & RBAC tests)
+# 1. Run full backend test suite (567 unit, integration, superadmin, isolation, metering & RBAC tests)
 cd apps/api
 .venv/bin/python -m pytest -q
 
 # 2. Run focused Stripe metering, 0-leak tenant isolation & RBAC matrix test suites
-.venv/bin/python -m pytest tests/test_metering_service.py tests/test_tenant_isolation_zero_leak.py tests/test_rbac_matrix.py -v
+.venv/bin/python -m pytest tests/test_metering_service.py tests/test_tenant_isolation_zero_leak.py tests/test_rbac_matrix.py tests/test_superadmin.py -v
 
 # 3. Run backend linter & type checks
 .venv/bin/ruff check voxflow_api tests
@@ -400,7 +401,7 @@ cd apps/api
 # 4. Run Voice Eval Harness (30 scenarios, hard gate enforcement)
 python3 scripts/run_evals.py --mock --strict
 
-# 5. Run frontend lint, ROI / latency tests, and production build (30 routes)
+# 5. Run frontend lint, ROI / latency tests, and production build (31 routes)
 cd ../web
 npx tsx src/lib/roi.test.ts
 npx tsx src/lib/voiceXray.test.ts
@@ -412,10 +413,17 @@ npm run build
 
 ## 📊 Deployment & Infrastructure
 
-- **Cloud Backend**: Docker Compose running on an **Oracle Cloud Always-Free ARM VM** (4 OCPU, 24GB RAM) with **Caddy** automated TLS reverse proxy.
-- **Cloud Frontend**: **Vercel** Edge Network with sub-100ms global static asset delivery.
-- **Serverless Voice Bridge**: **AWS Lambda** (`us-west-2`) integrated with **Amazon Connect Contact Flows**.
-- **Live VM Sync Command**: `./deploy/sync-vm.sh` (automated code push, database migration, container reload, and zero-downtime health verification).
+- **AWS Native Production (Primary)**:
+  - **Compute & Routing**: AWS EC2 `t3.small` (Amazon Linux 2023, Docker 25.0, Compose v5, 2GB swap) in `eu-west-2` (London) public subnet with **Caddy** automated Let's Encrypt TLS reverse proxy (`https://voxflow-jeevesh.duckdns.org` at `13.43.7.12`).
+  - **Database**: **AWS RDS PostgreSQL 15.19** (`db.t4g.micro`, 20GB gp3 storage) in `eu-west-2` VPC private database subnets with automated daily backups, Point-in-Time Recovery (PITR, 7-day retention window), and AWS KMS storage encryption.
+  - **Secrets & Credentials**: **AWS Secrets Manager** (`voxflow-prod/app/secrets`, `voxflow-prod/db/credentials`) encrypted via **AWS KMS** customer-managed key (`c139b876-3131-4769-b0ce-673618effc5a`).
+  - **Infrastructure as Code (IaC)**: **Terraform** ([`deploy/terraform/`](deploy/terraform/)) managing VPC (`vpc-0c3c0ba0ccf111e00`), 2 public subnets, 2 private subnets, security groups, route tables, RDS instance, and EC2 instance.
+  - **Deployment Automation**: Single-command sync and deploy via [`./scripts/deploy-to-ec2.sh`](scripts/deploy-to-ec2.sh).
+- **Oracle Cloud ARM VM (Standby Fallback)**:
+  - Docker Compose running on an **Oracle Cloud Always-Free ARM VM** (4 OCPU, 24GB RAM) with Caddy auto-TLS. Retained as standby during the initial billing cycle per Phase 1 migration protocol.
+  - Live VM Sync Script: [`./deploy/sync-vm.sh`](deploy/sync-vm.sh).
+- **Cloud Frontend**: **Vercel** Edge Network ([`voxflow-voice-agent.vercel.app`](https://voxflow-voice-agent.vercel.app)) with sub-100ms global static asset delivery.
+- **Serverless Voice Bridge**: **AWS Lambda** (`eu-west-2`) integrated with **Amazon Connect Contact Flows** and **Amazon Lex V2** (`en-GB`) speech recognition co-located in the same London region to eliminate cross-cloud latency.
 
 ---
 

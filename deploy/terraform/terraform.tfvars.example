@@ -1,0 +1,20 @@
+# Copy this to terraform.tfvars and fill in real values.
+# NEVER commit terraform.tfvars — it's in .gitignore
+
+aws_region  = "eu-west-2"
+environment = "prod"
+domain      = "your-domain.com"   # e.g. voxflow.ai
+
+# Leave empty until you request an ACM cert (Step 2 in next_steps output)
+acm_certificate_arn = ""
+
+# RDS sizing — db.t3.micro is Free Tier eligible for 12 months
+db_instance_class = "db.t3.micro"
+db_name           = "voxflow"
+db_username       = "voxflow_admin"
+
+# Fargate sizing — start small, scale in Phase 3
+api_cpu    = 256   # 0.25 vCPU
+api_memory = 512   # MB
+web_cpu    = 256
+web_memory = 512

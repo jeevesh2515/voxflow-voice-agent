@@ -20,20 +20,18 @@ phases can run in parallel, noted below.
 
 ## Phase order and real dependencies
 
-| Phase | Objective | Actually depends on |
-|---|---|---|
-| 0 | Free-Tier Demo Readiness (Oracle VM + Supabase, $50 cap) | Nothing — start now |
-| 1 | Funded Infrastructure Migration (Supabase/Oracle → AWS-native) | Funding or revenue justifying the spend; Phase 0 done |
-| 2 | Revenue Infrastructure (Stripe) | **Phase 0 only** — Supabase is real Postgres, don't wait for Phase 1 |
-| 3 | Operational Trust (full build-out) | Phase 2 (billing events trigger emails); doesn't need Phase 1 |
-| 4 | Legal & Compliance (solicitor review, DPA) | Phase 3; needed before real money changes hands regardless of funding |
-| 5 | Go-to-Market Surface | Phases 0 and 3; claims must match current reality (free-tier or funded) |
-| 6 | Enterprise Readiness (SSO, SOC 2, DR, load test) | Phase 1 (funded infra); SOC 2 evidence-collection specifically can start once Phase 1 lands |
-| 7 | Scale & Retention | Phases 1-6, product already selling |
+| Phase | Objective | Actually depends on | Status |
+|---|---|---|---|
+| 0 | Free-Tier Demo Readiness (Oracle VM + Supabase, $50 cap) | Nothing — start now | ✅ Complete |
+| 1 | Funded Infrastructure Migration (Supabase/Oracle → AWS-native) | Funding or revenue justifying the spend; Phase 0 done | ✅ Complete (AWS RDS 15.19, EC2 t3.small, Secrets Manager + KMS, Caddy TLS) |
+| 2 | Revenue Infrastructure (Stripe) | **Phase 0 only** — Supabase is real Postgres, don't wait for Phase 1 | Up Next |
+| 3 | Operational Trust (full build-out) | Phase 2 (billing events trigger emails); doesn't need Phase 1 | Planned |
+| 4 | Legal & Compliance (solicitor review, DPA) | Phase 3; needed before real money changes hands regardless of funding | Planned |
+| 5 | Go-to-Market Surface | Phases 0 and 3; claims must match current reality (free-tier or funded) | Planned |
+| 6 | Enterprise Readiness (SSO, SOC 2, DR, load test) | Phase 1 (funded infra); SOC 2 evidence-collection specifically can start once Phase 1 lands | Planned |
+| 7 | Scale & Retention | Phases 1-6, product already selling | Planned |
 
-Phase 0 is the one to run right now. Phase 1 is gated on funding — everything
-from Phase 2 onward can and should start on top of Phase 0 alone where the
-table above says so, rather than waiting idle for Phase 1 to close.
+Phase 0 and Phase 1 are both complete. Phase 1 migrated the database to AWS RDS in eu-west-2, co-located compute on EC2 with Docker Compose and Caddy Auto-TLS, moved all secrets to AWS Secrets Manager + KMS, and configured automated backups + PITR. Everything from Phase 2 onward proceeds on top of this verified foundation.
 
 ## Corrections made, in order
 

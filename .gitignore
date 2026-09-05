@@ -85,3 +85,11 @@ error\ handling/
 stripe-integration/
 stripe\ integration/
 
+
+# Terraform
+deploy/terraform/terraform.tfvars
+deploy/terraform/.terraform/
+deploy/terraform/*.tfstate
+deploy/terraform/*.tfstate.backup
+deploy/terraform/*.tfplan
+deploy/terraform/.terraform.lock.hcl

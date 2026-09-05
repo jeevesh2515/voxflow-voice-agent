@@ -1,13 +1,13 @@
 # VoxFlow Architecture
 
-**Last updated:** 2026-08-30  
-**Current milestone:** **Phase 10 Self-Serve SaaS Onboarding, Bulk Data Ingestion, Multi-Tenant Google Sheets & Live Voice Agent Sheet Editing complete.** 411 backend tests passing, 25 compiled frontend routes, self-serve Google Sheets connection with preflight testing, voice agent live sheet editing (`edit_sheet_row`, `update_worksheet`), tenant-owned Amazon Connect DID policy, PBKDF2 caller PIN controls with persistent cross-session lockout, and the existing Oracle/Render/Vercel deployment architecture. Comprehensive day-by-day implementation tracking is recorded in [`DAY_TRACKER.md`](DAY_TRACKER.md).
-**Operating mode:** Inbound voice, self-serve tenant onboarding, bulk data ingestion engine, multi-tenant Google Sheets mirroring, and dashboard functions are deployed. Campaign dispatch and operational side-effect workers are independently safe-staged; Day 35 admission and Day 36 current-version evidence are both fail-closed with an empty tenant allow-list.
+**Last updated:** 2026-09-05  
+**Current milestone:** **Phase 1 Funded AWS Data Infrastructure Foundation complete.** 567 backend tests passing, 31 compiled frontend routes, AWS RDS PostgreSQL 15.19 (gp3 KMS encrypted), EC2 `t3.small` compute running Docker Compose (`caddy`, `api`, `web`) with automated TLS on `https://voxflow-jeevesh.duckdns.org`, AWS Secrets Manager (32 app keys + DB credentials) encrypted with customer-managed KMS key, 100% data parity migrated from Supabase, automated backups with 7-day PITR, superadmin governance (`/superadmin`), and Oracle ARM VM retained as standby. Comprehensive day-by-day implementation tracking is recorded in [`DAY_TRACKER.md`](DAY_TRACKER.md).
+**Operating mode:** Inbound voice, self-serve tenant onboarding, streaming CSV ingestion engine, multi-tenant Google Sheets mirroring, live voice agent sheet editing, superadmin management, and public status reporting are deployed. Campaign dispatch and operational side-effect workers are independently safe-staged; Day 35 admission and Day 36 current-version evidence are both fail-closed with an empty tenant allow-list.
 
 
 ## 1. System boundaries
 
-VoxFlow separates the latency-sensitive inbound voice path from durable operational work. FastAPI receives web/API requests and persists intent. Durable workers claim lease-protected jobs from the database and execute bounded units of background work. Campaign provider calls are not performed inside the campaign HTTP request transaction. The stack is containerized and deployable on Oracle Cloud ARM VMs (via Caddy auto-TLS reverse proxy) as well as managed cloud hosts (Render/Vercel/Fly).
+VoxFlow separates the latency-sensitive inbound voice path from durable operational work. FastAPI receives web/API requests and persists intent. Durable workers claim lease-protected jobs from the database and execute bounded units of background work. Campaign provider calls are not performed inside the campaign HTTP request transaction. The stack is containerized and deployed natively on AWS London `eu-west-2` (EC2 t3.small + RDS PostgreSQL 15.19 via Caddy auto-TLS reverse proxy), with Oracle Cloud ARM VM maintained as a live standby fallback.
 
 ```mermaid
 flowchart TB
@@ -419,6 +419,53 @@ Total: **556KB**. Budget: 10 Higgsfield credits → 8 spent (4×2), 2 spare for 
 | Reduced motion | CDP `Emulation.setEmulatedMedia prefers-reduced-motion:reduce` before nav | `kf2 display:none`, `kf5 1`, `j1 display:none`, `copy 1` |
 | Mobile 390px | Playwright `is_mobile: true` viewport | `heroH auto`, `kf5 1`, `j1 display:none`, `bh 0` |
 | Build | `npm run build --workspace=apps/web` | Clean; all 5 WebPs `200 image/webp`; SSR html contains journey markers |
+
+## 11. AWS Native Cloud Infrastructure (Phase 1)
+
+Phase 1 migrates VoxFlow from the Phase 0 bootstrap setup (Oracle VM + Supabase) onto an integrated AWS architecture in London (`eu-west-2`), eliminating WAN cross-cloud network hops between Amazon Connect telephony and backend compute.
+
+### 11.1 Infrastructure Topology
+
+```mermaid
+flowchart TB
+    PSTN[Caller / PSTN Network] --> Connect[Amazon Connect eu-west-2]
+    Connect --> Lambda[Bridge Lambda eu-west-2]
+    Lambda --> Ingress[Caddy Reverse Proxy\nHTTPS: voxflow-jeevesh.duckdns.org\nElastic IP: 13.43.7.12]
+    
+    subgraph AWS_VPC ["AWS VPC eu-west-2 (vpc-0c3c0ba0ccf111e00)"]
+        subgraph Public_Subnet ["Public Subnets (10.0.1.0/24, 10.0.2.0/24)"]
+            Ingress --> Web[Next.js Web Frontend\nContainer port 3000]
+            Ingress --> API[FastAPI Voice Engine\nContainer port 8000]
+        end
+        
+        subgraph Private_DB_Subnet ["Private DB Subnets (10.0.11.0/24, 10.0.12.0/24)"]
+            API --> RDS[(AWS RDS PostgreSQL 15.19\ndb.t4g.micro · gp3 20GB\nKMS CMK Encrypted)]
+        end
+    end
+    
+    subgraph AWS_Security ["AWS Security & Identity"]
+        Secrets[AWS Secrets Manager\nvoxflow-prod/app/secrets\nvoxflow-prod/db/credentials] -.->|Injects Secrets| API
+        KMS[AWS KMS Key\nc139b876-3131-4769-b0ce-673618effc5a] -.->|Encrypts| RDS
+        KMS -.->|Encrypts| Secrets
+    end
+```
+
+### 11.2 Key Architectural Decisions
+
+1. **Compute Sizing & Budget Optimization**:
+   - Initial roadmap proposed ECS Fargate + ALB + NAT Gateway (~$80/mo). To stay strictly within the founder's credit boundary ($142), we provisioned a lean, production-grade EC2 `t3.small` instance running Docker Compose (`caddy`, `api`, `web`) with 2GB swap and automated Let's Encrypt TLS (~$16/mo total).
+   - This delivers identical security isolation and zero cross-cloud latency at <20% of the cost.
+2. **Database Isolation & Encryption**:
+   - AWS RDS PostgreSQL 15.19 is deployed in isolated private database subnets with no public internet route.
+   - Ingress security group strictly authorizes inbound port 5432 from the EC2 security group only.
+   - Storage is encrypted at rest using an AWS KMS Customer Managed Key (CMK).
+3. **Secrets Management**:
+   - All runtime application credentials (32 keys) and database passwords are stored in AWS Secrets Manager (`voxflow-prod/app/secrets`).
+   - Zero sensitive `.env` files or credentials exist in version control.
+4. **Disaster Recovery & Redundancy**:
+   - Automated daily snapshots with 7-day Point-in-Time Recovery (PITR).
+   - Validated manual restore snapshot drill (`voxflow-prod-postgres-manual-drill-1788632231`).
+   - Oracle Cloud ARM VM is maintained as a live standby replica during the initial billing cycle per Phase 1 DoD.
 
 [1] [Dial Webhooks](https://docs.getdial.ai/documentation/platform/webhooks.md)
 [2] [Dial `call.status_changed`](https://docs.getdial.ai/api-reference/events/call-status-changed.md)

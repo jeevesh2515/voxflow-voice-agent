@@ -2,10 +2,10 @@
 
 **Project:** VoxFlow — Voice Operations for Modern Supply Chains  
 **Repository:** `jeevesh2515/voxflow-voice-agent`  
-**Current Test Suite:** **507 Passing Tests** (`pytest tests/ -q`)
-**Frontend Surface:** **29 Compiled Routes** (Next.js 16 App Router, Turbopack production validation)
-**Deployment Infrastructure:** Oracle Cloud Always-Free ARM VM (Caddy Auto-TLS + Docker) / Render Free API / Vercel Edge Frontend  
-**Last Updated:** 2026-08-30
+**Current Test Suite:** **567 Passing Tests** (`pytest apps/api/tests -q`)
+**Frontend Surface:** **31 Compiled Routes** (Next.js 16 App Router, Turbopack production validation)
+**Deployment Infrastructure:** AWS eu-west-2 (London) Primary: EC2 `t3.small` + AWS RDS PostgreSQL 15.19 + AWS Secrets Manager + KMS + Caddy Auto-TLS (`https://voxflow-jeevesh.duckdns.org` at `13.43.7.12`) / Standby: Oracle Cloud Always-Free ARM VM / Frontend Mirror: Vercel Edge Network  
+**Last Updated:** 2026-09-05
 
 ---
 
@@ -24,6 +24,9 @@
 | **Phase 9** | Production | Infrastructure, Resilience & UI Overhaul | ✅ Complete | Oracle ARM VM + Caddy Auto-TLS, Next.js 16 standalone Docker, LLM resilience fallback, 16 dashboard views overhaul. |
 | **Phase 11** | 55 | Landing Page Cosmic Journey & Polish | ✅ Complete | 5-keyframe hero scroll, solar system vista, Three.js WebGL + CSS progress bus. |
 | **Phase 12** | 56 | Anti-Hallucination & Deterministic Precision | ✅ Complete | Zero-hallucination negative grounding invariant, ambiguity disambiguation, temperature clamping (0.1), tenant guidelines injection. |
+| **Phase 13** | 57 | Ingest Lambda, SQS DLQ & Meter Billing Cron | ✅ Complete | Amazon Connect S3 ingest Lambda, SQS DLQ retry, Stripe metered billing usage reporting cron. |
+| **Phase 14** | 58 | Cloud-First Groq LLM & Zero Local Footprint | ✅ Complete | Multi-model Groq cascade (`openai/gpt-oss-20b`), Whisper turbo STT, Edge-TTS, zero local compute footprint. |
+| **Phase 1 (AWS Migration)** | 59 | Funded AWS Data Infrastructure Foundation | ✅ Complete | Terraform VPC in eu-west-2, AWS RDS PostgreSQL 15.19, EC2 t3.small, Caddy Auto-TLS on DuckDNS, Secrets Manager + KMS, PITR backups, 567 tests. |
 
 ---
 
@@ -848,21 +851,65 @@
   - `pytest apps/api/tests` → **550 passed, 1 skipped, 0 failed in 68.10s** (100% green).
   - Live Groq API benchmark: 199ms tool latency, 167ms completion.
 
+#### 🗓️ Day 59 / Phase 1: Funded AWS Infrastructure Migration Foundation
+- **Objective:** Migrate from Phase 0 demo stack (Oracle VM + Supabase) onto production-grade AWS infrastructure in London (`eu-west-2`) within strict budget constraints (~$142 credits), co-locating compute, database, secrets, and telephony to eliminate cross-cloud latency.
+- **Architectural & Economic Scope:**
+  - Rejected cost-prohibitive ECS Fargate + ALB + NAT Gateway design (~$80/mo) in favor of a lean, production-grade EC2 (`t3.small`) + Docker Compose (`caddy`, `api`, `web`) architecture (~$16/mo total).
+  - Maintained Oracle VM as a live standby fallback during the first billing cycle per migration protocol.
+- **Implementation:**
+  1. **Terraform Infrastructure as Code (`deploy/terraform/`):**
+     - Provisioned dedicated VPC (`vpc-0c3c0ba0ccf111e00`) in `eu-west-2` with 2 public subnets (`10.0.1.0/24`, `10.0.2.0/24`) and 2 private database subnets (`10.0.11.0/24`, `10.0.12.0/24`).
+     - Provisioned AWS RDS PostgreSQL 15.19 (`db.t4g.micro`, 20GB gp3 storage) across private database subnets with storage encrypted by AWS KMS (`c139b876-3131-4769-b0ce-673618effc5a`).
+     - Provisioned EC2 instance `i-009a11b8c62a6435e` (`t3.small`, Amazon Linux 2023, 20GB gp3) with Elastic IP `13.43.7.12`, Docker 25.0, Compose v5, `docker-buildx` v0.21.2, and 2GB swap.
+     - Security groups configured: RDS strictly accepts PostgreSQL (port 5432) from EC2 security group only (zero internet exposure). EC2 accepts HTTP (80) and HTTPS (443) from world, and SSH (22) from authorized IPs.
+  2. **AWS Secrets Manager & KMS Security Baseline:**
+     - Created `voxflow-prod/app/secrets` (32 production keys) and `voxflow-prod/db/credentials` secured with dedicated KMS CMK.
+     - Automated secret synchronization script (`scripts/migrate-secrets-to-aws.sh`).
+     - Solved URL password encoding issue (`quote_plus`) for special characters (`]`) in SQLAlchemy `DATABASE_URL`.
+  3. **Database Migration & 100% Data Parity:**
+     - Solved PostgreSQL 17 (Supabase) to PostgreSQL 15.19 (RDS) version header incompatibility using plain SQL export stripped of PG17-specific `\restrict` / `\unrestrict` commands.
+     - Migrated `public` schema, RLS policies, table data, and sequence states via automated migration script (`scripts/migrate-db-to-rds.sh`).
+     - 100% row count match verified across all tables: `tenants: 4`, `orders: 3`, `products: 9`, `stock: 9`, `suppliers: 3`, `tenant_members: 3`, `calls: 4`, `shipments: 3`.
+  4. **Domain, Auto-TLS & Reverse Proxy Routing:**
+     - Configured DuckDNS domain `voxflow-jeevesh.duckdns.org` targeting Elastic IP `13.43.7.12`.
+     - Caddy reverse proxy (`deploy/Caddyfile`) solved Let's Encrypt HTTP-01 challenge and provisioned trusted SSL certificate (`CN=voxflow-jeevesh.duckdns.org`).
+     - Reverse proxy routing: `/api/*`, `/ws/*`, `/chat`, `/tts`, `/agent/*`, `/twilio/*` routed to FastAPI backend (`api:8000`), remaining requests routed to Next.js frontend (`web:3000`).
+  5. **Disaster Recovery & Backup Automation:**
+     - Configured RDS automated daily backups with 7-day retention and Point-in-Time Recovery (PITR).
+     - Executed and verified manual snapshot drill (`voxflow-prod-postgres-manual-drill-1788632231`) via AWS CLI.
+  6. **Automated Deployment Pipeline:**
+     - Created `scripts/deploy-to-ec2.sh` for single-command rsync, container build, environment injection, and live verification.
+- **Artifacts:**
+  - `deploy/terraform/main.tf`, `vpc.tf`, `rds.tf`, `ec2.tf`, `secrets.tf`, `variables.tf`, `outputs.tf`, `terraform.tfvars.example`
+  - `scripts/deploy-to-ec2.sh`, `scripts/migrate-db-to-rds.sh`, `scripts/migrate-secrets-to-aws.sh`
+  - `deploy/Caddyfile`
+  - `new-phases/01-phase-1-data-infrastructure-foundation.md`
+  - `.learning/day-59-phase-1-aws-data-infrastructure-migration.md`
+- **Verification:**
+  - **AWS Backend Tests**: `pytest` against RDS on EC2 → **567 passed in 73.13s** (100% green).
+  - **Superadmin Suite**: `pytest tests/test_superadmin.py` → **5 passed** (100% green).
+  - **Live HTTPS Endpoints**:
+    - `https://voxflow-jeevesh.duckdns.org/api/health` → `{"status": "ok", "environment": "prod", "database": "connected"}` (HTTP 200)
+    - `https://voxflow-jeevesh.duckdns.org/api/health/llm` → `{"status": "ok", "provider": "groq", "model": "openai/gpt-oss-20b"}` (HTTP 200)
+    - `https://voxflow-jeevesh.duckdns.org/` → Next.js landing page with Cosmic Journey hero (HTTP 200)
+    - `https://voxflow-jeevesh.duckdns.org/status` → Public status page (HTTP 200)
+
 ---
 
 ## 🎯 Verification & Test Summary Matrix
 
 | Metric | Target | Current Value | Status |
 |---|---|---|---|
-| **Backend Unit & Integration Tests** | $\ge 200$ | **550 Passed** | ✅ Green |
-| **Frontend Static Routes** | $\ge 15$ | **30 Compiled Pages** | ✅ Green |
+| **Backend Unit & Integration Tests** | $\ge 200$ | **567 Passed** | ✅ Green |
+| **Frontend Static Routes** | $\ge 15$ | **31 Compiled Pages** | ✅ Green |
 | **Lint & Static Analysis** | 0 warnings | `ruff check .` clean, ESLint clean, `tsc --noEmit` clean | ✅ Clean |
 | **Latency & TTFT Benchmarks** | Sub-second P50 | **P50 ~199ms LLM Tool Calling (Groq Cloud LPU)** | ✅ Verified |
-| **Database Migrations** | Staged & Verified | 25 Migrations (`000`–`024`) applied on Supabase | ✅ Current |
+| **Database Migrations** | Staged & Verified | 26 Migrations (`000`–`025`) synchronized on AWS RDS Postgres | ✅ Current |
 | **Telephony Providers Supported** | Enterprise Voice | Amazon Connect (AWS UK eu-west-2) + Amazon Lex STT + WebAudio Simulator | ✅ Verified |
 | **Call Persistence & Mirroring** | Durable Logging | Postgres `calls` + Gated Google Sheets Mirror + S3 Signed Audio | ✅ Verified |
 | **Multi-Tenant Isolation (Gate #3)** | Zero Data Leaks | **0% Foreign Rows, 404 on Foreign IDs, 403 on Cross-Tenant** | ✅ Verified |
 | **RBAC Enforcement (3 Tiers)** | Owner / Operator / Viewer | Strict server-authoritative role gating & last-owner protection | ✅ Verified |
+| **Superadmin Operations** | Platform governance | `/superadmin` view, platform metrics, tenant lookup, active minutes | ✅ Verified |
 | **UK GDPR & Data Privacy (Gate #4)** | Access / Erasure / Purge | DSAR Export + Right to Erasure + Automated Cron Purge + Consent Evidence | ✅ Verified |
 | **Team Management Surface** | Member Settings UI | Interactive Member Roster + Invites + Role Selector + Matrix | ✅ Verified |
 | **Per-Tenant Google Sheets** | Self-Serve Mirror | 1-Click Connect + Preflight Diagnostic + Voice Agent Live Edit | ✅ Verified |
@@ -878,18 +925,18 @@
 | **Observability & Alerting** | KPI/Health/Events | 6-endpoint surface, alert thresholds + durable dispatch, PII-scrubbed Sentry/PostHog, dark dashboard | ✅ Verified |
 | **Stripe Billing & Metering (Gate #6)** | Checkout/Portal/Meters | Starter (£49) / Growth (£149) / Enterprise (£399) + Modern Billing Meters API per-call-minute usage | ✅ Verified |
 | **Landing, Pricing & Contact** | Public marketing | UK supply-chain hero, cosmic journey 5-kf scroll, pricing calculator, contact form with mailto/copy | ✅ Verified |
+| **Public Status Page** | Incident & Health | Public `/status` page with real-time health indicator and uptime history | ✅ Verified |
 | **Go-Live Preflight** | 7-pillar gate | `golive_dry_run.py --strict` (migrations, isolation, telephony, billing, eval, GDPR, build) | ✅ Verified |
-| **Tool Gating & Parallel Reads** | <400ms P50 | Gated 6→17→19 tools, `asyncio.gather` on pure reads | ✅ Verified |
-| **Streaming TTS** | TTFB ~150ms | `synth_stream` + `turn_start` + `audio_chunk` over `/ws/call` | ✅ Verified |
 | **Cloud LLM & STT Architecture** | 100% Hosted ($0) | Groq LPU (`openai/gpt-oss-20b` + `whisper-large-v3-turbo`), Zero Local Footprint | ✅ Verified |
+| **Cloud Infrastructure (Phase 1)** | AWS eu-west-2 | AWS RDS PostgreSQL 15.19 + EC2 t3.small + Secrets Manager + KMS + Caddy SSL | ✅ Verified |
+| **Disaster Recovery & Backups** | Automated PITR | RDS 7-day automated backups + PITR + manual snapshot drills verified | ✅ Verified |
 
 ---
 
-## 🧭 Next Recommended Actions (Day 58+)
+## 🧭 Next Recommended Actions (Phase 2+)
 
-1. **Production Hourly Meter Cron Setup:** Configure Linux server cron: `0 * * * * cd /srv/voxflow && .venv/bin/python scripts/run_meter_report.py --execute >> /var/log/voxflow-meter.log 2>&1`.
-2. **AWS S3 Ingest Lambda Deployment:** Deploy `deploy/aws/s3_recordings_handler.py` and CloudFormation `recording_dlq_cfn.yaml` in AWS London (`eu-west-2`).
-3. **Single DB session per turn:** Pass one `async_session_scope` into `execute_tool(..., db=...)` to optimize connection pooling.
-
----
+1. **Phase 2: Revenue Infrastructure:** Connect live Stripe webhook listeners, automated invoices, and billing portal on top of AWS RDS.
+2. **Phase 3: Operational Trust:** Build out automated transactional email notifications via Resend for billing, alerts, and escalation digests.
+3. **Phase 4: Legal & Compliance Baseline:** Standardize Data Processing Agreements (DPA) and enterprise subprocessor schedules.
+4. **Oracle Standby Decommissioning:** Decommission Oracle standby VM following one full stable billing cycle on AWS.
 
