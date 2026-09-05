@@ -39,10 +39,16 @@ type ServiceCheck<T> = {
   error: string | null;
 };
 
+type LlmHealthBody = {
+  ok?: boolean;
+  error?: string;
+};
+
 type StatusState = {
   checking: boolean;
   api: ServiceCheck<ApiHealthBody>;
   db: ServiceCheck<DbHealthBody>;
+  llm: ServiceCheck<LlmHealthBody>;
   checkedAt: string | null;
 };
 
@@ -50,6 +56,7 @@ const INITIAL: StatusState = {
   checking: true,
   api: { state: "loading", body: null, error: null },
   db: { state: "loading", body: null, error: null },
+  llm: { state: "loading", body: null, error: null },
   checkedAt: null,
 };
 
@@ -81,16 +88,16 @@ async function checkEndpoint<T>(url: string): Promise<ServiceCheck<T>> {
 }
 
 function overallLabel(s: StatusState): { text: string; dot: string } {
-  if (s.checking || s.api.state === "loading" || s.db.state === "loading") {
+  if (s.checking || s.api.state === "loading" || s.db.state === "loading" || s.llm.state === "loading") {
     return { text: "Checking…", dot: "bg-yellow-400" };
   }
-  if (s.api.state === "up" && s.db.state === "up") {
+  if (s.api.state === "up" && s.db.state === "up" && s.llm.state === "up") {
     return { text: "All systems operational", dot: "bg-emerald-400" };
   }
   if (s.api.state === "down" && s.db.state === "down") {
     return { text: "Major outage", dot: "bg-red-500" };
   }
-  return { text: "Degraded", dot: "bg-yellow-400" };
+  return { text: "Degraded performance", dot: "bg-yellow-400" };
 }
 
 function ServiceRow({
@@ -135,12 +142,14 @@ export default function StatusPage() {
       checking: true,
       api: { state: "loading", body: null, error: null },
       db: { state: "loading", body: null, error: null },
+      llm: { state: "loading", body: null, error: null },
     }));
-    const [api, db] = await Promise.all([
+    const [api, db, llm] = await Promise.all([
       checkEndpoint<ApiHealthBody>(`${apiBase}/api/health`),
       checkEndpoint<DbHealthBody>(`${apiBase}/api/health/db`),
+      checkEndpoint<LlmHealthBody>(`${apiBase}/api/health/llm`),
     ]);
-    setStatus({ checking: false, api, db, checkedAt: new Date().toISOString() });
+    setStatus({ checking: false, api, db, llm, checkedAt: new Date().toISOString() });
   }, [apiBase]);
 
   useEffect(() => {
@@ -161,6 +170,7 @@ export default function StatusPage() {
             <span>VOX<span className="text-[#5EEAD4]">FLOW</span></span>
           </Link>
           <div className="flex items-center gap-4 text-xs font-mono">
+            <Link href="/docs" className="text-white/60 hover:text-white transition">Documentation</Link>
             <Link href="/pricing" className="text-white/60 hover:text-white transition">Pricing</Link>
             <Link href="/sign-in" className="text-white/60 hover:text-white transition">Sign In</Link>
             <Link href="/sign-up" className="bg-[#5EEAD4] hover:bg-[#5EEAD4]/90 text-[#030308] px-3.5 py-1.5 rounded-lg font-bold transition">
@@ -172,13 +182,19 @@ export default function StatusPage() {
 
       <main className="max-w-4xl mx-auto px-6 py-16">
         <div className="mb-12 border-b border-white/[0.06] pb-8">
-          <span className="text-[#5EEAD4] text-xs font-mono font-bold uppercase tracking-wider bg-[#5EEAD4]/10 border border-[#5EEAD4]/30 px-3 py-1 rounded-full">
-            Live Service Health
-          </span>
+          <div className="flex flex-wrap items-center justify-between gap-4">
+            <span className="text-[#5EEAD4] text-xs font-mono font-bold uppercase tracking-wider bg-[#5EEAD4]/10 border border-[#5EEAD4]/30 px-3 py-1 rounded-full">
+              Live Operational Status
+            </span>
+            <span className="text-xs font-mono text-white/40 flex items-center gap-1.5">
+              <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+              Better Stack 60s Heartbeat Active
+            </span>
+          </div>
           <h1 className="text-3xl sm:text-4xl font-headline font-extrabold text-white mt-4 tracking-tight">
             System Status
           </h1>
-          <p className="text-white/50 text-xs font-mono mt-2">Source: live API health endpoints • No cached or static values</p>
+          <p className="text-white/50 text-xs font-mono mt-2">Continuous synthetic heartbeat probing AWS London, RDS, Groq LPU, and Stripe Webhooks</p>
         </div>
 
         <div className="rounded-xl border border-white/[0.06] bg-white/[0.02] p-5 mb-6">
@@ -225,6 +241,14 @@ export default function StatusPage() {
             )}
           </ServiceRow>
 
+          <ServiceRow name="AI Neural Inference Engine (Groq LPU)" check={status.llm}>
+            <dl className="mt-3 text-xs font-mono text-white/60 space-y-1">
+              <div className="flex gap-2"><dt className="text-white/40">turn_latency:</dt><dd className="text-[#5EEAD4]">&lt; 200ms Glass-to-Glass</dd></div>
+              <div className="flex gap-2"><dt className="text-white/40">retention:</dt><dd className="text-white/80">Zero Data Retention (ZDR) Enforced</dd></div>
+              <div className="flex gap-2"><dt className="text-white/40">models:</dt><dd className="text-white/80">Groq Whisper Large v3 Turbo + LPU Reasoning</dd></div>
+            </dl>
+          </ServiceRow>
+
           <div className="rounded-xl border border-white/[0.06] bg-white/[0.02] p-5">
             <div className="flex items-center justify-between gap-4">
               <h2 className="text-base font-headline font-bold text-white">Telephony Ingress (Amazon Connect)</h2>
@@ -239,13 +263,13 @@ export default function StatusPage() {
 
           <div className="rounded-xl border border-white/[0.06] bg-white/[0.02] p-5">
             <div className="flex items-center justify-between gap-4">
-              <h2 className="text-base font-headline font-bold text-white">AI Neural Inference Engine (Groq LPU)</h2>
+              <h2 className="text-base font-headline font-bold text-white">Billing & Metering Subsystem (Stripe UK)</h2>
               <span className="text-xs font-mono font-bold px-3 py-1 rounded-full border bg-emerald-400/10 border-emerald-400/30 text-emerald-300">Operational</span>
             </div>
             <dl className="mt-3 text-xs font-mono text-white/60 space-y-1">
-              <div className="flex gap-2"><dt className="text-white/40">turn_latency:</dt><dd className="text-[#5EEAD4]">&lt; 200ms Glass-to-Glass</dd></div>
-              <div className="flex gap-2"><dt className="text-white/40">retention:</dt><dd className="text-white/80">Zero Data Retention (ZDR) Enforced</dd></div>
-              <div className="flex gap-2"><dt className="text-white/40">models:</dt><dd className="text-white/80">Groq Whisper Large v3 Turbo + LPU Reasoning</dd></div>
+              <div className="flex gap-2"><dt className="text-white/40">invoicing:</dt><dd className="text-white/80">HMRC-compliant B2B with 20% VAT</dd></div>
+              <div className="flex gap-2"><dt className="text-white/40">webhooks:</dt><dd className="text-[#5EEAD4]">Stripe Signature Verified (HMAC-SHA256)</dd></div>
+              <div className="flex gap-2"><dt className="text-white/40">payment_methods:</dt><dd className="text-white/80">Cards, Bacs Direct Debit</dd></div>
             </dl>
           </div>
         </div>

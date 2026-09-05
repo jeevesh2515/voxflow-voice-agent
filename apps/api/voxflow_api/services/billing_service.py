@@ -630,6 +630,45 @@ def _handle_invoice_payment_succeeded(db: Session, obj: dict[str, Any]) -> dict[
         tenant.current_period_end = period_end
     db.flush()
     log.info("billing.invoice_recorded tenant_id=%s invoice_id=%s", tenant.id, invoice_id)
+
+    # Phase 3: Dispatch transactional invoice receipt email
+    billing_email = str(
+        obj.get("customer_email")
+        or (obj.get("customer_details") or {}).get("email")
+        or getattr(tenant, "fallback_email", None)
+        or ""
+    ).strip()
+
+    if billing_email and "@" in billing_email:
+        try:
+            import asyncio
+            from .mail import InvoiceReceiptEmailParams, send_invoice_receipt_email
+            amount_gbp = f"£{invoice.amount_paid_cents / 100:.2f}"
+            period_str = period_end.strftime("%d %b %Y") if period_end else None
+            try:
+                loop = asyncio.get_running_loop()
+                loop.create_task(send_invoice_receipt_email(InvoiceReceiptEmailParams(
+                    recipient=billing_email,
+                    company_name=tenant.name,
+                    invoice_id=invoice_id,
+                    amount_gbp=amount_gbp,
+                    period_end=period_str,
+                    pdf_url=invoice.invoice_pdf_url,
+                    hosted_url=invoice.hosted_invoice_url,
+                )))
+            except RuntimeError:
+                asyncio.run(send_invoice_receipt_email(InvoiceReceiptEmailParams(
+                    recipient=billing_email,
+                    company_name=tenant.name,
+                    invoice_id=invoice_id,
+                    amount_gbp=amount_gbp,
+                    period_end=period_str,
+                    pdf_url=invoice.invoice_pdf_url,
+                    hosted_url=invoice.hosted_invoice_url,
+                )))
+        except Exception as mail_exc:
+            log.warning("billing.invoice_receipt_email_failed", error=str(mail_exc))
+
     return {
         "applied": True,
         "idempotent_replay": False,

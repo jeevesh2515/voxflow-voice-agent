@@ -20,6 +20,7 @@ import {
 import { useTenant } from "@/lib/tenant-context";
 import { useTheme } from "@/lib/theme-context";
 import { createClient } from "@/lib/supabase/client";
+import SupportButton from "@/components/SupportButton";
 
 export default function Topbar({ title, subtitle, onToggleSidebar }: { title?: string; subtitle?: string; onToggleSidebar?: () => void }) {
   const router = useRouter();
@@ -111,6 +112,9 @@ export default function Topbar({ title, subtitle, onToggleSidebar }: { title?: s
             className="bg-[#141420] border border-[#28283c] rounded-xl pl-9 pr-4 py-1.5 text-xs text-[#f1f5f9] focus:border-[#ff2d78] outline-none w-48 lg:w-56 transition-all placeholder:text-[#64748b] font-body"
           />
         </div>
+
+        {/* Support Touchpoint */}
+        <SupportButton />
 
         {/* Quick Simulator CTA Button */}
         <Link

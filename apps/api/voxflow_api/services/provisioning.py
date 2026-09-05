@@ -297,6 +297,28 @@ def provision_tenant(
             seeded = True
             log.info("provisioning.starter_data_seeded", tenant_id=slug, stats=stats)
 
+    if owner_email and "@" in owner_email:
+        try:
+            import asyncio
+            from .mail import WelcomeEmailParams, send_welcome_email
+            try:
+                loop = asyncio.get_running_loop()
+                loop.create_task(send_welcome_email(WelcomeEmailParams(
+                    recipient=owner_email.strip(),
+                    company_name=tenant.name,
+                    admin_name=tenant.name,
+                    phone_number=clean_phone,
+                )))
+            except RuntimeError:
+                asyncio.run(send_welcome_email(WelcomeEmailParams(
+                    recipient=owner_email.strip(),
+                    company_name=tenant.name,
+                    admin_name=tenant.name,
+                    phone_number=clean_phone,
+                )))
+        except Exception as mail_err:
+            log.warning("provisioning.welcome_email_failed", error=str(mail_err))
+
     return {
         "ok": True,
         "tenant_id": slug,

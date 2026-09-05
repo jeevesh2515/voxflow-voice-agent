@@ -790,3 +790,14 @@ def test_capture_event_sends_only_scrubbed_properties(monkeypatch):
     assert "caller_phone" not in payload["properties"]
     assert "order" not in payload["properties"]
     assert LEAK_PHONE not in str(payload)
+
+
+def test_sentry_test_exception_endpoint(client):
+    """Verify the /sentry-test endpoint captures an exception cleanly for owners/operators."""
+    res = client.post(f"/api/tenants/{TENANT_A}/observability/sentry-test", headers=_auth(USER_A_OWNER))
+    assert res.status_code == 200
+    data = res.json()
+    assert data["ok"] is True
+    assert data["tenant_id"] == TENANT_A
+    assert "Sentry diagnostic test exception captured" in data["message"]
+

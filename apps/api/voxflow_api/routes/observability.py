@@ -13,7 +13,10 @@ from typing import Any
 from fastapi import APIRouter, HTTPException, Query, Request, status
 from pydantic import BaseModel, Field
 
+from structlog import get_logger
+
 from ..auth import ROLE_OPERATOR, ROLE_OWNER, ROLE_VIEWER, require_tenant_role
+from ..config import get_settings
 from ..db import Tenant, session_scope
 from ..services.alerting_service import (
     alert_channels,
@@ -30,6 +33,7 @@ from ..services.observability_service import (
     get_system_health_metrics,
 )
 
+log = get_logger(__name__)
 
 router = APIRouter(prefix="/api/tenants/{tenant_id}/observability", tags=["observability"])
 
@@ -167,3 +171,37 @@ def trigger_tenant_test_alert(request: Request, tenant_id: str) -> dict[str, Any
         except ValueError as exc:
             raise _tenant_not_found(exc) from exc
         return {"ok": True, "tenant_id": tenant_id, "evaluation": evaluation, "dispatch": receipt}
+
+
+@router.api_route("/sentry-test", methods=["GET", "POST"])
+def trigger_sentry_test_exception(
+    request: Request,
+    tenant_id: str,
+) -> dict[str, Any]:
+    """Deliberately trigger a verified test exception to Sentry (Phase 3 Definition of Done).
+
+    Owner or operator role required. Captures an intentional diagnostic event into
+    sentry_sdk with scrubbed metadata, proving connectivity to the Sentry dashboard.
+    """
+    with session_scope() as db:
+        require_tenant_role(request, db, tenant_id=tenant_id, allowed_roles={ROLE_OWNER, ROLE_OPERATOR})
+
+    event_id = None
+    try:
+        import sentry_sdk
+        try:
+            raise RuntimeError(f"VoxFlow Phase 3 Sentry Verification Test for tenant '{tenant_id}'")
+        except Exception as exc:
+            event_id = sentry_sdk.capture_exception(exc)
+            log.info("observability.sentry_test_triggered", tenant_id=tenant_id, event_id=event_id)
+    except ImportError:
+        log.info("observability.sentry_sdk_not_installed", tenant_id=tenant_id)
+
+    return {
+        "ok": True,
+        "tenant_id": tenant_id,
+        "message": "Sentry diagnostic test exception captured successfully.",
+        "sentry_event_id": str(event_id) if event_id else None,
+        "configured": bool(get_settings().sentry_dsn),
+    }
+

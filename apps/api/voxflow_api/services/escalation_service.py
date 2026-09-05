@@ -103,6 +103,28 @@ def init_call_escalation(
         from_time=call.started_at or datetime.now(timezone.utc),
     )
 
+    # Phase 3: Dispatch escalation summary email if tenant notification recipient configured
+    notify_email = getattr(tenant, "notification_email", None) if tenant else None
+    if notify_email and "@" in notify_email and eff_priority in ("high", "urgent"):
+        try:
+            import asyncio
+            from .mail import EscalationSummaryEmailParams, send_escalation_summary_email
+            params = EscalationSummaryEmailParams(
+                recipient=notify_email.strip(),
+                company_name=tenant.name if tenant else call.tenant_id,
+                escalation_id=call.id,
+                caller_phone=call.caller_phone or "Private Caller",
+                reason=call.reason or "Caller requested human supervisor escalation",
+                priority=eff_priority,
+            )
+            try:
+                loop = asyncio.get_running_loop()
+                loop.create_task(send_escalation_summary_email(params))
+            except RuntimeError:
+                asyncio.run(send_escalation_summary_email(params))
+        except Exception as mail_exc:
+            log.warning("escalation.email_failed", error=str(mail_exc))
+
 
 def get_escalation_kpis(db: Session, tenant_id: str) -> dict[str, Any]:
     """Aggregate real-time escalation metrics and SLA adherence statistics."""

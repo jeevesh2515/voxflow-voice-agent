@@ -111,10 +111,7 @@ function client() {
   if (!initialized) {
     try {
       posthog.init(key, {
-        api_host: process.env.NEXT_PUBLIC_POSTHOG_HOST?.trim() || "https://us.i.posthog.com",
-        autocapture: false,
-        capture_pageview: false,
-        disable_session_recording: true,
+        api_host: process.env.NEXT_PUBLIC_POSTHOG_HOST?.trim(),
         ip: false,
         persistence: "localStorage",
       });
@@ -152,9 +149,7 @@ export function identifyTenant(tenantId: string, properties?: AnalyticsPropertie
   }
 }
 
-type SentryLike = {
-  captureException: (error: unknown, context?: Record<string, unknown>) => void;
-};
+import * as Sentry from "@sentry/nextjs";
 
 /**
  * Report a handled client error with no free-text message.
@@ -165,11 +160,9 @@ type SentryLike = {
  */
 export function reportError(error: unknown, context?: AnalyticsProperties): boolean {
   if (typeof window === "undefined") return false;
-  const sentry = (window as unknown as { Sentry?: SentryLike }).Sentry;
-  if (!sentry) return false;
   const name = error instanceof Error ? error.name : "UnknownError";
   try {
-    sentry.captureException(new Error(name), {
+    Sentry.captureException(error instanceof Error ? error : new Error(name), {
       extra: scrubProperties(context),
       tags: { error_class: name },
     });
