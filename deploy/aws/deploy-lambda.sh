@@ -23,7 +23,7 @@ FUNCTION_NAME="${VOXFLOW_LAMBDA_NAME:-VoxFlow-Connect-Bridge}"
 REGION="${AWS_REGION:-us-west-2}"
 # Default to the always-on VM: Connect allows this Lambda ~8s and a sleeping
 # free-tier host blows that budget, dropping the call.
-API_URL="${VOXFLOW_API_URL:-https://voxflow-jeevesh.duckdns.org}"
+API_URL="${VOXFLOW_API_URL:-https://api.yourdomain.com}"
 SECRET="${VOXFLOW_SECRET:-}"
 # First market is UK English.
 DEFAULT_LANG="${VOXFLOW_DEFAULT_LANG:-en}"

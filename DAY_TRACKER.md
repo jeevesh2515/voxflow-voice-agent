@@ -4,7 +4,7 @@
 **Repository:** `jeevesh2515/voxflow-voice-agent`  
 **Current Test Suite:** **567 Passing Tests** (`pytest apps/api/tests -q`)
 **Frontend Surface:** **31 Compiled Routes** (Next.js 16 App Router, Turbopack production validation)
-**Deployment Infrastructure:** AWS eu-west-2 (London) Primary: EC2 `t3.small` + AWS RDS PostgreSQL 15.19 + AWS Secrets Manager + KMS + Caddy Auto-TLS (`https://voxflow-jeevesh.duckdns.org` at `13.43.7.12`) / Standby: Oracle Cloud Always-Free ARM VM / Frontend Mirror: Vercel Edge Network  
+**Deployment Infrastructure:** AWS eu-west-2 (London) Primary: EC2 `t3.small` + AWS RDS PostgreSQL 15.19 + AWS Secrets Manager + KMS + Caddy Auto-TLS / Standby: Oracle Cloud Always-Free ARM VM / Frontend Mirror: Vercel Edge Network (`https://voxflow-voice-agent.vercel.app`)  
 **Last Updated:** 2026-09-05
 
 ---
@@ -403,7 +403,7 @@
 - **Objective:** Eliminate cold-start latency drops by routing Amazon Connect Lambda to the always-on Oracle Cloud VM, link all orphaned pages into the dashboard Sidebar, and streamline the telephony stack to Amazon Connect + In-Browser Simulator.
 - **Implementation:**
   1. **Always-On Lambda Bridge Routing (`deploy/aws/lambda_handler.py`):**
-     - Configured default `VOXFLOW_API_URL` to `https://voxflow-jeevesh.duckdns.org` (Oracle Cloud VM with automated Caddy TLS), avoiding serverless cold-start timeouts.
+     - Configured default `VOXFLOW_API_URL` to production endpoint with automated Caddy TLS, avoiding serverless cold-start timeouts.
   2. **Complete Dashboard Sidebar Nav (`apps/web/src/components/Sidebar.tsx`):**
      - Linked orphaned real pages: **Analytics** (`/dashboard/analytics`) under Main, and **Settings** (`/dashboard/settings`) under Account group.
   3. **Streamlined Telephony Engine:**
@@ -858,9 +858,9 @@
   - Maintained Oracle VM as a live standby fallback during the first billing cycle per migration protocol.
 - **Implementation:**
   1. **Terraform Infrastructure as Code (`deploy/terraform/`):**
-     - Provisioned dedicated VPC (`vpc-0c3c0ba0ccf111e00`) in `eu-west-2` with 2 public subnets (`10.0.1.0/24`, `10.0.2.0/24`) and 2 private database subnets (`10.0.11.0/24`, `10.0.12.0/24`).
-     - Provisioned AWS RDS PostgreSQL 15.19 (`db.t4g.micro`, 20GB gp3 storage) across private database subnets with storage encrypted by AWS KMS (`c139b876-3131-4769-b0ce-673618effc5a`).
-     - Provisioned EC2 instance `i-009a11b8c62a6435e` (`t3.small`, Amazon Linux 2023, 20GB gp3) with Elastic IP `13.43.7.12`, Docker 25.0, Compose v5, `docker-buildx` v0.21.2, and 2GB swap.
+     - Provisioned dedicated Multi-Tier VPC in `eu-west-2` with 2 public subnets (`10.0.1.0/24`, `10.0.2.0/24`) and 2 private database subnets (`10.0.11.0/24`, `10.0.12.0/24`).
+     - Provisioned AWS RDS PostgreSQL 15.19 (`db.t4g.micro`, 20GB gp3 storage) across private database subnets with storage encrypted by AWS KMS CMK with 256-bit encryption.
+     - Provisioned EC2 instance (`t3.small`, Amazon Linux 2023, 20GB gp3) with Elastic IP, Docker 25.0, Compose v5, `docker-buildx` v0.21.2, and 2GB swap.
      - Security groups configured: RDS strictly accepts PostgreSQL (port 5432) from EC2 security group only (zero internet exposure). EC2 accepts HTTP (80) and HTTPS (443) from world, and SSH (22) from authorized IPs.
   2. **AWS Secrets Manager & KMS Security Baseline:**
      - Created `voxflow-prod/app/secrets` (32 production keys) and `voxflow-prod/db/credentials` secured with dedicated KMS CMK.
@@ -871,12 +871,12 @@
      - Migrated `public` schema, RLS policies, table data, and sequence states via automated migration script (`scripts/migrate-db-to-rds.sh`).
      - 100% row count match verified across all tables: `tenants: 4`, `orders: 3`, `products: 9`, `stock: 9`, `suppliers: 3`, `tenant_members: 3`, `calls: 4`, `shipments: 3`.
   4. **Domain, Auto-TLS & Reverse Proxy Routing:**
-     - Configured DuckDNS domain `voxflow-jeevesh.duckdns.org` targeting Elastic IP `13.43.7.12`.
-     - Caddy reverse proxy (`deploy/Caddyfile`) solved Let's Encrypt HTTP-01 challenge and provisioned trusted SSL certificate (`CN=voxflow-jeevesh.duckdns.org`).
+     - Configured production domain targeting Elastic IP.
+     - Caddy reverse proxy (`deploy/Caddyfile`) solved Let's Encrypt HTTP-01 challenge and provisioned trusted SSL certificate.
      - Reverse proxy routing: `/api/*`, `/ws/*`, `/chat`, `/tts`, `/agent/*`, `/twilio/*` routed to FastAPI backend (`api:8000`), remaining requests routed to Next.js frontend (`web:3000`).
   5. **Disaster Recovery & Backup Automation:**
      - Configured RDS automated daily backups with 7-day retention and Point-in-Time Recovery (PITR).
-     - Executed and verified manual snapshot drill (`voxflow-prod-postgres-manual-drill-1788632231`) via AWS CLI.
+     - Executed and verified manual snapshot drills via AWS CLI.
   6. **Automated Deployment Pipeline:**
      - Created `scripts/deploy-to-ec2.sh` for single-command rsync, container build, environment injection, and live verification.
 - **Artifacts:**
@@ -889,10 +889,10 @@
   - **AWS Backend Tests**: `pytest` against RDS on EC2 → **567 passed in 73.13s** (100% green).
   - **Superadmin Suite**: `pytest tests/test_superadmin.py` → **5 passed** (100% green).
   - **Live HTTPS Endpoints**:
-    - `https://voxflow-jeevesh.duckdns.org/api/health` → `{"status": "ok", "environment": "prod", "database": "connected"}` (HTTP 200)
-    - `https://voxflow-jeevesh.duckdns.org/api/health/llm` → `{"status": "ok", "provider": "groq", "model": "openai/gpt-oss-20b"}` (HTTP 200)
-    - `https://voxflow-jeevesh.duckdns.org/` → Next.js landing page with Cosmic Journey hero (HTTP 200)
-    - `https://voxflow-jeevesh.duckdns.org/status` → Public status page (HTTP 200)
+    - `/api/health` → `{"status": "ok", "environment": "prod", "database": "connected"}` (HTTP 200)
+    - `/api/health/llm` → `{"status": "ok", "provider": "groq", "model": "openai/gpt-oss-20b"}` (HTTP 200)
+    - Next.js production web app with Cosmic Journey hero → `https://voxflow-voice-agent.vercel.app` (HTTP 200)
+    - `/status` → Public status page (HTTP 200)
 
 ---
 

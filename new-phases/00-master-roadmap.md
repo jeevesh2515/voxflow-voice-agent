@@ -30,5 +30,5 @@ phases can run in parallel, noted below.
 | **Phase 6** | Enterprise Readiness | Enterprise SSO (SAML/Okta), SOC 2 Type I readiness, Multi-AZ high availability | Planned |
 | **Phase 7** | Scale & Retention | Enterprise integration marketplace (SAP/NetSuite/Salesforce), SLA guarantees | Planned |
 
-Phase 1 is complete and running live in AWS eu-west-2 (London): VPC `vpc-0c3c0ba0ccf111e00`, AWS RDS PostgreSQL 15.19 (`db.t4g.micro`, KMS encrypted), EC2 `t3.small` (`13.43.7.12`), Caddy Auto-TLS (`https://voxflow-jeevesh.duckdns.org`), AWS Secrets Manager (32 app keys + DB credentials), and 7-day PITR automated backups. Phase 2 (Stripe Revenue Infrastructure) is the active next phase.
+Phase 1 is complete and running live in AWS eu-west-2 (London): Multi-tier VPC, AWS RDS PostgreSQL 15.19 (`db.t4g.micro`, KMS CMK encrypted), EC2 `t3.small`, Caddy Auto-TLS, AWS Secrets Manager (32 app keys + DB credentials), and 7-day PITR automated backups. Phase 2 (Stripe Revenue Infrastructure) is the active next phase.
 

@@ -8,8 +8,7 @@
 <br/>
 
 <p align="center">
-  <a href="https://voxflow-jeevesh.duckdns.org"><img src="https://img.shields.io/badge/⚡%20LIVE%20AWS%20SAAS-voxflow--jeevesh.duckdns.org-0F766E?style=for-the-badge&labelColor=111827" alt="Live AWS SaaS" /></a>
-  <a href="https://voxflow-voice-agent.vercel.app"><img src="https://img.shields.io/badge/🌐%20VERCEL%20MIRROR-voxflow--voice--agent.vercel.app-4F46E5?style=for-the-badge&labelColor=111827" alt="Vercel Mirror" /></a>
+  <a href="https://voxflow-voice-agent.vercel.app"><img src="https://img.shields.io/badge/⚡%20LIVE%20ENTERPRISE%20SAAS-voxflow--voice--agent.vercel.app-0F766E?style=for-the-badge&labelColor=111827" alt="Live Enterprise SaaS" /></a>
 </p>
 
 <p align="center">
@@ -33,7 +32,7 @@
 
 <br/>
 
-[**Live AWS Production Site**](https://voxflow-jeevesh.duckdns.org) &nbsp;·&nbsp; [**Latency Benchmark Report**](BENCHMARK_REPORT.md) &nbsp;·&nbsp; [**System Architecture**](ARCHITECTURE.md) &nbsp;·&nbsp; [**Implementation Tracker**](DAY_TRACKER.md) &nbsp;·&nbsp; [**Terraform IaC Guide**](deploy/terraform/)
+[**Live Enterprise SaaS Platform**](https://voxflow-voice-agent.vercel.app) &nbsp;·&nbsp; [**Latency Benchmark Report**](BENCHMARK_REPORT.md) &nbsp;·&nbsp; [**System Architecture**](ARCHITECTURE.md) &nbsp;·&nbsp; [**Implementation Tracker**](DAY_TRACKER.md) &nbsp;·&nbsp; [**Terraform IaC Guide**](deploy/terraform/)
 
 </div>
 
@@ -414,10 +413,10 @@ npm run build
 ## 📊 Deployment & Infrastructure
 
 - **AWS Native Production (Primary)**:
-  - **Compute & Routing**: AWS EC2 `t3.small` (Amazon Linux 2023, Docker 25.0, Compose v5, 2GB swap) in `eu-west-2` (London) public subnet with **Caddy** automated Let's Encrypt TLS reverse proxy (`https://voxflow-jeevesh.duckdns.org` at `13.43.7.12`).
+  - **Compute & Routing**: AWS EC2 `t3.small` (Amazon Linux 2023, Docker 25.0, Compose v5, 2GB swap) in `eu-west-2` (London) public subnet with **Caddy** automated Let's Encrypt TLS reverse proxy.
   - **Database**: **AWS RDS PostgreSQL 15.19** (`db.t4g.micro`, 20GB gp3 storage) in `eu-west-2` VPC private database subnets with automated daily backups, Point-in-Time Recovery (PITR, 7-day retention window), and AWS KMS storage encryption.
-  - **Secrets & Credentials**: **AWS Secrets Manager** (`voxflow-prod/app/secrets`, `voxflow-prod/db/credentials`) encrypted via **AWS KMS** customer-managed key (`c139b876-3131-4769-b0ce-673618effc5a`).
-  - **Infrastructure as Code (IaC)**: **Terraform** ([`deploy/terraform/`](deploy/terraform/)) managing VPC (`vpc-0c3c0ba0ccf111e00`), 2 public subnets, 2 private subnets, security groups, route tables, RDS instance, and EC2 instance.
+  - **Secrets & Credentials**: **AWS Secrets Manager** (`voxflow-prod/app/secrets`, `voxflow-prod/db/credentials`) encrypted via **AWS KMS** Customer-Managed Key (CMK) with 256-bit encryption.
+  - **Infrastructure as Code (IaC)**: **Terraform** ([`deploy/terraform/`](deploy/terraform/)) managing multi-tier VPC (public subnets, private DB subnets, security groups, route tables, RDS instance, and EC2 instance).
   - **Deployment Automation**: Single-command sync and deploy via [`./scripts/deploy-to-ec2.sh`](scripts/deploy-to-ec2.sh).
 - **Oracle Cloud ARM VM (Standby Fallback)**:
   - Docker Compose running on an **Oracle Cloud Always-Free ARM VM** (4 OCPU, 24GB RAM) with Caddy auto-TLS. Retained as standby during the initial billing cycle per Phase 1 migration protocol.

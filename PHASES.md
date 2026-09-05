@@ -1,7 +1,7 @@
 # VoxFlow Delivery Phases
 
 **Last updated:** 2026-09-05
-**Current position:** **Phase 1 Complete — AWS Data Infrastructure Foundation.** AWS VPC (`vpc-0c3c0ba0ccf111e00`), RDS PostgreSQL 15.19 (`db.t4g.micro`, gp3 KMS encrypted), EC2 `t3.small` (`13.43.7.12`), Caddy Auto-TLS (`https://voxflow-jeevesh.duckdns.org`), AWS Secrets Manager (32 app keys + DB credentials), automated backups + PITR. Verified with **567/567 passing backend tests** (100% green), superadmin suite passing, and 31 compiled Next.js routes. Comprehensive day-by-day logs are catalogued in [`DAY_TRACKER.md`](DAY_TRACKER.md).
+**Current position:** **Phase 1 Complete — AWS Data Infrastructure Foundation.** AWS Multi-Tier VPC, RDS PostgreSQL 15.19 (`db.t4g.micro`, gp3 KMS encrypted), EC2 `t3.small`, Caddy Auto-TLS, AWS Secrets Manager (32 app keys + DB credentials), automated backups + PITR. Verified with **567/567 passing backend tests** (100% green), superadmin suite passing, and 31 compiled Next.js routes. Comprehensive day-by-day logs are catalogued in [`DAY_TRACKER.md`](DAY_TRACKER.md).
 **Planning rule:** A milestone is complete only when its implementation, automated verification, deployment result, and safety boundary are recorded.
 
 ## Programme status
@@ -22,7 +22,7 @@
 | Voice Quality, RBAC & Lifecycle | 49–53 | Complete | Voice eval harness, tenant RBAC, observability, GDPR/retention, Stripe billing. |
 | Go-Live Preflight & Landing | 54–55 | Complete | Day 54: 7-pillar gate (`golive_dry_run.py --strict`); Day 55: 5-keyframe cosmic journey hero (556KB, 8/10 credits, 507 tests, 29 routes). |
 | Phase 0: Demo Readiness & Tooling | 56–58 | Complete | Anti-hallucination RAG, Connect recordings S3+DLQ, Cloud Groq LLM factory, Superadmin dashboard (`/superadmin`), status page (`/status`), Crisp & Resend integration, 550 tests. |
-| Phase 1: AWS Data Infrastructure Foundation | 59 | Complete | Terraform VPC in eu-west-2, AWS RDS PostgreSQL 15.19, EC2 t3.small, Caddy Auto-TLS on `voxflow-jeevesh.duckdns.org`, Secrets Manager + KMS, 100% Supabase parity, PITR, 567 tests. |
+| Phase 1: AWS Data Infrastructure Foundation | 59 | Complete | Terraform VPC in eu-west-2, AWS RDS PostgreSQL 15.19, EC2 t3.small, Caddy Auto-TLS, Secrets Manager + KMS, 100% Supabase parity, PITR, 567 tests. |
 
 > For the comprehensive, day-by-day implementation log from Day 1 to current, see [`DAY_TRACKER.md`](DAY_TRACKER.md).
 
@@ -45,7 +45,7 @@
 | 56 | Complete | Anti-hallucination & deterministic RAG grounding, temperature clamping (0.1), negative constraint enforcement. |
 | 57 | Complete | UK Connect call recording S3 storage + SQS DLQ, Stripe metered billing usage reporting cron. |
 | 58 | Complete | Cloud-first Groq LLM factory (`openai/gpt-oss-20b`), Groq Whisper STT, Edge-TTS, zero local compute footprint. |
-| 59 | Complete | **Phase 1: Funded AWS Infrastructure Migration** — Terraform VPC in eu-west-2, AWS RDS Postgres 15.19, EC2 t3.small, Caddy Auto-TLS on `voxflow-jeevesh.duckdns.org`, Secrets Manager + KMS, 100% data parity with Supabase, automated backups + PITR, 567/567 passing tests. |
+| 59 | Complete | **Phase 1: Funded AWS Infrastructure Migration** — Terraform VPC in eu-west-2, AWS RDS Postgres 15.19, EC2 t3.small, Caddy Auto-TLS, Secrets Manager + KMS, 100% data parity with Supabase, automated backups + PITR, 567/567 passing tests. |
 
 ## Historical foundation: Days 1–24
 

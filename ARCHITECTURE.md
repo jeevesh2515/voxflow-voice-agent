@@ -1,7 +1,7 @@
 # VoxFlow Architecture
 
 **Last updated:** 2026-09-05  
-**Current milestone:** **Phase 1 Funded AWS Data Infrastructure Foundation complete.** 567 backend tests passing, 31 compiled frontend routes, AWS RDS PostgreSQL 15.19 (gp3 KMS encrypted), EC2 `t3.small` compute running Docker Compose (`caddy`, `api`, `web`) with automated TLS on `https://voxflow-jeevesh.duckdns.org`, AWS Secrets Manager (32 app keys + DB credentials) encrypted with customer-managed KMS key, 100% data parity migrated from Supabase, automated backups with 7-day PITR, superadmin governance (`/superadmin`), and Oracle ARM VM retained as standby. Comprehensive day-by-day implementation tracking is recorded in [`DAY_TRACKER.md`](DAY_TRACKER.md).
+**Current milestone:** **Phase 1 Funded AWS Data Infrastructure Foundation complete.** 567 backend tests passing, 31 compiled frontend routes, AWS RDS PostgreSQL 15.19 (gp3 KMS encrypted), EC2 `t3.small` compute running Docker Compose (`caddy`, `api`, `web`) with automated Let's Encrypt TLS, AWS Secrets Manager (32 app keys + DB credentials) encrypted with customer-managed KMS key, 100% data parity migrated from Supabase, automated backups with 7-day PITR, superadmin governance (`/superadmin`), and Oracle ARM VM retained as standby. Comprehensive day-by-day implementation tracking is recorded in [`DAY_TRACKER.md`](DAY_TRACKER.md).
 **Operating mode:** Inbound voice, self-serve tenant onboarding, streaming CSV ingestion engine, multi-tenant Google Sheets mirroring, live voice agent sheet editing, superadmin management, and public status reporting are deployed. Campaign dispatch and operational side-effect workers are independently safe-staged; Day 35 admission and Day 36 current-version evidence are both fail-closed with an empty tenant allow-list.
 
 
@@ -430,9 +430,9 @@ Phase 1 migrates VoxFlow from the Phase 0 bootstrap setup (Oracle VM + Supabase)
 flowchart TB
     PSTN[Caller / PSTN Network] --> Connect[Amazon Connect eu-west-2]
     Connect --> Lambda[Bridge Lambda eu-west-2]
-    Lambda --> Ingress[Caddy Reverse Proxy\nHTTPS: voxflow-jeevesh.duckdns.org\nElastic IP: 13.43.7.12]
+    Lambda --> Ingress[Caddy Reverse Proxy\nHTTPS: Automated Let's Encrypt TLS\nAWS EC2 eu-west-2]
     
-    subgraph AWS_VPC ["AWS VPC eu-west-2 (vpc-0c3c0ba0ccf111e00)"]
+    subgraph AWS_VPC ["AWS Multi-Tier VPC (eu-west-2)"]
         subgraph Public_Subnet ["Public Subnets (10.0.1.0/24, 10.0.2.0/24)"]
             Ingress --> Web[Next.js Web Frontend\nContainer port 3000]
             Ingress --> API[FastAPI Voice Engine\nContainer port 8000]
@@ -445,7 +445,7 @@ flowchart TB
     
     subgraph AWS_Security ["AWS Security & Identity"]
         Secrets[AWS Secrets Manager\nvoxflow-prod/app/secrets\nvoxflow-prod/db/credentials] -.->|Injects Secrets| API
-        KMS[AWS KMS Key\nc139b876-3131-4769-b0ce-673618effc5a] -.->|Encrypts| RDS
+        KMS[AWS KMS CMK\nCustomer-Managed Key] -.->|Encrypts| RDS
         KMS -.->|Encrypts| Secrets
     end
 ```
@@ -464,7 +464,7 @@ flowchart TB
    - Zero sensitive `.env` files or credentials exist in version control.
 4. **Disaster Recovery & Redundancy**:
    - Automated daily snapshots with 7-day Point-in-Time Recovery (PITR).
-   - Validated manual restore snapshot drill (`voxflow-prod-postgres-manual-drill-1788632231`).
+   - Validated manual restore snapshot drills.
    - Oracle Cloud ARM VM is maintained as a live standby replica during the initial billing cycle per Phase 1 DoD.
 
 [1] [Dial Webhooks](https://docs.getdial.ai/documentation/platform/webhooks.md)

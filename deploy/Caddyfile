@@ -20,10 +20,10 @@
 # new backend surface stays under /api and is already covered.
 
 {
-	email {$ACME_EMAIL:admin@voxflow-jeevesh.duckdns.org}
+	email {$ACME_EMAIL:admin@example.com}
 }
 
-{$DOMAIN:voxflow-jeevesh.duckdns.org} {
+{$DOMAIN:localhost} {
 	encode zstd gzip
 
 	# ---------- FastAPI backend ----------
@@ -65,7 +65,7 @@
 	}
 }
 
-http://13.43.7.12 {
+http:// {
 	encode zstd gzip
 
 	@api path /api/* /ws/* /chat /tts /agent/* /twilio/*

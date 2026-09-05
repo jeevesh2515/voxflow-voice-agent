@@ -5,7 +5,7 @@
 ## Current position
 
 **Last updated:** 2026-09-05
-**Current milestone:** **Phase 1 Complete — Funded AWS Data Infrastructure Foundation.** AWS VPC (`vpc-0c3c0ba0ccf111e00`), RDS PostgreSQL 15.19 (`db.t4g.micro`, gp3 KMS encrypted), EC2 `t3.small` (`13.43.7.12`), Caddy Auto-TLS (`https://voxflow-jeevesh.duckdns.org`), AWS Secrets Manager (32 app keys + DB credentials), automated backups + PITR. Verified with **567/567 passing backend tests** (100% green), superadmin suite passing, and 31 compiled Next.js routes.
+**Current milestone:** **Phase 1 Complete — Funded AWS Data Infrastructure Foundation.** AWS Multi-Tier VPC, RDS PostgreSQL 15.19 (`db.t4g.micro`, gp3 KMS CMK encrypted), EC2 `t3.small`, Caddy Auto-TLS, AWS Secrets Manager (32 app keys + DB credentials), automated backups + PITR. Verified with **567/567 passing backend tests** (100% green), superadmin suite passing, and 31 compiled Next.js routes.
 **Next implementation:** **Phase 2 — Revenue Infrastructure (Stripe Billing Webhooks, Customer Portal & Invoicing).**
 **Master Day-Wise Tracker:** See [`DAY_TRACKER.md`](DAY_TRACKER.md) for full day-by-day logs from Day 1 to current.
 
@@ -39,10 +39,10 @@ The durable campaign, observability, callback-certification, typed side-effect, 
 |---|---|
 | Backend quality | `ruff check voxflow_api tests` clean; **567 tests passing** (`pytest -q` in ~73s), including superadmin governance, exact DID, canonical telephony API, cross-tenant denial, contact-bound authorization, PIN hashing/redaction/persistent lockout, Connect HMAC/body-binding, session-gated signup, provisioning, ingestion, schema, and resilience coverage. |
 | Frontend quality | ESLint and `tsc --noEmit` clean; Next.js 16.3.1 Webpack production build completed with **31 compiled routes**, including the owner-only telephony settings and superadmin control planes. |
-| AWS Native Deployment (Phase 1) | Live in AWS London (`eu-west-2`): EC2 `t3.small` (`13.43.7.12`) running Docker Compose (`caddy`, `api`, `web`) with automated Let's Encrypt TLS on `https://voxflow-jeevesh.duckdns.org`. Managed via Terraform in `deploy/terraform/`. |
-| Database & Encryption | **AWS RDS PostgreSQL 15.19** (`db.t4g.micro`, 20GB gp3) in private subnets, storage encrypted with AWS KMS CMK (`c139b876-3131-4769-b0ce-673618effc5a`). Migrated from Supabase with 100% row count and schema parity across all entities. |
+| AWS Native Deployment (Phase 1) | Live in AWS London (`eu-west-2`): EC2 `t3.small` running Docker Compose (`caddy`, `api`, `web`) with automated Let's Encrypt TLS. Managed via Terraform in `deploy/terraform/`. |
+| Database & Encryption | **AWS RDS PostgreSQL 15.19** (`db.t4g.micro`, 20GB gp3) in private subnets, storage encrypted with AWS KMS CMK with 256-bit encryption. Migrated from Supabase with 100% row count and schema parity across all entities. |
 | Secrets Management | **AWS Secrets Manager** (`voxflow-prod/app/secrets` with 32 keys, `voxflow-prod/db/credentials`) encrypted via KMS. Zero plaintext credentials in version control. |
-| Disaster Recovery & Backups | RDS daily automated backups + 7-day Point-in-Time Recovery (PITR); manual snapshot drill (`voxflow-prod-postgres-manual-drill-1788632231`) tested and verified available. |
+| Disaster Recovery & Backups | RDS daily automated backups + 7-day Point-in-Time Recovery (PITR); manual snapshot drills tested and verified available. |
 | Oracle VM Standby | Documented in `deploy/ORACLE_DEPLOY.md`; maintained as standby during initial billing cycle per Phase 1 migration protocol. |
 | Telephony & Speech | Amazon Connect with Lex V2 `en-GB` and an HMAC-authenticated Lambda bridge; tenant context is selected only by active exact provider/DID mapping, with route-specific language and standard/enhanced caller verification. Co-located in `eu-west-2`. |
 | Turn Latency Telemetry | Server-side handler execution timing (`time.perf_counter()`) on `POST /api/connect/turn` emitting `latency_ms` in logs and `ConnectTurnResponse`, plus `avg_turn_latency_ms` persisted in `calls` table. |

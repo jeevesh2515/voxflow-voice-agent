@@ -108,7 +108,7 @@ matches `NewIntent` instead, your sample utterance is too generic — change it.
 
 ```bash
 VOXFLOW_SECRET="<same as the API's CONNECT_LAMBDA_SECRET>" \
-VOXFLOW_API_URL="https://voxflow-jeevesh.duckdns.org" \
+VOXFLOW_API_URL="https://api.yourdomain.com" \
   ./deploy/aws/deploy-lambda.sh
 ```
 

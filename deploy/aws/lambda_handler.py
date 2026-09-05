@@ -12,7 +12,7 @@ Key features:
   - Fail-safe English fallback and human escalation triggers
 
 Environment Variables:
-  - VOXFLOW_API_URL: e.g. 'https://voxflow-jeevesh.duckdns.org' (or AWS ECS/Fargate)
+  - VOXFLOW_API_URL: e.g. 'https://api.yourdomain.com' (or AWS ECS/Fargate)
   - VOXFLOW_SECRET: shared HMAC secret for request authentication
                     (must equal the API's CONNECT_LAMBDA_SECRET)
   - VOXFLOW_DEFAULT_LANG: session language for a new call (default 'en' for UK-English)
@@ -84,7 +84,7 @@ def _classify_consent(transcript: str) -> bool:
 
 
 def lambda_handler(event, context):
-    api_url = os.environ.get("VOXFLOW_API_URL", "https://voxflow-jeevesh.duckdns.org").rstrip("/")
+    api_url = os.environ.get("VOXFLOW_API_URL", "https://api.yourdomain.com").rstrip("/")
     secret = os.environ.get("VOXFLOW_SECRET", "")
     default_lang = os.environ.get("VOXFLOW_DEFAULT_LANG", "en")
 

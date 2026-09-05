@@ -43,7 +43,7 @@ output "next_steps" {
     3. SSH in: ssh -i ~/.ssh/id_ed25519 ec2-user@${aws_eip.ec2.public_ip}
     4. Deploy app: ./scripts/deploy-to-ec2.sh
     5. Run DB migration: ./scripts/migrate-db-to-rds.sh
-    6. Verify: https://voxflow-jeevesh.duckdns.org/api/health
+    6. Verify: https://${var.domain}/api/health
     =====================
   EOT
 }

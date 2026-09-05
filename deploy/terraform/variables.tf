@@ -11,7 +11,7 @@ variable "environment" {
 }
 
 variable "domain" {
-  description = "Domain name (e.g. voxflow-jeevesh.duckdns.org)"
+  description = "Domain name for Caddy TLS (e.g. yourdomain.com or voxflow.duckdns.org)"
   type        = string
 }
 

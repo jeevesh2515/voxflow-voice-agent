@@ -64,4 +64,4 @@ REMOTE
 
 echo ""
 echo "✅ Deploy complete!"
-echo "   Health check: https://voxflow-jeevesh.duckdns.org/api/health"
+echo "   Health check: https://${DOMAIN:-voxflow-voice-agent.vercel.app}/api/health"

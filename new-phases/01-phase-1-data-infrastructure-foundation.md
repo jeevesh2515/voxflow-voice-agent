@@ -53,12 +53,12 @@ doesn't build these things for the first time.
 ## Definition of Done
 
 - [x] VPC, subnets, and security groups provisioned via Terraform/CDK, not
-      manually (`deploy/terraform/`: VPC `vpc-0c3c0ba0ccf111e00`, 2 public subnets, 2 private DB subnets)
+      manually (`deploy/terraform/`: Multi-tier VPC, 2 public subnets, 2 private DB subnets)
 - [x] RDS/Aurora live in eu-west-2; Supabase data migrated and verified (row
       counts match 100%, spot-checked for integrity: 4 tenants, 3 orders, 9 products, 9 stock, 3 suppliers, 3 tenant_members, 4 calls, 3 shipments)
-- [x] FastAPI + workers running on AWS (Lean, production-grade EC2 `t3.small` + Docker Compose + Caddy Auto-TLS on Elastic IP `13.43.7.12` / `voxflow-jeevesh.duckdns.org` deployed to maintain lean ~$16/mo budget within user's $142 credit boundary); Oracle VM retained as standby during first billing cycle
-- [x] All secrets in AWS Secrets Manager/KMS (`voxflow-prod/app/secrets` with 32 keys, `voxflow-prod/db/credentials`); KMS key `c139b876-3131-4769-b0ce-673618effc5a`
-- [x] RDS automated backups + PITR configured (7-day retention); restore snapshot drill re-run and verified (`voxflow-prod-postgres-manual-drill-1788632231`)
+- [x] FastAPI + workers running on AWS (Lean, production-grade EC2 `t3.small` + Docker Compose + Caddy Auto-TLS); Oracle VM retained as standby during first billing cycle
+- [x] All secrets in AWS Secrets Manager/KMS (`voxflow-prod/app/secrets` with 32 keys, `voxflow-prod/db/credentials`); KMS CMK with 256-bit encryption
+- [x] RDS automated backups + PITR configured (7-day retention); restore snapshot drill verified
 - [x] `/superadmin` and all pre-migration functionality confirmed working unchanged (tested via `test_superadmin.py`)
 - [x] Full existing test/eval suite passes at 100% against the new infrastructure (567/567 passing backend tests on EC2 against RDS)
 
