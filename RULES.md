@@ -132,3 +132,17 @@ This supersedes the earlier server-only hosting constraint **only for the
 initial, demonstration stage**. It does not weaken tenant isolation, callback
 verification, campaign gates, provider safeguards, or the production kill
 switch.
+
+---
+
+## 7. Universal Ponytail Pre-Push Law
+
+Before staging, committing, or pushing code to GitHub, every AI agent MUST execute a Ponytail review (`/ponytail-review`) on the working diff:
+1. `delete`: Remove dead code, unused functions/imports, commented-out code, and speculative features.
+2. `stdlib`: Replace custom utilities with language standard library functions.
+3. `native`: Rely on native platform and language capabilities instead of unnecessary dependencies.
+4. `yagni`: Eliminate premature abstractions (interfaces with one implementation, redundant wrappers).
+5. `shrink`: Condense verbose logic into clean, readable, minimal code.
+6. Safety boundaries: Never cut security checks, auth, multi-tenant isolation, or data loss prevention.
+7. Verification: Re-test to confirm zero regression before pushing. Only ship lean code.
+

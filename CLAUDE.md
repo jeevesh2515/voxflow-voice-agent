@@ -17,7 +17,7 @@ no exceptions:
 4. Definition of Done checkboxes must be verified, not assumed. Run the
    actual test, command, or manual check each item describes and show me
    the real output. Don't check a box because the code "should" work.
-5. The existing test suite (508 tests) and eval harness
+5. The existing test suite (567 tests) and eval harness
    (`scripts/run_evals.py --strict`, 30 scenarios) must stay green after
    every phase. Run them at the end and report the actual output, not a
    summary claim.
@@ -25,5 +25,10 @@ no exceptions:
    of what was done and what was verified. Do not proceed into any other
    phase on your own, even if you've seen other phase files in this
    conversation before.
+7. Universal Pre-Push Ponytail Law: Before staging, committing, or pushing
+   code to GitHub, invoke `/ponytail-review` or inspect the diff and
+   aggressively prune dead code, premature abstractions, speculative
+   features, reinvented standard library functions, and verbose boilerplate.
+   Re-run tests to confirm zero regression. Never commit bloated code.
 
 Confirm you understand these rules before I attach the first phase file.
