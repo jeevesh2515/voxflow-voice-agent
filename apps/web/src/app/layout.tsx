@@ -5,6 +5,7 @@ import SmoothScroll from "@/components/SmoothScroll";
 import CrispChat from "@/components/CrispChat";
 import { ThemeProvider } from "@/lib/theme-context";
 import { AuthProvider } from "@/lib/auth-context";
+import { PostHogProvider } from "@/app/providers";
 import "./globals.css";
 
 export const metadata: Metadata = {
@@ -13,13 +14,13 @@ export const metadata: Metadata = {
   ),
   title: "Voxflow Voice Agent | Voice operations, automated",
   description:
-    "Voxflow Voice Agent handles Hindi-English business calls, captures POs and orders, checks stock and shipment status, and records every conversation.",
+    "Voxflow Voice Agent handles UK logistics business calls, captures POs and orders, checks stock and shipment status, and records every conversation.",
   openGraph: {
     type: "website",
     siteName: "Voxflow Voice Agent",
     title: "Voxflow Voice Agent | Voice operations, automated",
     description:
-      "Autonomous voice agents for dispatch, customer service, and order capture. ~200ms turn, UK edge, fine-tuned English & Hindi models, and live 2-way database synchronization.",
+      "Autonomous voice agents for dispatch, customer service, and order capture. ~200ms turn, UK edge, fine-tuned British English models, and live 2-way database synchronization.",
     images: [
       {
         url: "/og-voxflow.jpg",
@@ -33,7 +34,7 @@ export const metadata: Metadata = {
     card: "summary_large_image",
     title: "Voxflow Voice Agent | Voice operations, automated",
     description:
-      "Autonomous voice agents for dispatch, customer service, and order capture. ~200ms turn, UK edge, English & Hindi, live database sync.",
+      "Autonomous voice agents for dispatch, customer service, and order capture. ~200ms turn, UK edge, British English, live database sync.",
     images: ["/og-voxflow.jpg"],
   },
 };
@@ -48,15 +49,17 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         />
       </head>
       <body className="min-h-screen bg-[#030308] text-white font-sans antialiased flex flex-col selection:bg-[#5EEAD4] selection:text-[#030308] transition-colors duration-300">
-        <ThemeProvider>
-          <AuthProvider>
-            <CrispChat />
-            <SmoothScroll />
-            <Nav />
-            <main className="flex-1 relative z-10">{children}</main>
-            <Footer />
-          </AuthProvider>
-        </ThemeProvider>
+        <PostHogProvider>
+          <ThemeProvider>
+            <AuthProvider>
+              <CrispChat />
+              <SmoothScroll />
+              <Nav />
+              <main className="flex-1 relative z-10">{children}</main>
+              <Footer />
+            </AuthProvider>
+          </ThemeProvider>
+        </PostHogProvider>
       </body>
     </html>
   );

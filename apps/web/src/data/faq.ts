@@ -26,8 +26,8 @@ export const faq: FaqEntry[] = [
     a: "On-demand. Set triggers: escalated complaints, complex bookings, explicit 'speak to a person' request. You choose the handoff rules.",
   },
   {
-    q: "Does it handle Hindi or other languages?",
-    a: "Yes. Hindi, Urdu, Punjabi, and 10+ other languages are live. Caller language is detected automatically.",
+    q: "Does it handle regional accents and freight dialects?",
+    a: "Yes. Fine-tuned for UK regional accents (London, Midlands, Northern, Scottish) with sub-second STT acoustic models and natural conversational pacing.",
   },
   {
     q: "Can we start with one phone number?",

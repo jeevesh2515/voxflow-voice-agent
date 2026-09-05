@@ -55,7 +55,7 @@ const TIERS: Tier[] = [
       "Email escalations & alerts",
       "UK GDPR retention controls (eu-west-2)",
       "~200ms turn, UK edge voice agent",
-      "UK English & Hindi voice models",
+      "British English neural voice models",
     ],
   },
   {
@@ -120,9 +120,9 @@ const COMPARISON_TABLE: ComparisonCategory[] = [
     category: "Voice AI & Telephony",
     features: [
       { name: "Voice Lines", starter: "1 Line", growth: "3 Lines", enterprise: "Unlimited" },
-      { name: "Monthly Included Minutes", starter: "500 mins", growth: "2,500 mins", enterprise: "Custom Volume (10k+)" },
+      { name: "Monthly Included Minutes", starter: "750 mins", growth: "3,000 mins", enterprise: "12,000 mins included" },
       { name: "Voice Latency (~200ms Turn)", starter: true, growth: true, enterprise: true },
-      { name: "UK English & Hindi Fluency", starter: true, growth: true, enterprise: true },
+      { name: "UK English & Logistics Acoustics", starter: true, growth: true, enterprise: true },
       { name: "Custom Lex STT Acoustic Tuning", starter: false, growth: false, enterprise: true },
       { name: "Dedicated UK DID (+44)", starter: "Shared Pool", growth: "Included", enterprise: "Dedicated UK Trunk" },
     ],

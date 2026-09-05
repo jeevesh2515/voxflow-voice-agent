@@ -339,33 +339,17 @@ export default function AgentSettings() {
 
               <div>
                 <label className="block text-xs font-semibold text-[#e8e0f0]">Default Language</label>
-                <div className="mt-1.5 flex gap-2">
+                <div className="mt-1.5 flex gap">
                   <button
                     type="button"
                     disabled={!canManage}
                     onClick={() => setDefaultLanguage("en")}
-                    className={`flex-1 rounded-xl border py-2.5 text-xs font-medium transition ${
-                      defaultLanguage === "en"
-                        ? "border-[#00ffcc] bg-[#00ffcc]/10 text-[#00ffcc]"
-                        : "border-[#302840] bg-[#1a1a2e] text-[#a098b0] hover:text-white"
-                    }`}
+                    className="flex-1 rounded-xl border py-2.5 text-xs font-medium transition border-[#ff2d78] bg-[#ff2d78]/10 text-[#ff8db5]"
                   >
-                    English (UK)
-                  </button>
-                  <button
-                    type="button"
-                    disabled={!canManage}
-                    onClick={() => setDefaultLanguage("hi")}
-                    className={`flex-1 rounded-xl border py-2.5 text-xs font-medium transition ${
-                      defaultLanguage === "hi"
-                        ? "border-[#ff2d78] bg-[#ff2d78]/10 text-[#ff8db5]"
-                        : "border-[#302840] bg-[#1a1a2e] text-[#a098b0] hover:text-white"
-                    }`}
-                  >
-                    Hindi (हिंदी)
+                    English (UK / Global)
                   </button>
                 </div>
-                <p className="mt-1 text-[10px] text-[#807890]">Initial language if not overridden by exact DID line.</p>
+                <p className="mt-1 text-[10px] text-[#807890]">Primary English dialect for voice operations.</p>
               </div>
 
               <div className="sm:col-span-2 lg:col-span-1">
@@ -587,7 +571,7 @@ export default function AgentSettings() {
                 Live Agent Persona Preview
               </span>
               <span className="font-mono text-[10px] text-[#00ffcc]">
-                Active Style: {activePersonaObj.label} ({defaultLanguage === "en" ? "English" : "Hindi"})
+                Active Style: {activePersonaObj.label} (English)
               </span>
             </div>
             <div className="rounded-lg border border-[#252538] bg-[#141422] p-3.5">

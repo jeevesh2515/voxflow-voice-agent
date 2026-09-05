@@ -100,32 +100,18 @@ export function hashTenantId(tenantId: string): string {
   return `t_${hash.toString(16).padStart(8, "0")}`;
 }
 
-type PostHogLike = {
-  init: (key: string, options: Record<string, unknown>) => void;
-  capture: (event: string, properties?: Record<string, AnalyticsValue>) => void;
-  identify: (id: string, properties?: Record<string, AnalyticsValue>) => void;
-};
-
-declare global {
-  interface Window {
-    posthog?: PostHogLike;
-  }
-}
+import posthog from "posthog-js";
 
 let initialized = false;
 
-function client(): PostHogLike | null {
+function client() {
   if (typeof window === "undefined") return null;
   const key = process.env.NEXT_PUBLIC_POSTHOG_KEY?.trim();
   if (!key) return null;
-  const instance = window.posthog;
-  if (!instance) return null;
   if (!initialized) {
     try {
-      instance.init(key, {
+      posthog.init(key, {
         api_host: process.env.NEXT_PUBLIC_POSTHOG_HOST?.trim() || "https://us.i.posthog.com",
-        // No autocapture, no session recording, no IP geolocation: every event
-        // is explicit and passes the allow-list above.
         autocapture: false,
         capture_pageview: false,
         disable_session_recording: true,
@@ -137,7 +123,7 @@ function client(): PostHogLike | null {
       return null;
     }
   }
-  return instance;
+  return posthog;
 }
 
 /** Track one product-analytics event. Silent no-op when analytics is unconfigured. */

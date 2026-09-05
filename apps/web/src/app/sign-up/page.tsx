@@ -17,7 +17,7 @@ function SignUpForm() {
   const [email, setEmail] = useState("");
   const [company, setCompany] = useState("");
   const [password, setPassword] = useState("");
-  const [language, setLanguage] = useState<"en" | "hi">("en");
+  const [language, setLanguage] = useState<"en">("en");
   const [loading, setLoading] = useState(false);
   const [isSuccess, setIsSuccess] = useState(false);
   const [signUpError, setSignUpError] = useState("");
@@ -212,11 +212,10 @@ function SignUpForm() {
             <select
               id="language"
               value={language}
-              onChange={(e) => setLanguage(e.target.value as "en" | "hi")}
+              onChange={(e) => setLanguage(e.target.value as "en")}
               className="w-full px-4 py-3 rounded-xl bg-[#11111a] border border-white/[0.08] text-white text-sm focus:outline-none focus:border-[#5EEAD4] transition-all font-sans"
             >
               <option value="en">English (UK / Global)</option>
-              <option value="hi">Hindi (हिन्दी)</option>
             </select>
           </div>
 

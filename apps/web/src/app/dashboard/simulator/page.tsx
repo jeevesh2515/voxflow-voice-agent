@@ -90,7 +90,7 @@ export default function PhoneSimulator() {
   const [recording, setRecording] = useState(false);
   const [textInput, setTextInput] = useState("");
   const [busy, setBusy] = useState(false);
-  const [language, setLanguage] = useState<"hi" | "en">("en");
+  const [language, setLanguage] = useState<string>("en");
   const [error, setError] = useState<string | null>(null);
   const [preparationState, setPreparationState] = useState<PreparationState>("idle");
   const [preparationMs, setPreparationMs] = useState<number | null>(null);
@@ -153,7 +153,7 @@ export default function PhoneSimulator() {
       setConnected(true);
       ws.send(JSON.stringify({ type: "start", language, tenant_id: activeTenantId }));
       setTurns([
-        { role: "agent", text: `नमस्ते, ${activeTenant.name} में आपका स्वागत है। मैं वाणी हूँ।`, at: Date.now() },
+        { role: "agent", text: `Hello, thank you for calling ${activeTenant.name}. I am ${activeTenant.agent_name || "Charlotte"}, how can I help you today?`, at: Date.now() },
       ]);
     };
 
@@ -392,7 +392,7 @@ export default function PhoneSimulator() {
             Voice Agent Phone Simulator
           </h1>
           <p className="text-xs sm:text-sm text-[#94a3b8]">
-            Browser microphone & text interaction with agent persona <strong>{activeTenant.agent_name || "Vaani"}</strong> in Hindi or English.
+            Browser microphone & text interaction with agent persona <strong>{activeTenant.agent_name || "Charlotte"}</strong> in British English.
           </p>
         </div>
 
@@ -423,33 +423,19 @@ export default function PhoneSimulator() {
             </div>
 
             {/* Language & Manual Commit Controls */}
-            <div className="grid grid-cols-3 gap-2">
-              <button
-                onClick={() => setLanguage("hi")}
-                className={`py-2 rounded-xl text-xs font-mono font-bold uppercase transition-all ${
-                  language === "hi"
-                    ? "bg-[#ff2d78] text-white shadow-sm"
-                    : "bg-[#181826] text-[#94a3b8] hover:text-white border border-[#2c2c40]"
-                }`}
-              >
-                हिन्दी
-              </button>
+            <div className="grid grid-cols-2 gap-2">
               <button
                 onClick={() => setLanguage("en")}
-                className={`py-2 rounded-xl text-xs font-mono font-bold uppercase transition-all ${
-                  language === "en"
-                    ? "bg-[#ff2d78] text-white shadow-sm"
-                    : "bg-[#181826] text-[#94a3b8] hover:text-white border border-[#2c2c40]"
-                }`}
+                className="py-2 rounded-xl text-xs font-mono font-bold uppercase transition-all bg-[#ff2d78] text-white shadow-sm flex items-center justify-center gap-1.5"
               >
-                English
+                🇬🇧 British English
               </button>
               <button
                 onClick={manualCommit}
                 className="py-2 rounded-xl text-xs font-mono text-[#cbd5e1] bg-[#181826] hover:bg-[#202034] border border-[#2c2c40] hover:text-white transition-colors"
                 title="Send buffered audio to STT now"
               >
-                Commit
+                Commit Audio
               </button>
             </div>
 
@@ -533,7 +519,7 @@ export default function PhoneSimulator() {
               {[
                 "Check stock of cartons",
                 "Track shipment SHIP-001",
-                "स्टॉक चेक करो",
+                "Reserve loading bay for Friday",
                 "Order 20 boxes with PIN 1234",
               ].map((p) => (
                 <button
@@ -554,7 +540,7 @@ export default function PhoneSimulator() {
                 value={textInput}
                 onChange={(e) => setTextInput(e.target.value)}
                 onKeyDown={(e) => e.key === "Enter" && sendText()}
-                placeholder={simulatorPrepared ? "Type query in Hindi or English..." : "Prepare Render before typing..."}
+                placeholder={simulatorPrepared ? "Type query (e.g. check delivery status for PO-849)..." : "Prepare Render before typing..."}
                 disabled={!simulatorPrepared}
                 className="flex-1 bg-[#10101a] border border-[#28283c] rounded-xl px-3 py-2 text-xs text-white placeholder:text-[#64748b] disabled:opacity-40 focus:outline-none focus:border-[#ff2d78]"
               />

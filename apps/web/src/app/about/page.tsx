@@ -3,11 +3,11 @@ import { ArrowRight, PhoneCall, ShieldCheck, TrendingUp, Cpu, Globe, Zap } from 
 import { FadeUp, StaggerContainer, StaggerItem } from "@/components/ScrollAnimations";
 
 const values = [
-  { icon: PhoneCall, title: "Precision Automation", body: "Handle complex Hindi-English & multilingual calls with ~200ms turn, UK edge and perfect protocol adherence." },
+  { icon: PhoneCall, title: "Precision Automation", body: "Handle complex UK logistics and freight dispatch calls with ~200ms turn, UK edge and perfect protocol adherence." },
   { icon: ShieldCheck, title: "Enterprise Reliability", body: "UK GDPR & eu-west-2 data residency. Every conversation logged, transcribed, and audited with full context." },
   { icon: TrendingUp, title: "Operational Growth", body: "Scale from 50 to 5,000+ daily calls seamlessly without expanding call center headcount." },
   { icon: Cpu, title: "Autonomous Intelligence", body: "Integrates directly into ERP, CRM, and inventory databases for real-time order & shipment lookups." },
-  { icon: Globe, title: "Bilingual Intelligence", body: "Native fluency in UK English, Hindi, and regional freight dialects with real-time code-switching." },
+  { icon: Globe, title: "Acoustic Intelligence", body: "Native fluency in British English and regional UK freight dialects with real-time intent recognition." },
   { icon: Zap, title: "Instant Response", body: "~200ms turn, UK edge ensures natural conversational flow with zero lag or interruption." },
 ];
 

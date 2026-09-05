@@ -44,8 +44,8 @@ export const XRAY_LAYERS: LayerData[] = [
     system: "Neural Streaming Transcriber",
     accent: "#5EEAD4",
     status: "PHONETIC MATCH",
-    summary: "Continuous phoneme-to-token inference with British UK & Hindi/Hinglish dialect resilience.",
-    payload: '"Driver 204 bay 4 clear 26 pallets" \u00b7 confidence: 0.984 \u00b7 language: en-GB / hinglish \u00b7 token_rate: 48 tok/s',
+    summary: "Continuous phoneme-to-token inference with British UK and freight industry dialect resilience.",
+    payload: '"Driver 204 bay 4 clear 26 pallets" \u00b7 confidence: 0.984 \u00b7 language: en-GB \u00b7 token_rate: 48 tok/s',
     metadata: [
       { label: "Hop 1 Latency", value: "84ms" },
       { label: "Acoustic Model", value: "Whisper Turbo" },

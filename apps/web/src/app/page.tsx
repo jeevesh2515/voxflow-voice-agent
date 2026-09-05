@@ -28,15 +28,31 @@ export default function Home() {
   const fteEquivalent = Math.max(1, Math.round((roiCalls * roiMins * 0.9) / 60 / 7));
   const paybackDays = Math.max(1, Math.min(14, Math.round((1500 / Math.max(annualSavings / 365, 1)) * 10) / 10));
 
-  type VoiceKey = "en" | "hi" | "hinglish" | "us";
+  type VoiceKey = "en" | "dispatch" | "ops" | "us";
   const VOICE_META: Record<VoiceKey, { label: string; lang: string; pitch: number; freq: [number, number]; text: string; bubble: string }> = {
     en: {
-      label: "English",
+      label: "British English",
       lang: "en-GB",
       pitch: 1.05,
       freq: [440, 580],
       text: "Hello! I am your autonomous AI voice agent. I handle incoming customer inquiries, verify orders and shipments, check real-time stock levels, and synchronize all call records directly to your database with sub-second latency.",
       bubble: "“I handle incoming inquiries, verify orders and shipments, check real-time stock, and sync every record to your database — sub-second.”",
+    },
+    dispatch: {
+      label: "UK Dispatch",
+      lang: "en-GB",
+      pitch: 1.0,
+      freq: [380, 480],
+      text: "Driver checking in for Bay 4. Order PO-842 is verified, 48 units dispatched, and Friday delivery between 08:00 and 11:00 is locked in. Google Sheets mirror updated.",
+      bubble: "“PO-842 verified — 48 units dispatched, delivery Friday 08:00–11:00 locked in Bay 4. Live spreadsheet updated.”",
+    },
+    ops: {
+      label: "Fleet Controller",
+      lang: "en-GB",
+      pitch: 0.98,
+      freq: [330, 390],
+      text: "Good morning. Inbound freight from Manchester depot confirmed. Driver PIN authenticated, pallet count checked, and dock schedule confirmed.",
+      bubble: "“Inbound freight confirmed. Driver PIN verified, pallet count matched, and dock slot allocated.”",
     },
     us: {
       label: "US English",
@@ -45,22 +61,6 @@ export default function Home() {
       freq: [460, 600],
       text: "Hey there! This is your AI voice agent. I answer inbound calls, check live inventory, confirm delivery windows, and write every outcome straight back to your systems. No hold music required.",
       bubble: "“I answer inbound calls, check live inventory, confirm delivery windows, and write outcomes straight back to your systems.”",
-    },
-    hi: {
-      label: "Hindi",
-      lang: "hi-IN",
-      pitch: 0.98,
-      freq: [330, 390],
-      text: "नमस्ते! मैं आपका एआई वॉइस असिस्टेंट हूँ। मैं ग्राहकों की कॉल्स का जवाब दे सकता हूँ, ऑर्डर और शिपमेंट की स्थिति बता सकता हूँ, और सभी कॉल्स का डेटा सीधे आपके सिस्टम में तुरंत अपडेट कर सकता हूँ।",
-      bubble: "“मैं ग्राहकों की कॉल्स का जवाब दे सकता हूँ, ऑर्डर और शिपमेंट की स्थिति बता सकता हूँ, और सारा डेटा सीधे अपडेट कर सकता हूँ।”",
-    },
-    hinglish: {
-      label: "Hinglish",
-      lang: "hi-IN",
-      pitch: 1.0,
-      freq: [380, 480],
-      text: "नमस्ते! आपका ऑर्डर verify हो गया है। 48 units dispatch हो चुके हैं, और delivery Friday सुबह 8 से 11 बजे confirm कर दी है। Sheet भी update कर दी है।",
-      bubble: "“ऑर्डर verify हो गया — 48 units dispatched, delivery Friday 8–11 confirm. Sheet भी update कर दी।”",
     },
   };
 
@@ -93,9 +93,7 @@ export default function Home() {
       utterance.onerror = () => setPlaying(null);
 
       const voices = window.speechSynthesis.getVoices();
-      const matchedVoice = voices.find((v) =>
-        lang === "hi" || lang === "hinglish" ? v.lang.includes("hi") : v.lang.includes(meta.lang)
-      );
+      const matchedVoice = voices.find((v) => v.lang.includes(meta.lang));
       if (matchedVoice) utterance.voice = matchedVoice;
 
       window.speechSynthesis.speak(utterance);
@@ -547,7 +545,7 @@ export default function Home() {
             <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
             <div className="grid grid-cols-2 lg:grid-cols-4 stagger-children">
               {[
-                ["99.8%", "Transcription Precision", "Fine-tuned UK & Hindi acoustics"],
+                ["99.8%", "Transcription Precision", "Fine-tuned UK logistics acoustics"],
                 ["~200ms", "Telephony Latency", "London eu-west-2 edge cluster"],
                 ["UK GDPR", "Data Residency", "Automated retention purge eu-west-2"],
                 ["60% Saved", "Operational Efficiency", "Direct Google Sheets & DB 2-way sync"],
@@ -615,8 +613,8 @@ export default function Home() {
               {[
                 {
                   step: "01",
-                  title: "Dual-Engine Multilingual Voice",
-                  desc: "Whisper STT combined with Groq LPU reasoning and low-latency Edge TTS. Flawless code-switching between British English and conversational Hindi.",
+                  title: "Neural Voice Telephony",
+                  desc: "Whisper STT combined with Groq LPU reasoning and low-latency Edge TTS. Flawless voice processing for British English and operational logistics dialects.",
                   icon: (
                     <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-[#c084fc]">
                       <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z" />
@@ -709,11 +707,11 @@ export default function Home() {
                     <span className="block mt-1 font-label text-[9px] text-[#ff2d78] font-semibold">VoxFlow • 0.6s turn</span>
                   </div>
                   <div data-bubble-step="2" className="bubble max-w-[85%] rounded-2xl rounded-bl-sm bg-white/[0.04] border border-white/[0.08] p-3.5 text-[#f8fafc]">
-                    &ldquo;कृपया 50 यूनिट्स बुक करके शुक्रवार सुबह का स्लॉट कन्फर्म कर दीजिए।&rdquo;
-                    <span className="block mt-1 font-label text-[9px] text-[#a098b0]">Hindi • caller</span>
+                    &ldquo;Brilliant. Please reserve 50 units and lock in the Friday morning loading bay slot.&rdquo;
+                    <span className="block mt-1 font-label text-[9px] text-[#a098b0]">UK Caller • Depot Inbound</span>
                   </div>
                   <div data-bubble-step="3" className="bubble ml-auto max-w-[85%] rounded-2xl rounded-br-sm bg-[#ff2d78]/[0.12] border border-[#ff2d78]/40 p-3.5 text-[#f8fafc]">
-                    &ldquo;50 यूनिट्स बुक कर दी गई हैं। शुक्रवार 08:00–11:00 का स्लॉट लॉक हो गया है और एसएमएस भेज दिया गया है।&rdquo;
+                    &ldquo;50 units reserved for PO-842. Friday 08:00–11:00 Bay 4 confirmed at Central Depot, and confirmation SMS dispatched.&rdquo;
                     <span className="block mt-1 font-label text-[9px] text-[#ff2d78] font-semibold">VoxFlow • tool call ✓</span>
                   </div>
                 </div>
@@ -729,7 +727,7 @@ export default function Home() {
                   <p data-tele-step="0" className="telemetry-line text-[#a098b0]"><span className="text-white/30">00:00.041</span> connect.stream → PCM 16kHz attached</p>
                   <p><span className="text-white/30">00:00.125</span> Groq Whisper STT ............ <span className="text-[#f8fafc]">84ms</span></p>
                   <p data-tele-step="1" className="telemetry-line text-[#a098b0]"><span className="text-white/30">00:00.237</span> GPT-OSS-20b tool call ....... <span className="text-[#f8fafc]">112ms</span></p>
-                  <p data-tele-step="2" className="telemetry-line text-[#a098b0]"><span className="text-white/30">00:00.288</span> lang detect: hi → en bridge .. <span className="text-[#f8fafc]">51ms</span></p>
+                  <p data-tele-step="2" className="telemetry-line text-[#a098b0]"><span className="text-white/30">00:00.288</span> erp.book_dock_bay(bay=4) .... <span className="text-[#f8fafc]">48ms</span></p>
                   <p data-tele-step="3" className="telemetry-line text-[#a098b0]"><span className="text-white/30">00:00.391</span> sheets.mirror(commit) ....... <span className="text-[#f8fafc]">63ms</span></p>
                   <p data-tele-step="3" className="telemetry-line text-[#a098b0]"><span className="text-white/30">00:00.196</span> Total glass-to-glass turn ... <span className="text-[#ff2d78] font-bold">196ms</span></p>
                   <p className="term-caret pt-3 text-[#f8fafc]" />
@@ -1086,23 +1084,23 @@ export default function Home() {
               {[
                 {
                   name: "Starter",
-                  monthly: 49,
+                  monthly: 149,
                   tag: null,
-                  features: ["1 voice line", "500 call mins / mo", "English + Hindi", "Email support"],
+                  features: ["1 Dedicated Voice Line", "750 call mins / mo (15p overage)", "British English (en-GB)", "Email support & alerts"],
                   plan: "starter",
                 },
                 {
                   name: "Growth",
-                  monthly: 149,
+                  monthly: 449,
                   tag: "Most Popular",
-                  features: ["3 voice lines", "2,500 call mins / mo", "PIN verification", "Live Sheet editing", "Priority support"],
+                  features: ["3 Concurrent Voice Lines", "3,000 call mins / mo (12p overage)", "PIN verification (4-8 digits)", "Live Sheet & ERP tool-calling", "Priority support"],
                   plan: "growth",
                 },
                 {
                   name: "Enterprise",
-                  monthly: 399,
+                  monthly: 1499,
                   tag: null,
-                  features: ["Unlimited lines", "Unmetered minutes", "Dedicated UK DID", "24/7 SLA", "Custom retention & DSAR"],
+                  features: ["Unlimited voice lines", "12,000 call mins included", "Dedicated UK DID (+44 20)", "24/7 SLA & on-call engineer", "Custom retention & bespoke bridge"],
                   plan: "enterprise",
                 },
               ].map((t) => {

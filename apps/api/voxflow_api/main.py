@@ -110,7 +110,7 @@ def create_app() -> FastAPI:
     app = FastAPI(
         title="VoxFlow Voice Agent",
         version="0.1.0",
-        description="Voice operations, automated. Hindi + English supplier call agent.",
+        description="Voice operations, automated. British English & UK logistics transport voice operations.",
         lifespan=lifespan,
     )
 

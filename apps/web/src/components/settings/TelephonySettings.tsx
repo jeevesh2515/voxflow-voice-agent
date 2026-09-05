@@ -45,8 +45,7 @@ const VERIFICATION_MODES: ReadonlyArray<{ value: CallerVerificationMode; label: 
 
 const LANGUAGES: ReadonlyArray<{ value: TelephonyLanguage; label: string }> = [
   { value: "tenant_default", label: "Workspace default" },
-  { value: "en", label: "English" },
-  { value: "hi", label: "Hindi" },
+  { value: "en", label: "English (UK / Global)" },
 ];
 
 const EMPTY_PHONE_FORM: TelephonyPhoneNumberInput = {

@@ -520,7 +520,7 @@ export default function CampaignsPage() {
                   onChange={(e) => setCampaignType(e.target.value)}
                   className="w-full px-3.5 py-2 rounded-xl bg-[#10101a] border border-[#28283c] text-xs text-white focus:border-[#ff2d78] focus:outline-none"
                 >
-                  <option value="delayed_shipment">Delayed Shipment ETA Update (Hindi/English)</option>
+                  <option value="delayed_shipment">Delayed Shipment ETA Update (Priority Dispatch)</option>
                   <option value="po_confirmation">Unconfirmed PO Verification & Slot Booking</option>
                   <option value="dock_reminder">Warehouse Dock Visit 24H Reminder</option>
                   <option value="generic">General Operations Voice Alert</option>

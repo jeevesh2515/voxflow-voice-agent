@@ -15,7 +15,7 @@
   <img src="https://img.shields.io/badge/CI%2FCD-100%25%20PASSING-success?style=for-the-badge&logo=githubactions&logoColor=white&labelColor=111827" alt="CI Status" />
   <img src="https://img.shields.io/badge/TESTS-574%20PASSED-10B981?style=for-the-badge&logo=pytest&logoColor=white&labelColor=111827" alt="574 Pytest Tests Passed" />
   <img src="https://img.shields.io/badge/FRONTEND-32%20ROUTES-6366F1?style=for-the-badge&logo=nextdotjs&logoColor=white&labelColor=111827" alt="32 Next.js Routes" />
-  <img src="https://img.shields.io/badge/VOICE-ENGLISH%20%28UK%29%20%2B%20HINDI-F97316?style=for-the-badge&labelColor=111827" alt="English (UK) + Hindi Multilingual" />
+  <img src="https://img.shields.io/badge/VOICE-ENGLISH%20%28UK%29%20NATIVE-F97316?style=for-the-badge&labelColor=111827" alt="English (UK) Native Voice" />
   <img src="https://img.shields.io/badge/GROUNDING-ZERO--HALLUCINATION%20RAG-0F766E?style=for-the-badge&logo=shield&logoColor=white&labelColor=111827" alt="Zero-Hallucination Grounding" />
 </p>
 
@@ -317,7 +317,7 @@ python3 scripts/run_evals.py --mock --output-json evals/scorecard.json
 
 ## 📞 Telephony & Voice Channels
 
-VoxFlow provides flexible voice interfaces for enterprise operations and rapid testing. Tenant context is created only after an active exact E.164 destination-number and provider match. Route policy selects `tenant_default`, English, or Hindi and applies either standard verification (knowledge for protected reads, PIN for writes) or enhanced verification (knowledge plus PIN for protected reads and writes).
+VoxFlow provides flexible voice interfaces for enterprise operations and rapid testing. Tenant context is created only after an active exact E.164 destination-number and provider match. Route policy selects `tenant_default` or English and applies either standard verification (knowledge for protected reads, PIN for writes) or enhanced verification (knowledge plus PIN for protected reads and writes).
 
 | Provider / Channel | Inbound Routing | Capabilities | Integration Mechanism |
 |---|---|---|---|

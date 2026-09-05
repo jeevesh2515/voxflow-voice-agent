@@ -31,30 +31,30 @@ const SAMPLES: VoiceSample[] = [
     intentTag: "dock_reassignment // PASS",
   },
   {
-    id: "hi",
-    lang: "Hindi (हिंदी)",
-    langCode: "hi-IN",
-    badge: "Bilingual Edge · Multi-Depot",
-    scenario: "ड्राइवर चेक-इन एवं डॉक आवंटन",
-    callerLabel: "ड्राइवर (इनबाउंड फ्लीट)",
-    callerAudioText: "नमस्ते, मैं बे 4 के लिए 22 पैलेट लेकर पहुंचा हूं।",
-    agentLabel: "Voxflow एजेंट",
-    agentResponseText: "नमस्ते। बे 4 खाली है, सीधे डॉक पर जाएं। शीट अपडेट कर दी गई है।",
+    id: "en-uk-midlands",
+    lang: "Midlands Hub",
+    langCode: "en-GB",
+    badge: "M6 Trunking · Birmingham DID",
+    scenario: "M6 Freight Congestion & Triage",
+    callerLabel: "Fleet Driver (Birmingham)",
+    callerAudioText: "Heavy congestion near Junction 8 on the M6. Can we push delivery window back by an hour?",
+    agentLabel: "Voxflow Agent (eu-west-2)",
+    agentResponseText: "Slot rescheduled to Friday 11:30–12:30 at Birmingham Hub. Dispatch notified via SMS.",
     turnLatency: "196ms",
-    intentTag: "driver_checkin_hi // PASS",
+    intentTag: "reschedule_order // PASS",
   },
   {
-    id: "hinglish",
-    lang: "Hinglish (Code-Switching)",
-    langCode: "hi-IN",
-    badge: "Real-Time Code-Switching",
-    scenario: "M6 Freight Delay & Triage",
-    callerLabel: "Fleet Driver",
-    callerAudioText: "Gaddi M6 pe phasi hai, delivery delay ho jayegi. Slot reschedule kardo.",
-    agentLabel: "Voxflow Agent",
-    agentResponseText: "Slot Friday morning 08:00–11:00 me reschedule kar diya hai. ERP updated.",
-    turnLatency: "198ms",
-    intentTag: "reschedule_order // PASS",
+    id: "en-uk-north",
+    lang: "Northern Hub",
+    langCode: "en-GB",
+    badge: "Yorkshire Hub · Leeds DID",
+    scenario: "Leeds Cross-Dock Intake Check-in",
+    callerLabel: "Carrier (Yorkshire Fleet)",
+    callerAudioText: "Yorkshire fleet driver arriving at Leeds Cross-Dock with 14 palletized crates.",
+    agentLabel: "Voxflow Agent (eu-west-2)",
+    agentResponseText: "Intake confirmed for Bay 2. Manifest verified and ERP stock updated.",
+    turnLatency: "194ms",
+    intentTag: "crossdock_intake // PASS",
   },
   {
     id: "en-us",
@@ -153,10 +153,10 @@ export default function VoiceSamples() {
             Operational Voice Demonstrations
           </div>
           <h3 className="font-headline font-black text-2xl sm:text-4xl text-white tracking-tight">
-            Hear it in English. <span className="text-white/60">Hear it in Hindi.</span>
+            Hear it in London. <span className="text-white/60">Hear it across UK fleets.</span>
           </h3>
           <p className="font-sans text-sm text-white/70 max-w-xl mt-2 leading-relaxed">
-            Listen to ~200ms turn, UK edge operations across British English, Hindi, and natural code-switching.
+            Listen to ~200ms turn, UK edge operations across British English regional logistics operations.
           </p>
         </div>
 
@@ -303,22 +303,22 @@ export default function VoiceSamples() {
             <button
               type="button"
               onClick={() => {
-                setActiveId("hi");
+                setActiveId("en-uk-midlands");
                 handlePlay(SAMPLES[1]);
               }}
               className="px-3 py-1 rounded-lg border border-white/[0.08] bg-white/[0.02] text-white/70 hover:text-white hover:border-[#5EEAD4]/40 transition"
             >
-              Play Hindi (हिंदी)
+              Play Midlands Hub
             </button>
             <button
               type="button"
               onClick={() => {
-                setActiveId("hinglish");
+                setActiveId("en-uk-north");
                 handlePlay(SAMPLES[2]);
               }}
               className="px-3 py-1 rounded-lg border border-white/[0.08] bg-white/[0.02] text-white/70 hover:text-white hover:border-[#5EEAD4]/40 transition"
             >
-              Play Hinglish
+              Play Northern Hub
             </button>
           </div>
 

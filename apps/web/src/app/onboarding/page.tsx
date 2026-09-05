@@ -36,7 +36,7 @@ export default function OnboardingPage() {
 
   const [agentName, setAgentName] = useState("Operations Assistant");
   const [greeting, setGreeting] = useState("");
-  const [selectedLanguage, setSelectedLanguage] = useState<"en" | "hi">("en");
+  const [selectedLanguage, setSelectedLanguage] = useState<"en">("en");
 
   useEffect(() => {
     if (typeof window !== "undefined") {
@@ -46,7 +46,7 @@ export default function OnboardingPage() {
           const parsed = JSON.parse(raw);
           setData(parsed);
           setAgentName(parsed.agentName || "Operations Assistant");
-          setSelectedLanguage(parsed.language === "hi" ? "hi" : "en");
+          setSelectedLanguage("en");
           setGreeting(`Hello, and welcome to ${parsed.companyName}. How can I help with your delivery or dispatch today?`);
           if (parsed.tenantId) {
             setActiveTenantId(parsed.tenantId);
@@ -131,32 +131,24 @@ export default function OnboardingPage() {
 
                 <div>
                   <label className="text-xs font-mono uppercase tracking-widest text-white/80 block mb-1.5">
-                    Primary Operational Language
+                    Agent Language & Dialect
                   </label>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div className="grid grid-cols-2 gap-3">
                     <button
                       type="button"
                       onClick={() => setSelectedLanguage("en")}
-                      className={`p-3.5 rounded-xl border text-left transition-all ${
-                        selectedLanguage === "en"
-                          ? "border-[#5EEAD4] bg-[#5EEAD4]/10 text-[#5EEAD4] shadow-[0_0_15px_rgba(94,234,212,0.15)]"
-                          : "border-white/[0.08] bg-white/[0.02] text-white/70 hover:border-white/20"
-                      }`}
+                      className="p-3.5 rounded-xl border text-left transition-all border-[#5EEAD4] bg-[#5EEAD4]/10 text-[#5EEAD4] shadow-[0_0_15px_rgba(94,234,212,0.15)]"
                     >
-                      <div className="text-sm font-bold flex items-center gap-1.5 text-white">🇬🇧 UK English (en)</div>
+                      <div className="text-sm font-bold flex items-center gap-1.5 text-white">🇬🇧 UK English (en-GB)</div>
                       <div className="text-[11px] text-white/50 mt-1">Natural British English, automated tool calls</div>
                     </button>
                     <button
                       type="button"
-                      onClick={() => setSelectedLanguage("hi")}
-                      className={`p-3.5 rounded-xl border text-left transition-all ${
-                        selectedLanguage === "hi"
-                          ? "border-[#5EEAD4] bg-[#5EEAD4]/10 text-[#5EEAD4] shadow-[0_0_15px_rgba(94,234,212,0.15)]"
-                          : "border-white/[0.08] bg-white/[0.02] text-white/70 hover:border-white/20"
-                      }`}
+                      onClick={() => setSelectedLanguage("en")}
+                      className="p-3.5 rounded-xl border text-left transition-all border-white/[0.08] bg-white/[0.02] text-white/70 hover:border-white/20"
                     >
-                      <div className="text-sm font-bold flex items-center gap-1.5 text-white">🇮🇳 Hindi (हिन्दी)</div>
-                      <div className="text-[11px] text-white/50 mt-1">Devanagari &amp; Hinglish code-switching</div>
+                      <div className="text-sm font-bold flex items-center gap-1.5 text-white">🌐 Global English (en-US)</div>
+                      <div className="text-[11px] text-white/50 mt-1">International freight & logistics dialect</div>
                     </button>
                   </div>
                 </div>

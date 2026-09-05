@@ -536,7 +536,7 @@ export default function ContactPage() {
                 <span className="text-[#5EEAD4]">04.</span> What languages &amp; dialects are supported?
               </h4>
               <p className="text-xs text-white/60 font-sans leading-relaxed">
-                Fluent UK English, Hindi, and code-switched freight industry dialects with real-time intent classification and PO capture.
+                Fluent British English and regional freight transport dialects with real-time intent classification and PO capture.
               </p>
             </div>
           </div>
