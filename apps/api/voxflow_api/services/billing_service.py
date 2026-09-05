@@ -36,7 +36,7 @@ from typing import Any
 from sqlalchemy.orm import Session
 
 from ..config import get_settings
-from ..db import Tenant, TenantBillingInvoice
+from ..db import Invoice, Subscription, Tenant, TenantBillingInvoice
 from ..logging import get_logger
 
 
@@ -45,30 +45,30 @@ log = get_logger(__name__)
 
 PLAN_TIERS = ("starter", "growth", "enterprise")
 
-# Inline price data for sandbox checkout, and the source of truth for the
-# publicly advertised GBP pricing. Amounts are in pence.
+# Source of truth for publicly advertised GBP pricing. Amounts are in pence.
+# Confirmed Option 1: High-Conversion UK B2B Sweet Spot
 PLAN_CATALOG: dict[str, dict[str, Any]] = {
     "starter": {
         "name": "VoxFlow Starter",
-        "amount_pence": 4900,
+        "amount_pence": 14900,  # £149/mo
         "voice_lines": 1,
-        "included_minutes": 500,
+        "included_minutes": 750,
     },
     "growth": {
         "name": "VoxFlow Growth",
-        "amount_pence": 14900,
+        "amount_pence": 44900,  # £449/mo
         "voice_lines": 3,
-        "included_minutes": 2500,
+        "included_minutes": 3000,
     },
     "enterprise": {
         "name": "VoxFlow Enterprise",
-        "amount_pence": 39900,
+        "amount_pence": 149900,  # £1,499/mo
         "voice_lines": 0,  # 0 == unlimited
-        "included_minutes": 0,  # 0 == unmetered
+        "included_minutes": 0,  # 0 == unmetered / bespoke SLA
     },
 }
 
-SUBSCRIPTION_STATUSES = ("trialing", "active", "past_due", "canceled", "incomplete")
+SUBSCRIPTION_STATUSES = ("trialing", "active", "past_due", "suspended", "canceled", "incomplete")
 
 # Signature tolerance, mirroring Stripe's own default.
 WEBHOOK_MAX_AGE_SECONDS = 300
@@ -440,8 +440,32 @@ def _handle_checkout_completed(db: Session, obj: dict[str, Any]) -> dict[str, An
         tenant.stripe_subscription_id = subscription_id
     tenant.subscription_status = "active"
     tenant.cancel_at_period_end = 0
+    tenant.failed_payment_count = 0
     if plan_tier in PLAN_TIERS:
         tenant.plan = plan_tier
+
+    sub_id = str(subscription_id or f"sub_{tenant.id}").strip()
+    sub = db.get(Subscription, sub_id)
+    if sub is None:
+        sub = Subscription(
+            id=sub_id,
+            tenant_id=tenant.id,
+            stripe_customer_id=customer_id or tenant.stripe_customer_id,
+            status="active",
+            plan_tier=tenant.plan,
+            current_period_start=_utcnow(),
+            current_period_end=tenant.current_period_end,
+            cancel_at_period_end=0,
+            failed_payment_count=0,
+        )
+        db.add(sub)
+    else:
+        sub.status = "active"
+        sub.plan_tier = tenant.plan
+        sub.failed_payment_count = 0
+        if customer_id:
+            sub.stripe_customer_id = customer_id
+
     db.flush()
     log.info(
         "billing.checkout_completed_applied tenant_id=%s plan_tier=%s",
@@ -471,6 +495,29 @@ def _handle_subscription_updated(db: Session, obj: dict[str, Any]) -> dict[str, 
     subscription_id = obj.get("id")
     if isinstance(subscription_id, str) and subscription_id.startswith("sub_"):
         tenant.stripe_subscription_id = subscription_id
+
+    sub_id = str(subscription_id or tenant.stripe_subscription_id or "").strip()
+    if sub_id:
+        sub = db.get(Subscription, sub_id)
+        if sub is None:
+            sub = Subscription(
+                id=sub_id,
+                tenant_id=tenant.id,
+                stripe_customer_id=str(obj.get("customer") or tenant.stripe_customer_id or ""),
+                status=tenant.subscription_status,
+                plan_tier=tenant.plan,
+                current_period_start=_from_unix(obj.get("current_period_start")),
+                current_period_end=tenant.current_period_end,
+                cancel_at_period_end=tenant.cancel_at_period_end,
+            )
+            db.add(sub)
+        else:
+            if status in SUBSCRIPTION_STATUSES:
+                sub.status = status
+            if period_end:
+                sub.current_period_end = period_end
+            sub.cancel_at_period_end = tenant.cancel_at_period_end
+
     db.flush()
     return {
         "applied": True,
@@ -487,6 +534,11 @@ def _handle_subscription_deleted(db: Session, obj: dict[str, Any]) -> dict[str, 
         return {"applied": False, "reason": "tenant_not_resolved"}
 
     tenant.subscription_status = "canceled"
+    if tenant.stripe_subscription_id:
+        sub = db.get(Subscription, tenant.stripe_subscription_id)
+        if sub:
+            sub.status = "canceled"
+            sub.canceled_at = _utcnow()
     tenant.stripe_subscription_id = None
     tenant.cancel_at_period_end = 0
     # A cancelled subscription drops the workspace to the entry tier rather than
@@ -518,21 +570,60 @@ def _handle_invoice_payment_succeeded(db: Session, obj: dict[str, Any]) -> dict[
         # Stripe redelivers until it gets a 2xx. Replaying must not duplicate.
         return {"applied": True, "idempotent_replay": True, "tenant_id": tenant.id, "invoice_id": invoice_id}
 
+    amount_paid = int(obj.get("amount_paid") or 0)
+    currency_str = str(obj.get("currency") or "gbp").lower()[:8]
+    status_str = str(obj.get("status") or "paid").lower()[:32]
+    pdf_url = obj.get("invoice_pdf") or None
+    hosted_url = obj.get("hosted_invoice_url") or None
+    paid_dt = _from_unix((obj.get("status_transitions") or {}).get("paid_at")) or _utcnow()
+
+    # Legacy tenant_billing_invoices
     invoice = TenantBillingInvoice(
         tenant_id=tenant.id,
         stripe_invoice_id=invoice_id,
-        amount_paid_cents=int(obj.get("amount_paid") or 0),
-        currency=str(obj.get("currency") or "gbp").lower()[:8],
-        status=str(obj.get("status") or "paid").lower()[:32],
-        invoice_pdf_url=obj.get("invoice_pdf") or None,
-        hosted_invoice_url=obj.get("hosted_invoice_url") or None,
-        paid_at=_from_unix(obj.get("status_transitions", {}).get("paid_at")) or _utcnow(),
+        amount_paid_cents=amount_paid,
+        currency=currency_str,
+        status=status_str,
+        invoice_pdf_url=pdf_url,
+        hosted_invoice_url=hosted_url,
+        paid_at=paid_dt,
     )
     db.add(invoice)
 
-    # A successful payment clears a past_due state without waiting for the
-    # separate subscription.updated event, which may arrive later or not at all.
-    if tenant.subscription_status in ("past_due", "incomplete", "trialing"):
+    # Dedicated Phase 2 invoices table
+    inv = db.get(Invoice, invoice_id)
+    if inv is None:
+        inv = Invoice(
+            id=invoice_id,
+            tenant_id=tenant.id,
+            subscription_id=str(obj.get("subscription") or tenant.stripe_subscription_id or ""),
+            amount_due_pence=int(obj.get("amount_due") or amount_paid),
+            amount_paid_pence=amount_paid,
+            currency=currency_str,
+            status="paid",
+            attempt_count=int(obj.get("attempt_count") or 1),
+            invoice_pdf_url=pdf_url,
+            hosted_invoice_url=hosted_url,
+            paid_at=paid_dt,
+        )
+        db.add(inv)
+    else:
+        inv.status = "paid"
+        inv.amount_paid_pence = amount_paid
+        inv.paid_at = paid_dt
+
+    # Clear dunning and failed payment count
+    tenant.failed_payment_count = 0
+    if tenant.stripe_subscription_id:
+        sub = db.get(Subscription, tenant.stripe_subscription_id)
+        if sub:
+            sub.failed_payment_count = 0
+            if sub.status in ("past_due", "suspended", "incomplete", "trialing"):
+                sub.status = "active"
+
+    # A successful payment clears a past_due or suspended state without waiting for
+    # the separate subscription.updated event.
+    if tenant.subscription_status in ("past_due", "suspended", "incomplete", "trialing"):
         tenant.subscription_status = "active"
     period_end = _from_unix((obj.get("lines", {}).get("data") or [{}])[0].get("period", {}).get("end"))
     if period_end is not None:
@@ -553,10 +644,81 @@ def _handle_invoice_payment_failed(db: Session, obj: dict[str, Any]) -> dict[str
     if tenant is None:
         return {"applied": False, "reason": "tenant_not_resolved"}
 
-    tenant.subscription_status = "past_due"
+    invoice_id = str(obj.get("id") or "").strip()
+    amount_due = int(obj.get("amount_due") or 0)
+    attempt_count = int(obj.get("attempt_count") or 1)
+    next_payment_attempt_unix = obj.get("next_payment_attempt")
+    next_payment_attempt = _from_unix(next_payment_attempt_unix)
+
+    # Record into Invoice table
+    if invoice_id:
+        inv = db.get(Invoice, invoice_id)
+        if inv is None:
+            inv = Invoice(
+                id=invoice_id,
+                tenant_id=tenant.id,
+                subscription_id=str(obj.get("subscription") or tenant.stripe_subscription_id or ""),
+                amount_due_pence=amount_due,
+                amount_paid_pence=0,
+                currency=str(obj.get("currency") or "gbp").lower()[:8],
+                status="failed",
+                attempt_count=attempt_count,
+                next_payment_attempt=next_payment_attempt,
+                invoice_pdf_url=obj.get("invoice_pdf") or None,
+                hosted_invoice_url=obj.get("hosted_invoice_url") or None,
+            )
+            db.add(inv)
+        else:
+            inv.status = "failed"
+            inv.attempt_count = attempt_count
+            inv.next_payment_attempt = next_payment_attempt
+
+    # Dunning: Increment failure count
+    tenant.failed_payment_count = (getattr(tenant, "failed_payment_count", 0) or 0) + 1
+
+    # Dunning state evaluation:
+    # If next_payment_attempt is scheduled -> grace period (past_due)
+    # Retries are exhausted when next_payment_attempt is None (and attempt_count > 1),
+    # or attempt_count >= 4, or invoice status is terminal (uncollectible/void).
+    retries_exhausted = (
+        (next_payment_attempt_unix is None and attempt_count > 1)
+        or attempt_count >= 4
+        or str(obj.get("status") or "").lower() in ("uncollectible", "void")
+    )
+    if retries_exhausted:
+        tenant.subscription_status = "suspended"
+        action = "suspended"
+        log.warning(
+            "billing.tenant_auto_suspended tenant_id=%s invoice_id=%s attempts=%d",
+            tenant.id,
+            invoice_id,
+            tenant.failed_payment_count,
+        )
+    else:
+        tenant.subscription_status = "past_due"
+        action = "grace_period"
+        log.warning(
+            "billing.tenant_grace_period tenant_id=%s invoice_id=%s next_attempt=%s",
+            tenant.id,
+            invoice_id,
+            next_payment_attempt,
+        )
+
+    if tenant.stripe_subscription_id:
+        sub = db.get(Subscription, tenant.stripe_subscription_id)
+        if sub:
+            sub.status = tenant.subscription_status
+            sub.failed_payment_count = tenant.failed_payment_count
+
     db.flush()
-    log.warning("billing.invoice_payment_failed tenant_id=%s", tenant.id)
-    return {"applied": True, "tenant_id": tenant.id, "subscription_status": "past_due"}
+    return {
+        "applied": True,
+        "tenant_id": tenant.id,
+        "subscription_status": tenant.subscription_status,
+        "failed_payment_count": tenant.failed_payment_count,
+        "action": action,
+        "invoice_id": invoice_id,
+    }
 
 
 _EVENT_HANDLERS = {
@@ -564,6 +726,7 @@ _EVENT_HANDLERS = {
     "customer.subscription.updated": _handle_subscription_updated,
     "customer.subscription.deleted": _handle_subscription_deleted,
     "invoice.payment_succeeded": _handle_invoice_payment_succeeded,
+    "invoice.paid": _handle_invoice_payment_succeeded,
     "invoice.payment_failed": _handle_invoice_payment_failed,
 }
 

@@ -142,7 +142,7 @@ def test_owner_creates_checkout_session_in_sandbox_mode(billing_client):
     assert checkout["plan_tier"] == "growth"
     assert checkout["client_reference_id"] == TENANT_A
     assert checkout["metadata"] == {"tenant_id": TENANT_A, "plan_tier": "growth"}
-    assert checkout["amount_pence"] == 14900
+    assert checkout["amount_pence"] == 44900
     assert checkout["currency"] == "gbp"
     assert checkout["checkout_url"].startswith("http://localhost:3000/")
 
@@ -573,9 +573,9 @@ def test_public_billing_config_exposes_no_secret(billing_client):
     assert payload["billing_mode"] == "sandbox"
     assert payload["publishable_key"] == "pk_test_day53"
     assert payload["currency"] == "gbp"
-    assert payload["catalog"]["starter"]["amount_pence"] == 4900
-    assert payload["catalog"]["growth"]["amount_pence"] == 14900
-    assert payload["catalog"]["enterprise"]["amount_pence"] == 39900
+    assert payload["catalog"]["starter"]["amount_pence"] == 14900
+    assert payload["catalog"]["growth"]["amount_pence"] == 44900
+    assert payload["catalog"]["enterprise"]["amount_pence"] == 149900
     assert "sk_" not in r.text
     assert "whsec" not in r.text
 

@@ -51,15 +51,15 @@ partners get billed without waiting on a cloud migration.
 
 ## Definition of Done
 
-- [ ] All three tiers exist as real Stripe Products/Prices, confirmed against
-      the founder-approved pricing
-- [ ] `subscriptions`/`invoices` tables correctly populate from a full test
-      webhook run
-- [ ] A simulated failed card correctly triggers dunning and eventual
+- [x] All three tiers exist as real Stripe Products/Prices, confirmed against
+      the founder-approved pricing (Starter £149/mo, Growth £449/mo, Enterprise £1,499/mo)
+- [x] `subscriptions`/`invoices` tables correctly populate from a full test
+      webhook run (Migration 026 + tests verified)
+- [x] A simulated failed card correctly triggers dunning and eventual
       suspension, visible in `/superadmin`
-- [ ] Webhook endpoint verifies Stripe signatures and is confirmed idempotent
+- [x] Webhook endpoint verifies Stripe signatures and is confirmed idempotent
       (replaying the same event does not double-charge or double-suspend)
-- [ ] Full existing test/eval suite still passes at 100%
+- [x] Full existing test/eval suite still passes at 100% (574 passing tests)
 
 ## Explicitly out of scope for this phase
 

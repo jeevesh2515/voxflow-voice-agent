@@ -41,16 +41,16 @@ const TIERS: Tier[] = [
   {
     id: "starter",
     name: "Starter",
-    gbp: 49,
-    usd: 59,
-    minLimit: 500,
+    gbp: 149,
+    usd: 189,
+    minLimit: 750,
     tag: null,
     description: "Ideal for small depots and local logistics teams starting voice automation.",
     cta: "Start 14-Day Free Trial",
     href: "/sign-up?plan=starter",
     features: [
-      "1 Voice Line (Dedicated Inbound)",
-      "500 call mins / month included",
+      "1 Voice Line (Dedicated UK +44 20 DID)",
+      "750 call mins / month included (15p/min overage)",
       "Google Sheets live 2-way mirror",
       "Email escalations & alerts",
       "UK GDPR retention controls (eu-west-2)",
@@ -61,9 +61,9 @@ const TIERS: Tier[] = [
   {
     id: "growth",
     name: "Growth",
-    gbp: 149,
-    usd: 179,
-    minLimit: 2500,
+    gbp: 449,
+    usd: 569,
+    minLimit: 3000,
     tag: "Most Popular",
     popular: true,
     description: "For active transport operators handling high-frequency PO and delivery calls.",
@@ -71,7 +71,7 @@ const TIERS: Tier[] = [
     href: "/sign-up?plan=growth",
     features: [
       "3 Concurrent Voice Lines",
-      "2,500 call mins / month included",
+      "3,000 call mins / month included (12p/min overage)",
       "Caller PIN verification (4-8 digits)",
       "Live Sheet Editing & ERP tool-calling",
       "Amazon Connect telephony routing",
@@ -82,15 +82,16 @@ const TIERS: Tier[] = [
   {
     id: "enterprise",
     name: "Enterprise",
-    gbp: 399,
-    usd: 479,
-    minLimit: 10000,
+    gbp: 1499,
+    usd: 1899,
+    minLimit: 12000,
     tag: "For Scale",
     description: "High-volume fleet networks, bespoke multi-depot trunking, and 24/7 SLA.",
     cta: "Contact Solutions Team",
     href: "/contact?topic=Enterprise%20Plan",
     features: [
       "Unlimited concurrent voice lines",
+      "12,000 call mins / month included (9p/min overage)",
       "Custom Lex STT acoustic models",
       "Dedicated UK DID (+44 20)",
       "24/7 SLA & dedicated on-call engineer",
@@ -523,10 +524,10 @@ export default function PricingPage() {
                 <span className="font-headline font-bold text-xl text-[#5EEAD4]">
                   {currency === "gbp" ? "£" : "$"}
                   {recommendedTier === "starter"
-                    ? (currency === "gbp" ? (annual ? 39 : 49) : (annual ? 47 : 59))
+                    ? (currency === "gbp" ? (annual ? 119 : 149) : (annual ? 149 : 189))
                     : recommendedTier === "growth"
-                    ? (currency === "gbp" ? (annual ? 119 : 149) : (annual ? 143 : 179))
-                    : (currency === "gbp" ? (annual ? 319 : 399) : (annual ? 383 : 479))}
+                    ? (currency === "gbp" ? (annual ? 359 : 449) : (annual ? 449 : 569))
+                    : (currency === "gbp" ? (annual ? 1199 : 1499) : (annual ? 1499 : 1899))}
                   <span className="text-xs text-white/50 font-mono">/mo</span>
                 </span>
               </div>

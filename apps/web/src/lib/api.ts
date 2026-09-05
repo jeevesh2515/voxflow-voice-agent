@@ -698,5 +698,24 @@ export const api = {
       method: "POST",
       body: JSON.stringify(payload),
     }),
+
+  // Superadmin Operations
+  superadminTenants: () =>
+    http<{
+      tenant_count: number;
+      total_calls: number;
+      total_minutes: number;
+      tenants: Array<{
+        tenant_id: string;
+        name: string;
+        active: boolean;
+        plan: string | null;
+        subscription_status: string;
+        failed_payment_count: number;
+        current_period_end: string | null;
+        call_count: number;
+        minutes_used: number;
+      }>;
+    }>("/api/superadmin/tenants"),
 };
 

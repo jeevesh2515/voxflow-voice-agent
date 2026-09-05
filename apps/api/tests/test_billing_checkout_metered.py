@@ -122,7 +122,7 @@ def test_checkout_both_missing_uses_inline_price_data(fresh_db, fake_stripe, db,
     line_items = fake_stripe.checkout_calls[0]["line_items"]
     assert len(line_items) == 1
     assert line_items[0]["quantity"] == 1
-    assert line_items[0]["price_data"]["unit_amount"] == 4900
+    assert line_items[0]["price_data"]["unit_amount"] == 14900
     assert line_items[0]["price_data"]["recurring"] == {"interval": "month"}
 
 

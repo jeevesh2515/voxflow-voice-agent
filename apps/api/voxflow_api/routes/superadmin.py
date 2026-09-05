@@ -60,6 +60,11 @@ def list_tenants(_authed: Any = Depends(_superadmin_guard)) -> dict[str, Any]:
             "name": tenant.name,
             "active": bool(tenant.active),
             "plan": getattr(tenant, "plan", None),
+            "subscription_status": getattr(tenant, "subscription_status", None) or "trialing",
+            "failed_payment_count": getattr(tenant, "failed_payment_count", None) or 0,
+            "current_period_end": (
+                tenant.current_period_end.isoformat() if getattr(tenant, "current_period_end", None) else None
+            ),
             "call_count": calls_by_tenant.get(tenant.id, 0),
             "minutes_used": minutes_by_tenant.get(tenant.id, 0),
         }

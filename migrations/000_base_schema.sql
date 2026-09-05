@@ -61,6 +61,7 @@ CREATE TABLE IF NOT EXISTS tenants (
 	subscription_status VARCHAR(32) DEFAULT 'trialing' NOT NULL,
 	current_period_end TIMESTAMP WITH TIME ZONE,
 	cancel_at_period_end INTEGER DEFAULT 0 NOT NULL,
+	failed_payment_count INTEGER DEFAULT 0 NOT NULL,
 	created_at TIMESTAMP WITH TIME ZONE NOT NULL,
 	PRIMARY KEY (id)
 );
@@ -119,6 +120,32 @@ CREATE INDEX IF NOT EXISTS ix_drill_results_fixture_type ON drill_results (fixtu
 CREATE INDEX IF NOT EXISTS ix_drill_results_outcome ON drill_results (outcome);
 
 CREATE INDEX IF NOT EXISTS ix_drill_results_tenant_id ON drill_results (tenant_id);
+
+CREATE TABLE IF NOT EXISTS invoices (
+	id VARCHAR(128) NOT NULL,
+	tenant_id VARCHAR(64) NOT NULL,
+	subscription_id VARCHAR(128),
+	amount_due_pence INTEGER DEFAULT 0 NOT NULL,
+	amount_paid_pence INTEGER DEFAULT 0 NOT NULL,
+	currency VARCHAR(8) DEFAULT 'gbp' NOT NULL,
+	status VARCHAR(32) NOT NULL,
+	attempt_count INTEGER DEFAULT 1 NOT NULL,
+	next_payment_attempt TIMESTAMP WITH TIME ZONE,
+	invoice_pdf_url TEXT,
+	hosted_invoice_url TEXT,
+	paid_at TIMESTAMP WITH TIME ZONE,
+	created_at TIMESTAMP WITH TIME ZONE NOT NULL,
+	PRIMARY KEY (id),
+	FOREIGN KEY(tenant_id) REFERENCES tenants (id)
+);
+
+CREATE INDEX IF NOT EXISTS ix_invoices_status ON invoices (status);
+
+CREATE INDEX IF NOT EXISTS ix_invoices_subscription_id ON invoices (subscription_id);
+
+CREATE INDEX IF NOT EXISTS ix_invoices_tenant_created ON invoices (tenant_id, created_at);
+
+CREATE INDEX IF NOT EXISTS ix_invoices_tenant_id ON invoices (tenant_id);
 
 CREATE TABLE IF NOT EXISTS job_outbox (
 	id VARCHAR(64) NOT NULL,
@@ -489,6 +516,29 @@ CREATE TABLE IF NOT EXISTS stock (
 CREATE INDEX IF NOT EXISTS ix_stock_sku ON stock (sku);
 
 CREATE INDEX IF NOT EXISTS ix_stock_tenant_id ON stock (tenant_id);
+
+CREATE TABLE IF NOT EXISTS subscriptions (
+	id VARCHAR(128) NOT NULL,
+	tenant_id VARCHAR(64) NOT NULL,
+	stripe_customer_id VARCHAR(128),
+	status VARCHAR(32) DEFAULT 'trialing' NOT NULL,
+	plan_tier VARCHAR(32) DEFAULT 'starter' NOT NULL,
+	current_period_start TIMESTAMP WITH TIME ZONE,
+	current_period_end TIMESTAMP WITH TIME ZONE,
+	cancel_at_period_end INTEGER DEFAULT 0 NOT NULL,
+	canceled_at TIMESTAMP WITH TIME ZONE,
+	failed_payment_count INTEGER DEFAULT 0 NOT NULL,
+	created_at TIMESTAMP WITH TIME ZONE NOT NULL,
+	updated_at TIMESTAMP WITH TIME ZONE NOT NULL,
+	PRIMARY KEY (id),
+	FOREIGN KEY(tenant_id) REFERENCES tenants (id)
+);
+
+CREATE INDEX IF NOT EXISTS ix_subscriptions_status ON subscriptions (status);
+
+CREATE INDEX IF NOT EXISTS ix_subscriptions_stripe_customer_id ON subscriptions (stripe_customer_id);
+
+CREATE INDEX IF NOT EXISTS ix_subscriptions_tenant_id ON subscriptions (tenant_id);
 
 CREATE TABLE IF NOT EXISTS suppliers (
 	id VARCHAR(64) NOT NULL,

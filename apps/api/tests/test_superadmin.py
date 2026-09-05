@@ -76,6 +76,7 @@ def test_env_allow_list_admin_lists_tenants_and_minutes(client):
     for row in body["tenants"]:
         assert set(row) == {
             "tenant_id", "name", "active", "plan", "call_count", "minutes_used",
+            "subscription_status", "failed_payment_count", "current_period_end",
         }
         assert row["call_count"] >= 0
         assert row["minutes_used"] >= 0

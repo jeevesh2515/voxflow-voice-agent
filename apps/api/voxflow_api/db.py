@@ -213,6 +213,7 @@ class Tenant(Base):
     subscription_status: Mapped[str] = mapped_column(String(32), default="trialing", server_default=text("'trialing'"))
     current_period_end: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     cancel_at_period_end: Mapped[int] = mapped_column(Integer, default=0, server_default=text("0"))
+    failed_payment_count: Mapped[int] = mapped_column(Integer, default=0, server_default=text("0"))
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_utcnow)
 
 
@@ -1072,6 +1073,48 @@ class TenantBillingInvoice(Base):
     amount_paid_cents: Mapped[int] = mapped_column(Integer, default=0)
     currency: Mapped[str] = mapped_column(String(8), default="gbp", server_default=text("'gbp'"))
     status: Mapped[str] = mapped_column(String(32))  # paid | open | void | uncollectible
+    invoice_pdf_url: Mapped[str | None] = mapped_column(Text, nullable=True)
+    hosted_invoice_url: Mapped[str | None] = mapped_column(Text, nullable=True)
+    paid_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_utcnow)
+
+
+class Subscription(Base):
+    """Active or historical Stripe subscription state for a tenant."""
+
+    __tablename__ = "subscriptions"
+
+    id: Mapped[str] = mapped_column(String(128), primary_key=True)
+    tenant_id: Mapped[str] = mapped_column(String(64), ForeignKey("tenants.id"), index=True)
+    stripe_customer_id: Mapped[str | None] = mapped_column(String(128), nullable=True, index=True)
+    status: Mapped[str] = mapped_column(String(32), default="trialing", server_default=text("'trialing'"), index=True)
+    plan_tier: Mapped[str] = mapped_column(String(32), default="starter", server_default=text("'starter'"))
+    current_period_start: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    current_period_end: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    cancel_at_period_end: Mapped[int] = mapped_column(Integer, default=0, server_default=text("0"))
+    canceled_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    failed_payment_count: Mapped[int] = mapped_column(Integer, default=0, server_default=text("0"))
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_utcnow)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_utcnow, onupdate=_utcnow)
+
+
+class Invoice(Base):
+    """Immutable per-tenant receipt for a Stripe invoice."""
+
+    __tablename__ = "invoices"
+    __table_args__ = (
+        Index("ix_invoices_tenant_created", "tenant_id", "created_at"),
+    )
+
+    id: Mapped[str] = mapped_column(String(128), primary_key=True)
+    tenant_id: Mapped[str] = mapped_column(String(64), ForeignKey("tenants.id"), index=True)
+    subscription_id: Mapped[str | None] = mapped_column(String(128), nullable=True, index=True)
+    amount_due_pence: Mapped[int] = mapped_column(Integer, default=0, server_default=text("0"))
+    amount_paid_pence: Mapped[int] = mapped_column(Integer, default=0, server_default=text("0"))
+    currency: Mapped[str] = mapped_column(String(8), default="gbp", server_default=text("'gbp'"))
+    status: Mapped[str] = mapped_column(String(32), index=True)
+    attempt_count: Mapped[int] = mapped_column(Integer, default=1, server_default=text("1"))
+    next_payment_attempt: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     invoice_pdf_url: Mapped[str | None] = mapped_column(Text, nullable=True)
     hosted_invoice_url: Mapped[str | None] = mapped_column(Text, nullable=True)
     paid_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
