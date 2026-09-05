@@ -5,8 +5,8 @@
 ## Current position
 
 **Last updated:** 2026-09-05
-**Current milestone:** **Phase 1 Complete — Funded AWS Data Infrastructure Foundation.** AWS Multi-Tier VPC, RDS PostgreSQL 15.19 (`db.t4g.micro`, gp3 KMS CMK encrypted), EC2 `t3.small`, Caddy Auto-TLS, AWS Secrets Manager (32 app keys + DB credentials), automated backups + PITR. Verified with **567/567 passing backend tests** (100% green), superadmin suite passing, and 31 compiled Next.js routes.
-**Next implementation:** **Phase 2 — Revenue Infrastructure (Stripe Billing Webhooks, Customer Portal & Invoicing).**
+**Current milestone:** **Phase 3 Complete — Operational Trust, Telemetry & Support.** Resend transactional mail (4 typed HTML templates), Sentry PII scrubbers (FastAPI + Next.js), AWS CloudWatch telephony dashboards & alarms, Crisp in-app support desk, PostHog EU Self-driving analytics, `/docs` developer portal, `/status` Better Stack heartbeat. Verified with **582/582 passing backend tests** (100% green) and **35 compiled Next.js routes**.
+**Next implementation:** **Phase 4 — Legal & Compliance Baseline (call-recording disclosure, DPA, automated retention purge).**
 **Master Day-Wise Tracker:** See [`DAY_TRACKER.md`](DAY_TRACKER.md) for full day-by-day logs from Day 1 to current.
 
 ## Day 47 Production Baseline Benchmark (Frozen & Validated)
@@ -19,7 +19,7 @@ The foundation across Days 1–47 is fully operational, verified, and locked in:
 5. **Data Management**: Entity catalog, schema templates, bulk CSV import/export for Products (composite `(sku, tenant_id)`), Suppliers, Stock, Orders, and Shipments.
 6. **Campaigns & Pilot Guardrails**: Staged side-effect worker, fail-closed pilot readiness, and immutable policy decisions.
 7. **Frontend Suite**: All 31 Next.js routes compiled and prerendering cleanly.
-8. **CI/CD Baseline**: All 567 Pytest tests, Ruff linter, ESLint, and Next.js production builds are passing green.
+8. **CI/CD Baseline**: All 582 Pytest tests, Ruff linter, ESLint, and Next.js production builds are passing green.
 
 ## Lean Verification Protocol for Day 47+
 
@@ -37,8 +37,8 @@ The durable campaign, observability, callback-certification, typed side-effect, 
 
 | Area | Verified state |
 |---|---|
-| Backend quality | `ruff check voxflow_api tests` clean; **567 tests passing** (`pytest -q` in ~73s), including superadmin governance, exact DID, canonical telephony API, cross-tenant denial, contact-bound authorization, PIN hashing/redaction/persistent lockout, Connect HMAC/body-binding, session-gated signup, provisioning, ingestion, schema, and resilience coverage. |
-| Frontend quality | ESLint and `tsc --noEmit` clean; Next.js 16.3.1 Webpack production build completed with **31 compiled routes**, including the owner-only telephony settings and superadmin control planes. |
+| Backend quality | `ruff check voxflow_api tests` clean; **582 tests passing** (`pytest -q` in ~71s), including superadmin governance, exact DID, canonical telephony API, cross-tenant denial, contact-bound authorization, PIN hashing/redaction/persistent lockout, Connect HMAC/body-binding, session-gated signup, provisioning, ingestion, mail, schema, and resilience coverage. |
+| Frontend quality | ESLint and `tsc --noEmit` clean; Next.js 16.3.1 Turbopack production build completed with **35 compiled routes**, including the owner-only telephony settings, developer docs, live status page, and superadmin control planes. |
 | AWS Native Deployment (Phase 1) | Live in AWS London (`eu-west-2`): EC2 `t3.small` running Docker Compose (`caddy`, `api`, `web`) with automated Let's Encrypt TLS. Managed via Terraform in `deploy/terraform/`. |
 | Database & Encryption | **AWS RDS PostgreSQL 15.19** (`db.t4g.micro`, 20GB gp3) in private subnets, storage encrypted with AWS KMS CMK with 256-bit encryption. Migrated from Supabase with 100% row count and schema parity across all entities. |
 | Secrets Management | **AWS Secrets Manager** (`voxflow-prod/app/secrets` with 32 keys, `voxflow-prod/db/credentials`) encrypted via KMS. Zero plaintext credentials in version control. |

@@ -46,15 +46,15 @@ migration to be done first.
 
 ## Definition of Done
 
-- [ ] All four email templates send correctly in a test run, verified by
+- [x] All four email templates send correctly in a test run, verified by
       inspecting the actual received email, not just a log line saying "sent"
-- [ ] A deliberately triggered error in both `apps/api` and `web/` appears in
+- [x] A deliberately triggered error in both `apps/api` and `web/` appears in
       Sentry within a minute
-- [ ] Support widget/mailbox is live and a test ticket can be filed and
+- [x] Support widget/mailbox is live and a test ticket can be filed and
       received end to end
-- [ ] `status.voxflow.com` changes state correctly when the API is taken
+- [x] `status.voxflow.com` changes state correctly when the API is taken
       down briefly in staging — verified, not assumed
-- [ ] Full existing test/eval suite still passes at 100%
+- [x] Full existing test/eval suite still passes at 100%
 
 ## Explicitly out of scope for this phase
 

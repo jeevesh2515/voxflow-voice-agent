@@ -13,8 +13,8 @@
 
 <p align="center">
   <img src="https://img.shields.io/badge/CI%2FCD-100%25%20PASSING-success?style=for-the-badge&logo=githubactions&logoColor=white&labelColor=111827" alt="CI Status" />
-  <img src="https://img.shields.io/badge/TESTS-574%20PASSED-10B981?style=for-the-badge&logo=pytest&logoColor=white&labelColor=111827" alt="574 Pytest Tests Passed" />
-  <img src="https://img.shields.io/badge/FRONTEND-32%20ROUTES-6366F1?style=for-the-badge&logo=nextdotjs&logoColor=white&labelColor=111827" alt="32 Next.js Routes" />
+  <img src="https://img.shields.io/badge/TESTS-582%20PASSED-10B981?style=for-the-badge&logo=pytest&logoColor=white&labelColor=111827" alt="582 Pytest Tests Passed" />
+  <img src="https://img.shields.io/badge/FRONTEND-35%20ROUTES-6366F1?style=for-the-badge&logo=nextdotjs&logoColor=white&labelColor=111827" alt="35 Next.js Routes" />
   <img src="https://img.shields.io/badge/VOICE-ENGLISH%20%28UK%29%20NATIVE-F97316?style=for-the-badge&labelColor=111827" alt="English (UK) Native Voice" />
   <img src="https://img.shields.io/badge/GROUNDING-ZERO--HALLUCINATION%20RAG-0F766E?style=for-the-badge&logo=shield&logoColor=white&labelColor=111827" alt="Zero-Hallucination Grounding" />
 </p>
@@ -180,7 +180,7 @@ flowchart TD
 
 | Step | Component | Action & Deliverable |
 | :--- | :--- | :--- |
-| **1. Instant Sign-Up** | `/sign-up` | Email/password registration with operational language choice (`en` / `hi`) and Cloudflare Turnstile bot gating. |
+| **1. Instant Sign-Up** | `/sign-up` | Email/password registration with operational English (UK) voice defaults and Cloudflare Turnstile bot gating. |
 | **2. Auto-Provisioning** | `POST /api/auth/signup` | Automatic tenant slug disambiguation (`apex-logistics-ltd`, `apex-logistics-ltd-2`), DB tenant creation, and `ROLE_OWNER` assignment. |
 | **3. Starter Data Seeding** | `provision_tenant()` | Auto-populates 3 SKUs, warehouse stock levels, primary supplier depot, purchase order `PO-1001`, and tracked shipment. |
 | **4. Onboarding Wizard** | `/onboarding` | 4-step guided setup: agent persona customization, catalog overview, 1-click live test prompt, and instant dashboard launch. |
@@ -265,7 +265,7 @@ flowchart LR
 - **Secure Caller Verification**: Standard and enhanced policies combine knowledge verification with owner-configured 4–8 digit PINs stored as uniquely salted PBKDF2-HMAC-SHA256 verifiers, plus a persistent cross-session lockout that stops brute-force guessing across many separate calls, not just within one.
 - **Owner-Only Telephony Control Plane**: `/dashboard/settings` manages provider, route language, verification mode, activation state, and masked caller-PIN posture without displaying secrets or hashes.
 - **Session-Gated Self-Serve Signup**: Workspace provisioning only completes after a live authenticated session is confirmed, so a new sign-up can never be silently stranded owning an unclaimable placeholder-owned tenant.
-- **Full Operational Dashboard**: 32 compiled Next.js routes covering Calls, Escalations, Appointments, Inventory, Shipments, Data Hub & CSV, Campaigns, Settings, Observability, Privacy & GDPR, Readiness Scorecard, Pricing, Contact, Web-based Call Simulators, and the Superadmin Governance Control Plane.
+- **Full Operational Dashboard**: 35 compiled Next.js routes covering Calls, Escalations, Appointments, Inventory, Shipments, Data Hub & CSV, Campaigns, Settings, Observability, Privacy & GDPR, Readiness Scorecard, Pricing, Contact, Developer Docs (/docs), Live System Status (/status), Web-based Call Simulators, and the Superadmin Governance Control Plane.
 
 ### 5. 🛡️ Voice Eval Harness & Release Gate #5
 Every code change is validated against a repeatable, CI-integrated evaluation harness before deployment — so you can answer *"How do you know it won't say the wrong thing to my customer?"* with documented evidence.
@@ -301,6 +301,17 @@ Replaced legacy deprecated usage records with the modern **Stripe Billing Meters
 - **Crash-Safe Idempotency**: Stable identifiers `voxflow-call-meter-<call.id>` enforced within Stripe's rolling $\ge 24$h deduplication window.
 - **Database Ledger & Partial Indexing**: `metering_billed_at` and `metering_event_id` recorded on `calls` with partial index `ix_calls_metering_pending` for fast cron batch scans.
 - **Periodic CLI Reporter**: `python3 scripts/run_meter_report.py` (dry-run default, `--execute` live) with exponential backoff retry classification (`retry.py`).
+
+### 9. 🛡️ Operational Trust, Telemetry & Support Desk (Phase 3)
+Enterprise production resilience, customer support, and system visibility:
+
+- **Transactional Email Service (`mail.py`)**: Resend integration delivering 4 branded HTML and React Email templates: Password Reset, Tenant Welcome (on tenant provisioning), Invoice/Receipt (triggered on `invoice.paid`), and Escalation Summaries.
+- **Sentry Full-Stack Telemetry**: Integrated across FastAPI (`apps/api`) and Next.js (`apps/web`) with automated PII scrubbing (masking tokens, PINs, phone numbers, emails, and credentials).
+- **AWS CloudWatch Telephony Dashboards**: Dedicated operational dashboards and Terraform alarms for Amazon Connect turns and Lambda execution (error rates, P95 latency spikes, and throttling).
+- **In-App Crisp Support Desk**: Omnichannel support desk widget embedded across public pages and operational dashboard (`SupportButton.tsx`), routing inquiries directly to `support@voxflow.com`.
+- **Developer Documentation Portal (`/docs`)**: Comprehensive reference for REST APIs, Webhook integrations, AWS Connect telephony setups, and SDKs.
+- **Live System Status & Better Stack Heartbeat (`/status`)**: Public status dashboard reflecting real-time API uptime, database latency, telephony connectivity, and automated synthetic heartbeat probes.
+- **PostHog Product Analytics (EU Cloud)**: Self-driving product telemetry with automated Next.js App Router pageview and interaction tracking hosted on PostHog EU (`https://eu.i.posthog.com`).
 
 ```bash
 # Run the eval harness locally (mock LLM, zero cost)
@@ -387,7 +398,7 @@ npm run dev
 Run all automated test suites locally:
 
 ```bash
-# 1. Run full backend test suite (567 unit, integration, superadmin, isolation, metering & RBAC tests)
+# 1. Run full backend test suite (582 unit, integration, superadmin, isolation, metering, mail & RBAC tests)
 cd apps/api
 .venv/bin/python -m pytest -q
 
@@ -400,7 +411,7 @@ cd apps/api
 # 4. Run Voice Eval Harness (30 scenarios, hard gate enforcement)
 python3 scripts/run_evals.py --mock --strict
 
-# 5. Run frontend lint, ROI / latency tests, and production build (31 routes)
+# 5. Run frontend lint, ROI / latency tests, and production build (35 routes)
 cd ../web
 npx tsx src/lib/roi.test.ts
 npx tsx src/lib/voiceXray.test.ts

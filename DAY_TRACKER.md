@@ -2,8 +2,8 @@
 
 **Project:** VoxFlow — Voice Operations for Modern Supply Chains  
 **Repository:** `jeevesh2515/voxflow-voice-agent`  
-**Current Test Suite:** **574 Passing Tests** (`pytest apps/api/tests -q`)
-**Frontend Surface:** **32 Compiled Routes** (Next.js 16 App Router, Turbopack production validation)
+**Current Test Suite:** **582 Passing Tests** (`pytest apps/api/tests -q`)
+**Frontend Surface:** **35 Compiled Routes** (Next.js 16 App Router, Turbopack production validation)
 **Deployment Infrastructure:** AWS eu-west-2 (London) Primary: EC2 `t3.small` + AWS RDS PostgreSQL 15.19 + AWS Secrets Manager + KMS + Caddy Auto-TLS / Standby: Oracle Cloud Always-Free ARM VM / Frontend Mirror: Vercel Edge Network (`https://voxflow-voice-agent.vercel.app`)  
 **Last Updated:** 2026-09-05
 
@@ -28,6 +28,7 @@
 | **Phase 14** | 58 | Cloud-First Groq LLM & Zero Local Footprint | ✅ Complete | Multi-model Groq cascade (`openai/gpt-oss-20b`), Whisper turbo STT, Edge-TTS, zero local compute footprint. |
 | **Phase 1 (AWS Migration)** | 59 | Funded AWS Data Infrastructure Foundation | ✅ Complete | Terraform VPC in eu-west-2, AWS RDS PostgreSQL 15.19, EC2 t3.small, Caddy Auto-TLS on DuckDNS, Secrets Manager + KMS, PITR backups, 567 tests. |
 | **Phase 2 (Revenue Infra)** | 60 | Revenue Infrastructure & UK B2B Pricing | ✅ Complete | Stripe Products/Prices (£149/£449/£1,499), Subscriptions & Invoices tables, RLS, dunning grace period & auto-suspension, Superadmin telemetry, 574 tests. |
+| **Phase 3 (Operational Trust)** | 61 | Operational Trust, Telemetry & Support | ✅ Complete | Resend transactional mail (4 templates), Sentry PII scrubbers, CloudWatch dashboards & alarms, Crisp in-app support desk, PostHog Self-driving EU analytics, /docs, /status Better Stack heartbeat, 582 tests. |
 
 ---
 
@@ -901,8 +902,8 @@
 
 | Metric | Target | Current Value | Status |
 |---|---|---|---|
-| **Backend Unit & Integration Tests** | $\ge 200$ | **574 Passed** | ✅ Green |
-| **Frontend Static Routes** | $\ge 15$ | **32 Compiled Pages** | ✅ Green |
+| **Backend Unit & Integration Tests** | $\ge 200$ | **582 Passed** | ✅ Green |
+| **Frontend Static Routes** | $\ge 15$ | **35 Compiled Pages** | ✅ Green |
 | **Lint & Static Analysis** | 0 warnings | `ruff check .` clean, ESLint clean, `tsc --noEmit` clean | ✅ Clean |
 | **Latency & TTFT Benchmarks** | Sub-second P50 | **P50 ~199ms LLM Tool Calling (Groq Cloud LPU)** | ✅ Verified |
 | **Database Migrations** | Staged & Verified | 27 Migrations (`000`–`026`) synchronized on Postgres | ✅ Current |

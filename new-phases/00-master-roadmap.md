@@ -15,7 +15,7 @@ phases can run in parallel, noted below.
 - **If a step doesn't match reality** — a file, table, or function named in a
   phase doesn't actually exist in the repo — the agent should stop and report
   the discrepancy, not invent a plausible-sounding substitute and continue.
-- **The existing test/eval suite (508 tests, 30 evals via
+- **The existing test/eval suite (582 tests, 30 evals via
   `scripts/run_evals.py --strict`) must stay green after every phase.**
 
 ## Phase order and real dependencies
@@ -23,12 +23,12 @@ phases can run in parallel, noted below.
 | Phase | Objective | Scope & Architecture | Status |
 |---|---|---|---|
 | **Phase 1** | Funded Infrastructure Migration | AWS RDS PostgreSQL 15.19, EC2 t3.small, Secrets Manager + KMS, Caddy Auto-TLS in eu-west-2 | ✅ Complete |
-| **Phase 2** | Revenue Infrastructure (Stripe) | Stripe metered billing, automated invoicing, customer portal, webhook lifecycle | 🚀 Up Next |
-| **Phase 3** | Operational Trust & Observability | Sentry telemetry, automated alerting, SQS DLQ redrive, high-durability logging | Planned |
-| **Phase 4** | Legal & Compliance Baseline | GDPR/HIPAA compliance, DPA templates, automated data retention purges, audit trails | Planned |
+| **Phase 2** | Revenue Infrastructure (Stripe) | Stripe metered billing, automated invoicing, customer portal, webhook lifecycle, UK B2B pricing | ✅ Complete |
+| **Phase 3** | Operational Trust & Observability | Resend mail service (4 templates), Sentry telemetry, CloudWatch dashboards, Crisp support, PostHog EU analytics, /docs, /status | ✅ Complete |
+| **Phase 4** | Legal & Compliance Baseline | Call recording disclosure, consent evidence signing, automated retention purge, DPA templates | 🚀 Up Next |
 | **Phase 5** | Go-to-Market Surface | Developer docs, interactive onboarding, self-serve tenant provisioning | Planned |
 | **Phase 6** | Enterprise Readiness | Enterprise SSO (SAML/Okta), SOC 2 Type I readiness, Multi-AZ high availability | Planned |
 | **Phase 7** | Scale & Retention | Enterprise integration marketplace (SAP/NetSuite/Salesforce), SLA guarantees | Planned |
 
-Phase 1 is complete and running live in AWS eu-west-2 (London): Multi-tier VPC, AWS RDS PostgreSQL 15.19 (`db.t4g.micro`, KMS CMK encrypted), EC2 `t3.small`, Caddy Auto-TLS, AWS Secrets Manager (32 app keys + DB credentials), and 7-day PITR automated backups. Phase 2 (Stripe Revenue Infrastructure) is the active next phase.
+Phase 1 (AWS Native eu-west-2), Phase 2 (Stripe Revenue Infrastructure & UK B2B Pricing), and Phase 3 (Operational Trust, Resend Email, Sentry, CloudWatch, Crisp, PostHog Self-driving, `/docs`, and `/status`) are complete with 582 passing tests. Phase 4 (Legal & Compliance Baseline) is the active next phase.
 

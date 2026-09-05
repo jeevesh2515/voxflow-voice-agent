@@ -7,6 +7,9 @@ from sqlalchemy import desc, func, or_, select
 from sqlalchemy.orm import Session
 
 from ..db import Call, Tenant, TenantMember
+from ..logging import get_logger
+
+log = get_logger(__name__)
 
 VALID_PRIORITIES = {"critical", "high", "medium", "low"}
 VALID_STATUSES = {"none", "pending", "in_progress", "resolved", "dismissed"}

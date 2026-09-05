@@ -1,7 +1,6 @@
 """Unit tests for Phase 3 typed transactional email service."""
 import pytest
 import respx
-import httpx
 from voxflow_api.config import get_settings
 from voxflow_api.services.mail import (
     RESEND_API_URL,
@@ -10,9 +9,7 @@ from voxflow_api.services.mail import (
     InvoiceReceiptEmailParams,
     EscalationSummaryEmailParams,
     send_welcome_email,
-    send_password_reset_email,
     send_invoice_receipt_email,
-    send_escalation_summary_email,
     render_welcome_html,
     render_password_reset_html,
     render_invoice_receipt_html,

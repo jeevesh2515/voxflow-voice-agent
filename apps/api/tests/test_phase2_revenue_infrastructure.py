@@ -21,7 +21,7 @@ import pytest
 from fastapi.testclient import TestClient
 
 from voxflow_api.config import get_settings
-from voxflow_api.db import Invoice, Subscription, Tenant, TenantBillingInvoice, TenantMember, session_scope
+from voxflow_api.db import Invoice, Subscription, Tenant, TenantBillingInvoice, session_scope
 from voxflow_api.main import create_app
 from voxflow_api.services.billing_service import (
     PLAN_CATALOG,

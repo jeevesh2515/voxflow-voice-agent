@@ -17,7 +17,7 @@ no exceptions:
 4. Definition of Done checkboxes must be verified, not assumed. Run the
    actual test, command, or manual check each item describes and show me
    the real output. Don't check a box because the code "should" work.
-5. The existing test suite (567 tests) and eval harness
+5. The existing test suite (582 tests) and eval harness
    (`scripts/run_evals.py --strict`, 30 scenarios) must stay green after
    every phase. Run them at the end and report the actual output, not a
    summary claim.

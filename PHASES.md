@@ -1,7 +1,7 @@
 # VoxFlow Delivery Phases
 
 **Last updated:** 2026-09-05
-**Current position:** **Phase 1 Complete — AWS Data Infrastructure Foundation.** AWS Multi-Tier VPC, RDS PostgreSQL 15.19 (`db.t4g.micro`, gp3 KMS encrypted), EC2 `t3.small`, Caddy Auto-TLS, AWS Secrets Manager (32 app keys + DB credentials), automated backups + PITR. Verified with **567/567 passing backend tests** (100% green), superadmin suite passing, and 31 compiled Next.js routes. Comprehensive day-by-day logs are catalogued in [`DAY_TRACKER.md`](DAY_TRACKER.md).
+**Current position:** **Phase 3 Complete — Operational Trust, Telemetry & Support.** Resend transactional mail (4 typed HTML templates), Sentry PII scrubbers, CloudWatch telephony dashboards & alarms, Crisp in-app support desk, PostHog EU Self-driving analytics, `/docs` developer portal, `/status` Better Stack heartbeat. Verified with **582/582 passing backend tests** (100% green) and **35 compiled Next.js routes**. Next: **Phase 4 — Legal & Compliance Baseline.**
 **Planning rule:** A milestone is complete only when its implementation, automated verification, deployment result, and safety boundary are recorded.
 
 ## Programme status
@@ -23,6 +23,8 @@
 | Go-Live Preflight & Landing | 54–55 | Complete | Day 54: 7-pillar gate (`golive_dry_run.py --strict`); Day 55: 5-keyframe cosmic journey hero (556KB, 8/10 credits, 507 tests, 29 routes). |
 | Phase 0: Demo Readiness & Tooling | 56–58 | Complete | Anti-hallucination RAG, Connect recordings S3+DLQ, Cloud Groq LLM factory, Superadmin dashboard (`/superadmin`), status page (`/status`), Crisp & Resend integration, 550 tests. |
 | Phase 1: AWS Data Infrastructure Foundation | 59 | Complete | Terraform VPC in eu-west-2, AWS RDS PostgreSQL 15.19, EC2 t3.small, Caddy Auto-TLS, Secrets Manager + KMS, 100% Supabase parity, PITR, 567 tests. |
+| Phase 2: Revenue Infrastructure (Stripe) | 60 | ✅ Complete | Stripe Products/Prices (£149/£449/£1,499), UK B2B pricing, Subscriptions & Invoices tables, dunning, portal, 574 tests. |
+| Phase 3: Operational Trust | 61 | ✅ Complete | Resend mail (4 templates), Sentry PII scrubbers, CloudWatch alarms, Crisp support desk, PostHog EU analytics, /docs, /status, 582 tests. |
 
 > For the comprehensive, day-by-day implementation log from Day 1 to current, see [`DAY_TRACKER.md`](DAY_TRACKER.md).
 
@@ -46,6 +48,8 @@
 | 57 | Complete | UK Connect call recording S3 storage + SQS DLQ, Stripe metered billing usage reporting cron. |
 | 58 | Complete | Cloud-first Groq LLM factory (`openai/gpt-oss-20b`), Groq Whisper STT, Edge-TTS, zero local compute footprint. |
 | 59 | Complete | **Phase 1: Funded AWS Infrastructure Migration** — Terraform VPC in eu-west-2, AWS RDS Postgres 15.19, EC2 t3.small, Caddy Auto-TLS, Secrets Manager + KMS, 100% data parity with Supabase, automated backups + PITR, 567/567 passing tests. |
+| 60 | Complete | **Phase 2: Revenue Infrastructure** — Stripe Products/Prices (£149/£449/£1,499 UK B2B), Subscriptions & Invoices tables, RLS, dunning grace period & auto-suspension, Superadmin billing telemetry, 574/574 passing tests. |
+| 61 | Complete | **Phase 3: Operational Trust** — Resend `mail.py` (4 typed HTML templates), Sentry FastAPI+Next.js with PII scrubbers, CloudWatch dashboards & Terraform alarms, Crisp in-app support desk (`SupportButton.tsx`), PostHog EU Self-driving analytics, `/docs` portal, `/status` Better Stack heartbeat, 582/582 passing tests. |
 
 ## Historical foundation: Days 1–24
 
