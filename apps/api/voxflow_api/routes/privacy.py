@@ -408,6 +408,7 @@ def post_purge(
             records_scanned=result["records_scanned"],
             calls_anonymized=result["calls_anonymized"],
             transcripts_purged=result["transcripts_purged"],
+            recordings_deleted=result.get("recordings_deleted", 0),
             dry_run=1,
         )
         db.add(log)

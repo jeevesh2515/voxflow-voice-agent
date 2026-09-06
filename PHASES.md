@@ -1,7 +1,7 @@
 # VoxFlow Delivery Phases
 
-**Last updated:** 2026-09-05
-**Current position:** **Phase 3 Complete — Operational Trust, Telemetry & Support.** Resend transactional mail (4 typed HTML templates), Sentry PII scrubbers, CloudWatch telephony dashboards & alarms, Crisp in-app support desk, PostHog EU Self-driving analytics, `/docs` developer portal, `/status` Better Stack heartbeat. Verified with **582/582 passing backend tests** (100% green) and **35 compiled Next.js routes**. Next: **Phase 4 — Legal & Compliance Baseline.**
+**Last updated:** 2026-09-06
+**Current position:** **Phase 4 Complete — Legal & Compliance Baseline, Custom Domain & Email Routing.** UK GDPR Terms & Privacy live with role-specific aliases (`privacy@voxflow.cc`, `legal@voxflow.cc`, `contact@voxflow.cc`), `/subprocessors` schedule, DPA template, Cloudflare DNS + Email Routing active, real S3 recording deletion with migration `027_retention_recordings_deleted.sql`, and live production custom domain `https://voxflow.cc` on Vercel. Verified with **585/585 passing backend tests** (100% green) and **36 compiled Next.js routes**.
 **Planning rule:** A milestone is complete only when its implementation, automated verification, deployment result, and safety boundary are recorded.
 
 ## Programme status
@@ -25,6 +25,7 @@
 | Phase 1: AWS Data Infrastructure Foundation | 59 | Complete | Terraform VPC in eu-west-2, AWS RDS PostgreSQL 15.19, EC2 t3.small, Caddy Auto-TLS, Secrets Manager + KMS, 100% Supabase parity, PITR, 567 tests. |
 | Phase 2: Revenue Infrastructure (Stripe) | 60 | ✅ Complete | Stripe Products/Prices (£149/£449/£1,499), UK B2B pricing, Subscriptions & Invoices tables, dunning, portal, 574 tests. |
 | Phase 3: Operational Trust | 61 | ✅ Complete | Resend mail (4 templates), Sentry PII scrubbers, CloudWatch alarms, Crisp support desk, PostHog EU analytics, /docs, /status, 582 tests. |
+| Phase 4: Legal Baseline & Custom Domain | 62 | ✅ Complete | Compliance Baseline, `voxflow.cc` registered + Cloudflare DNS/Email Routing (`contact@`, `legal@`, `privacy@`), S3 recording deletion, 585 tests, 36 routes. |
 
 > For the comprehensive, day-by-day implementation log from Day 1 to current, see [`DAY_TRACKER.md`](DAY_TRACKER.md).
 

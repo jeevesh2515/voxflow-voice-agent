@@ -29,7 +29,7 @@ from voxflow_api.services.privacy_service import (
     mask_email_address,
     mask_phone_number,
 )
-from voxflow_api.services.retention_service import run_retention_purge
+from voxflow_api.services.retention_service import delete_recording_object, run_retention_purge
 
 client = TestClient(app)
 
@@ -270,6 +270,125 @@ def test_retention_purge_and_dry_run():
         assert c_ancient_r.caller_phone == "REDACTED"
         assert c_fresh_r.transcript_json != "[]"
         assert c_fresh_r.caller_name == "Fresh Caller"
+
+
+def test_retention_purge_deletes_stored_recordings_not_just_urls():
+    """Nulling recording_url orphans audio in the bucket — the purge must delete bytes.
+
+    A fake deleter stands in for S3 (no network, no creds). The purge must call
+    it exactly once for the expired call carrying an s3:// URL, never for the
+    fresh call, and the audit result must carry the deletion count.
+    """
+
+    tenant_id = "t_gdpr_recording_delete"
+    _seed_tenant(tenant_id, "Recording Delete Tenant")
+    now = datetime.now(timezone.utc)
+
+    with session_scope() as db:
+        db.add(
+            Call(
+                id="call_rec_old",
+                tenant_id=tenant_id,
+                caller_phone="+447911444444",
+                caller_name="Old Recorded Caller",
+                transcript_json=json.dumps([{"role": "user", "text": "old"}]),
+                recording_url="s3://connect-recordings-bucket/connect/inst-1/2026/01/01/c1/rec.wav",
+                started_at=now - timedelta(days=120),
+            )
+        )
+        db.add(
+            Call(
+                id="call_rec_fresh",
+                tenant_id=tenant_id,
+                caller_phone="+447911555555",
+                caller_name="Fresh Recorded Caller",
+                transcript_json=json.dumps([{"role": "user", "text": "fresh"}]),
+                recording_url="s3://connect-recordings-bucket/connect/inst-1/2026/09/01/c2/rec.wav",
+                started_at=now - timedelta(days=5),
+            )
+        )
+
+    deleted_urls: list[str] = []
+    with session_scope() as db:
+        res = run_retention_purge(
+            db,
+            tenant_id=tenant_id,
+            dry_run=False,
+            triggered_by_user_id="admin_1",
+            recording_deleter=lambda url: deleted_urls.append(url) or True,
+        )
+        assert res["recordings_deleted"] == 1
+        assert deleted_urls == [
+            "s3://connect-recordings-bucket/connect/inst-1/2026/01/01/c1/rec.wav"
+        ]
+
+    with session_scope() as db:
+        old = db.get(Call, "call_rec_old")
+        fresh = db.get(Call, "call_rec_fresh")
+        assert old.recording_url is None
+        assert old.caller_name == "REDACTED"
+        assert fresh.recording_url == (
+            "s3://connect-recordings-bucket/connect/inst-1/2026/09/01/c2/rec.wav"
+        )
+
+
+def test_delete_recording_object_rejects_non_s3_without_touching_network():
+    assert delete_recording_object(None) is False
+    assert delete_recording_object("") is False
+    assert delete_recording_object("https://example.com/rec.wav") is False
+    assert delete_recording_object("s3://") is False
+    assert delete_recording_object("s3:///key-only") is False
+
+
+def test_global_purge_writes_one_audit_row_per_tenant_with_own_counts():
+    """A global run must audit every tenant with its own deltas — one shared
+    row (the old `break`) or cumulative totals repeated per row both lie."""
+
+    from voxflow_api.db import RetentionPurgeLog
+
+    now = datetime.now(timezone.utc)
+    for tid in ("t_audit_a", "t_audit_b"):
+        _seed_tenant(tid, f"Audit {tid}")
+    with session_scope() as db:
+        db.add(
+            Call(
+                id="call_audit_old",
+                tenant_id="t_audit_a",
+                caller_phone="+447911666666",
+                caller_name="Audit Old",
+                transcript_json=json.dumps([{"role": "user", "text": "old"}]),
+                started_at=now - timedelta(days=120),
+            )
+        )
+        db.add(
+            Call(
+                id="call_audit_fresh",
+                tenant_id="t_audit_b",
+                caller_phone="+447911777777",
+                caller_name="Audit Fresh",
+                transcript_json=json.dumps([{"role": "user", "text": "fresh"}]),
+                started_at=now - timedelta(days=5),
+            )
+        )
+
+    with session_scope() as db:
+        # Unscoped: sweeps every tenant in this process's temp DB, including
+        # fixtures from neighboring tests — so the per-tenant assertions below
+        # (not the global counter) are the actual check.
+        run_retention_purge(db, dry_run=False, recording_deleter=lambda url: True)
+
+    with session_scope() as db:
+        rows = (
+            db.query(RetentionPurgeLog)
+            .filter(RetentionPurgeLog.tenant_id.in_(["t_audit_a", "t_audit_b"]))
+            .all()
+        )
+        by_tenant = {row.tenant_id: row for row in rows}
+        assert set(by_tenant) == {"t_audit_a", "t_audit_b"}
+        assert by_tenant["t_audit_a"].records_scanned == 1
+        assert by_tenant["t_audit_a"].calls_anonymized == 1
+        assert by_tenant["t_audit_b"].records_scanned == 1
+        assert by_tenant["t_audit_b"].calls_anonymized == 0
 
 
 def test_privacy_api_endpoints_and_rbac(monkeypatch):

@@ -8,13 +8,13 @@
 <br/>
 
 <p align="center">
-  <a href="https://voxflow-voice-agent.vercel.app"><img src="https://img.shields.io/badge/⚡%20LIVE%20ENTERPRISE%20SAAS-voxflow--voice--agent.vercel.app-0F766E?style=for-the-badge&labelColor=111827" alt="Live Enterprise SaaS" /></a>
+  <a href="https://voxflow.cc"><img src="https://img.shields.io/badge/⚡%20LIVE%20ENTERPRISE%20SAAS-voxflow.cc-0F766E?style=for-the-badge&labelColor=111827" alt="Live Enterprise SaaS" /></a>
 </p>
 
 <p align="center">
   <img src="https://img.shields.io/badge/CI%2FCD-100%25%20PASSING-success?style=for-the-badge&logo=githubactions&logoColor=white&labelColor=111827" alt="CI Status" />
-  <img src="https://img.shields.io/badge/TESTS-582%20PASSED-10B981?style=for-the-badge&logo=pytest&logoColor=white&labelColor=111827" alt="582 Pytest Tests Passed" />
-  <img src="https://img.shields.io/badge/FRONTEND-35%20ROUTES-6366F1?style=for-the-badge&logo=nextdotjs&logoColor=white&labelColor=111827" alt="35 Next.js Routes" />
+  <img src="https://img.shields.io/badge/TESTS-585%20PASSED-10B981?style=for-the-badge&logo=pytest&logoColor=white&labelColor=111827" alt="585 Pytest Tests Passed" />
+  <img src="https://img.shields.io/badge/FRONTEND-36%20ROUTES-6366F1?style=for-the-badge&logo=nextdotjs&logoColor=white&labelColor=111827" alt="36 Next.js Routes" />
   <img src="https://img.shields.io/badge/VOICE-ENGLISH%20%28UK%29%20NATIVE-F97316?style=for-the-badge&labelColor=111827" alt="English (UK) Native Voice" />
   <img src="https://img.shields.io/badge/GROUNDING-ZERO--HALLUCINATION%20RAG-0F766E?style=for-the-badge&logo=shield&logoColor=white&labelColor=111827" alt="Zero-Hallucination Grounding" />
 </p>
@@ -32,7 +32,7 @@
 
 <br/>
 
-[**Live Enterprise SaaS Platform**](https://voxflow-voice-agent.vercel.app) &nbsp;·&nbsp; [**Latency Benchmark Report**](BENCHMARK_REPORT.md) &nbsp;·&nbsp; [**System Architecture**](ARCHITECTURE.md) &nbsp;·&nbsp; [**Implementation Tracker**](DAY_TRACKER.md) &nbsp;·&nbsp; [**Terraform IaC Guide**](deploy/terraform/)
+[**Live Enterprise SaaS Platform**](https://voxflow.cc) &nbsp;·&nbsp; [**Latency Benchmark Report**](BENCHMARK_REPORT.md) &nbsp;·&nbsp; [**System Architecture**](ARCHITECTURE.md) &nbsp;·&nbsp; [**Implementation Tracker**](DAY_TRACKER.md) &nbsp;·&nbsp; [**Terraform IaC Guide**](deploy/terraform/)
 
 </div>
 
@@ -432,7 +432,7 @@ npm run build
 - **Oracle Cloud ARM VM (Standby Fallback)**:
   - Docker Compose running on an **Oracle Cloud Always-Free ARM VM** (4 OCPU, 24GB RAM) with Caddy auto-TLS. Retained as standby during the initial billing cycle per Phase 1 migration protocol.
   - Live VM Sync Script: [`./deploy/sync-vm.sh`](deploy/sync-vm.sh).
-- **Cloud Frontend**: **Vercel** Edge Network ([`voxflow-voice-agent.vercel.app`](https://voxflow-voice-agent.vercel.app)) with sub-100ms global static asset delivery.
+- **Cloud Frontend**: **Vercel** Edge Network ([`voxflow.cc`](https://voxflow.cc)) with sub-100ms global static asset delivery.
 - **Serverless Voice Bridge**: **AWS Lambda** (`eu-west-2`) integrated with **Amazon Connect Contact Flows** and **Amazon Lex V2** (`en-GB`) speech recognition co-located in the same London region to eliminate cross-cloud latency.
 
 ---
@@ -447,7 +447,7 @@ If you are a business stakeholder, supply chain leader, or enterprise partner in
 - **Connecting VoxFlow to your ERP (SAP, Oracle, NetSuite), WMS, or Custom Database**
 - **Commercial Licensing, SLA Support, and Tenant Onboarding**
 
-👉 **Get in touch with the founder**: [Open a GitHub Inquiry](https://github.com/jeevesh2515/voxflow-voice-agent/issues) or reach out directly to discuss your supply chain workflow requirements.
+👉 **Get in touch**: Reach our operations desk at [contact@voxflow.cc](mailto:contact@voxflow.cc) or [Open a GitHub Inquiry](https://github.com/jeevesh2515/voxflow-voice-agent/issues) to discuss your supply chain workflow requirements.
 
 ---
 

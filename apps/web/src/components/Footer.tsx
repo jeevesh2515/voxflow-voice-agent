@@ -126,6 +126,14 @@ export default function Footer() {
                   Privacy Policy &amp; Security
                 </Link>
               </li>
+              <li>
+                <Link
+                  className="text-sm sm:text-base text-white/60 hover:text-[#5EEAD4] transition-colors"
+                  href="/subprocessors"
+                >
+                  Subprocessors
+                </Link>
+              </li>
             </ul>
           </div>
         </div>

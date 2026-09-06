@@ -4,9 +4,8 @@
 
 ## Current position
 
-**Last updated:** 2026-09-05
-**Current milestone:** **Phase 3 Complete — Operational Trust, Telemetry & Support.** Resend transactional mail (4 typed HTML templates), Sentry PII scrubbers (FastAPI + Next.js), AWS CloudWatch telephony dashboards & alarms, Crisp in-app support desk, PostHog EU Self-driving analytics, `/docs` developer portal, `/status` Better Stack heartbeat. Verified with **582/582 passing backend tests** (100% green) and **35 compiled Next.js routes**.
-**Next implementation:** **Phase 4 — Legal & Compliance Baseline (call-recording disclosure, DPA, automated retention purge).**
+**Last updated:** 2026-09-06
+**Current milestone:** **Phase 4 Complete — Legal & Compliance Baseline, Custom Domain & Email Routing.** UK GDPR Terms & Privacy live with role-specific aliases (`privacy@voxflow.cc`, `legal@voxflow.cc`, `contact@voxflow.cc`), `/subprocessors` schedule, DPA template, Cloudflare DNS + Email Routing active, real S3 recording deletion with migration `027_retention_recordings_deleted.sql`, and live production custom domain `https://voxflow.cc` on Vercel. Verified with **585/585 passing backend tests** (100% green) and **36 compiled Next.js routes**.
 **Master Day-Wise Tracker:** See [`DAY_TRACKER.md`](DAY_TRACKER.md) for full day-by-day logs from Day 1 to current.
 
 ## Day 47 Production Baseline Benchmark (Frozen & Validated)

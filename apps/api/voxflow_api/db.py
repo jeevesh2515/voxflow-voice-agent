@@ -1045,6 +1045,7 @@ class RetentionPurgeLog(Base):
     records_scanned: Mapped[int] = mapped_column(Integer, default=0)
     calls_anonymized: Mapped[int] = mapped_column(Integer, default=0)
     transcripts_purged: Mapped[int] = mapped_column(Integer, default=0)
+    recordings_deleted: Mapped[int] = mapped_column(Integer, default=0)
     dry_run: Mapped[int] = mapped_column(Integer, default=0)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_utcnow)
 

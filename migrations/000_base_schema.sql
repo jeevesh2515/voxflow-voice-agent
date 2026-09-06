@@ -490,6 +490,7 @@ CREATE TABLE IF NOT EXISTS retention_purge_logs (
 	records_scanned INTEGER NOT NULL,
 	calls_anonymized INTEGER NOT NULL,
 	transcripts_purged INTEGER NOT NULL,
+	recordings_deleted INTEGER NOT NULL,
 	dry_run INTEGER NOT NULL,
 	created_at TIMESTAMP WITH TIME ZONE NOT NULL,
 	PRIMARY KEY (id),
